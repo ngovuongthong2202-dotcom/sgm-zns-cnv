@@ -70,7 +70,7 @@ Trả về chuỗi thuần JSON với cấu trúc { "loaiHinh": string, "tenNgan
         clean = clean.substring(firstBrace, lastBrace + 1);
       }
       const parsed = JSON.parse(clean);
-      let loaiHinh = typeof parsed.loaiHinh === 'string' ? parsed.loaiHinh.trim() : '';
+      const loaiHinh = typeof parsed.loaiHinh === 'string' ? parsed.loaiHinh.trim() : '';
       let tenNgan = typeof parsed.tenNgan === 'string' && parsed.tenNgan.trim() ? parsed.tenNgan.trim() : rawName;
       
       // Bảo đảm tenNgan dưới 30 ký tự (< 30)

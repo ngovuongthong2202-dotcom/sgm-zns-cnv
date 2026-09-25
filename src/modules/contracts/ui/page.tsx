@@ -94,7 +94,7 @@ export default function ContractsFeature() {
   const { data: realtimePayments = [] } = useRealtimeCollection<any>('payments');
   const { data: realtimeDeliveries = [] } = useRealtimeCollection<any>('deliveries');
   const { data: allCustomers = [] } = useRealtimeCollection<any>('customers');
-  const quotations: any[] = [];
+  const { data: quotations = [] } = useRealtimeCollection<any>('quotations');
 
   const {
     editingContract, setEditingContract,

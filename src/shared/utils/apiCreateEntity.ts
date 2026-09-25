@@ -27,7 +27,9 @@ export async function apiCreateEntity(entityType: string, data: any) {
     realtimeStore.mutateOptimistic(colName, 'create', itemData);
     try {
       clearSwrColCache(colName);
-    } catch (_e) {}
+    } catch {
+      // Ignore cache clearing error
+    }
     realtimeStore.refresh(colName);
   }
 

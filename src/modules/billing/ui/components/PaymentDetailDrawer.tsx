@@ -9,11 +9,9 @@ import { CreditCard, Calendar, Clock, Send, DollarSign, Edit, Package, User, Fil
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { TabLichSuGiaoHang } from "@/src/widgets/TabLichSuGiaoHang";
-import { TabLichSuHoatDong } from "@/src/widgets/TabLichSuHoatDong";
 import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
 import { TabLienKet } from "@/src/widgets/TabLienKet";
 import { DrawerProductList } from '@/src/widgets/DrawerProductList';
-import { TabLichSuHeThong } from "@/src/widgets/TabLichSuHeThong";
 import { DocumentLifecycleTimeline } from "@/src/widgets/DocumentLifecycleTimeline";
 import { EntityAuditMetadataCard } from "@/src/widgets/EntityAuditMetadataCard";
 import { ContractHoverCard } from '@/src/modules/contracts/ui/components/ContractHoverCard';

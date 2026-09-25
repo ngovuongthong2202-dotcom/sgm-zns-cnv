@@ -16,8 +16,6 @@ import { DetailDrawer } from '@/src/design-system/DetailDrawer';
 import { TabLichSuThanhToan } from "@/src/widgets/TabLichSuThanhToan";
 import { TabLichSuGiaoHang } from "@/src/widgets/TabLichSuGiaoHang";
 import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
-import { TabLichSuHoatDong } from "@/src/widgets/TabLichSuHoatDong";
-import { TabLichSuHeThong } from "@/src/widgets/TabLichSuHeThong";
 import { DocumentLifecycleTimeline } from "@/src/widgets/DocumentLifecycleTimeline";
 import { EntityAuditMetadataCard } from "@/src/widgets/EntityAuditMetadataCard";
 import { TabLienKet } from "@/src/widgets/TabLienKet";

@@ -6,9 +6,8 @@ import { StatusPill } from '@/src/widgets/StatusPill';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 import { CustomerHoverCard } from './components/CustomerHoverCard';
 import { Button } from '@/src/design-system/Button';
-import { normalizeBusinessName, normalizePersonName, normalizeCode } from '@/src/shared/utils/textFormatter';
+import { normalizeBusinessName, normalizeCode } from '@/src/shared/utils/textFormatter';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
-import { Printer } from 'lucide-react';
 
 import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
 

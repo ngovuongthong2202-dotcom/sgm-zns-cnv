@@ -543,7 +543,7 @@ export function PaymentRecordBasicFields({
                         if (val < 0) val = 0;
                         const total = totalAmountVal || 0;
                         if (!isNaN(val) && total > 0 && valStr !== '') {
-                            let computedNum = Math.round((total * val) / 100);
+                            const computedNum = Math.round((total * val) / 100);
                             setValue('soTien', computedNum, { shouldValidate: true, shouldDirty: true });
                             syncStatusFromRate(val, computedNum);
                         } else if (valStr === '' || val === 0) {

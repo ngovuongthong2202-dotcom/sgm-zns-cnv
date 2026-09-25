@@ -281,7 +281,7 @@ export function useDeliveryForm(
     try {
       setIsLookingUpExportSale(true);
       // 1. Gọi backend lookup endpoint
-      let res = await fetch(`/api/items/export-sale/lookup?batch_code=${encodeURIComponent(code)}`);
+      const res = await fetch(`/api/items/export-sale/lookup?batch_code=${encodeURIComponent(code)}`);
       let json: any = null;
       if (res.ok) {
         json = await res.json();

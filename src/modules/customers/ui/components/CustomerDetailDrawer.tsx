@@ -30,7 +30,7 @@ interface CustomerDetailDrawerProps {
   onEdit: () => void;
   onSendZns: (customer: Customer) => void;
   onDeleteCustomer: (customer: Customer) => void;
-  initialTab?: 'overview' | 'activity' | 'quotes' | 'contracts' | 'payments' | 'zns' | 'audit';
+  initialTab?: 'overview' | 'activity' | 'quotes' | 'contracts' | 'payments' | 'deliveries' | 'zns' | 'audit';
   modal?: boolean;
   className?: string;
 }

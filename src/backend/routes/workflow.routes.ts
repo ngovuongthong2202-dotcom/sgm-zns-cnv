@@ -7,6 +7,7 @@ import { eventBus } from '../../platform/events/EventBus';
 import { validateDocumentUpdate } from '../../domain/policy/document-integrity.policy';
 import { sequenceGeneratorService } from '../services/workflow/sequence-generator.service';
 import { normalizeLoai } from '../../domain/enums/quotation-loai';
+import { isSourceDocumentFullyDelivered, validateShipmentQuantities } from '../../domain/services/delivery-reconciler';
 import crypto from 'crypto';
 
 export function normalizeEntityType(entityType: string): string {
@@ -186,43 +187,28 @@ router.post('/create/:entityType', async (req, res) => {
           .map((d: any) => ({ id: d.id, ...d.data() }))
           .filter((d: any) => !d.deletedAt && d.tinhTrangGiaoHang !== 'HỦY' && d.tinhTrangGiaoHang !== 'Hủy' && d.id !== data.id);
 
-        const currentDeliveredMap: Record<string, number> = {};
-        existingDeliveries.forEach((d: any) => {
-          (d.products || []).forEach((dp: any, idx: number) => {
-            const key = dp.id || dp.productId || dp.productName || String(idx);
-            currentDeliveredMap[key] = (currentDeliveredMap[key] || 0) + Number(dp.quantity || 0);
-          });
-        });
+        const isFullyDone = isSourceDocumentFullyDelivered(
+          sourceObj,
+          existingDeliveries,
+          targetSource && targetSource.exists && payData.contractId ? [targetSource.data()] : [],
+          targetSource && targetSource.exists && payData.quotationId ? [targetSource.data()] : []
+        );
 
-        let totalContracted = 0;
-        let totalDelivered = 0;
-        let hasOverDelivered = false;
-        let overItemName = '';
-
-        const newShipmentItems = Array.isArray(data.products) && data.products.length > 0 ? data.products : [];
-
-        for (const [index, cp] of srcProducts.entries()) {
-          const key = cp.id || cp.productId || cp.productName || String(index);
-          const cQty = Number(cp.quantity || 0);
-          totalContracted += cQty;
-          const prevDelivered = currentDeliveredMap[key] || 0;
-          totalDelivered += prevDelivered;
-
-          const newQty = (newShipmentItems.find((np: any, nIdx: number) => (np.id || np.productId || np.productName || String(nIdx)) === key)?.quantity) || 0;
-          const remaining = Math.max(0, cQty - prevDelivered);
-          if (newQty > remaining) {
-            hasOverDelivered = true;
-            overItemName = `${cp.productName || key} (còn lại: ${remaining}, yêu cầu: ${newQty})`;
-            break;
-          }
-        }
-
-        if (totalDelivered >= totalContracted && totalContracted > 0) {
+        if (isFullyDone) {
           return res.status(422).json({ error: "Chứng từ thanh toán này đã được giao đủ 100% số lượng sản phẩm, không thể tạo thêm phiếu giao hàng." });
         }
 
-        if (hasOverDelivered) {
-          return res.status(422).json({ error: `Giao vượt số lượng cho phép: ${overItemName}` });
+        const newShipmentItems = Array.isArray(data.products) && data.products.length > 0 ? data.products : [];
+        const sourceDeliveredQuantities = (sourceObj?.deliveredQuantities || {}) as Record<string, number>;
+        const validation = validateShipmentQuantities(
+          newShipmentItems,
+          srcProducts,
+          existingDeliveries,
+          sourceDeliveredQuantities
+        );
+
+        if (!validation.valid) {
+          return res.status(422).json({ error: `Giao vượt số lượng cho phép: ${validation.overItemName || validation.error}` });
         }
       }
       

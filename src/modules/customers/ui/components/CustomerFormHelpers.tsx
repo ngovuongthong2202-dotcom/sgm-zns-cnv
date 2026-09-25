@@ -184,9 +184,9 @@ export function parseVietQRBusinessData(business: any, provinces: string[]): {
   let tinhThanh = '';
   const detectedProvince = provinces.find((prov) => {
     const cleanProv = prov.toLowerCase()
-      .replace(/thành phố|thành phó|tỉnh|tinh/gi, '')
+      .replace(/thành phố|thành phó|tỉnh|tinh|tp\.?|tp\s+/gi, '')
       .trim();
-    return diaChi.toLowerCase().includes(cleanProv);
+    return cleanProv.length >= 2 && diaChi.toLowerCase().includes(cleanProv);
   });
   if (detectedProvince) {
     tinhThanh = detectedProvince;

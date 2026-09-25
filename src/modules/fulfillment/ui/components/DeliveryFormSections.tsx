@@ -33,7 +33,7 @@ export function DeliverySourceCard({
 
   return (
     <div className="space-y-3">
-      <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/60 border border-blue-200/70 rounded-xl p-4 shadow-xs">
+      <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-blue-50/60 border border-blue-200/70 rounded-xl p-4 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-100/80 pb-2.5 mb-3">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>

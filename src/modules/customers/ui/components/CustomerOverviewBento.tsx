@@ -49,13 +49,19 @@ export function CustomerOverviewBento({ customer, onEdit: _onEdit, quotationCoun
   const debt = (customer.totalDebt !== undefined && customer.totalDebt > 0) ? customer.totalDebt : calculatedDebt;
   const tags = customer.tags || [];
 
-  // Compute realtime health score utilizing SWR cache (if available) - safe fallback to empty
+  // Compute realtime health score utilizing passed props or fallback to SWR cache
   const { cache } = useSWRConfig();
-  const cachedQuotes = cache.get(`quotations:500:customerId:${customer.id}`)?.data || [];
-  const cachedContracts = cache.get(`contracts:500:customerId:${customer.id}`)?.data || [];
-  const cachedPayments = cache.get(`payments:500:customerId:${customer.id}`)?.data || [];
+  const effectiveQuotes = (quotations && quotations.length > 0) 
+    ? quotations 
+    : (cache.get(`quotations:500:customerId:${customer.id}`)?.data || cache.get(`quotations:100:customerId:${customer.id}`)?.data || []);
+  const effectiveContracts = (contracts && contracts.length > 0) 
+    ? contracts 
+    : (cache.get(`contracts:500:customerId:${customer.id}`)?.data || cache.get(`contracts:100:customerId:${customer.id}`)?.data || []);
+  const effectivePayments = (payments && payments.length > 0) 
+    ? payments 
+    : (cache.get(`payments:500:customerId:${customer.id}`)?.data || cache.get(`payments:100:customerId:${customer.id}`)?.data || []);
   
-  const health = calculateHealthScore(customer, cachedQuotes, cachedContracts, cachedPayments);
+  const health = calculateHealthScore(customer, effectiveQuotes, effectiveContracts, effectivePayments);
 
   return (
     <div className="space-y-4">

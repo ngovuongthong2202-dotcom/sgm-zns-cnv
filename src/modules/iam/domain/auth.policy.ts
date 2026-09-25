@@ -66,6 +66,38 @@ function normalizeAuthString(str?: string | null): string {
     .replace(/\s+/g, ' ');
 }
 
+export interface PolicyUser {
+  uid?: string;
+  id?: string;
+  username?: string;
+  displayName?: string;
+  email?: string;
+  role?: string;
+}
+
+export interface PolicyUserData {
+  id?: string;
+  uid?: string;
+  role?: string;
+  displayName?: string;
+  username?: string;
+  userName?: string;
+  fullName?: string;
+  ten?: string;
+  email?: string;
+}
+
+export interface PolicyEntity {
+  id?: string;
+  createdBy?: string;
+  created_by?: string;
+  nguoiTao?: string;
+  nguoiPhuTrach?: string;
+  userId?: string;
+  user_id?: string;
+  owner?: string;
+}
+
 /**
  * Kiểm tra quyền chỉnh sửa chứng từ / bản ghi:
  * - Admin hoặc Ban Giám Đốc: Full quyền chỉnh sửa.
@@ -75,14 +107,14 @@ function normalizeAuthString(str?: string | null): string {
  * - Bản ghi chưa gán người phụ trách/người tạo: Chuyên viên được phép chỉnh sửa/tiếp nhận.
  */
 export function checkA5Policy(
-  user: { uid?: string; id?: string; username?: string; displayName?: string; email?: string } | null | undefined, 
-  userData: { role?: string; displayName?: string; username?: string; userName?: string; fullName?: string; ten?: string; email?: string } | null | undefined, 
-  entity: { id?: string; createdBy?: string; created_by?: string; nguoiTao?: string; nguoiPhuTrach?: string; userId?: string; user_id?: string; owner?: string } | null | undefined
+  user: PolicyUser | null | undefined, 
+  userData: PolicyUserData | null | undefined, 
+  entity: PolicyEntity | null | undefined
 ): { canEdit: boolean, reason?: string } {
   if (!entity || !entity.id) return { canEdit: true };
   if (!user && !userData) return { canEdit: false, reason: "Chưa đăng nhập" };
 
-  const role = String(userData?.role || (user as any)?.role || '').trim();
+  const role = String(userData?.role || user?.role || '').trim();
   const roleNormalized = normalizeAuthString(role);
 
   if (
@@ -99,13 +131,13 @@ export function checkA5Policy(
   // Thu thập các giá trị định danh của người dùng hiện tại
   const rawUserIdentifiers = [
     user?.uid,
-    (user as any)?.id,
+    user?.id,
     user?.username,
     user?.displayName,
     user?.email,
     user?.email?.split('@')[0],
-    (userData as any)?.id,
-    (userData as any)?.uid,
+    userData?.id,
+    userData?.uid,
     userData?.username,
     userData?.userName,
     userData?.displayName,

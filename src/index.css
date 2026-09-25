@@ -20,6 +20,15 @@
   --color-text-primary: #0f172a;     /* Slate-900: 16:1 Contrast Ratio on white */
   --color-text-secondary: #334155;   /* Slate-700: 8.5:1 Contrast Ratio on white */
   --color-text-muted: #475569;       /* Slate-600: 5.2:1 Contrast Ratio on white */
+
+  /* Intermediate slate shades for high-density UI and elevation hierarchy */
+  --color-slate-150: #e8edf3;
+  --color-slate-450: #7e8fa6;
+  --color-slate-650: #405067;
+  --color-slate-750: #293548;
+  --color-slate-850: #162032;
+  --color-slate-855: #131c2d;
+  --color-blue-750: #1a4fc4;
   
   --color-accent: #2563eb;          /* Royal Blue 600 */
   --color-accent-hover: #1d4ed8;    /* Royal Blue 700 */

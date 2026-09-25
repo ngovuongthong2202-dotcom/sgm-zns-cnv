@@ -3,25 +3,27 @@ import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 
 export function resolvePaymentLoai(p: Payment): QUOTATION_LOAI {
-  if ((p as any).phanLoai) {
-    const norm = normalizeLoai((p as any).phanLoai);
+  const pRecord = p as unknown as Record<string, unknown>;
+  if (pRecord.phanLoai && typeof pRecord.phanLoai === 'string') {
+    const norm = normalizeLoai(pRecord.phanLoai);
     if (norm) return norm;
   }
-  if ((p as any).loai) {
-    const norm = normalizeLoai((p as any).loai);
+  if (pRecord.loai && typeof pRecord.loai === 'string') {
+    const norm = normalizeLoai(pRecord.loai);
     if (norm) return norm;
   }
   if (p.contractId || p.soHopDong) {
     return QUOTATION_LOAI.MAY;
   }
   if (p.quotationId) {
-    const q = entityCachePool.get('quotations', p.quotationId);
+    const q = entityCachePool.get('quotations', p.quotationId) as Record<string, unknown> | undefined;
     if (q) {
-      const norm = normalizeLoai(q.loai || q.phanLoai || q.loaiBaoGia);
+      const qLoai = (q.loai || q.phanLoai || q.loaiBaoGia) as string | undefined;
+      const norm = normalizeLoai(qLoai);
       if (norm) return norm;
     }
   }
-  const refCode = `${p.paymentId || ''} ${p.soHopDong || ''} ${p.soDonHang || ''} ${p.soPhieuBaoGia || ''} ${(p as any).sourceValue || ''}`.toUpperCase();
+  const refCode = `${p.paymentId || ''} ${p.soHopDong || ''} ${p.soDonHang || ''} ${p.soPhieuBaoGia || ''} ${String(pRecord.sourceValue || '')}`.toUpperCase();
   if (refCode.includes('BGVT') || refCode.includes('VẬT TƯ') || refCode.includes('VAT TU') || refCode.includes('PT-VT')) {
     return QUOTATION_LOAI.VAT_TU;
   }

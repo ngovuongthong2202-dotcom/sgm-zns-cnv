@@ -7,7 +7,7 @@ import { swrDocFetcher } from '@/src/data/swr-fetchers';
 import { PaymentHoverCard } from '@/src/modules/billing/ui/components/PaymentHoverCard';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
-import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, Calendar, ShieldCheck, Clock, RotateCcw } from 'lucide-react';
+import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, ShieldCheck, Clock, RotateCcw } from 'lucide-react';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
 import { TabLichSuHoatDong } from "@/src/widgets/TabLichSuHoatDong";
@@ -489,7 +489,7 @@ export function DeliveryDetailDrawer({
                   </span>
                 )}
                 {drawerDelivery.paymentId && (
-                  <span className="text-3xs font-mono bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-200">
+                  <span className="text-3xs font-mono bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded border border-emerald-200">
                     Đã liên kết thanh toán
                   </span>
                 )}
@@ -517,8 +517,8 @@ export function DeliveryDetailDrawer({
 
           {/* Mốc 3: Lộ trình vận chuyển */}
           <div className="relative group">
-            <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-indigo-100 border-2 border-indigo-600 flex items-center justify-center">
-              <Truck size={10} className="text-indigo-700" />
+            <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-blue-100 border-2 border-blue-600 flex items-center justify-center">
+              <Truck size={10} className="text-blue-700" />
             </div>
             <div className="bg-slate-50 border border-slate-200/70 rounded-lg p-3">
               <div className="flex items-center justify-between mb-1">

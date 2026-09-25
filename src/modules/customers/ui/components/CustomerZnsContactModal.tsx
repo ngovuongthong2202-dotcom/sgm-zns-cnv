@@ -5,19 +5,16 @@ import {
   Send, 
   CheckCircle2, 
   Clock, 
-  AlertCircle, 
   User, 
   Phone, 
   Building2, 
   X, 
   ChevronDown, 
   ChevronUp, 
-  History,
-  Check,
-  ShieldCheck
+  History
 } from 'lucide-react';
 import { notify } from '@/src/shared/utils/notify';
-import { sendZnsAndToast, nextAttempt, checkZnsResendAllowed } from '@/src/domain/zns-client';
+import { sendZnsAndToast, nextAttempt } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { znsMessagesRepo } from '@/src/data/repositories/system.repo';
 import { useAuth } from '@/src/modules/iam';
@@ -287,7 +284,7 @@ export function CustomerZnsContactModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 text-white flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 bg-gradient-to-r from-blue-900 via-blue-800 to-slate-900 text-white flex items-center justify-between shrink-0">
           <div className="space-y-1 min-w-0 pr-4">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-200 shrink-0">

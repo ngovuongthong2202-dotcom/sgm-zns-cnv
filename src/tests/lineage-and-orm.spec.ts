@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mapDocument } from '../platform/data/mapper';
 import { swrDocFetcher } from '../data/swr-fetchers';
-import { EntityZnsStatus } from '../domain/enums/zns-status';
 
 describe('Universal Lineage & ORM Normalizer Test Suite', () => {
   it('mapDocument should correctly map is_read physical column to boolean read and isRead', () => {

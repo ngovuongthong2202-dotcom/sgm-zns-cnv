@@ -5,11 +5,7 @@ import {
   FileSignature, 
   Wallet, 
   Truck, 
-  ExternalLink, 
-  CheckCircle2, 
-  Clock, 
-  Calendar,
-  Layers
+  ExternalLink
 } from 'lucide-react';
 import { TabLichSuHoatDong } from './TabLichSuHoatDong';
 import { formatDate } from '@/src/shared/utils/formatDate';
@@ -153,21 +149,21 @@ export function DocumentLifecycleTimeline({
 
           {/* Mốc Thanh Toán */}
           {currentType === 'payment' ? (
-            <div className="p-3.5 bg-indigo-50/60 border border-indigo-200 rounded-xl flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <div className="p-3.5 bg-blue-50/60 border border-blue-200 rounded-xl flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
                 <Wallet size={16} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-indigo-900">Phiếu thu hiện tại: {currentDoc.paymentId || currentDoc.soPhieuThu || currentDoc.soChungTu}</span>
-                  <span className="text-3xs font-bold text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200 uppercase">
+                  <span className="text-xs font-bold text-blue-900">Phiếu thu hiện tại: {currentDoc.paymentId || currentDoc.soPhieuThu || currentDoc.soChungTu}</span>
+                  <span className="text-3xs font-bold text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200 uppercase">
                     Chứng từ gốc
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-2xs text-slate-600">
                   <span>Số tiền thu: <strong className="text-slate-900 font-mono">{formatMoney(currentDoc.soTien || currentDoc.amount)}</strong></span>
                   <span>Ngày thanh toán: <span className="font-mono">{currentDoc.ngayThanhToan ? formatDate(currentDoc.ngayThanhToan) : '---'}</span></span>
-                  <span>Trạng thái: <strong className="text-indigo-800">{currentDoc.tinhTrangThanhToan || '---'}</strong></span>
+                  <span>Trạng thái: <strong className="text-blue-800">{currentDoc.tinhTrangThanhToan || '---'}</strong></span>
                 </div>
               </div>
             </div>
@@ -178,19 +174,19 @@ export function DocumentLifecycleTimeline({
                 <div 
                   key={p.id}
                   onClick={() => handleOpenDoc('payments', p)}
-                  className="p-3.5 bg-slate-50 border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/40 rounded-xl transition-all flex items-start gap-3 cursor-pointer group shadow-xs"
+                  className="p-3.5 bg-slate-50 border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 rounded-xl transition-all flex items-start gap-3 cursor-pointer group shadow-xs"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-slate-200 group-hover:bg-indigo-600 text-slate-700 group-hover:text-white flex items-center justify-center shrink-0 transition-colors">
+                  <div className="w-8 h-8 rounded-lg bg-slate-200 group-hover:bg-blue-600 text-slate-700 group-hover:text-white flex items-center justify-center shrink-0 transition-colors">
                     <Wallet size={16} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800 group-hover:text-indigo-700 transition-colors">
-                        Đợt thanh toán: {code}
-                      </span>
-                      <span className="text-3xs text-indigo-700 bg-white border border-indigo-200 px-2 py-0.5 rounded-full font-bold group-hover:bg-indigo-600 group-hover:text-white transition-colors inline-flex items-center gap-1">
-                        Bấm mở chi tiết <ExternalLink size={10} />
-                      </span>
+                  <span className="text-xs font-bold text-slate-800 group-hover:text-blue-700 transition-colors">
+                    Đợt thanh toán: {code}
+                  </span>
+                  <span className="text-3xs text-blue-700 bg-white border border-blue-200 px-2 py-0.5 rounded-full font-bold group-hover:bg-blue-600 group-hover:text-white transition-colors inline-flex items-center gap-1">
+                    Bấm mở chi tiết <ExternalLink size={10} />
+                  </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-2xs text-slate-600">
                       <span>Đã thu: <strong className="text-slate-900 font-mono">{formatMoney(p.soTien || p.amount)}</strong></span>

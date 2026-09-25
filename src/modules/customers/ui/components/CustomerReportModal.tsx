@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import useSWR from 'swr';
 import { swrColFetcher } from '@/src/data/swr-fetchers';
 import { Customer } from '@/src/domain/schema/customer.schema';
-import { Printer, X, Download, ShieldCheck, CheckCircle2, AlertTriangle, FileText, ChevronRight, PackageCheck, Layers } from 'lucide-react';
+import { Printer, FileText } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 
 interface CustomerReportModalProps {
@@ -129,8 +129,8 @@ export function CustomerReportModal({
     const diff = Math.max(0, totalVal - rawVal);
 
     // Tiêu đề & diễn giải sản phẩm
-    let title = '';
-    let detailName = '';
+    let title: string;
+    let detailName: string;
     if (prods.length === 1) {
       const p0 = prods[0];
       const p0Name = p0.tenSanPham || p0.productName || p0.name || 'Sản phẩm cơ khí';
@@ -523,7 +523,7 @@ export function CustomerReportModal({
               </div>
 
               {/* Bảng KPI Tổng hợp Toàn bộ Báo giá của Khách hàng */}
-              <div className="mb-5 bg-gradient-to-r from-blue-50/70 via-slate-50 to-indigo-50/70 border border-slate-200/90 rounded-xl p-3.5 shadow-2xs">
+              <div className="mb-5 bg-gradient-to-r from-blue-50/70 via-slate-50 to-blue-50/70 border border-slate-200/90 rounded-xl p-3.5 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-slate-200/80 pb-2 mb-2.5">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>

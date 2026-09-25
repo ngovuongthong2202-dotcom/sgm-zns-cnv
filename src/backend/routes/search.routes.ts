@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { adminDb } from '../config/supabase.admin';
+import { getItemKey, computeDeliveredQuantitiesMap, isSourceDocumentFullyDelivered } from '../../domain/services/delivery-reconciler';
 
 const router = Router();
 
@@ -115,39 +116,40 @@ router.get('/:collection', async (req, res) => {
             const quotationData = p.quotationId ? quoMap.get(p.quotationId) as Record<string, unknown> | undefined : undefined;
             const soCT = p.contractId ? `HĐ: ${contractData?.soHopDong || p.soHopDong}` : (p.quotationId ? `BG: ${quotationData?.soPhieuBaoGia || p.soPhieuBaoGia}` : 'Không có');
             
-            // Check delivered state
+            // Check delivered state with unified reconciler engine
             const source = (p.contractId ? contractData : quotationData) || p;
+            const linkedDeliveries = deliveriesByPayment.get(p.id) || [];
+            const _isFullyDelivered = isSourceDocumentFullyDelivered(
+              source,
+              linkedDeliveries,
+              contractData ? [contractData] : [],
+              quotationData ? [quotationData] : []
+            );
+
             const productList = Array.isArray(source.products) && source.products.length > 0 
               ? source.products 
               : (Array.isArray(p.products) ? p.products : []);
 
             let totalContracted = 0;
             let totalDelivered = 0;
-            let _isFullyDelivered = false;
 
             if (productList.length > 0) {
-                const linkedDeliveries = deliveriesByPayment.get(p.id) || [];
-                const actualDeliveredMap: Record<string, number> = {};
-
-                linkedDeliveries.forEach(d => {
-                  (d.products || []).forEach((dp: any, idx: number) => {
-                    const key = dp.id || dp.productId || dp.productName || String(idx);
-                    actualDeliveredMap[key] = (actualDeliveredMap[key] || 0) + Number(dp.quantity || 0);
-                  });
-                });
+                const actualDeliveredMap = computeDeliveredQuantitiesMap(linkedDeliveries);
 
                 productList.forEach((cp: Record<string, unknown>, index: number) => {
-                   const key = (cp.id as string) || (cp.productId as string) || (cp.productName as string) || String(index);
-                   const q = Number(cp.quantity || 0);
+                   const key = getItemKey(cp, index);
+                   const q = Number(cp.quantity || (cp as any).soLuong || 0);
                    totalContracted += q;
+                   const normName = String(cp.productName || (cp as any).tenSanPham || '').trim().toLowerCase();
+                   const fromDeliveries = Number(
+                     actualDeliveredMap[key] ??
+                     (cp.productId ? actualDeliveredMap[String(cp.productId).trim()] : undefined) ??
+                     (normName ? actualDeliveredMap[normName] : undefined) ??
+                     0
+                   );
                    const fromSource = Number(((source.deliveredQuantities || {}) as Record<string, number>)[key] || 0);
-                   const fromDeliveries = Number(actualDeliveredMap[key] || 0);
                    totalDelivered += Math.max(fromSource, fromDeliveries);
                 });
-
-                if (totalDelivered >= totalContracted && totalContracted > 0) {
-                   _isFullyDelivered = true;
-                }
             }
 
             const pStatus = (p.tinhTrangThanhToan as string || '').toLowerCase().trim();

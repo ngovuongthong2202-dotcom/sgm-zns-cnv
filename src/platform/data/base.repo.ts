@@ -245,9 +245,12 @@ export class BaseRepository<T> {
     if ('trackingId' in rec && rec.trackingId) setCol('tracking_id', rec.trackingId);
     if ('entityType' in rec && rec.entityType) setCol('entity_type', rec.entityType);
     if ('entityId' in rec && rec.entityId) setCol('entity_id', rec.entityId);
-    if ('maKh' in rec && rec.maKh) setCol('ma_kh', rec.maKh);
-    if ('maBaoGia' in rec && rec.maBaoGia) setCol('ma_bao_gia', rec.maBaoGia);
-    if ('maHopDong' in rec && rec.maHopDong) setCol('ma_hop_dong', rec.maHopDong);
+    const maKhVal = rec.maKh || rec.maKH;
+    if (maKhVal) setCol('ma_kh', maKhVal);
+    const maBaoGiaVal = rec.maBaoGia || rec.soPhieuBaoGia;
+    if (maBaoGiaVal) setCol('ma_bao_gia', maBaoGiaVal);
+    const maHopDongVal = rec.maHopDong || rec.soHopDong;
+    if (maHopDongVal) setCol('ma_hop_dong', maHopDongVal);
     if ('paymentId' in rec && rec.paymentId) {
       if (this.tableName === 'payments') setCol('ma_thanh_toan', rec.paymentId);
       else setCol('payment_id', sanitizeFk(rec.paymentId));

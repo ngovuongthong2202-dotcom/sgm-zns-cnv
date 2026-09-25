@@ -79,7 +79,8 @@ export function AsyncSearchableSelect({
   renderOption,
   filterOption,
   isOptionDisabled,
-  renderItemWrapper
+  renderItemWrapper,
+  disabled = false
 }: AsyncSearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -167,8 +168,12 @@ export function AsyncSearchableSelect({
   return (
     <div className={`relative w-full ${className}`} ref={wrapperRef}>
       <div 
-        className={`premium-input w-full flex items-center justify-between cursor-pointer bg-white ${error ? '!border-red-500 !bg-red-50/50' : ''}`}
-        onClick={() => setIsOpen(!isOpen)}
+        className={`premium-input w-full flex items-center justify-between ${
+          disabled ? 'opacity-60 cursor-not-allowed bg-slate-100/80 pointer-events-none' : 'cursor-pointer bg-white'
+        } ${error ? '!border-red-500 !bg-red-50/50' : ''}`}
+        onClick={() => {
+          if (!disabled) setIsOpen(!isOpen);
+        }}
       >
         <div className="flex-1 overflow-hidden pr-2">
           {selectedOption ? (

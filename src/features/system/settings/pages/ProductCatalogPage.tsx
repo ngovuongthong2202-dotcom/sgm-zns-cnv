@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Package, Search, RefreshCw, Loader2, ChevronLeft, ChevronRight, Database, ExternalLink } from 'lucide-react';
+import { Package, Search, RefreshCw, Loader2, ChevronLeft, ChevronRight, Database } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { notify } from '@/src/shared/utils/notify';
 

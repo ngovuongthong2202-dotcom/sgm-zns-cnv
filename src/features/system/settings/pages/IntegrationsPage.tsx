@@ -171,7 +171,7 @@ export default function IntegrationsPage() {
   return (
     <form onSubmit={handleSave} className="space-y-6">
       {/* Intro Box */}
-      <div className="bg-gradient-to-r from-blue-900 to-indigo-950 text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-900 to-slate-950 text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-200 border border-blue-400/30 text-xs font-semibold">
@@ -256,7 +256,7 @@ export default function IntegrationsPage() {
           </div>
           {testResults['items'] && (
             <div className={`text-2xs px-3 py-1.5 rounded-md flex items-center gap-2 ${
-              testResults['items'].success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+              testResults['items'].success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
             }`}>
               {testResults['items'].success ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
               <span>{testResults['items'].message}</span>
@@ -300,7 +300,7 @@ export default function IntegrationsPage() {
           </div>
           {testResults['exportSale'] && (
             <div className={`text-2xs px-3 py-1.5 rounded-md flex items-center gap-2 ${
-              testResults['exportSale'].success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+              testResults['exportSale'].success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
             }`}>
               {testResults['exportSale'].success ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
               <span>{testResults['exportSale'].message}</span>
@@ -344,7 +344,7 @@ export default function IntegrationsPage() {
           </div>
           {testResults['quotation'] && (
             <div className={`text-2xs px-3 py-1.5 rounded-md flex items-center gap-2 ${
-              testResults['quotation'].success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+              testResults['quotation'].success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
             }`}>
               {testResults['quotation'].success ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
               <span>{testResults['quotation'].message}</span>
