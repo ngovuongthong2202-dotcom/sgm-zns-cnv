@@ -87,6 +87,8 @@ const BUILTIN_DEFAULT_TEMPLATES: Record<string, ZnsTemplate> = {
       { name: 'so_don_hang', label: 'Số đơn hàng', sourceField: 'soDonHang', sourceEntity: 'SELF', format: 'raw' },
       { name: 'so_hop_dong', label: 'Số HĐ', sourceField: 'soHopDong', sourceEntity: 'SELF', format: 'raw' },
       { name: 'ngay_thanh_toan', label: 'Ngày TT', sourceField: 'ngayThanhToan', format: 'date', sourceEntity: 'SELF' },
+      { name: 'so_luong', label: 'Số lượng', sourceField: 'slMay', format: 'number', sourceEntity: 'SELF' },
+      { name: 'dvt', label: 'ĐVT', sourceField: 'dvt', sourceEntity: 'SELF', format: 'raw' },
     ],
   },
   THANH_TOAN_CONG_NO: {
@@ -103,8 +105,11 @@ const BUILTIN_DEFAULT_TEMPLATES: Record<string, ZnsTemplate> = {
       { name: 'customer_name', label: 'Tên KH', sourceField: 'tenKhachHang', sourceEntity: 'SELF', format: 'raw' },
       { name: 'phone', label: 'SĐT', sourceField: 'sdt', sourceEntity: 'SELF', format: 'raw' },
       { name: 'order_code', label: 'Mã HĐ', sourceField: 'soHopDong', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'so_don_hang', label: 'Số đơn hàng', sourceField: 'soDonHang', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'so_hop_dong', label: 'Số HĐ', sourceField: 'soHopDong', sourceEntity: 'SELF', format: 'raw' },
       { name: 'time', label: 'Thời điểm ghi nhận', sourceField: 'ngayThanhToan', format: 'date', sourceEntity: 'SELF' },
-      { name: 'so_luong', label: 'Số lượng máy', sourceField: 'slMay', format: 'number', sourceEntity: 'SELF' },
+      { name: 'so_luong', label: 'Số lượng', sourceField: 'slMay', format: 'number', sourceEntity: 'SELF' },
+      { name: 'dvt', label: 'ĐVT', sourceField: 'dvt', sourceEntity: 'SELF', format: 'raw' },
     ],
   },
   GIAOHANG_ZNS: {

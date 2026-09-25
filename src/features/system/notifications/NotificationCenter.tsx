@@ -60,6 +60,11 @@ export function NotificationCenter() {
     // Optimistic update
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
     try {
+      await fetch('/api/workflow/notifications/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, userId: user?.uid || (user as any)?.id || 'admin' })
+      }).catch(() => {});
       await notificationsRepo.update(id, { read: true, isRead: true });
     } catch (_e) {
       console.warn("Failed to sync markAsRead to server:", _e);
@@ -71,6 +76,11 @@ export function NotificationCenter() {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     const unread = notifications.filter(n => !n.read);
     try {
+      await fetch('/api/workflow/notifications/mark-all-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: unread.map(n => n.id), userId: user?.uid || (user as any)?.id || 'admin' })
+      }).catch(() => {});
       await Promise.allSettled(unread.map(n => notificationsRepo.update(n.id, { read: true, isRead: true })));
     } catch (_e) {
       console.warn("Failed to sync markAllAsRead to server:", _e);

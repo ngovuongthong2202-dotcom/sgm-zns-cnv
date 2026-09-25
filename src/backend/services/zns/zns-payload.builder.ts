@@ -138,25 +138,26 @@ export class ZnsPayloadBuilder {
         rendered.So_hop_dong = robustFallback;
         rendered.so_hop_dong = robustFallback;
     }
-    if (requiredVarsSet.has('so_luong') && (isEmp(rendered.so_luong) || String(rendered.so_luong) === '0' || String(rendered.so_luong) === '0 Máy')) {
-        let defaultSl = String(p.soLuong || p.slMay || '0');
-        if (defaultSl === '0' && p.products && p.products.length > 0) {
-            defaultSl = String(p.products.reduce((acc: number, item: Record<string, unknown>) => acc + (Number(item.quantity) || 0), 0));
-        }
-        rendered.so_luong = defaultSl;
+    // Smart fallback cho Số lượng và ĐVT (tính toán cho mọi template liên quan để webhook luôn có giá trị)
+    let computedSl = String(p.soLuong || p.slMay || '0');
+    if ((computedSl === '0' || !computedSl) && p.products && Array.isArray(p.products) && p.products.length > 0) {
+        computedSl = String(p.products.reduce((acc: number, item: Record<string, unknown>) => acc + (Number(item.quantity) || 0), 0));
     }
-    if (requiredVarsSet.has('dvt')) {
-        // Evaluate default DVT from root payload or products array
-        let defaultDvt = p.dvt;
-        if ((!defaultDvt || defaultDvt === 'Cái') && p.products && p.products.length > 0) {
-            defaultDvt = String(p.products[0]?.unit || p.products[0]?.dvt_chuan || p.products[0]?.dvt || 'Máy');
-        }
-        
-        // If template renderer returned empty or if we found a better unit from products than default fallback 'Cái'
-        if (isEmp(rendered.dvt) || (rendered.dvt === 'Cái' && defaultDvt && defaultDvt !== 'Cái')) {
-            rendered.dvt = defaultDvt || 'Máy';
-        }
+    if (!computedSl || computedSl === '0') computedSl = '1';
+
+    let defaultDvt = p.dvt;
+    if ((!defaultDvt || defaultDvt === 'Cái') && p.products && Array.isArray(p.products) && p.products.length > 0) {
+        defaultDvt = String(p.products[0]?.unit || p.products[0]?.dvt_chuan || p.products[0]?.dvt || 'Máy');
     }
+    if (!defaultDvt) defaultDvt = 'Máy';
+
+    if (isEmp(rendered.so_luong) || String(rendered.so_luong) === '0' || String(rendered.so_luong) === '0 Máy') {
+        rendered.so_luong = computedSl;
+    }
+    if (isEmp(rendered.dvt) || (rendered.dvt === 'Cái' && defaultDvt && defaultDvt !== 'Cái')) {
+        rendered.dvt = defaultDvt;
+    }
+
     if (requiredVarsSet.has('time') && isEmp(rendered.time)) {
         rendered.time = p.time || p.ngayThanhToan || '';
     }
@@ -344,7 +345,10 @@ export class ZnsPayloadBuilder {
       // Additional fallback names directly tied to system snake_case names for explicit mapping by CNV
       order_code: variables.order_code || (p.soHopDong && p.soDonHang ? `${p.soHopDong} | ${p.soDonHang}` : (p.soHopDong || p.soDonHang || '')),
       time: variables.time || p.time || p.ngayThanhToan || '',
-      so_luong: String(variables.so_luong || p.soLuong || p.slMay || '0'),
+      so_luong: String(variables.so_luong || rendered.so_luong || computedSl),
+      dvt: String(variables.dvt || rendered.dvt || defaultDvt),
+      'ĐVT': String(variables.dvt || rendered.dvt || defaultDvt),
+      'Đơn vị tính': String(variables.dvt || rendered.dvt || defaultDvt),
       
       // CNV workflow was heavily mapped to camelCase fields directly from payload.
       // We explicitly map the truthy variables back to their legacy camelCase names
@@ -390,6 +394,8 @@ export class ZnsPayloadBuilder {
         ...variables,
         customer_name: cleanCustomerName,
         phone: cleanPhone,
+        so_luong: String(variables.so_luong || rendered.so_luong || computedSl),
+        dvt: String(variables.dvt || rendered.dvt || defaultDvt),
       },
       data: {
         ...commonData,

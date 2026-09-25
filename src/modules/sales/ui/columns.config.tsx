@@ -36,6 +36,8 @@ export const getDaysDifference = (futureDateStr: string, baseDate: Date = new Da
   return Math.round(diffMs / (1000 * 3600 * 24));
 };
 
+import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
+
 export const getQuotationColumns = (
   contracts: Contract[],
   payments: import('@/src/domain/schema/payment.schema').Payment[],
@@ -46,6 +48,7 @@ export const getQuotationColumns = (
   onSendZns: (quotation: Quotation) => void,
   onEdit?: (quotation: Quotation) => void,
 ): ColumnDef<Quotation>[] => [
+  createSttColumn<Quotation>(),
   {
     id: 'customerId',
     accessorFn: (row) => row.tenKhachHang || row.customerId,

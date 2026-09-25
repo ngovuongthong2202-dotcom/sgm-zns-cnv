@@ -2,6 +2,7 @@ import React, { useMemo, useCallback, useState } from 'react';
 
 
 import { getCustomerColumns } from './columns.config';
+import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { useCustomersPage } from './hooks/useCustomersPage';
 import { CustomerFilterBar } from './components/CustomerFilterBar';
 import { PageHeader } from '@/src/design-system/PageHeader';
@@ -101,13 +102,15 @@ export default function CustomersFeature() {
     );
   }, [handleDeleteCustomer, handleSendZns, sendingZnsIds, setDrawerState, userData?.role]);
 
+  const customersWithStt = useMemo(() => enrichWithStt(filteredCustomers), [filteredCustomers]);
+
   const dataView = useDataView<Customer>({
     viewId: 'customers_list',
     columns,
-    data: filteredCustomers,
+    data: customersWithStt,
     initialState: {
       grouping: [],
-      sorting: [{ id: 'ngayTao', desc: true }],
+      sorting: [{ id: 'stt', desc: true }],
       columnVisibility: {
         tinhThanh: false,
         loaiKh: false,

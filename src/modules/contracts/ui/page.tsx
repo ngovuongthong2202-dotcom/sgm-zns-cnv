@@ -20,6 +20,7 @@ import { DataViewEngine } from '@/src/design-system/dataview/DataViewEngine';
 import { useDataView } from '@/src/design-system/dataview/useDataView';
 import { ContractStats } from './components/ContractStats';
 import { getContractColumns } from './columns.config';
+import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { useContractsFilters } from './hooks/useContractsFilters';
 import { extractContractCustomerTinhThanhMap, extractContractTinhThanhList } from './utils/extractors';
 import { ContractFilterBar } from './components/ContractFilterBar';
@@ -90,8 +91,8 @@ export default function ContractsFeature() {
   const { createRecord: createDelivery } = useMutation<any>({ collection: 'deliveries' });
 
   // On-demand streams with L1 EntityCachePool fallback
-  const { data: realtimePayments = [] } = useRealtimeCollection<any>('non-existent-skip');
-  const { data: realtimeDeliveries = [] } = useRealtimeCollection<any>('non-existent-skip');
+  const { data: realtimePayments = [] } = useRealtimeCollection<any>('payments');
+  const { data: realtimeDeliveries = [] } = useRealtimeCollection<any>('deliveries');
   const { data: allCustomers = [] } = useRealtimeCollection<any>('customers');
   const quotations: any[] = [];
 
@@ -159,13 +160,15 @@ export default function ContractsFeature() {
     setActiveKpiFilter('ALL');
   };
 
+  const filteredContractsWithStt = useMemo(() => enrichWithStt(filteredContracts), [filteredContracts]);
+
   const dataView = useDataView({
     viewId: 'contracts_list',
     columns,
-    data: filteredContracts,
+    data: filteredContractsWithStt,
     initialState: {
       grouping: ['customerId'],
-      sorting: [{ id: 'ngayKy', desc: true }],
+      sorting: [{ id: 'stt', desc: true }],
       columnVisibility: { 
         customerId: false, 
         ngayKyThang: false,

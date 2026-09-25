@@ -17,6 +17,7 @@ import { lazy, Suspense } from 'react';
 import { QuotationDetailDrawer } from './components/QuotationDetailDrawer';
 import { QuotationStats } from './components/QuotationStats';
 import { extractCustomerTinhThanhMap, extractTinhThanhList, enhanceQuotationsWithProvince } from './utils/extractors';
+import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { QuotationFilterBar } from './components/QuotationFilterBar';
 
 
@@ -182,13 +183,15 @@ export default function QuotationsFeature() {
     setColumnFilters([]);
   };
 
+  const enhancedQuotationsWithStt = useMemo(() => enrichWithStt(enhancedQuotations), [enhancedQuotations]);
+
   const dataView = useDataView({
     viewId: 'quotations_list',
     columns,
-    data: enhancedQuotations,
+    data: enhancedQuotationsWithStt,
     initialState: {
       grouping: ['customerId'],
-      sorting: [{ id: 'timeline', desc: true }],
+      sorting: [{ id: 'stt', desc: true }],
       columnVisibility: { customerId: false, ngayHetHan: false, tinhThanh: false },
     },
     onRowSelect: (row) => setDrawerQuotation(row as Quotation),

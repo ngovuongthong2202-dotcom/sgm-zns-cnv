@@ -23,6 +23,7 @@ import { useSharedFields } from '@/src/hooks/useSharedFields';
 import { useConfirm } from '@/src/design-system/Confirm';
 import { DeliveryDetailDrawer } from './components/DeliveryDetailDrawer';
 import { extractDeliveryTinhThanhList } from './utils/extractors';
+import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { DeliveryFilterBar } from './components/DeliveryFilterBar';
 import { PageHeader } from '@/src/design-system/PageHeader';
  
@@ -166,13 +167,15 @@ export default function DeliveriesFeature() {
     });
   }, [deliveries, customers, quotations]);
 
+  const processedDeliveriesWithStt = useMemo(() => enrichWithStt(processedDeliveries), [processedDeliveries]);
+
   const dataView = useDataView({
     viewId: 'deliveries_list',
     columns,
-    data: processedDeliveries,
+    data: processedDeliveriesWithStt,
     initialState: {
       grouping: [],
-      sorting: [{ id: 'ngayGiaoMay', desc: true }],
+      sorting: [{ id: 'stt', desc: true }],
       columnVisibility: { nguoiPhuTrach: false, "Khách hàng / Liên hệ": true, soBGHdDh: true, ngayGiaoMayMonth: false, ngayLapPgh: true },
     },
     onRowSelect: (row) => setDrawerDelivery(row as Delivery),

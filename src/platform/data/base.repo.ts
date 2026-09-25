@@ -211,9 +211,10 @@ export class BaseRepository<T> {
 
     // Extract core physical indexed columns for fast PostgreSQL queries & CDC filtering
     const rec = data as Record<string, any>;
-    if ('customerId' in rec) payload.customer_id = rec.customerId;
-    if ('quotationId' in rec) payload.quotation_id = rec.quotationId;
-    if ('contractId' in rec) payload.contract_id = rec.contractId;
+    const sanitizeFk = (v: any) => (v && typeof v === 'string' && v.trim() !== '') ? v.trim() : null;
+    if ('customerId' in rec) payload.customer_id = sanitizeFk(rec.customerId);
+    if ('quotationId' in rec) payload.quotation_id = sanitizeFk(rec.quotationId);
+    if ('contractId' in rec) payload.contract_id = sanitizeFk(rec.contractId);
     if ('trackingId' in rec) payload.tracking_id = rec.trackingId;
     if ('entityType' in rec) payload.entity_type = rec.entityType;
     if ('entityId' in rec) payload.entity_id = rec.entityId;
@@ -222,7 +223,7 @@ export class BaseRepository<T> {
     if ('maHopDong' in rec) payload.ma_hop_dong = rec.maHopDong;
     if ('paymentId' in rec) {
       if (this.tableName === 'payments') payload.ma_thanh_toan = rec.paymentId;
-      else payload.payment_id = rec.paymentId;
+      else payload.payment_id = sanitizeFk(rec.paymentId);
     }
     if ('maThanhToan' in rec && this.tableName === 'payments') payload.ma_thanh_toan = rec.maThanhToan;
     if ('deliveryId' in rec && this.tableName === 'deliveries') payload.ma_giao_hang = rec.deliveryId;
@@ -250,7 +251,7 @@ export class BaseRepository<T> {
     if ('loaiKh' in rec) payload.loai_kh = rec.loaiKh;
     if ('title' in rec) payload.title = rec.title;
     if ('message' in rec) payload.message = rec.message;
-    if ('type' in rec) payload.type = rec.type;
+    if ('type' in rec && this.tableName !== 'notifications') payload.type = rec.type;
 
     // Update L1 cache
     const merged = { ...data, id } as T;
@@ -308,6 +309,10 @@ export class BaseRepository<T> {
         : opts.fkField === 'userId' ? 'user_id'
         : opts.fkField === 'currentEntityId' ? 'current_entity_id'
         : opts.fkField === 'currentEntityType' ? 'current_entity_type'
+        : opts.fkField === 'entityId' ? 'entity_id'
+        : opts.fkField === 'entityType' ? 'entity_type'
+        : opts.fkField === 'templateId' ? 'template_id'
+        : opts.fkField === 'isRead' ? 'is_read'
         : opts.fkField;
 
       if (Array.isArray(opts.fkId)) {

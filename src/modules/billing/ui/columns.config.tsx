@@ -11,6 +11,9 @@ import { StatusPill } from '@/src/widgets/StatusPill';
 import { normalizeLegacyStatus, EntityZnsStatus } from '@/src/domain/enums/zns-status';
 import { PaymentHoverCard } from './components/PaymentHoverCard';
 import { normalizeBusinessName, normalizePersonName } from '@/src/shared/utils/textFormatter';
+import { QUOTATION_LOAI } from '@/src/domain/enums/quotation-loai';
+import { resolvePaymentLoai } from '../domain/resolvePaymentLoai';
+import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
 
 function QuickEditAmount({ value, onSave }: { value: number, onSave: (v: number) => void }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -79,6 +82,7 @@ export const getPaymentColumns = (
   deliveries: Delivery[] = [],
   customers: Customer[] = []
 ): ColumnDef<any>[] => [
+  createSttColumn<any>(),
   {
     accessorKey: 'paymentId',
     id: 'paymentId',
@@ -201,23 +205,19 @@ export const getPaymentColumns = (
       label: 'Phân loại',
       filterable: true,
       groupable: true,
-      options: ['MÁY', 'VẬT TƯ', 'DỊCH VỤ']
+      options: [QUOTATION_LOAI.MAY, QUOTATION_LOAI.VAT_TU, QUOTATION_LOAI.DICH_VU]
     },
     cell: (info) => {
       const p = info.row.original as Payment;
-      let typeStr = 'KHÁC';
-      const refCode = `${p.soHopDong} ${p.soDonHang} ${(p as any).sourceValue} ${p.tinhTrangThanhToan}`.toUpperCase();
-      if (p.paymentId?.startsWith('PT-MAY') || refCode.includes('MAY')) typeStr = 'MÁY';
-      if (p.paymentId?.startsWith('PT-VT') || refCode.includes('VT') || refCode.includes('VẬT TƯ')) typeStr = 'VẬT TƯ';
-      if (p.paymentId?.startsWith('PT-DV') || refCode.includes('DV') || refCode.includes('DỊCH VỤ')) typeStr = 'DỊCH VỤ';
+      const typeStr = resolvePaymentLoai(p);
 
       let bg = 'bg-slate-100 text-slate-700';
-      if (typeStr === 'MÁY') bg = 'bg-blue-50 text-blue-700 border border-blue-200';
-      else if (typeStr === 'VẬT TƯ') bg = 'bg-orange-50 text-orange-700 border border-orange-200';
-      else if (typeStr === 'DỊCH VỤ') bg = 'bg-cyan-50 text-cyan-700 border border-cyan-200';
+      if (typeStr === QUOTATION_LOAI.MAY) bg = 'bg-blue-50 text-blue-700 border border-blue-200';
+      else if (typeStr === QUOTATION_LOAI.VAT_TU) bg = 'bg-orange-50 text-orange-700 border border-orange-200';
+      else if (typeStr === QUOTATION_LOAI.DICH_VU) bg = 'bg-cyan-50 text-cyan-700 border border-cyan-200';
 
       return (
-        <span className={`px-2 py-0.5 rounded text-2xs font-bold tracking-wider uppercase inline-block ${bg}`}>
+        <span className={`px-2 py-0.5 rounded text-2xs font-bold tracking-wider inline-block ${bg}`}>
           {typeStr}
         </span>
       );

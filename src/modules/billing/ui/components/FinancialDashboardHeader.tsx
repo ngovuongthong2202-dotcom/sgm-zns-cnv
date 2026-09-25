@@ -189,18 +189,22 @@ export function FinancialDashboardHeader({
           </div>
 
           <div className="grid grid-cols-1 gap-1 text-2xs font-medium mt-auto">
-             {['MÁY', 'VẬT TƯ', 'DỊCH VỤ'].map(type => {
-               const st = statsByType[type as keyof typeof statsByType];
-               const isSelected = selectedPhanLoai === type;
+             {[
+               { id: 'MÁY', label: 'MÁY', fallback: 'BG Máy' },
+               { id: 'VẬT TƯ', label: 'VẬT TƯ', fallback: 'BG Vật tư' },
+               { id: 'DỊCH VỤ', label: 'DỊCH VỤ', fallback: 'BG Dịch vụ' }
+             ].map(item => {
+               const st = (statsByType as any)[item.id] || (statsByType as any)[item.fallback] || { count: 0, customers: 0 };
+               const isSelected = selectedPhanLoai === item.id || selectedPhanLoai === item.fallback;
                return (
                   <div 
-                    key={type} 
+                    key={item.id} 
                     className={`flex justify-between items-center px-1.5 py-1 rounded cursor-pointer transition-colors border ${isSelected ? 'border-cyan-400 bg-cyan-50/70 ring-1 ring-cyan-400 font-bold text-cyan-700' : 'border-slate-100 bg-slate-50 hover:bg-cyan-50/50 hover:border-cyan-350'}`}
-                    onClick={() => onFilterPhanLoai?.(isSelected ? '' : type)}
+                    onClick={() => onFilterPhanLoai?.(isSelected ? '' : item.id)}
                   >
-                    <span className="text-slate-500 font-sans truncate">{type}</span>
+                    <span className="text-slate-500 font-sans truncate">{item.label}</span>
                     <span className="space-x-1 flex items-center shrink-0">
-                      <span className="text-slate-800 font-mono" title="Số lượng báo giá">{st.count} <span className="text-3xs text-slate-400 font-sans font-normal ml-0.5">báo giá</span></span> 
+                      <span className="text-slate-800 font-mono" title="Số lượng">{st.count} <span className="text-3xs text-slate-400 font-sans font-normal ml-0.5">phiếu</span></span> 
                       <span className="text-slate-300 font-sans">/</span> 
                       <span className="text-slate-500 font-mono" title="Số lượng khách hàng">{st.customers} <span className="text-3xs text-slate-400 font-sans font-normal ml-0.5">KH</span></span>
                     </span>

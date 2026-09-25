@@ -12,13 +12,41 @@ interface Props {
   customer: Customer;
   onEdit: () => void;
   quotationCount?: number;
+  payments?: any[];
+  contracts?: any[];
+  quotations?: any[];
 }
 
-export function CustomerOverviewBento({ customer, onEdit: _onEdit, quotationCount = 0 }: Props) {
+export function CustomerOverviewBento({ customer, onEdit: _onEdit, quotationCount = 0, payments = [], contracts = [], quotations = [] }: Props) {
   const znsStatus = normalizeLegacyStatus(customer.trangThaiGuiTinQuangCao);
   const contactsCount = customer.contacts?.length || 0;
-  const ltv = customer.ltv || 0;
-  const debt = customer.totalDebt || 0;
+
+  // Realtime calculated LTV & Debt from actual linked records
+  const calculatedTotalPaid = (payments && payments.length > 0)
+    ? payments.reduce((sum: number, p: any) => sum + (Number(p.soTien) || 0), 0)
+    : 0;
+
+  const totalContractVal = (contracts && contracts.length > 0)
+    ? contracts.reduce((sum: number, c: any) => {
+        const prodSum = Array.isArray(c.products) ? c.products.reduce((s: number, prod: any) => s + (Number(prod.total) || 0), 0) : 0;
+        return sum + (Number(c.totalAmount) || Number(c.giaTriHopDong) || prodSum || 0);
+      }, 0)
+    : 0;
+
+  const nonMayQuoteVal = (quotations && quotations.length > 0)
+    ? quotations
+        .filter((q: any) => String(q.loai || '').toUpperCase().includes('VẬT TƯ') || String(q.loai || '').toUpperCase().includes('DỊCH VỤ'))
+        .reduce((sum: number, q: any) => {
+          const prodSum = Array.isArray(q.products) ? q.products.reduce((s: number, prod: any) => s + (Number(prod.total) || 0), 0) : 0;
+          return sum + (Number(q.totalAmount) || Number(q.tongTien) || prodSum || 0);
+        }, 0)
+    : 0;
+
+  const totalOrderValue = Math.max(totalContractVal + nonMayQuoteVal, calculatedTotalPaid);
+  const calculatedDebt = Math.max(0, totalOrderValue - calculatedTotalPaid);
+
+  const ltv = customer.ltv || calculatedTotalPaid || 0;
+  const debt = (customer.totalDebt !== undefined && customer.totalDebt > 0) ? customer.totalDebt : calculatedDebt;
   const tags = customer.tags || [];
 
   // Compute realtime health score utilizing SWR cache (if available) - safe fallback to empty

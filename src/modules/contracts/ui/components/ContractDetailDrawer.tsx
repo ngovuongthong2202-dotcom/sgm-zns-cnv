@@ -98,15 +98,22 @@ export function ContractDetailDrawer({
 
   if (!drawerContract) return null;
 
-  const pays = (payments || []).length > 0 ? (payments || []).filter((p: Payment) => p.contractId === drawerContract.id) : lazyPayments;
-  const dels = (deliveries || []).length > 0 ? (deliveries || []).filter((d: Delivery) => d.contractId === drawerContract.id) : lazyDeliveries;
+  const pays = (payments || []).length > 0
+    ? (payments || []).filter((p: Payment) => p.contractId === drawerContract.id || p.contractId === drawerContract.soHopDong || p.contractCode === drawerContract.soHopDong || p.soHopDong === drawerContract.soHopDong)
+    : lazyPayments;
+  const dels = (deliveries || []).length > 0
+    ? (deliveries || []).filter((d: Delivery) => d.contractId === drawerContract.id || d.contractId === drawerContract.soHopDong || d.contractCode === drawerContract.soHopDong || d.soHopDong === drawerContract.soHopDong)
+    : lazyDeliveries;
 
   // Math totals
   const totalContractAmount = drawerContract.totalAmount || drawerContract.products?.reduce((sum, p) => sum + (p.total || 0), 0) || 1;
   const totalPaid = pays
-    .filter((p: Payment) => ['ĐÃ THANH TOÁN', 'Đã thanh toán', 'Đã TT', 'Tất toán'].includes(p.tinhTrangThanhToan || ''))
+    .filter((p: Payment) => !['Chưa TT', 'Hủy', 'HỦY'].includes(p.tinhTrangThanhToan || ''))
     .reduce((sum, p) => sum + (p.soTien || 0), 0);
-  const pPct = Math.min(100, Math.round((totalPaid / totalContractAmount) * 100));
+  const hasTatToan = pays.some((p: Payment) => ['Tất toán', 'TẤT TOÁN', 'Đã thanh toán', 'ĐÃ THANH TOÁN', 'Miễn phí'].includes(p.tinhTrangThanhToan || ''));
+  const pPct = hasTatToan || (totalContractAmount > 0 && totalPaid >= totalContractAmount)
+    ? 100
+    : (totalContractAmount > 0 ? Math.min(100, Math.round((totalPaid / totalContractAmount) * 100)) : 0);
 
   const totalContractQty = drawerContract.products?.reduce((sum, p) => sum + (p.quantity || 0), 0) || drawerContract.slMay || 1;
   const totalDeliveredQty = dels

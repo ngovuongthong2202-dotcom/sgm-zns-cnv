@@ -7,8 +7,10 @@ import { normalizeLegacyStatus, EntityZnsStatus } from '@/src/domain/enums/zns-s
 import { DeliveryHoverCard } from './components/DeliveryHoverCard';
 import { normalizeBusinessName, normalizePersonName } from '@/src/shared/utils/textFormatter';
 import { t } from '@/src/i18n/vi';
+import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
 
 export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: any }>[] => [
+  createSttColumn() as any,
   {
     accessorKey: 'deliveryId',
     id: 'deliveryId',

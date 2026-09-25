@@ -110,6 +110,7 @@ export function PaymentRecordDrawer({
     if (draft) {
       reset({
         ...draft,
+        nguoiPhuTrach: draft.nguoiPhuTrach || defaultOfficer,
         paymentId: (draft.paymentId && draft.paymentId !== '---') ? draft.paymentId : currentPaymentId
       });
       hasInitializedRef.current = true;
@@ -130,12 +131,14 @@ export function PaymentRecordDrawer({
       }
       reset({ 
         ...enriched, 
+        nguoiPhuTrach: enriched.nguoiPhuTrach || defaultOfficer,
         paymentId: enriched.paymentId || currentPaymentId,
         sourceValue: payment.contractId ? `CONTRACT:${payment.contractId}` : payment.quotationId ? `QUOTATION:${payment.quotationId}` : '' 
       });
       hasInitializedRef.current = true;
     } else if (isNew) {
       if (prefillQuotation) {
+        const normLoai = (prefillQuotation.phanLoai || (prefillQuotation as any).loai || (prefillQuotation as any).loaiBaoGia) || 'BG Vật tư';
         reset({
           paymentId: currentPaymentId,
           trangThaiGuiTinThanhToan: EntityZnsStatus.CHUA_GUI,
@@ -144,7 +147,7 @@ export function PaymentRecordDrawer({
           sourceValue: `QUOTATION:${prefillQuotation.id}`,
           quotationId: prefillQuotation.id,
           contractId: '',
-          customerId: prefillQuotation.customerId || '',
+          customerId: prefillQuotation.customerId || (prefillQuotation as any).customer_id || '',
           maKh: prefillQuotation.maKh || '',
           tenKhachHang: prefillQuotation.tenKhachHang || '',
           sdt: prefillQuotation.sdt || '',
@@ -159,7 +162,10 @@ export function PaymentRecordDrawer({
           totalAmount: prefillQuotation.totalAmount || 0,
           soTien: prefillQuotation.totalAmount || prefillQuotation.subTotal || 0,
           products: prefillQuotation.products || [],
-          ngayThanhToan: format(new Date(), 'yyyy-MM-dd')
+          ngayThanhToan: format(new Date(), 'yyyy-MM-dd'),
+          nguoiPhuTrach: defaultOfficer,
+          phanLoai: normLoai,
+          loai: normLoai
         } as any);
       } else {
         reset({
@@ -174,12 +180,15 @@ export function PaymentRecordDrawer({
           soDonHang: '',
           soHopDong: '',
           soPhieuBaoGia: '',
-          ngayThanhToan: format(new Date(), 'yyyy-MM-dd')
+          ngayThanhToan: format(new Date(), 'yyyy-MM-dd'),
+          nguoiPhuTrach: defaultOfficer,
+          phanLoai: '',
+          loai: ''
         } as any);
       }
       hasInitializedRef.current = true;
     }
-  }, [payment, isOpen, reset, draft, isNew, contracts, prefillQuotation, getValues]);
+  }, [payment, isOpen, reset, draft, isNew, contracts, prefillQuotation, getValues, defaultOfficer]);
 
   const watchAll = watch();
   useEffect(() => {
@@ -290,6 +299,17 @@ export function PaymentRecordDrawer({
     // Remove transient field used only for form linking
     delete data.sourceValue;
 
+    // Sanitize foreign keys so PostgreSQL does not violate FK constraints
+    if (!data.contractId || !String(data.contractId).trim()) {
+      delete data.contractId;
+    }
+    if (!data.quotationId || !String(data.quotationId).trim()) {
+      delete data.quotationId;
+    }
+    if (!data.nguoiPhuTrach || !String(data.nguoiPhuTrach).trim()) {
+      data.nguoiPhuTrach = defaultOfficer;
+    }
+
     await onSave(data);
     clearDraft();
     onClose();
@@ -368,6 +388,8 @@ export function PaymentRecordDrawer({
             disabled={businessLock.locked}
             contracts={contracts}
             quotations={quotations}
+            payments={payments}
+            currentPaymentId={payment?.id || payment?.paymentId}
             nguoiPhuTrachList={_nguoiPhuTrachList}
             phuongThucThanhToanList={_phuongThucThanhToanList}
             tinhTrangThanhToanList={_tinhTrangThanhToanList}

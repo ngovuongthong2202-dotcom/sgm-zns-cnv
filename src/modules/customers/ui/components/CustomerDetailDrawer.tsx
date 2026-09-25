@@ -316,6 +316,9 @@ export function CustomerDetailDrawer({
               customer={customer}
               onEdit={onEdit}
               quotationCount={drawerQuotations.length || 0}
+              payments={drawerPayments}
+              contracts={drawerContracts}
+              quotations={drawerQuotations}
             />
           </div>
         )}

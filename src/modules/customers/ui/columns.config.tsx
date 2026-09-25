@@ -9,6 +9,8 @@ import { Button } from '@/src/design-system/Button';
 import { normalizeBusinessName, normalizePersonName, normalizeCode } from '@/src/shared/utils/textFormatter';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 
+import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
+
 export const getCustomerColumns = (
   quotations: Quotation[] = [],
   onEditCustomer?: (customer: Customer) => void,
@@ -18,6 +20,7 @@ export const getCustomerColumns = (
   sendingZnsIds?: Record<string, boolean>,
   onSelectQuotationTab?: (customer: Customer) => void,
 ): ColumnDef<Customer>[] => [
+  createSttColumn<Customer>(),
   {
     accessorKey: 'maKh',
     header: 'Mã KH',

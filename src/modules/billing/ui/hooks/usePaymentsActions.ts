@@ -22,16 +22,6 @@ export function usePaymentsActions(
   const handleDeletePayment = useCallback(async (pm: Payment) => {
     if (!pm.id) return;
 
-    // Rule 7: Thanh toán đã xác nhận/đối soát thì không được xóa
-    if (pm.tinhTrangThanhToan === 'ĐÃ THANH TOÁN' || pm.tinhTrangThanhToan === 'Tất toán') {
-      showBlockingModal({
-        title: 'Không thể xóa phiếu thu đã thanh toán',
-        entityName: `Phiếu thu: ${pm.paymentId || pm.id}`,
-        reason: `Phiếu thanh toán ${pm.paymentId || '(không rõ mã)'} đã xác nhận / đối soát (Đã thanh toán hoặc Tất toán). Để xóa, cần hoàn tác trạng thái hoặc hủy đối soát trước.`
-      });
-      return;
-    }
-
     // Rule 8 & 12: Thanh toán đã dùng làm điều kiện giao hàng thì không được xóa nếu còn bản ghi con
     const { checkPaymentLock } = await import('@/src/domain/policy/lock.policy');
     const linkedDeliveries = (deliveries || []).filter(d => 

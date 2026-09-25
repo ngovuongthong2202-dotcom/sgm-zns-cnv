@@ -6,6 +6,7 @@ import { canCreateContract, checkContractLock } from '../../modules/contracts/do
 import { eventBus } from '../../platform/events/EventBus';
 import { validateDocumentUpdate } from '../../domain/policy/document-integrity.policy';
 import { sequenceGeneratorService } from '../services/workflow/sequence-generator.service';
+import { normalizeLoai } from '../../domain/enums/quotation-loai';
 import crypto from 'crypto';
 
 export function normalizeEntityType(entityType: string): string {
@@ -126,6 +127,28 @@ router.post('/create/:entityType', async (req, res) => {
       const gateResult = canCreatePayment(sourceDoc.data() as any);
       if (!gateResult.allowed) return res.status(422).json({ error: gateResult.reason });
       
+      // Clean up foreign keys and ensure valid snapshot data
+      const sourceData: any = sourceDoc.data() || {};
+      if (!data.customerId || !String(data.customerId).trim()) {
+        data.customerId = sourceData.customerId || sourceData.customer_id || data.customerId;
+      }
+      if (!data.contractId || !String(data.contractId).trim()) {
+        data.contractId = null;
+      }
+      if (!data.quotationId || !String(data.quotationId).trim()) {
+        data.quotationId = null;
+      }
+
+      // Ensure classification is properly recorded
+      if (data.contractId) {
+        data.phanLoai = data.phanLoai || 'BG Máy';
+        data.loai = data.loai || 'BG Máy';
+      } else if (data.quotationId) {
+        const normLoai = normalizeLoai(data.phanLoai || data.loai || sourceData.phanLoai || sourceData.loai || sourceData.loaiBaoGia) || 'BG Vật tư';
+        data.phanLoai = normLoai;
+        data.loai = normLoai;
+      }
+
       const newRef = data.id ? adminDb.collection('payments').doc(data.id) : adminDb.collection('payments').doc();
       const batch = adminDb.batch();
       batch.set(newRef, { ...data, id: newRef.id, createdAt: new Date().toISOString(), deletedAt: null });
@@ -421,15 +444,6 @@ router.delete('/delete/:entityType/:id', async (req, res) => {
       if (!docSnap.exists) return res.json({ success: true });
       const oldPayment: any = docSnap.data();
 
-      // Rule 7: Thanh toán đã xác nhận/đối soát thì không được xóa
-      if (oldPayment.tinhTrangThanhToan === 'ĐÃ THANH TOÁN' || oldPayment.tinhTrangThanhToan === 'Tất toán') {
-        return res.status(422).json({
-          error: `Phiếu thanh toán ${oldPayment.paymentId || id} đã xác nhận / đối soát, không được phép xóa!`,
-          reason: 'Chỉ được phép làm thủ tục Hủy / Hoàn tiền có ghi vết kiểm toán đối với chứng từ đã thanh toán.',
-          blockingDocuments: [`Thanh toán: ${oldPayment.paymentId || id}`]
-        });
-      }
-
       const linkedDeliveriesSnap = await adminDb.collection('deliveries').where('paymentId', '==', id).get();
       
       const lock = checkPaymentLock(
@@ -679,6 +693,45 @@ router.post('/log-bypass', async (req, res) => {
     return res.json({ success: true });
   } catch (error: unknown) { 
     return res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+router.post('/notifications/mark-read', async (req, res) => {
+  try {
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ error: "Missing notification id" });
+    await adminDb.collection('notifications').doc(id).set({
+      is_read: true,
+      read: true,
+      isRead: true
+    }, { merge: true });
+    return res.json({ success: true });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || String(error) });
+  }
+});
+
+router.post('/notifications/mark-all-read', async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (Array.isArray(ids) && ids.length > 0) {
+      const batch = adminDb.batch();
+      for (const id of ids) {
+        const ref = adminDb.collection('notifications').doc(id);
+        batch.set(ref, { is_read: true, read: true, isRead: true }, { merge: true });
+      }
+      await batch.commit();
+    } else {
+      const snap = await adminDb.collection('notifications').where('is_read', '==', false).get();
+      const batch = adminDb.batch();
+      snap.docs.forEach((d: any) => {
+        batch.set(d.ref, { is_read: true, read: true, isRead: true }, { merge: true });
+      });
+      await batch.commit();
+    }
+    return res.json({ success: true });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || String(error) });
   }
 });
 

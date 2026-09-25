@@ -18,6 +18,8 @@ interface PaymentRecordBasicFieldsProps {
   disabled?: boolean;
   contracts?: any[];
   quotations?: any[];
+  payments?: any[];
+  currentPaymentId?: string;
   nguoiPhuTrachList?: string[];
   phuongThucThanhToanList?: string[];
   tinhTrangThanhToanList?: string[];
@@ -32,6 +34,8 @@ export function PaymentRecordBasicFields({
   disabled,
   contracts = [],
   quotations = [],
+  payments = [],
+  currentPaymentId,
   nguoiPhuTrachList = [],
   phuongThucThanhToanList = ['Chuyển khoản', 'Tiền mặt'],
   tinhTrangThanhToanList = ['Tất toán', 'Công nợ', 'Chưa TT', 'Miễn phí']
@@ -78,6 +82,56 @@ export function PaymentRecordBasicFields({
       setLocalRate('');
     }
   }, [soTienVal, totalAmountVal, localRate]);
+
+  // Helper tìm trạng thái khớp (hỗ trợ cả chữ hoa TẤT TOÁN/CÔNG NỢ và Tất toán/Công nợ)
+  const findStatusInList = React.useCallback((target: string): string => {
+    const t = target.trim().toLowerCase();
+    const found = tinhTrangThanhToanList.find(item => item.trim().toLowerCase() === t);
+    return found || target;
+  }, [tinhTrangThanhToanList]);
+
+  // Đồng bộ từ trạng thái giao dịch sang tỷ lệ % và số tiền
+  const handleStatusChange = React.useCallback((newStatus: string) => {
+    setValue('tinhTrangThanhToan', newStatus, { shouldValidate: true, shouldDirty: true });
+    const norm = newStatus.trim().toLowerCase();
+    
+    if (norm === 'tất toán' || norm === 'tat toan') {
+      setLocalRate('100');
+      const maxAllowed = totalAmountVal > 0 ? totalAmountVal : 0;
+      setValue('soTien', maxAllowed, { shouldValidate: true, shouldDirty: true });
+    } else if (norm === 'công nợ' || norm === 'cong no') {
+      const curRate = Number(localRate);
+      if (isNaN(curRate) || curRate <= 0 || curRate >= 100) {
+        setLocalRate('50');
+        const half = totalAmountVal > 0 ? Math.round(totalAmountVal * 0.5) : 0;
+        setValue('soTien', half, { shouldValidate: true, shouldDirty: true });
+      }
+    } else if (norm === 'chưa tt' || norm === 'chua tt') {
+      setLocalRate('0');
+      setValue('soTien', 0, { shouldValidate: true, shouldDirty: true });
+    } else if (norm === 'miễn phí' || norm === 'mien phi') {
+      setLocalRate('100');
+      setValue('soTien', 0, { shouldValidate: true, shouldDirty: true });
+    }
+  }, [setValue, totalAmountVal, localRate]);
+
+  // Đồng bộ từ tỷ lệ % hoặc số tiền sang trạng thái giao dịch
+  const syncStatusFromRate = React.useCallback((rate: number, amount: number) => {
+    const curStatus = (watch('tinhTrangThanhToan') || '').trim().toLowerCase();
+    if (curStatus === 'miễn phí' || curStatus === 'mien phi') {
+      return; // Giữ nguyên trạng thái Miễn phí
+    }
+    if (rate >= 100) {
+      const statusTatToan = findStatusInList('Tất toán');
+      setValue('tinhTrangThanhToan', statusTatToan, { shouldValidate: true, shouldDirty: true });
+    } else if (rate > 0 && rate < 100) {
+      const statusCongNo = findStatusInList('Công nợ');
+      setValue('tinhTrangThanhToan', statusCongNo, { shouldValidate: true, shouldDirty: true });
+    } else if (rate === 0 && amount === 0) {
+      const statusChuaTT = findStatusInList('Chưa TT');
+      setValue('tinhTrangThanhToan', statusChuaTT, { shouldValidate: true, shouldDirty: true });
+    }
+  }, [findStatusInList, setValue, watch]);
 
   // Force soTien to 0 when "Miễn phí" is selected
   React.useEffect(() => {
@@ -138,7 +192,7 @@ export function PaymentRecordBasicFields({
                         const prefix = isDocContract ? 'CONTRACT:' : 'QUOTATION:';
                         setValue('sourceValue', `${prefix}${doc.id}`, { shouldValidate: true, shouldDirty: true });
                         
-                        setValue('customerId', doc.customerId || '', { shouldValidate: true, shouldDirty: true });
+                        setValue('customerId', doc.customerId || doc.customer_id || '', { shouldValidate: true, shouldDirty: true });
                         setValue('maKh', doc.maKh || '', { shouldDirty: true });
                         setValue('tenKhachHang', doc.tenKhachHang || '', { shouldDirty: true });
                         setValue('sdt', doc.sdt || '', { shouldDirty: true });
@@ -149,10 +203,24 @@ export function PaymentRecordBasicFields({
                         if (isDocContract) {
                           setValue('contractId', doc.id, { shouldDirty: true });
                           setValue('quotationId', doc.quotationId || '', { shouldDirty: true });
+                          setValue('phanLoai', QUOTATION_LOAI.MAY, { shouldDirty: true });
+                          setValue('loai', QUOTATION_LOAI.MAY, { shouldDirty: true });
                         } else {
+                          const normLoai = normalizeLoai((doc.loai || doc.phanLoai || doc.loaiBaoGia) as string) || QUOTATION_LOAI.VAT_TU;
                           setValue('quotationId', doc.id, { shouldDirty: true });
                           setValue('contractId', '', { shouldDirty: true });
+                          setValue('phanLoai', normLoai, { shouldDirty: true });
+                          setValue('loai', normLoai, { shouldDirty: true });
                         }
+
+                        // Compute total quantity and unit
+                        const totalQty = (doc.products && Array.isArray(doc.products) && doc.products.length > 0)
+                          ? doc.products.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)
+                          : (doc.slMay || 1);
+                        const firstUnit = (doc.products && doc.products[0]?.unit) || doc.dvt || 'Cái';
+                        setValue('slMay', totalQty, { shouldDirty: true });
+                        setValue('soLuong', totalQty, { shouldDirty: true });
+                        setValue('dvt', firstUnit, { shouldDirty: true });
 
                         setValue('subTotal', doc.subTotal || 0, { shouldDirty: true });
                         setValue('vatRate', doc.vatRate || 0, { shouldDirty: true });
@@ -168,11 +236,25 @@ export function PaymentRecordBasicFields({
                   }}
                   filterOption={(doc: any) => {
                     const isDocContract = isContractDoc(doc);
-                    // Hợp đồng luôn được hiển thị làm chứng từ thanh toán
-                    if (isDocContract) return true;
                     // Đối với Báo giá: chỉ hiển thị Báo giá Vật tư hoặc Dịch vụ, loại bỏ BG Máy (bắt buộc phải qua HĐ)
-                    const loai = normalizeLoai((doc.loai || doc.phanLoai || doc.loaiBaoGia) as string);
-                    return loai !== QUOTATION_LOAI.MAY;
+                    if (!isDocContract) {
+                      const loai = normalizeLoai((doc.loai || doc.phanLoai || doc.loaiBaoGia) as string);
+                      if (loai === QUOTATION_LOAI.MAY) return false;
+                    }
+
+                    // Loại bỏ chứng từ đã được tạo thanh toán rồi (trừ khi đang sửa chính phiếu thanh toán đó)
+                    const isAlreadyPaid = (payments || []).some((p: any) => {
+                      if (p.isDeleted || p.deletedAt) return false;
+                      if (currentPaymentId && (p.id === currentPaymentId || p.paymentId === currentPaymentId)) return false;
+                      if (isDocContract) {
+                        return (p.contractId && p.contractId === doc.id) || (p.soHopDong && doc.soHopDong && p.soHopDong === doc.soHopDong);
+                      } else {
+                        return (p.quotationId && p.quotationId === doc.id) || (p.soPhieuBaoGia && doc.soPhieuBaoGia && p.soPhieuBaoGia === doc.soPhieuBaoGia);
+                      }
+                    });
+
+                    if (isAlreadyPaid) return false;
+                    return true;
                   }}
                   renderOption={(doc: any) => {
                       const isDocContract = isContractDoc(doc);
@@ -181,7 +263,20 @@ export function PaymentRecordBasicFields({
                         subLabel: doc.tenKhachHang
                       };
                   }}
-                  isOptionDisabled={(doc) => {
+                  isOptionDisabled={(doc: any) => {
+                    const isDocContract = isContractDoc(doc);
+                    const isAlreadyPaid = (payments || []).some((p: any) => {
+                      if (p.isDeleted || p.deletedAt) return false;
+                      if (currentPaymentId && (p.id === currentPaymentId || p.paymentId === currentPaymentId)) return false;
+                      if (isDocContract) {
+                        return (p.contractId && p.contractId === doc.id) || (p.soHopDong && doc.soHopDong && p.soHopDong === doc.soHopDong);
+                      } else {
+                        return (p.quotationId && p.quotationId === doc.id) || (p.soPhieuBaoGia && doc.soPhieuBaoGia && p.soPhieuBaoGia === doc.soPhieuBaoGia);
+                      }
+                    });
+                    if (isAlreadyPaid) {
+                      return { disabled: true, reason: 'Chứng từ này đã có phiếu thanh toán.' };
+                    }
                     const gateResult = canCreatePayment(doc as any);
                     if (!gateResult.allowed) return { disabled: true, reason: gateResult.reason };
                     return { disabled: false };
@@ -280,7 +375,13 @@ export function PaymentRecordBasicFields({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1">
                   <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block mb-1">Trạng thái Giao dịch</label>
-                  <select aria-label="Tình trạng thanh toán" disabled={disabled} {...register('tinhTrangThanhToan')} className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full bg-white font-semibold cursor-pointer disabled:bg-slate-50/50 disabled:opacity-75">
+                  <select 
+                    aria-label="Tình trạng thanh toán" 
+                    disabled={disabled} 
+                    value={watch('tinhTrangThanhToan') || 'Chưa TT'}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full bg-white font-semibold cursor-pointer disabled:bg-slate-50/50 disabled:opacity-75"
+                  >
                     {tinhTrangThanhToanList.map((t: string) => <option key={t} value={t}>{t}</option>)}
                     {watch('tinhTrangThanhToan') && !tinhTrangThanhToanList.includes(watch('tinhTrangThanhToan')) && (
                       <option value={watch('tinhTrangThanhToan')}>{watch('tinhTrangThanhToan')}</option>
@@ -382,13 +483,11 @@ export function PaymentRecordBasicFields({
                         const total = totalAmountVal || 0;
                         if (!isNaN(val) && total > 0 && valStr !== '') {
                             let computedNum = Math.round((total * val) / 100);
-                            const maxAllowed = Math.max(0, totalAmountVal - otherPaid);
-                            if (computedNum > maxAllowed) {
-                              computedNum = maxAllowed;
-                            }
                             setValue('soTien', computedNum, { shouldValidate: true, shouldDirty: true });
-                        } else if (valStr === '') {
+                            syncStatusFromRate(val, computedNum);
+                        } else if (valStr === '' || val === 0) {
                             setValue('soTien', 0, { shouldValidate: true, shouldDirty: true });
+                            syncStatusFromRate(0, 0);
                         }
                       }}
                     />
@@ -413,12 +512,13 @@ export function PaymentRecordBasicFields({
                 <MoneyInput 
                   value={field.value} 
                   onChange={(val: any) => {
-                    let num = val;
-                    const maxAllowed = Math.max(0, totalAmountVal - otherPaid);
-                    if (num !== undefined && totalAmountVal > 0 && num > maxAllowed) {
-                      num = maxAllowed;
-                    }
+                    let num = Number(val) || 0;
+                    if (num < 0) num = 0;
                     field.onChange(num);
+                    if (totalAmountVal > 0) {
+                      const rate = Math.min(100, (num / totalAmountVal) * 100);
+                      syncStatusFromRate(rate, num);
+                    }
                   }} 
                   readOnly={isFree || disabled} 
                   placeholder="0" 

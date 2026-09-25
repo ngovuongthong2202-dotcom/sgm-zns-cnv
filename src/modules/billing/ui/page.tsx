@@ -24,6 +24,7 @@ import { PageHeader } from '@/src/design-system/PageHeader';
 import { FinancialDashboardHeader } from './components/FinancialDashboardHeader';
 import { PaymentFilterBar } from './components/PaymentFilterBar';
 import { extractPaymentTinhThanhList } from './utils/extractors';
+import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { usePaymentsActions } from './hooks/usePaymentsActions';
  
 import { PageSkeleton } from '@/src/design-system/skeletons/PageSkeleton';
@@ -163,13 +164,15 @@ export default function PaymentsFeature() {
 
   const tinhThanhList = useMemo(() => extractPaymentTinhThanhList(customers), [customers]);
 
+  const filteredPaymentsWithStt = useMemo(() => enrichWithStt(filteredPayments), [filteredPayments]);
+
   const dataView = useDataView({
     viewId: 'payments_list',
     columns,
-    data: filteredPayments,
+    data: filteredPaymentsWithStt,
     initialState: {
       grouping: [],
-      sorting: [{ id: 'paymentId', desc: true }],
+      sorting: [{ id: 'stt', desc: true }],
       columnVisibility: { phuongThucThanhToan: false },
     },
     onRowSelect: (row) => setDrawerPayment(row as Payment),

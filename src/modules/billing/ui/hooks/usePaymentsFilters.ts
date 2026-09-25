@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Payment } from '@/src/domain/schema/payment.schema';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
+import { resolvePaymentLoai } from '../../domain/resolvePaymentLoai';
 
 const STATE_KEY = 'dataview:payments:state';
 
@@ -70,11 +71,7 @@ export function usePaymentsFilters(payments: Payment[], customers: Customer[] = 
     }
     if (selectedPhanLoai) {
       result = result.filter(p => {
-        const refCode = `${p.soHopDong} ${p.soDonHang} ${(p as import('@/src/domain/schema/payment.schema').Payment & { sourceValue?: string }).sourceValue} ${p.tinhTrangThanhToan}`.toUpperCase();
-        let typeStr = 'KHÁC';
-        if (p.paymentId?.startsWith('PT-MAY') || refCode.includes('MAY')) typeStr = 'MÁY';
-        else if (p.paymentId?.startsWith('PT-VT') || refCode.includes('VT') || refCode.includes('VẬT TƯ')) typeStr = 'VẬT TƯ';
-        else if (p.paymentId?.startsWith('PT-DV') || refCode.includes('DV') || refCode.includes('DỊCH VỤ')) typeStr = 'DỊCH VỤ';
+        const typeStr = resolvePaymentLoai(p);
         return typeStr === selectedPhanLoai;
       });
     }

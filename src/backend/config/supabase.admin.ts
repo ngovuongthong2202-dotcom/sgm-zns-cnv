@@ -489,7 +489,11 @@ class DocRef {
       if (desc.fieldMappings) {
         for (const [sourceField, targetCol] of Object.entries(desc.fieldMappings)) {
           if (sourceField in recordData && recordData[sourceField] !== undefined) {
-            payload[targetCol] = recordData[sourceField];
+            let val = recordData[sourceField];
+            if ((targetCol === 'contract_id' || targetCol === 'customer_id' || targetCol === 'quotation_id' || targetCol === 'payment_id') && typeof val === 'string' && val.trim() === '') {
+              val = null;
+            }
+            payload[targetCol] = val;
           }
         }
       }
@@ -497,7 +501,11 @@ class DocRef {
       // Map any direct physical column matches
       for (const col of desc.physicalColumns) {
         if (col in recordData && recordData[col] !== undefined && !(col in payload)) {
-          payload[col] = recordData[col];
+          let val = recordData[col];
+          if ((col === 'contract_id' || col === 'customer_id' || col === 'quotation_id' || col === 'payment_id') && typeof val === 'string' && val.trim() === '') {
+            val = null;
+          }
+          payload[col] = val;
         }
       }
 
@@ -528,16 +536,25 @@ class DocRef {
       }
     } else {
       // Fallback cho các bảng chưa khai báo: giữ logic trích xuất cơ bản
-      if ('customerId' in recordData) payload.customer_id = recordData.customerId;
+      if ('customerId' in recordData) payload.customer_id = (recordData.customerId && typeof recordData.customerId === 'string' && recordData.customerId.trim() !== '') ? recordData.customerId : null;
       if ('entityType' in recordData) payload.entity_type = recordData.entityType;
       if ('entityId' in recordData) payload.entity_id = recordData.entityId;
       if ('deletedAt' in recordData) payload.deleted_at = recordData.deletedAt;
       if ('deletedBy' in recordData) payload.deleted_by = recordData.deletedBy;
     }
 
+    // Double check foreign keys are not empty strings
+    const fkCols = ['contract_id', 'customer_id', 'quotation_id', 'payment_id'];
+    for (const fk of fkCols) {
+      if (fk in payload && typeof payload[fk] === 'string' && payload[fk].trim() === '') {
+        payload[fk] = null;
+      }
+    }
+
     const { error } = await supabaseAdmin.from(tableName).upsert(payload);
     if (error) {
       logger.error({ err: error, tableName, id: this.id }, `DocRef.set failed on table ${tableName}`);
+      throw new Error(`Database write failed on ${tableName}: ${error.message}`);
     }
   }
 
