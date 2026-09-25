@@ -279,9 +279,22 @@ export class ZnsPayloadBuilder {
     const stt = p.stt?.toString() || p.id?.toString() || idempotencyKey;
     const phoneObj = message.phone || variables.phone || '';
 
-    // Format values
-    const cleanCustomerName = (variables.customer_name || p.tenKhachHang || '').toString().trim().substring(0, 60);
-    const cleanPhone = (variables.phone || p.sdt || phoneObj || '').toString().trim();
+    // Format values with ultimate fallback ensuring Zalo parameter is never empty
+    const rawCustomerName = (
+      variables.customer_name || 
+      p.tenKhachHang || 
+      p.customer_name || 
+      p.customerName || 
+      p.ten_khach_hang || 
+      (p.contacts as any)?.[0]?.nguoiDaiDien || 
+      p.nguoiDaiDien || 
+      ''
+    ).toString().trim();
+    
+    const cleanCustomerName = (rawCustomerName || 'Quý Khách Hàng').substring(0, 60);
+    variables.customer_name = cleanCustomerName;
+    const cleanPhone = (variables.phone || p.sdt || p.phone || phoneObj || '').toString().trim();
+    variables.phone = cleanPhone;
     
     // 6. Compose commonData — CHỈ template variables + minimal system markers
     const commonData: Record<string, unknown> = {
@@ -369,8 +382,20 @@ export class ZnsPayloadBuilder {
       phone: cleanPhone,
       customer_name: cleanCustomerName,
       customerName: cleanCustomerName,
+      ten_khach_hang: cleanCustomerName,
+      tenKhachHang: cleanCustomerName,
       'Tên khách hàng': cleanCustomerName,
-      template_data: variables,
+      'Khách hàng': cleanCustomerName,
+      template_data: {
+        ...variables,
+        customer_name: cleanCustomerName,
+        phone: cleanPhone,
+      },
+      data: {
+        ...commonData,
+        customer_name: cleanCustomerName,
+        phone: cleanPhone,
+      },
       entity_data: p || {},
       message_type: message.messageType,
       meta: {
@@ -379,7 +404,18 @@ export class ZnsPayloadBuilder {
         template_version: templateVersion,
         template_key: templateKey,
       },
-      newValues: { ...commonData },
+      newValues: {
+        ...commonData,
+        customer_name: cleanCustomerName,
+        customerName: cleanCustomerName,
+        ten_khach_hang: cleanCustomerName,
+        tenKhachHang: cleanCustomerName,
+        'Tên khách hàng': cleanCustomerName,
+        'Khách hàng': cleanCustomerName,
+        phone: cleanPhone,
+        sdt: cleanPhone,
+        so_dien_thoai_raw: cleanPhone,
+      },
       oldValues: {}
     };
     
