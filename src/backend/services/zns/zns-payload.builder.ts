@@ -151,10 +151,10 @@ export class ZnsPayloadBuilder {
     }
     if (!defaultDvt) defaultDvt = 'Máy';
 
-    if (isEmp(rendered.so_luong) || String(rendered.so_luong) === '0' || String(rendered.so_luong) === '0 Máy') {
+    if (requiredVarsSet.has('so_luong') && (isEmp(rendered.so_luong) || String(rendered.so_luong) === '0' || String(rendered.so_luong) === '0 Máy')) {
         rendered.so_luong = computedSl;
     }
-    if (isEmp(rendered.dvt) || (rendered.dvt === 'Cái' && defaultDvt && defaultDvt !== 'Cái')) {
+    if (requiredVarsSet.has('dvt') && (isEmp(rendered.dvt) || (rendered.dvt === 'Cái' && defaultDvt && defaultDvt !== 'Cái'))) {
         rendered.dvt = defaultDvt;
     }
 
@@ -345,10 +345,8 @@ export class ZnsPayloadBuilder {
       // Additional fallback names directly tied to system snake_case names for explicit mapping by CNV
       order_code: variables.order_code || (p.soHopDong && p.soDonHang ? `${p.soHopDong} | ${p.soDonHang}` : (p.soHopDong || p.soDonHang || '')),
       time: variables.time || p.time || p.ngayThanhToan || '',
-      so_luong: String(variables.so_luong || rendered.so_luong || computedSl),
-      dvt: String(variables.dvt || rendered.dvt || defaultDvt),
-      'ĐVT': String(variables.dvt || rendered.dvt || defaultDvt),
-      'Đơn vị tính': String(variables.dvt || rendered.dvt || defaultDvt),
+      ...(variables.so_luong ? { so_luong: String(variables.so_luong), 'Số lượng': String(variables.so_luong) } : {}),
+      ...(variables.dvt ? { dvt: String(variables.dvt), 'ĐVT': String(variables.dvt), 'Đơn vị tính': String(variables.dvt) } : {}),
       
       // CNV workflow was heavily mapped to camelCase fields directly from payload.
       // We explicitly map the truthy variables back to their legacy camelCase names
@@ -394,8 +392,8 @@ export class ZnsPayloadBuilder {
         ...variables,
         customer_name: cleanCustomerName,
         phone: cleanPhone,
-        so_luong: String(variables.so_luong || rendered.so_luong || computedSl),
-        dvt: String(variables.dvt || rendered.dvt || defaultDvt),
+        ...(variables.so_luong ? { so_luong: String(variables.so_luong) } : {}),
+        ...(variables.dvt ? { dvt: String(variables.dvt) } : {}),
       },
       data: {
         ...commonData,

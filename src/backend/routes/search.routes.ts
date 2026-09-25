@@ -22,6 +22,9 @@ interface SearchItem {
 }
 
 router.get('/:collection', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   try {
     const collections = req.params.collection.split(',');
     const { q, limit = 20 } = req.query;
@@ -38,14 +41,14 @@ router.get('/:collection', async (req, res) => {
       }
       
       const snap = await queryRef.get();
-      // Loại trừ các bản ghi đã bị xóa (deletedAt)
+      // Loại trừ các bản ghi đã bị xóa (deletedAt / deleted_at)
       let collResults: SearchItem[] = snap.docs
         .map((doc: any) => ({ 
           id: doc.id, 
           ...doc.data(),
           _collectionType: coll
         }))
-        .filter((r: any) => !r.deletedAt);
+        .filter((r: any) => !r.deletedAt && !r.deleted_at && !r.data?.deletedAt && !r.data?.deleted_at);
       
       if (q) {
         const searchStr = String(q).toLowerCase().trim();

@@ -10,6 +10,7 @@ interface AsyncSearchableSelectProps {
   placeholder?: string;
   error?: string;
   className?: string;
+  options?: Record<string, unknown>[];
   renderOption: (doc: Record<string, unknown>) => { label: string; subLabel?: string };
   filterOption?: (doc: Record<string, unknown>) => boolean;
   isOptionDisabled?: (doc: Record<string, unknown>) => { disabled: boolean; reason?: string };
@@ -31,14 +32,18 @@ const fetcher = async (url: string): Promise<Record<string, unknown>[]> => {
   // Auto clean up / disconnect any existing active in-flight request on this base path
   const prevController = activeAbortControllers.get(basePath);
   if (prevController) {
-    prevController.abort();
+    try {
+      prevController.abort();
+    } catch {
+      // Ignore abort errors
+    }
   }
 
   const controller = new AbortController();
   activeAbortControllers.set(basePath, controller);
 
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status}`);
     }
@@ -47,15 +52,13 @@ const fetcher = async (url: string): Promise<Record<string, unknown>[]> => {
     // Verify requesting order sequence to protect against race conditions
     const latestReqId = requestSequences.get(basePath);
     if (latestReqId && currentReqId < latestReqId) {
-      // Yield processing by returning a forever-pending promise
-      return new Promise<Record<string, unknown>[]>(() => {});
+      return [];
     }
 
-    return json.data;
+    return json.data || [];
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'AbortError') {
-      // Return a pending promise to prevent SWR from overwriting with stale results or error state
-      return new Promise<Record<string, unknown>[]>(() => {});
+      return [];
     }
     throw err;
   } finally {
@@ -72,6 +75,7 @@ export function AsyncSearchableSelect({
   placeholder = 'Tìm kiếm...', 
   error, 
   className = '',
+  options,
   renderOption,
   filterOption,
   isOptionDisabled,
@@ -92,14 +96,47 @@ export function AsyncSearchableSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const hasStaticOptions = Array.isArray(options) && options.length > 0;
+
   const { data: rawOptionsData, isLoading, isValidating } = useSWR<Record<string, unknown>[]>(
-    isOpen ? `/api/search/${collection}?q=${encodeURIComponent(debouncedSearch)}` : null,
+    (isOpen && !hasStaticOptions) ? `/api/search/${collection}?q=${encodeURIComponent(debouncedSearch)}` : null,
     fetcher,
-    { keepPreviousData: true }
+    { 
+      keepPreviousData: false,
+      revalidateOnMount: true,
+      revalidateOnFocus: true,
+      dedupingInterval: 0
+    }
   );
   
-  const optionsData = rawOptionsData ? (filterOption ? rawOptionsData.filter(filterOption) : rawOptionsData) : undefined;
+  // Tính toán danh sách options: Ưu tiên options truyền vào từ store realtime
+  const optionsData = React.useMemo(() => {
+    if (hasStaticOptions) {
+      const term = search.toLowerCase().trim();
+      let list = options;
+      if (filterOption) {
+        list = list.filter(filterOption);
+      }
+      if (term) {
+        list = list.filter(item => {
+          const rendered = renderOption(item);
+          const labelMatch = rendered.label.toLowerCase().includes(term);
+          const subMatch = rendered.subLabel ? rendered.subLabel.toLowerCase().includes(term) : false;
+          const idMatch = String(item.id || '').toLowerCase().includes(term);
+          const codeMatch = String(
+            item.paymentId || item.maThanhToan || item.soHopDong || 
+            item.soPhieuBaoGia || item.soDonHang || item.sdt || 
+            item.maKh || item.tenKhachHang || ''
+          ).toLowerCase().includes(term);
+          return labelMatch || subMatch || idMatch || codeMatch;
+        });
+      }
+      return list;
+    }
 
+    if (!rawOptionsData) return undefined;
+    return filterOption ? rawOptionsData.filter(filterOption) : rawOptionsData;
+  }, [hasStaticOptions, options, search, filterOption, renderOption, rawOptionsData]);
 
   // Helper function to match raw ID with prefixed values like CONTRACT:id or QUOTATION:id
   const matchesValue = (id: unknown, val: unknown): boolean => {
@@ -118,11 +155,12 @@ export function AsyncSearchableSelect({
 
   // Load the selected item details if value exists but we don't have it in optionsData
   const { data: selectedDocData } = useSWR<Record<string, unknown>[]>(
-    cleanQuery && !isOpen ? `/api/search/${collection}?q=${encodeURIComponent(cleanQuery)}` : null,
+    (cleanQuery && !isOpen && !hasStaticOptions) ? `/api/search/${collection}?q=${encodeURIComponent(cleanQuery)}` : null,
     fetcher
   );
 
   const selectedDoc = (optionsData || []).find(o => matchesValue(o.id, value)) || 
+                      (hasStaticOptions ? options.find(o => matchesValue(o.id, value)) : undefined) ||
                       (selectedDocData || []).find(o => matchesValue(o.id, value));
   const selectedOption = selectedDoc ? renderOption(selectedDoc) : null;
 

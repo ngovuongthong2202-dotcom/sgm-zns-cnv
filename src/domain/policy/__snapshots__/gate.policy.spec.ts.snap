@@ -22,8 +22,8 @@ exports[`Core Policy Gates Golden Master > canCreateContract > matches golden ma
 
 exports[`Core Policy Gates Golden Master > canCreateDelivery > matches golden master for invalid payment 1`] = `
 {
-  "allowed": false,
-  "reason": "Phải gửi ZNS Thanh toán THÀNH CÔNG trước khi tạo Giao hàng.",
+  "allowed": true,
+  "warning": "Thanh toán này chưa gửi tin ZNS thành công.",
 }
 `;
 

@@ -47,6 +47,78 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, d
     isLookingUpExportSale,
   } = useDeliveryForm(delivery, payments, contracts, quotations);
 
+  // Đồng bộ hóa tức thời 100% với danh sách payments đang hiển thị ở trang Thanh toán
+  const enrichedPayments = React.useMemo(() => {
+    if (!Array.isArray(payments) || payments.length === 0) return [];
+    
+    const contractsMap = new Map((contracts || []).map((c: any) => [c.id, c]));
+    const quoMap = new Map((quotations || []).map((q: any) => [q.id, q]));
+
+    const deliveriesByPayment = new Map<string, any[]>();
+    (deliveries || []).forEach((d: any) => {
+      if (!d.deletedAt && !d.deleted_at && d.tinhTrangGiaoHang !== 'HỦY' && d.tinhTrangGiaoHang !== 'Hủy' && d.paymentId) {
+        const list = deliveriesByPayment.get(d.paymentId) || [];
+        list.push(d);
+        deliveriesByPayment.set(d.paymentId, list);
+      }
+    });
+
+    return payments
+      .filter((p: any) => !p.deletedAt && !p.deleted_at)
+      .map((p: any) => {
+        const contractData = p.contractId ? contractsMap.get(p.contractId) : (contracts || []).find((c: any) => c.soHopDong === p.soHopDong);
+        const quotationData = p.quotationId ? quoMap.get(p.quotationId) : (quotations || []).find((q: any) => q.soPhieuBaoGia === p.soPhieuBaoGia);
+        const soCT = p.contractId ? `HĐ: ${contractData?.soHopDong || p.soHopDong}` : (p.quotationId ? `BG: ${quotationData?.soPhieuBaoGia || p.soPhieuBaoGia}` : 'Không có');
+
+        const source = (p.contractId ? contractData : quotationData) || p;
+        const productList = Array.isArray(source?.products) && source.products.length > 0 
+          ? source.products 
+          : (Array.isArray(p.products) ? p.products : []);
+
+        let totalContracted = 0;
+        let totalDelivered = 0;
+        let _isFullyDelivered = false;
+
+        if (productList.length > 0) {
+          const linkedDeliveries = deliveriesByPayment.get(p.id) || deliveriesByPayment.get(p.paymentId) || [];
+          const actualDeliveredMap: Record<string, number> = {};
+
+          linkedDeliveries.forEach(d => {
+            (d.products || []).forEach((dp: any, idx: number) => {
+              const key = dp.id || dp.productId || dp.productName || String(idx);
+              actualDeliveredMap[key] = (actualDeliveredMap[key] || 0) + Number(dp.quantity || 0);
+            });
+          });
+
+          productList.forEach((cp: Record<string, unknown>, index: number) => {
+            const key = (cp.id as string) || (cp.productId as string) || (cp.productName as string) || String(index);
+            const q = Number(cp.quantity || 0);
+            totalContracted += q;
+            const fromSource = Number(((source?.deliveredQuantities || {}) as Record<string, number>)[key] || 0);
+            const fromDeliveries = Number(actualDeliveredMap[key] || 0);
+            totalDelivered += Math.max(fromSource, fromDeliveries);
+          });
+
+          if (totalDelivered >= totalContracted && totalContracted > 0) {
+            _isFullyDelivered = true;
+          }
+        }
+
+        const pStatus = (p.tinhTrangThanhToan as string || '').toLowerCase().trim();
+        const _isChuaTT = pStatus === 'chưa tt' || pStatus === 'chua tt' || pStatus === 'chưa thanh toán';
+
+        return {
+          ...p,
+          _soCT: soCT,
+          _isFullyDelivered,
+          _isChuaTT,
+          _sourceObj: source || null,
+          _totalContracted: totalContracted,
+          _totalDelivered: totalDelivered
+        };
+      });
+  }, [payments, contracts, quotations, deliveries]);
+
   return (
     <div className="fixed inset-0 bg-slate-50 z-50 flex flex-col h-screen overflow-hidden">
       <div className="bg-slate-50 flex flex-col h-full w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -158,6 +230,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, d
                     </label>
                     <AsyncSearchableSelect
                       collection="payments"
+                      options={enrichedPayments}
                       value={watch('paymentId') || ''}
                       onChange={(val, doc) => {
                         setValue('paymentId', val, { shouldValidate: true });
@@ -167,7 +240,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, d
                       }}
                       filterOption={(p: any) => {
                         // Loại trừ phiếu thu đã bị xóa
-                        if (p.deletedAt) return false;
+                        if (p.deletedAt || p.deleted_at) return false;
                         return true;
                       }}
                       isOptionDisabled={(p: any) => {
