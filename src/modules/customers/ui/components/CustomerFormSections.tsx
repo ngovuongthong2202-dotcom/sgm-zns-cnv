@@ -3,7 +3,7 @@ import { UseFormRegister, FieldErrors, UseFormWatch, UseFormSetValue } from 'rea
 import { Building2, Users, Lock, Check, AlertCircle, Sparkles, Loader2, X } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
-import { autoDetectBusinessName, BUSINESS_TYPE_PREFIXES } from './CustomerFormHelpers';
+import { autoDetectBusinessName, STANDARDIZED_BUSINESS_TYPES } from './CustomerFormHelpers';
 
 interface ProfileSectionProps {
   register: UseFormRegister<any>;
@@ -60,10 +60,10 @@ export function CustomerFormProfileSection({
               onBlur={(e) => {
                 register('tenKhachHang').onBlur(e);
                 const { loaiHinh, tenNgayNgan } = autoDetectBusinessName(e.target.value);
-                if (loaiHinh && !watch('loaiHinhDoanhNghiep')) {
+                if (loaiHinh) {
                   setValue('loaiHinhDoanhNghiep', loaiHinh, { shouldDirty: true });
                 }
-                if (e.target.value !== tenNgayNgan) {
+                if (tenNgayNgan && e.target.value !== tenNgayNgan) {
                    setValue('tenKhachHang', tenNgayNgan, { shouldDirty: true });
                 }
               }}
@@ -96,10 +96,10 @@ export function CustomerFormProfileSection({
             className="w-full bg-white h-8 border border-slate-200 rounded-lg px-3 text-sm text-slate-800"
           >
             <option value="">Chọn loại hình doanh nghiệp</option>
-            {BUSINESS_TYPE_PREFIXES.map((type) => (
+            {STANDARDIZED_BUSINESS_TYPES.map((type) => (
               <option key={type} value={type}>{type}</option>
             ))}
-            {watch('loaiHinhDoanhNghiep') && !BUSINESS_TYPE_PREFIXES.some(type => type.toUpperCase() === (watch('loaiHinhDoanhNghiep') || '').toUpperCase()) && (
+            {watch('loaiHinhDoanhNghiep') && !STANDARDIZED_BUSINESS_TYPES.some(type => type.toUpperCase() === (watch('loaiHinhDoanhNghiep') || '').toUpperCase()) && (
               <option value={watch('loaiHinhDoanhNghiep')}>{watch('loaiHinhDoanhNghiep')}</option>
             )}
           </select>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { UseFormRegister, FieldErrors } from 'react-hook-form';
+import { UseFormRegister, FieldErrors, UseFormWatch, UseFormSetValue } from 'react-hook-form';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { Truck, Package } from 'lucide-react';
 
@@ -82,6 +82,9 @@ interface DeliveryInfoSectionProps {
   nguoiPhuTrachList: string[];
   onLookupExportSale?: () => void;
   isLookingUpExportSale?: boolean;
+  currentCustomer?: any;
+  watch?: UseFormWatch<Delivery>;
+  setValue?: UseFormSetValue<Delivery>;
 }
 
 export function DeliveryInfoSection({
@@ -89,7 +92,10 @@ export function DeliveryInfoSection({
   errors,
   nguoiPhuTrachList,
   onLookupExportSale,
-  isLookingUpExportSale
+  isLookingUpExportSale,
+  currentCustomer,
+  watch,
+  setValue
 }: DeliveryInfoSectionProps) {
   return (
     <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
@@ -171,6 +177,46 @@ export function DeliveryInfoSection({
             placeholder="Người phụ trách theo tài khoản"
           />
         </div>
+
+        {/* Gợi ý chọn nhanh đầu mối nhận hàng từ danh bạ khách hàng */}
+        {currentCustomer && Array.isArray(currentCustomer.contacts) && currentCustomer.contacts.length > 1 && (
+          <div className="col-span-full bg-blue-50/60 border border-blue-200/80 rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-2xs font-bold uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
+                <span>⚡ Chọn nhanh đầu mối nhận hàng ({currentCustomer.contacts.length} đầu mối)</span>
+              </span>
+              <span className="text-3xs text-blue-700 italic">Click để tự điền Tên người nhận & SĐT</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {currentCustomer.contacts.map((ct: any, idx: number) => {
+                const currentName = watch?.('nguoiLienHe');
+                const currentPhone = watch?.('sdtLienHe');
+                const isSelected = (currentName === ct.nguoiDaiDien || currentPhone === ct.sdt);
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      if (setValue) {
+                        if (ct.nguoiDaiDien) setValue('nguoiLienHe', ct.nguoiDaiDien, { shouldDirty: true, shouldValidate: true });
+                        if (ct.sdt) setValue('sdtLienHe', ct.sdt, { shouldDirty: true, shouldValidate: true });
+                      }
+                    }}
+                    className={`text-2xs px-2.5 py-1 rounded-md border transition-all text-left flex items-center gap-1.5 cursor-pointer ${
+                      isSelected 
+                        ? 'bg-blue-600 text-white border-blue-600 font-bold shadow-xs' 
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-blue-400 hover:bg-blue-50/50'
+                    }`}
+                  >
+                    <span>{ct.nguoiDaiDien || `Đầu mối ${idx + 1}`}</span>
+                    {ct.chucVu && <span className={isSelected ? 'text-blue-100 text-3xs' : 'text-slate-400 text-3xs'}>({ct.chucVu})</span>}
+                    <span className={`font-mono text-3xs ${isSelected ? 'text-white' : 'text-slate-500'}`}>- {ct.sdt}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Thông tin Người nhận & Địa chỉ giao hàng tự động lấy từ khách hàng */}
         <div className="space-y-1">

@@ -155,6 +155,49 @@ export function QuotationBasicInfoSection({
                   Pháp nhân khách hàng, thông tin liên hệ và phân loại khách hàng được đồng bộ tự động để tính toán chiết khấu, thời hạn thanh toán và cấu trúc báo giá tối ưu.
                 </p>
               </div>
+
+              {(() => {
+                const selectedCustomerId = watch('customerId');
+                const selectedCustomer = customers.find((c: any) => c.id === selectedCustomerId);
+                const contacts = (selectedCustomer && Array.isArray(selectedCustomer.contacts)) ? selectedCustomer.contacts : [];
+                if (contacts.length <= 1) return null;
+
+                const currentPhone = watch('sdt');
+                const currentName = watch('nguoiDaiDien');
+                const activeIdx = contacts.findIndex((ct: any) => ct.sdt === currentPhone || ct.nguoiDaiDien === currentName);
+
+                return (
+                  <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                        <span>👤 Chọn đầu mối nhận Báo giá</span>
+                        <span className="text-3xs bg-amber-200/70 text-amber-950 font-bold px-1.5 py-0.5 rounded-full">
+                          {contacts.length} đầu mối liên hệ
+                        </span>
+                      </span>
+                      <span className="text-3xs text-amber-800 italic">Chọn đầu mối để tự gán SĐT & Người nhận BG</span>
+                    </div>
+                    <select
+                      className="w-full h-8 text-xs font-medium border border-amber-300 rounded-lg px-2.5 bg-white text-slate-900 focus:border-amber-600 outline-none"
+                      value={activeIdx >= 0 ? String(activeIdx) : '0'}
+                      onChange={(e) => {
+                        const idx = Number(e.target.value);
+                        const ct = contacts[idx];
+                        if (ct) {
+                          if (ct.nguoiDaiDien) setValue('nguoiDaiDien', ct.nguoiDaiDien, { shouldDirty: true, shouldValidate: true });
+                          if (ct.sdt) setValue('sdt', ct.sdt, { shouldDirty: true, shouldValidate: true });
+                        }
+                      }}
+                    >
+                      {contacts.map((ct: any, idx: number) => (
+                        <option key={idx} value={idx}>
+                          {idx === 0 ? '★ [Đầu mối chính] ' : ''}{ct.nguoiDaiDien || 'Chưa đặt tên'} {ct.chucVu ? `(${ct.chucVu})` : ''} — SĐT: {ct.sdt || 'Chưa có SĐT'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
               
               <div className="grid grid-cols-2 gap-4 border border-slate-150 text-xs font-semibold text-slate-700 bg-slate-50/50 p-4 rounded-xl shadow-xs">
                 <div>
@@ -162,8 +205,15 @@ export function QuotationBasicInfoSection({
                   <strong className="text-slate-950 text-sm font-bold block">{watch('tenKhachHang') || '---'}</strong>
                 </div>
                 <div>
-                  <span className="text-slate-500 uppercase text-3xs tracking-wider block mb-0.5 font-bold">Liên hệ & giao nhận</span>
-                  <strong className="text-slate-950 font-mono text-xs font-bold block">{watch('sdt') || '---'}</strong>
+                  <span className="text-slate-500 uppercase text-3xs tracking-wider block mb-0.5 font-bold">Người nhận & SĐT</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <strong className="text-slate-950 text-xs font-bold">{watch('nguoiDaiDien') || '---'}</strong>
+                    {watch('sdt') && (
+                      <span className="font-mono text-2xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 font-bold">
+                        {watch('sdt')}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

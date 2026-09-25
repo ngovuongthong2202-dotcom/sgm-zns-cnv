@@ -141,7 +141,13 @@ export function normalizeBusinessName(s?: string | null): string {
     if (!coreWord) return prefix + suffix;
 
     const upperCore = coreWord.toUpperCase();
-    if (KEEP_UPPER.includes(upperCore)) {
+    const isAbbr = [
+      ...KEEP_UPPER,
+      'VN', 'HN', 'HCM', 'FDI', 'OS', 'ZALO', 'LTD', 'CO', 'CORP', 'INC', 'PLC', 'JSC', 'VSIP', 'KCN', 'KCX',
+      'SX', 'TM', 'DV', 'XD', 'XNK', 'HTX', 'MST', 'TM&DV', 'TMDV', 'SX-TM', 'ĐT&PT', 'ĐT-XD'
+    ].includes(upperCore);
+
+    if (isAbbr) {
       return prefix + upperCore + suffix;
     }
 

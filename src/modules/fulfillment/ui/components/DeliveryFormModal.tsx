@@ -332,13 +332,24 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                 </div>
               </section>
 
-              <DeliveryInfoSection
-                register={register}
-                errors={errors}
-                nguoiPhuTrachList={nguoiPhuTrachList}
-                onLookupExportSale={lookupExportSale}
-                isLookingUpExportSale={isLookingUpExportSale}
-              />
+              {(() => {
+                const currentCustomer = customers?.find((c: any) => 
+                  (watchAll.customerId && c.id === watchAll.customerId) || 
+                  (watchAll.maKh && c.maKh === watchAll.maKh)
+                );
+                return (
+                  <DeliveryInfoSection
+                    register={register}
+                    errors={errors}
+                    nguoiPhuTrachList={nguoiPhuTrachList}
+                    onLookupExportSale={lookupExportSale}
+                    isLookingUpExportSale={isLookingUpExportSale}
+                    currentCustomer={currentCustomer}
+                    watch={watch}
+                    setValue={setValue}
+                  />
+                );
+              })()}
             </div>
 
             {/* Right Col: Transport & Cross-check */}

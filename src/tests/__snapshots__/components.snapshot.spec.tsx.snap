@@ -1160,14 +1160,9 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                           CÔNG TY TNHH MỘT THÀNH VIÊN
                         </option>
                         <option
-                          value="CÔNG TY TNHH MTV"
+                          value="CÔNG TY TNHH HAI THÀNH VIÊN TRỞ LÊN"
                         >
-                          CÔNG TY TNHH MTV
-                        </option>
-                        <option
-                          value="CÔNG TY TNHH 1 THÀNH VIÊN"
-                        >
-                          CÔNG TY TNHH 1 THÀNH VIÊN
+                          CÔNG TY TNHH HAI THÀNH VIÊN TRỞ LÊN
                         </option>
                         <option
                           value="CÔNG TY TNHH"
@@ -1175,89 +1170,9 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                           CÔNG TY TNHH
                         </option>
                         <option
-                          value="CÔNG TY TRÁCH NHIỆM HỮU HẠN MỘT THÀNH VIÊN"
+                          value="DOANH NGHIỆP TƯ NHÂN"
                         >
-                          CÔNG TY TRÁCH NHIỆM HỮU HẠN MỘT THÀNH VIÊN
-                        </option>
-                        <option
-                          value="CÔNG TY TRÁCH NHIỆM HỮU HẠN MTV"
-                        >
-                          CÔNG TY TRÁCH NHIỆM HỮU HẠN MTV
-                        </option>
-                        <option
-                          value="CÔNG TY TRÁCH NHIỆM HỮU HẠN"
-                        >
-                          CÔNG TY TRÁCH NHIỆM HỮU HẠN
-                        </option>
-                        <option
-                          value="CÔNG TY TNHH THƯƠNG MẠI VÀ DỊCH VỤ"
-                        >
-                          CÔNG TY TNHH THƯƠNG MẠI VÀ DỊCH VỤ
-                        </option>
-                        <option
-                          value="CÔNG TY TRÁCH NHIỆM HỮU HẠN THƯƠNG MẠI VÀ DỊCH VỤ"
-                        >
-                          CÔNG TY TRÁCH NHIỆM HỮU HẠN THƯƠNG MẠI VÀ DỊCH VỤ
-                        </option>
-                        <option
-                          value="CÔNG TY CỔ PHẦN THƯƠNG MẠI VÀ DỊCH VỤ"
-                        >
-                          CÔNG TY CỔ PHẦN THƯƠNG MẠI VÀ DỊCH VỤ
-                        </option>
-                        <option
-                          value="CÔNG TY TNHH TM VÀ DV"
-                        >
-                          CÔNG TY TNHH TM VÀ DV
-                        </option>
-                        <option
-                          value="CÔNG TY TNHH TM & DV"
-                        >
-                          CÔNG TY TNHH TM & DV
-                        </option>
-                        <option
-                          value="CÔNG TY CP TM & DV"
-                        >
-                          CÔNG TY CP TM & DV
-                        </option>
-                        <option
-                          value="CÔNG TY CP TM VÀ DV"
-                        >
-                          CÔNG TY CP TM VÀ DV
-                        </option>
-                        <option
-                          value="CTY TNHH"
-                        >
-                          CTY TNHH
-                        </option>
-                        <option
-                          value="CTY CP"
-                        >
-                          CTY CP
-                        </option>
-                        <option
-                          value="CTCP"
-                        >
-                          CTCP
-                        </option>
-                        <option
-                          value="CÔNG TY CP"
-                        >
-                          CÔNG TY CP
-                        </option>
-                        <option
-                          value="TẬP ĐOÀN ĐẦU TƯ"
-                        >
-                          TẬP ĐOÀN ĐẦU TƯ
-                        </option>
-                        <option
-                          value="TẬP ĐOÀN"
-                        >
-                          TẬP ĐOÀN
-                        </option>
-                        <option
-                          value="TỔNG CÔNG TY"
-                        >
-                          TỔNG CÔNG TY
+                          DOANH NGHIỆP TƯ NHÂN
                         </option>
                         <option
                           value="CÔNG TY HỢP DANH"
@@ -1265,174 +1180,29 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                           CÔNG TY HỢP DANH
                         </option>
                         <option
-                          value="DOANH NGHIỆP TƯ NHÂN"
-                        >
-                          DOANH NGHIỆP TƯ NHÂN
-                        </option>
-                        <option
-                          value="DNTN"
-                        >
-                          DNTN
-                        </option>
-                        <option
-                          value="CÔNG TY SẢN XUẤT THƯƠNG MẠI DỊCH VỤ"
-                        >
-                          CÔNG TY SẢN XUẤT THƯƠNG MẠI DỊCH VỤ
-                        </option>
-                        <option
-                          value="CÔNG TY SẢN XUẤT THƯƠNG MẠI"
-                        >
-                          CÔNG TY SẢN XUẤT THƯƠNG MẠI
-                        </option>
-                        <option
-                          value="CÔNG TY THƯƠNG MẠI DỊCH VỤ"
-                        >
-                          CÔNG TY THƯƠNG MẠI DỊCH VỤ
-                        </option>
-                        <option
-                          value="CÔNG TY SẢN XUẤT"
-                        >
-                          CÔNG TY SẢN XUẤT
-                        </option>
-                        <option
-                          value="CÔNG TY THƯƠNG MẠI"
-                        >
-                          CÔNG TY THƯƠNG MẠI
-                        </option>
-                        <option
-                          value="CÔNG TY DỊCH VỤ"
-                        >
-                          CÔNG TY DỊCH VỤ
-                        </option>
-                        <option
-                          value="CÔNG TY KỸ THUẬT"
-                        >
-                          CÔNG TY KỸ THUẬT
-                        </option>
-                        <option
-                          value="CÔNG TY CƠ KHÍ"
-                        >
-                          CÔNG TY CƠ KHÍ
-                        </option>
-                        <option
-                          value="CÔNG TY ĐẦU TƯ XÂY DỰNG"
-                        >
-                          CÔNG TY ĐẦU TƯ XÂY DỰNG
-                        </option>
-                        <option
-                          value="CÔNG TY ĐẦU TƯ PHÁT TRIỂN"
-                        >
-                          CÔNG TY ĐẦU TƯ PHÁT TRIỂN
-                        </option>
-                        <option
-                          value="CÔNG TY XÂY DỰNG"
-                        >
-                          CÔNG TY XÂY DỰNG
-                        </option>
-                        <option
-                          value="CÔNG TY ĐẦU TƯ"
-                        >
-                          CÔNG TY ĐẦU TƯ
-                        </option>
-                        <option
-                          value="CÔNG TY XUẤT NHẬP KHẨU"
-                        >
-                          CÔNG TY XUẤT NHẬP KHẨU
-                        </option>
-                        <option
-                          value="CÔNG TY LOGISTICS"
-                        >
-                          CÔNG TY LOGISTICS
-                        </option>
-                        <option
-                          value="CÔNG TY"
-                        >
-                          CÔNG TY
-                        </option>
-                        <option
-                          value="LIÊN HIỆP HỢP TÁC XÃ"
-                        >
-                          LIÊN HIỆP HỢP TÁC XÃ
-                        </option>
-                        <option
-                          value="HỢP TÁC XÃ"
-                        >
-                          HỢP TÁC XÃ
-                        </option>
-                        <option
-                          value="HTX"
-                        >
-                          HTX
-                        </option>
-                        <option
-                          value="QUỸ TÍN DỤNG NHÂN DÂN"
-                        >
-                          QUỸ TÍN DỤNG NHÂN DÂN
-                        </option>
-                        <option
-                          value="VĂN PHÒNG ĐẠI DIỆN"
-                        >
-                          VĂN PHÒNG ĐẠI DIỆN
-                        </option>
-                        <option
-                          value="ĐỊA ĐIỂM KINH DOANH"
-                        >
-                          ĐỊA ĐIỂM KINH DOANH
-                        </option>
-                        <option
-                          value="CHI NHÁNH"
-                        >
-                          CHI NHÁNH
-                        </option>
-                        <option
-                          value="NHÀ MÁY"
-                        >
-                          NHÀ MÁY
-                        </option>
-                        <option
-                          value="XƯỞNG"
-                        >
-                          XƯỞNG
-                        </option>
-                        <option
-                          value="XÍ NGHIỆP"
-                        >
-                          XÍ NGHIỆP
-                        </option>
-                        <option
-                          value="TRUNG TÂM"
-                        >
-                          TRUNG TÂM
-                        </option>
-                        <option
-                          value="CỬA HÀNG"
-                        >
-                          CỬA HÀNG
-                        </option>
-                        <option
-                          value="ĐẠI LÝ"
-                        >
-                          ĐẠI LÝ
-                        </option>
-                        <option
-                          value="NHÀ PHÂN PHỐI"
-                        >
-                          NHÀ PHÂN PHỐI
-                        </option>
-                        <option
                           value="HỘ KINH DOANH"
                         >
                           HỘ KINH DOANH
                         </option>
                         <option
-                          value="CƠ SỞ SẢN XUẤT"
+                          value="HỢP TÁC XÃ / LIÊN HIỆP HTX"
                         >
-                          CƠ SỞ SẢN XUẤT
+                          HỢP TÁC XÃ / LIÊN HIỆP HTX
                         </option>
                         <option
-                          value="CƠ SỞ KINH DOANH"
+                          value="CHI NHÁNH / VĂN PHÒNG ĐẠI DIỆN"
                         >
-                          CƠ SỞ KINH DOANH
+                          CHI NHÁNH / VĂN PHÒNG ĐẠI DIỆN
+                        </option>
+                        <option
+                          value="CƠ SỞ SẢN XUẤT / KINH DOANH"
+                        >
+                          CƠ SỞ SẢN XUẤT / KINH DOANH
+                        </option>
+                        <option
+                          value="KHÁC"
+                        >
+                          KHÁC
                         </option>
                       </select>
                     </div>

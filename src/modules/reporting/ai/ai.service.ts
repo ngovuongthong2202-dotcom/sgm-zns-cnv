@@ -36,15 +36,15 @@ export class AiService {
     const prompt = `Bạn là hệ thống chuẩn hóa dữ liệu doanh nghiệp B2B (Data Cleansing System). 
 Nhiệm vụ: Trích xuất "Loại hình doanh nghiệp" và viết tắt thông minh "Tên hiển thị" từ chuỗi tên đầy đủ để làm tên lưu trong CRM.
 Quy tắc:
-1. "loaiHinh": Trích xuất loại hình (CÔNG TY TNHH, CÔNG TY CỔ PHẦN, TẬP ĐOÀN ĐẦU TƯ, TẬP ĐOÀN, TỔNG CÔNG TY, HỘ KINH DOANH, CHI NHÁNH, DNTN, v.v.). Giữ nguyên chữ IN HOA.
-2. "tenNgan": Tên còn lại sau khi bỏ Loại hình DN. Hãy viết tắt thông minh các cụm từ hành chính phổ biến:
-- "Chi Nhánh Tỉnh / Chi Nhánh Thành phố / Chi Nhánh Tp." -> viết gọn thành "- CN"
-- Lọc bỏ "Tỉnh", "Thành phố", "Thành Phố", "Tp." ra khỏi tên (VD: "Chi nhánh Tỉnh Đồng Tháp" -> "CN Đồng Tháp", "Chi nhánh Thành phố Hồ Chí Minh" -> "CN Hồ Chí Minh").
-- "Một Thành Viên" -> "MTV"
-- "Thương Mại Và Dịch Vụ" / "Thương Mại Dịch Vụ" -> "TM&DV" hoặc "TMDV"
-- Vận dụng "Và" -> "&" nếu cần thiết.
-- Tên viết tắt chuẩn proper case (Capitalize Each Word), chỉ viết hoa toàn bộ với các từ viết tắt chuyên ngành (CN, TM, DV, XNK, HCM).
-Mục tiêu là có một cái tên dễ nhìn, gọn gàng và đầy đủ ý nghĩa kinh doanh.
+1. "loaiHinh": Trích xuất loại hình doanh nghiệp chuẩn hóa (CHỈ CHỌN 1 TRONG CÁC LOẠI HÌNH: CÔNG TY CỔ PHẦN, CÔNG TY TNHH MỘT THÀNH VIÊN, CÔNG TY TNHH HAI THÀNH VIÊN TRỞ LÊN, CÔNG TY TNHH, DOANH NGHIỆP TƯ NHÂN, CÔNG TY HỢP DANH, HỘ KINH DOANH, HỢP TÁC XÃ / LIÊN HIỆP HTX, CHI NHÁNH / VĂN PHÒNG ĐẠI DIỆN, CƠ SỞ SẢN XUẤT / KINH DOANH, KHÁC).
+2. "tenNgan": Tên còn lại sau khi bỏ Loại hình DN. BẮT BUỘC DƯỚI 30 KÝ TỰ (tối đa 29 ký tự). Hãy viết tắt thông minh các cụm từ hành chính/ngành nghề:
+- "Thương Mại Và Dịch Vụ" / "Thương Mại Dịch Vụ" -> "TM&DV"
+- "Sản Xuất Thương Mại" -> "SX-TM"
+- "Sản Xuất" -> "SX", "Xây Dựng" -> "XD", "Kỹ Thuật" -> "KT", "Xuất Nhập Khẩu" -> "XNK", "Đầu Tư" -> "ĐT", "Vận Tải" -> "VT"
+- "Chi Nhánh Tỉnh / Chi Nhánh Tp." -> "- CN"
+- Lọc bỏ "Tỉnh", "Thành phố", "Thành Phố", "Tp." ra khỏi tên nếu không cần thiết.
+- Tên viết tắt chuẩn proper case (Capitalize Each Word), chỉ viết hoa với từ viết tắt (TM, DV, SX, XD, XNK, KT, CN).
+- ĐẢM BẢO CHIỀU DÀI "tenNgan" LUÔN NHỎ HƠN 30 KÝ TỰ.
 
 Trả về chuỗi thuần JSON với cấu trúc { "loaiHinh": string, "tenNgan": string }. KHÔNG định dạng với thẻ markdown hay text nào khác.
 
@@ -70,13 +70,24 @@ Trả về chuỗi thuần JSON với cấu trúc { "loaiHinh": string, "tenNgan
         clean = clean.substring(firstBrace, lastBrace + 1);
       }
       const parsed = JSON.parse(clean);
-      return {
-        loaiHinh: typeof parsed.loaiHinh === 'string' ? parsed.loaiHinh.trim() : '',
-        tenNgan: typeof parsed.tenNgan === 'string' && parsed.tenNgan.trim() ? parsed.tenNgan.trim() : rawName
-      };
+      let loaiHinh = typeof parsed.loaiHinh === 'string' ? parsed.loaiHinh.trim() : '';
+      let tenNgan = typeof parsed.tenNgan === 'string' && parsed.tenNgan.trim() ? parsed.tenNgan.trim() : rawName;
+      
+      // Bảo đảm tenNgan dưới 30 ký tự (< 30)
+      if (tenNgan.length > 29) {
+        const truncated = tenNgan.slice(0, 29);
+        const lastSpace = truncated.lastIndexOf(' ');
+        if (lastSpace > 12) {
+          tenNgan = truncated.slice(0, lastSpace).trim();
+        } else {
+          tenNgan = truncated.trim();
+        }
+      }
+
+      return { loaiHinh, tenNgan };
     } catch (e) {
       console.warn('Failed to parse name response from Gemini, using fallback', e);
-      return { loaiHinh: "", tenNgan: rawName };
+      return { loaiHinh: "", tenNgan: rawName.length > 29 ? rawName.slice(0, 29).trim() : rawName };
     }
   }
 

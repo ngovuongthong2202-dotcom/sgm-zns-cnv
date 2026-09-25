@@ -73,9 +73,9 @@ export const getCustomerColumns = (
                 </span>
               )}
             </div>
-            {c.nguoiDaiDien && (
-              <span className="truncate block font-normal text-xs text-slate-500 leading-tight" title={normalizePersonName(c.nguoiDaiDien)}>
-                {normalizePersonName(c.nguoiDaiDien)}
+            {(c.loaiHinhDoanhNghiep || c.loaiKh) && (
+              <span className="truncate block font-normal text-2xs text-slate-500 leading-tight" title={c.loaiHinhDoanhNghiep || c.loaiKh}>
+                {c.loaiHinhDoanhNghiep || c.loaiKh}
               </span>
             )}
           </div>

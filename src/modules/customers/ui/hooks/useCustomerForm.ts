@@ -246,9 +246,12 @@ export function useCustomerForm(
              body: JSON.stringify({ rawName })
          });
          const result = await res.json();
-         if (result.success && result.loaiHinh && result.tenNgan) {
-             setValue('loaiHinhDoanhNghiep', result.loaiHinh, { shouldDirty: true });
-             setValue('tenKhachHang', result.tenNgan, { shouldDirty: true });
+         if (result.success && result.tenNgan) {
+             const detected = autoDetectBusinessName(result.loaiHinh ? `${result.loaiHinh} ${result.tenNgan}` : rawName);
+             const finalLoaiHinh = detected.loaiHinh || result.loaiHinh;
+             if (finalLoaiHinh) setValue('loaiHinhDoanhNghiep', finalLoaiHinh, { shouldDirty: true });
+             const cleanTen = result.tenNgan.length > 29 ? result.tenNgan.slice(0, 29).trim() : result.tenNgan;
+             setValue('tenKhachHang', cleanTen, { shouldDirty: true });
          } else {
              const { loaiHinh, tenNgayNgan } = autoDetectBusinessName(rawName);
              if (loaiHinh) setValue('loaiHinhDoanhNghiep', loaiHinh, { shouldDirty: true });
