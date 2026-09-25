@@ -231,6 +231,13 @@ export class BaseRepository<T> {
     if ('isRead' in rec || 'read' in rec || 'is_read' in rec) {
       payload.is_read = rec.isRead ?? rec.read ?? rec.is_read;
     }
+    if ('sdt' in rec || 'contacts' in rec) {
+      payload.sdt = rec.sdt || rec.contacts?.[0]?.sdt || null;
+    }
+    if ('tenKhachHang' in rec) payload.ten_khach_hang = rec.tenKhachHang;
+    if ('tinhThanh' in rec) payload.tinh_thanh = rec.tinhThanh;
+    if ('nguoiPhuTrach' in rec) payload.nguoi_phu_trach = rec.nguoiPhuTrach;
+    if ('loaiKh' in rec) payload.loai_kh = rec.loaiKh;
     if ('title' in rec) payload.title = rec.title;
     if ('message' in rec) payload.message = rec.message;
     if ('type' in rec) payload.type = rec.type;

@@ -261,35 +261,43 @@ export function useCustomerActions({
   }, [localCustomers, createCustomer, refresh, setLocalCustomers, setDrawerState]);
 
   const handleSendZns = useCallback(async (c: Customer) => {
-    if (!c.id || !c.sdt) return notify.error('Thiếu ID hoặc SĐT');
-    if (sendingZnsIds[c.id]) return;
+    const customerId = c.id || c.maKh;
+    const phone = (c.sdt || c.contacts?.[0]?.sdt || '').trim();
 
-    setSendingZnsIds(prev => ({ ...prev, [c.id!]: true }));
+    if (!customerId) {
+      return notify.error('Lỗi: Không tìm thấy ID của khách hàng');
+    }
+    if (!phone) {
+      return notify.error(`Khách hàng ${c.tenKhachHang || c.maKh} chưa có Số điện thoại liên hệ.`);
+    }
+    if (sendingZnsIds[customerId]) return;
+
+    setSendingZnsIds(prev => ({ ...prev, [customerId]: true }));
     try {
-      const recent = await checkRecentZnsDoc(c.id, ZnsMessageType.CUSTOMER_PRE_QUOTE);
+      const recent = await checkRecentZnsDoc(customerId, ZnsMessageType.CUSTOMER_PRE_QUOTE);
       if (recent) {
         if (!await confirm({ title: 'Cảnh báo gửi đúp', message: `Tin nhắn này đã được gửi lúc ${new Date(recent.createdAt).toLocaleTimeString()} bởi user khác. Bạn vẫn muốn gửi lại?`, confirmText: 'Vẫn gửi', cancelText: 'Hủy' })) {
-          setSendingZnsIds(prev => ({ ...prev, [c.id!]: false }));
+          setSendingZnsIds(prev => ({ ...prev, [customerId]: false }));
           return;
         }
       } else {
-        if (!await confirm({ title: 'Gửi ZNS', message: `Gửi đến ${c.tenKhachHang}?` })) {
-          setSendingZnsIds(prev => ({ ...prev, [c.id!]: false }));
+        if (!await confirm({ title: 'Gửi ZNS Khách Hàng', message: `Gửi tin ZNS đến ${c.tenKhachHang} (${phone})?` })) {
+          setSendingZnsIds(prev => ({ ...prev, [customerId]: false }));
           return;
         }
       }
       await sendZnsAndToast({
-        entityId: c.id, 
+        entityId: customerId, 
         entityType: 'CUSTOMER', 
         messageType: ZnsMessageType.CUSTOMER_PRE_QUOTE,
-        phone: c.sdt, 
-        payload: c, 
+        phone: phone, 
+        payload: { ...c, sdt: phone, phone }, 
         attemptBucket: nextAttempt(c.trangThaiGuiTinQuangCao as string | undefined)
       });
     } catch (err: unknown) {
       notify.error(`Lỗi gửi tin: ${(err instanceof Error ? err.message : String(err))}`);
     } finally {
-      setSendingZnsIds(prev => ({ ...prev, [c.id!]: false }));
+      setSendingZnsIds(prev => ({ ...prev, [customerId]: false }));
     }
   }, [sendingZnsIds, confirm]);
 

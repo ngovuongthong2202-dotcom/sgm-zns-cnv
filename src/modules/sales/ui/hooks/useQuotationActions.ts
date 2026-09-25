@@ -30,7 +30,7 @@ export function useQuotationActions(
     if (!phone && q.customerId) {
       const cData = await customerRepo.getById(q.customerId);
       if (cData) {
-        phone = cData.sdt;
+        phone = cData.sdt || cData.contacts?.[0]?.sdt;
         customerName = customerName || cData.tenKhachHang;
       }
     }
@@ -115,7 +115,7 @@ export function useQuotationActions(
 
   const handleDrawerSendZns = useCallback(async () => {
     if (!drawerQuotation?.id) return;
-    const phone = drawerQuotation.sdt || drawerCustomer?.sdt;
+    const phone = drawerQuotation.sdt || drawerCustomer?.sdt || drawerCustomer?.contacts?.[0]?.sdt;
     if (!phone) {
        notify.error('Khách hàng thiếu SĐT');
        return;

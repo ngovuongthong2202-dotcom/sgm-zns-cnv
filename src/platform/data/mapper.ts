@@ -13,10 +13,25 @@ export const mapDocument = <T>(row: Record<string, unknown> | null | undefined):
   // Exclude raw JSONB column from leaked entity fields
   const { data: _ignored, ...cleanRow } = row;
 
+  // Filter out null/undefined from cleanRow so empty physical columns in SQL don't overwrite valid JSONB data
+  const nonNullCleanRow: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(cleanRow)) {
+    if (v !== null && v !== undefined) {
+      nonNullCleanRow[k] = v;
+    }
+  }
+
+  const resolvedSdt = (cleanRow.sdt as string) || (jsonb.sdt as string) || (jsonb.phone as string) || ((jsonb.contacts as any)?.[0]?.sdt as string) || '';
+  const resolvedTenKhachHang = (cleanRow.ten_khach_hang as string) || (cleanRow.tenKhachHang as string) || (jsonb.tenKhachHang as string) || (jsonb.name as string) || '';
+  const resolvedNguoiDaiDien = (cleanRow.nguoi_dai_dien as string) || (cleanRow.nguoiDaiDien as string) || (jsonb.nguoiDaiDien as string) || ((jsonb.contacts as any)?.[0]?.nguoiDaiDien as string) || '';
+
   return {
     ...jsonb,
-    ...cleanRow,
+    ...nonNullCleanRow,
     id: (row.id as string) || (jsonb.id as string) || '',
+    sdt: resolvedSdt,
+    tenKhachHang: resolvedTenKhachHang,
+    nguoiDaiDien: resolvedNguoiDaiDien,
     customerId: (row.customer_id as string) || (row.customerId as string) || (jsonb.customerId as string) || undefined,
     quotationId: (row.quotation_id as string) || (row.quotationId as string) || (jsonb.quotationId as string) || undefined,
     contractId: (row.contract_id as string) || (row.contractId as string) || (jsonb.contractId as string) || undefined,

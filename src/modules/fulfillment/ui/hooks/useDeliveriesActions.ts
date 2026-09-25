@@ -99,7 +99,7 @@ export function useDeliveriesActions(
        const cSnap = await customerRepo.getById(del.customerId);
        if (cSnap) {
          const cData = cSnap;
-         phone = cData.sdt || (cData as any).soDienThoai;
+         phone = cData.sdt || (cData as any).soDienThoai || cData.contacts?.[0]?.sdt;
          customerName = customerName || cData.tenKhachHang;
        }
      }

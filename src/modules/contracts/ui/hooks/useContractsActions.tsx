@@ -77,7 +77,7 @@ export function useContractsActions(
     if (!phone && c.customerId) {
         const cData = await customerRepo.getById(c.customerId);
         if (cData) {
-          phone = (cData as any).soDienThoai || cData.sdt;
+          phone = (cData as any).soDienThoai || cData.sdt || cData.contacts?.[0]?.sdt;
           customerName = customerName || cData.tenKhachHang;
         }
     }

@@ -44,9 +44,13 @@ const ENTITY_REQUIRED_SNAPSHOT: Record<string, string[]> = {
 };
 
 export function preCheckEntitySnapshot(entityType: string, entity: Record<string, unknown>): { ok: boolean; missing: string[] } {
+  const resolved = { ...entity };
+  if (!resolved.sdt && Array.isArray(resolved.contacts) && resolved.contacts.length > 0 && resolved.contacts[0]?.sdt) {
+    resolved.sdt = resolved.contacts[0].sdt;
+  }
   const required = ENTITY_REQUIRED_SNAPSHOT[entityType] || [];
   const missing = required.filter((f: string) => {
-    const v = entity[f];
+    const v = resolved[f];
     return v === undefined || v === null || v === '';
   });
   return { ok: missing.length === 0, missing };

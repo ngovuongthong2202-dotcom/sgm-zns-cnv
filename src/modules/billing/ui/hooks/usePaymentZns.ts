@@ -12,7 +12,7 @@ export function usePaymentZns(confirm: (opts: import('@/src/design-system/Confir
     if (!phone && payment.customerId) {
       const cSnap = await repositoryFactory.get<any>('customers').getById(payment.customerId);
       if (cSnap) {
-        phone = cSnap.sdt || cSnap.soDienThoai;
+        phone = cSnap.sdt || cSnap.soDienThoai || cSnap.contacts?.[0]?.sdt;
         customerName = customerName || cSnap.tenKhachHang;
       }
     }
