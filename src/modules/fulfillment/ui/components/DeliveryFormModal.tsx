@@ -20,7 +20,7 @@ import {
 import { checkA5Policy } from '@/src/modules/iam';
 import { EntityLockWarning } from '@/src/widgets/EntityLockWarning';
 import { handleEnterToTab } from '@/src/shared/utils/formNavigation';
-import { normalizeDeliveryFormValues, validateDeliveryBusinessRules } from './DeliveryFormHelpers';
+import { normalizeDeliveryFormValues, validateDeliveryBusinessRules, isDeliverySourceFullyDelivered } from './DeliveryFormHelpers';
 import { useDeliveryForm } from '../hooks/useDeliveryForm';
 
 export function DeliveryFormModal({ delivery, payments, contracts, quotations, customers, deliveries, nguoiPhuTrachList, onClose, onSave }: any) {
@@ -46,7 +46,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
     populateFromPayment,
     lookupExportSale,
     isLookingUpExportSale,
-  } = useDeliveryForm(delivery, payments, contracts, quotations, customers);
+  } = useDeliveryForm(delivery, payments, contracts, quotations, customers, deliveries);
 
   // Đồng bộ hóa tức thời 100% với danh sách payments đang hiển thị ở trang Thanh toán
   const enrichedPayments = React.useMemo(() => {
@@ -124,7 +124,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
 
           // Kiểm tra nếu phiếu giao liên kết đã xác nhận hoàn tất
           const hasCompletedDelivery = linkedDeliveries.some((d: any) => 
-            (d.tinhTrangGiaoHang === 'Hoàn tất' || d.tinhTrangGiaoHang === 'HOÀN TẤT' || !!d.ngayGiaoThucTe) &&
+            (d.tinhTrangGiaoHang === 'Hoàn tất' || d.tinhTrangGiaoHang === 'HOÀN TẤT' || d.tinhTrangGiaoHang === 'Hoàn thành' || !!d.ngayGiaoThucTe) &&
             (d.products || []).length > 0
           );
           if (hasCompletedDelivery && (totalDelivered >= totalContracted || allItemsDelivered)) {
@@ -132,13 +132,15 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
           }
         }
 
+        const isFullyDeliveredCheck = _isFullyDelivered || isDeliverySourceFullyDelivered(p, deliveries, contracts, quotations);
+
         const pStatus = (p.tinhTrangThanhToan as string || '').toLowerCase().trim();
         const _isChuaTT = pStatus === 'chưa tt' || pStatus === 'chua tt' || pStatus === 'chưa thanh toán';
 
         return {
           ...p,
           _soCT: soCT,
-          _isFullyDelivered,
+          _isFullyDelivered: isFullyDeliveredCheck,
           _isChuaTT,
           _sourceObj: source || null,
           _totalContracted: totalContracted,
@@ -282,17 +284,18 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                       filterOption={(p: any) => {
                         // Loại trừ phiếu thu đã bị xóa
                         if (p.deletedAt || p.deleted_at) return false;
-                        if (p._isFullyDelivered) {
-                          const isCurrentSelected = delivery?.paymentId && (delivery.paymentId === p.id || delivery.paymentId === p.paymentId);
-                          if (!isCurrentSelected) return false;
+                        const isCurrentSelected = delivery?.paymentId && (delivery.paymentId === p.id || delivery.paymentId === p.paymentId);
+                        if (isCurrentSelected) return true;
+                        if (p._isFullyDelivered || isDeliverySourceFullyDelivered(p, deliveries, contracts, quotations)) {
+                          return false;
                         }
                         return true;
                       }}
                       isOptionDisabled={(p: any) => {
                          const gateResult = canCreateDelivery(p);
                          if (!gateResult.allowed) return { disabled: true, reason: gateResult.reason };
-                         if (p._isFullyDelivered) {
-                           return { disabled: true, reason: 'Đã giao đủ 100% số lượng' };
+                         if (p._isFullyDelivered || isDeliverySourceFullyDelivered(p, deliveries, contracts, quotations)) {
+                           return { disabled: true, reason: 'Chứng từ đã giao đủ 100% số lượng (còn phải giao = 0)' };
                          }
                          return { disabled: false };
                       }}

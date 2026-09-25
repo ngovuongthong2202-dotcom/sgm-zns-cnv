@@ -14,7 +14,7 @@ import { useDataView } from '@/src/design-system/dataview/useDataView';
 import { DataViewEngine } from '@/src/design-system/dataview/DataViewEngine';
 import { Customer, CustomerSchema } from '@/src/domain/schema/customer.schema';
 import { DataImportModal, Button } from '@/src/design-system';
-import { Upload } from 'lucide-react';
+import { Upload, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
@@ -101,8 +101,7 @@ export default function CustomersFeature() {
       canSendZns ? handleSendZns : undefined,
       undefined,
       sendingZnsIds,
-      (c) => setDrawerState({ mode: 'view', customer: c, initialTab: 'quotes' }),
-      (c) => setPrintingCustomer(c)
+      (c) => setDrawerState({ mode: 'view', customer: c, initialTab: 'quotes' })
     );
   }, [handleDeleteCustomer, handleSendZns, sendingZnsIds, setDrawerState, userData?.role]);
 
@@ -204,6 +203,19 @@ export default function CustomersFeature() {
             onRowEdit={can('update', 'customer', userData?.role) ? (row) => setDrawerState({ mode: 'edit', customer: row }) : undefined}
             onRowZns={can('send_zns', 'customer', userData?.role) ? handleSendZns : undefined}
             onRowDelete={can('delete', 'customer', userData?.role) ? handleDeleteCustomer : undefined}
+            customRowActions={(row) => (
+              <button
+                type="button"
+                title="In / Xuất PDF Hồ Sơ"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPrintingCustomer(row);
+                }}
+                className="p-1.5 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
+              >
+                <Printer className="w-3.5 h-3.5" />
+              </button>
+            )}
             fetchMore={hasMore ? loadMore : undefined}
             isFetching={loading}
             onResetAllFilters={handleResetFilters}

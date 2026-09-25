@@ -373,7 +373,7 @@ export function ContractDetailDrawer({
     <DocumentLifecycleTimeline
       currentType="contract"
       currentDoc={drawerContract}
-      relatedQuotations={drawerContract?.quotationId ? [quos.find(q => q.id === drawerContract.quotationId)].filter(Boolean) : []}
+      relatedQuotations={quotationDoc ? [quotationDoc] : []}
       relatedPayments={pays}
       relatedDeliveries={dels}
     />

@@ -190,7 +190,7 @@ export default function QuotationsFeature() {
     columns,
     data: enhancedQuotationsWithStt,
     initialState: {
-      grouping: ['customerId'],
+      grouping: [],
       sorting: [{ id: 'stt', desc: true }],
       columnVisibility: { customerId: false, ngayHetHan: false, tinhThanh: false },
     },

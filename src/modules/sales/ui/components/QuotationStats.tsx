@@ -21,27 +21,46 @@ export function QuotationStats({
       const normalizedType = normalizeLoai(type);
       const filtered = normalizedType ? quotations.filter(q => normalizeLoai(q.loai) === normalizedType) : quotations;
       
+      const getQuotationVal = (q: any): number => {
+        const prodSum = Array.isArray(q.products)
+          ? q.products.reduce((acc: number, p: any) => acc + ((Number(p.price || p.donGia) || 0) * (Number(p.quantity || p.soLuong) || 1)), 0)
+          : (Array.isArray(q.sanPham) 
+              ? q.sanPham.reduce((acc: number, p: any) => acc + ((Number(p.donGia || p.price) || 0) * (Number(p.soLuong || p.quantity) || 1)), 0)
+              : 0);
+        return Number(q.totalAmount || q.tongGiaTri || q.tongTien) || prodSum || 0;
+      };
+
+      const isQuotationChot = (q: any): boolean => {
+        const status = String(q.tinhTrangBaoGia || q.trangThai || '').toUpperCase();
+        if (status.includes('CHỐT') || status.includes('ĐÃ KÝ') || status.includes('THÀNH CÔNG') || status.includes('HOÀN TẤT')) {
+          return true;
+        }
+
+        // Kiểm tra hợp đồng liên kết
+        const hasContract = (allContracts || []).some((c: any) => 
+          (c.quotationId && (c.quotationId === q.id || c.quotationId === q.soBaoGia || c.quotationId === q.soPhieuBaoGia)) ||
+          (c.soBaoGia && (c.soBaoGia === q.soBaoGia || c.soBaoGia === q.soPhieuBaoGia || c.soBaoGia === q.id)) ||
+          (c.soPhieuBaoGia && (c.soPhieuBaoGia === q.soBaoGia || c.soPhieuBaoGia === q.soPhieuBaoGia || c.soPhieuBaoGia === q.id))
+        );
+        if (hasContract) return true;
+
+        // Kiểm tra thanh toán liên kết
+        const hasPayment = (allPayments || []).some(p => 
+          (p.quotationId && (p.quotationId === q.id || p.quotationId === q.soBaoGia || p.quotationId === q.soPhieuBaoGia)) ||
+          (p.soPhieuBaoGia && (p.soPhieuBaoGia === q.soBaoGia || p.soPhieuBaoGia === q.soPhieuBaoGia || p.soPhieuBaoGia === q.id))
+        );
+        if (hasPayment) return true;
+
+        return false;
+      };
+
       const count = filtered.length;
-      const totalValue = filtered.reduce((sum, q) => {
-        const prodList = Array.isArray(q.products) ? q.products : [];
-        return sum + (prodList.reduce((acc: number, p: import('@/src/domain/schema/product.schema').ProductItem) => acc + ((p.price || 0) * (p.quantity || 1)), 0) || 0);
-      }, 0);
+      const totalValue = filtered.reduce((sum, q) => sum + getQuotationVal(q), 0);
       
-      let totalPayment = 0;
-      filtered.forEach(q => {
-        // Find payments linked directly to quotation
-        const directPayments = allPayments.filter(p => p.quotationId === q.id);
-        totalPayment += directPayments.reduce((acc, p) => acc + (p.soTien || 0), 0);
-        
-        // Find payments linked to contracts that are linked to this quotation
-        const linkedContracts = allContracts.filter(c => c.quotationId === q.id);
-        linkedContracts.forEach(c => {
-          const contractPayments = allPayments.filter(p => p.contractId === c.id);
-          totalPayment += contractPayments.reduce((acc, p) => acc + (p.soTien || 0), 0);
-        });
-      });
+      const chotQuotations = filtered.filter(isQuotationChot);
+      const dsChot = chotQuotations.reduce((sum, q) => sum + getQuotationVal(q), 0);
       
-      const winRate = totalValue > 0 ? (totalPayment / totalValue) * 100 : 0;
+      const winRate = count > 0 ? (chotQuotations.length / count) * 100 : 0;
       
       const formatCurrency = (val: number | null | undefined) => {
          if (val === null || val === undefined || isNaN(val)) return '0 đ';
@@ -53,7 +72,7 @@ export function QuotationStats({
       return { 
         count, 
         totalValue: formatCurrency(totalValue), 
-        totalPayment: formatCurrency(totalPayment), 
+        totalPayment: formatCurrency(dsChot), 
         winRate: winRate.toFixed(1) + '%'
       };
     };

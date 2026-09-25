@@ -203,51 +203,53 @@ export const DataViewRow = React.memo(({
               })}
 
              {/* Hover Actions deck overlay */}
-             {!typedRow.getIsGrouped() && (
-               <div className="sticky right-0 flex-shrink-0 w-0 h-full z-30 pointer-events-none">
+             {!typedRow.getIsGrouped() && (onRowSelect || onRowEdit || onRowZns || onRowDelete || customRowActions) && (
+               <div className="sticky right-0 flex-shrink-0 z-30 pointer-events-none flex items-center h-full my-auto">
                  <div 
-                   className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/row:opacity-100 pointer-events-none group-hover/row:pointer-events-auto flex items-center gap-1 bg-white/95 border border-slate-200/90 rounded-[8px] p-0.5 shadow-md shadow-slate-200/40 backdrop-blur-sm transition-opacity duration-150 select-none"
+                   className="mr-3 opacity-0 group-hover/row:opacity-100 pointer-events-none group-hover/row:pointer-events-auto flex items-center gap-1 bg-white/95 border border-slate-200/90 rounded-[8px] p-0.5 shadow-md shadow-slate-200/40 backdrop-blur-sm transition-opacity duration-150 select-none"
                    onClick={(e) => e.stopPropagation()}
                  >
-                   <Button 
-                   type="button"
-                   title="Xem chi tiết" 
-                   onClick={(e) => { e.stopPropagation(); onRowSelect?.(typedRow.original); }} 
-                   className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
-                 >
-                   <Eye className="w-3.5 h-3.5" />
-                 </Button>
-                 {onRowEdit && (
-                   <Button 
-                     type="button"
-                     title="Chỉnh sửa" 
-                     onClick={(e) => { e.stopPropagation(); onRowEdit?.(typedRow.original); }} 
-                     className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
-                   >
-                     <Pencil className="w-3.5 h-3.5" />
-                   </Button>
-                 )}
-                 {onRowZns && (
-                   <Button 
-                     type="button"
-                     title="Gửi tin ZNS" 
-                     onClick={(e) => { e.stopPropagation(); onRowZns?.(typedRow.original); }} 
-                     className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
-                   >
-                     <Send className="w-3.5 h-3.5" />
-                   </Button>
-                 )}
-                 {onRowDelete && (
-                   <Button 
-                     type="button"
-                     title="Xoá" 
-                     onClick={(e) => { e.stopPropagation(); onRowDelete?.(typedRow.original); }} 
-                     className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
-                   >
-                     <Trash2 className="w-3.5 h-3.5" />
-                   </Button>
-                 )}
-                 {customRowActions && customRowActions(typedRow.original)}
+                   {onRowSelect && (
+                     <Button 
+                       type="button"
+                       title="Xem chi tiết" 
+                       onClick={(e) => { e.stopPropagation(); onRowSelect?.(typedRow.original); }} 
+                       className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
+                     >
+                       <Eye className="w-3.5 h-3.5" />
+                     </Button>
+                   )}
+                   {onRowEdit && (
+                     <Button 
+                       type="button"
+                       title="Chỉnh sửa" 
+                       onClick={(e) => { e.stopPropagation(); onRowEdit?.(typedRow.original); }} 
+                       className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
+                     >
+                       <Pencil className="w-3.5 h-3.5" />
+                     </Button>
+                   )}
+                   {onRowZns && (
+                     <Button 
+                       type="button"
+                       title="Gửi tin ZNS" 
+                       onClick={(e) => { e.stopPropagation(); onRowZns?.(typedRow.original); }} 
+                       className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
+                     >
+                       <Send className="w-3.5 h-3.5" />
+                     </Button>
+                   )}
+                   {onRowDelete && (
+                     <Button 
+                       type="button"
+                       title="Xoá" 
+                       onClick={(e) => { e.stopPropagation(); onRowDelete?.(typedRow.original); }} 
+                       className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
+                     >
+                       <Trash2 className="w-3.5 h-3.5" />
+                     </Button>
+                   )}
+                   {customRowActions && customRowActions(typedRow.original)}
                  </div>
                </div>
              )}

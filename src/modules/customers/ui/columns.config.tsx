@@ -210,31 +210,5 @@ export const getCustomerColumns = (
          </span>
        </div>
     )
-  },
-  {
-    id: 'actions',
-    header: '',
-    size: 45,
-    enableResizing: false,
-    cell: (info) => {
-      const c = info.row.original;
-      if (!onPrintReport) return null;
-      return (
-        <div className="flex items-center justify-center">
-          <button
-            type="button"
-            aria-label="In / Xuất PDF Hồ Sơ"
-            onClick={(e) => {
-              e.stopPropagation();
-              onPrintReport(c);
-            }}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
-            title="In / Xuất PDF Hồ Sơ Khách Hàng (3 trang chuẩn)"
-          >
-            <Printer size={13} />
-          </button>
-        </div>
-      );
-    }
   }
 ];

@@ -167,7 +167,7 @@ export default function ContractsFeature() {
     columns,
     data: filteredContractsWithStt,
     initialState: {
-      grouping: ['customerId'],
+      grouping: [],
       sorting: [{ id: 'stt', desc: true }],
       columnVisibility: { 
         customerId: false, 

@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
+import useSWR from 'swr';
+import { swrColFetcher } from '@/src/data/swr-fetchers';
 import { Customer } from '@/src/domain/schema/customer.schema';
-import { Printer, X, Download, ShieldCheck, CheckCircle2, AlertTriangle, FileText, ChevronRight } from 'lucide-react';
+import { Printer, X, Download, ShieldCheck, CheckCircle2, AlertTriangle, FileText, ChevronRight, PackageCheck, Layers } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 
 interface CustomerReportModalProps {
@@ -17,12 +19,52 @@ export function CustomerReportModal({
   isOpen,
   onClose,
   customer,
-  quotations = [],
-  contracts = [],
-  payments = [],
-  deliveries = [],
+  quotations: propsQuotations,
+  contracts: propsContracts,
+  payments: propsPayments,
+  deliveries: propsDeliveries,
 }: CustomerReportModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
+
+  const customerId = customer?.id || '';
+
+  // Tự động tải đầy đủ danh mục dữ liệu của khách hàng nếu prop chưa được truyền vào
+  const { data: fetchedQuotations = [] } = useSWR<any[]>(
+    isOpen && customerId && (!propsQuotations || propsQuotations.length === 0)
+      ? `quotations:500:customerId:${customerId}`
+      : null,
+    swrColFetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const { data: fetchedContracts = [] } = useSWR<any[]>(
+    isOpen && customerId && (!propsContracts || propsContracts.length === 0)
+      ? `contracts:500:customerId:${customerId}`
+      : null,
+    swrColFetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const { data: fetchedPayments = [] } = useSWR<any[]>(
+    isOpen && customerId && (!propsPayments || propsPayments.length === 0)
+      ? `payments:500:customerId:${customerId}`
+      : null,
+    swrColFetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const { data: fetchedDeliveries = [] } = useSWR<any[]>(
+    isOpen && customerId && (!propsDeliveries || propsDeliveries.length === 0)
+      ? `deliveries:500:customerId:${customerId}`
+      : null,
+    swrColFetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const quotations = (propsQuotations && propsQuotations.length > 0) ? propsQuotations : fetchedQuotations;
+  const contracts = (propsContracts && propsContracts.length > 0) ? propsContracts : fetchedContracts;
+  const payments = (propsPayments && propsPayments.length > 0) ? propsPayments : fetchedPayments;
+  const deliveries = (propsDeliveries && propsDeliveries.length > 0) ? propsDeliveries : fetchedDeliveries;
 
   if (!isOpen) return null;
 
@@ -47,12 +89,123 @@ export function CustomerReportModal({
 
   const todayStr = formatDate(new Date().toISOString());
 
-  // Aggregate metrics
-  const totalPaid = payments.reduce((sum, p) => sum + (Number(p.soTienThanhToan || p.amount || 0) || 0), 0);
-  const totalQuotesVal = quotations.reduce((sum, q) => sum + (Number(q.tongGiaTri || q.totalAmount || 0) || 0), 0);
+  // Build items for transactions list across ALL quotations of the customer
+  const transactionItems: any[] = [];
+
+  quotations.forEach((q, idx) => {
+    const linkedContract = contracts.find(c => 
+      (c.quotationId && (c.quotationId === q.id || c.quotationId === q.soBaoGia || c.quotationId === q.soPhieuBaoGia)) ||
+      (c.soBaoGia && (c.soBaoGia === q.soBaoGia || c.soBaoGia === q.soPhieuBaoGia)) ||
+      (c.soPhieuBaoGia && (c.soPhieuBaoGia === q.soPhieuBaoGia || c.soPhieuBaoGia === q.soBaoGia)) ||
+      (q.contractId && c.id === q.contractId)
+    );
+
+    const linkedPayments = payments.filter(p => 
+      (p.quotationId && (p.quotationId === q.id || p.quotationId === q.soBaoGia || p.quotationId === q.soPhieuBaoGia)) ||
+      (linkedContract && p.contractId && p.contractId === linkedContract.id) ||
+      (linkedContract && linkedContract.soHopDong && p.soHopDong === linkedContract.soHopDong) ||
+      (p.soPhieuBaoGia && (p.soPhieuBaoGia === q.soPhieuBaoGia || p.soPhieuBaoGia === q.soBaoGia))
+    );
+    const linkedPayment = linkedPayments[0];
+    const paidAmount = linkedPayments.reduce((s, p) => s + Number(p.soTienThanhToan || p.amount || p.soTien || 0), 0);
+
+    const linkedDeliveries = deliveries.filter(d => 
+      (d.quotationId && (d.quotationId === q.id || d.quotationId === q.soBaoGia || d.quotationId === q.soPhieuBaoGia)) ||
+      (linkedContract && d.contractId && d.contractId === linkedContract.id) ||
+      (linkedContract && linkedContract.soHopDong && d.soHopDong === linkedContract.soHopDong) ||
+      (linkedPayment && d.paymentId && d.paymentId === linkedPayment.id) ||
+      (d.soPhieuBaoGia && (d.soPhieuBaoGia === q.soPhieuBaoGia || d.soPhieuBaoGia === q.soBaoGia))
+    );
+    const linkedDelivery = linkedDeliveries[0];
+
+    const prods = (Array.isArray(q.sanPham) && q.sanPham.length > 0 ? q.sanPham : null)
+      || (Array.isArray(q.products) && q.products.length > 0 ? q.products : null)
+      || (Array.isArray(q.items) && q.items.length > 0 ? q.items : null)
+      || [];
+
+    const totalItemQty = prods.reduce((sum: number, p: any) => sum + Number(p.soLuong || p.quantity || 1), 0) || 1;
+    const rawVal = prods.reduce((sum: number, p: any) => sum + (Number(p.soLuong || p.quantity || 1) * Number(p.donGia || p.price || 0)), 0);
+    const totalVal = Number(q.tongGiaTri || q.totalAmount || q.tongTien || rawVal || 0);
+    const diff = Math.max(0, totalVal - rawVal);
+
+    // Tiêu đề & diễn giải sản phẩm
+    let title = '';
+    let detailName = '';
+    if (prods.length === 1) {
+      const p0 = prods[0];
+      const p0Name = p0.tenSanPham || p0.productName || p0.name || 'Sản phẩm cơ khí';
+      const p0Qty = p0.soLuong || p0.quantity || 1;
+      const p0Unit = p0.donViTinh || p0.unit || 'máy';
+      title = `${p0Name} · ${String(p0Qty).padStart(2, '0')} ${p0Unit}`;
+      detailName = p0.moTa || `${p0Name} (Chi tiết kỹ thuật SGM)`;
+    } else if (prods.length > 1) {
+      const p0Name = prods[0].tenSanPham || prods[0].productName || prods[0].name || 'Sản phẩm';
+      title = `${p0Name} (+${prods.length - 1} SP khác) · Tổng ${totalItemQty} SP`;
+      detailName = prods.map((p: any) => `${p.tenSanPham || p.productName || p.name} (${p.soLuong || p.quantity || 1} ${p.donViTinh || p.unit || 'SP'})`).join(', ');
+    } else {
+      title = q.tieuDe || q.tenBaoGia || `Báo giá #${q.soPhieuBaoGia || q.soBaoGia || idx + 1}`;
+      detailName = q.ghiChu || 'Theo danh mục báo giá';
+    }
+
+    // Đếm số lượng đã bàn giao
+    const deliveredCount = linkedDeliveries.reduce((sum: number, d: any) => {
+      const dItems = d.products || d.sanPham || [];
+      if (dItems.length > 0) {
+        return sum + dItems.reduce((s: number, it: any) => s + Number(it.quantity || it.soLuong || 0), 0);
+      }
+      return sum + Number(d.slMay || 0);
+    }, 0);
+
+    const isFullyDelivered = (deliveredCount >= totalItemQty && totalItemQty > 0) || 
+      linkedDeliveries.some(d => d.tinhTrangGiaoHang === 'Hoàn tất' || d.tinhTrangGiaoHang === 'HOÀN TẤT' || d.tinhTrangGiaoHang === 'Hoàn thành');
+
+    transactionItems.push({
+      index: idx + 1,
+      title,
+      detailName,
+      prods,
+      qty: `${String(totalItemQty).padStart(2, '0')} SP`,
+      totalItemQty,
+      price: prods.length === 1 ? (prods[0].donGia || prods[0].price || totalVal) : Math.round(totalVal / totalItemQty),
+      rawTotal: rawVal,
+      diff,
+      total: totalVal,
+      quoteCode: q.soPhieuBaoGia || q.soBaoGia || q.code || `BG-${String(idx + 1).padStart(3, '0')}`,
+      quoteDate: formatDate(q.ngayBaoGia || q.createdAt || q.ngayTao),
+      quoteStatus: q.trangThai || 'Mới',
+      hasContract: !!linkedContract,
+      contractCode: linkedContract?.soHopDong || '—',
+      contractDate: linkedContract ? formatDate(linkedContract.ngayKy || linkedContract.createdAt) : '—',
+      contractStatus: linkedContract ? (linkedContract.trangThai || 'Đã ký') : 'Không qua HĐ',
+      paymentCode: linkedPayment?.paymentId || linkedPayment?.soPhieuThu || (paidAmount > 0 ? `Đã thu ${formatMoney(paidAmount)} đ` : 'Chưa thu'),
+      paymentDate: linkedPayment ? formatDate(linkedPayment.ngayThanhToan || linkedPayment.createdAt) : '—',
+      paymentStatus: paidAmount >= totalVal && totalVal > 0 ? 'Đã thu đủ' : (paidAmount > 0 ? `Đã thu ${formatMoney(paidAmount)} đ` : (linkedPayment?.trangThai || 'Chưa thanh toán')),
+      paymentPaid: paidAmount,
+      paymentMethod: linkedPayment?.phuongThucThanhToan || 'Chuyển khoản',
+      deliveryCode: linkedDelivery?.deliveryId || linkedDelivery?.soHieuGiaoHang || (isFullyDelivered ? 'Đã giao' : 'Chưa giao'),
+      deliveryDate: linkedDelivery ? formatDate(linkedDelivery.ngayGiaoThucTe || linkedDelivery.ngayLapPhieu) : 'Chưa thể hiện',
+      deliveryStatus: isFullyDelivered ? `Hoàn thành · ${totalItemQty} SP` : (deliveredCount > 0 ? `Đã giao ${deliveredCount}/${totalItemQty} SP` : 'Chưa giao'),
+      deliveryDeliveredCount: deliveredCount,
+      deliveryStatusText: isFullyDelivered ? 'Hoàn thành' : (deliveredCount > 0 ? `Đã giao ${deliveredCount}/${totalItemQty}` : 'Chưa giao'),
+      orderPo: linkedContract?.soDonHangPo || linkedContract?.soDonHang || q.soDonHang || '—',
+      orderPoDue: linkedContract?.hanThanhToan ? formatDate(linkedContract.hanThanhToan) : '—',
+      exportCode: linkedDelivery?.soPhieuXuat || '—',
+      noteQuote: q.ghiChu || '—',
+      noteDelivery: linkedDelivery?.ghiChuVanChuyen || '—',
+    });
+  });
+
+  // Aggregate metrics tổng hợp của TẤT CẢ báo giá của khách hàng
+  const totalPaid = payments.reduce((sum, p) => sum + (Number(p.soTienThanhToan || p.amount || p.soTien || 0) || 0), 0);
+  const totalQuotesVal = quotations.reduce((sum, q) => sum + (Number(q.tongGiaTri || q.totalAmount || q.tongTien || 0) || 0), 0);
   const totalContractsVal = contracts.reduce((sum, c) => sum + (Number(c.giaTriHopDong || c.totalAmount || 0) || 0), 0);
-  const ltv = customer.ltv || (totalContractsVal > 0 ? totalContractsVal : totalQuotesVal) || totalPaid;
+  const ltv = totalQuotesVal > 0 ? totalQuotesVal : (totalContractsVal > 0 ? totalContractsVal : (customer.ltv || totalPaid));
   const debt = Math.max(0, ltv - totalPaid);
+
+  const totalRequiredAll = transactionItems.reduce((s, it) => s + (it.totalItemQty || 0), 0);
+  const totalRawAll = transactionItems.reduce((s, it) => s + (it.rawTotal || 0), 0);
+  const totalDiffAll = transactionItems.reduce((s, it) => s + (it.diff || 0), 0);
+  const totalDeliveredAll = transactionItems.reduce((s, it) => s + (it.deliveryDeliveredCount || 0), 0);
 
   const healthScore = typeof customer.computedHealthScore === 'number' 
     ? customer.computedHealthScore 
@@ -61,117 +214,6 @@ export function CustomerReportModal({
   const handlePrint = () => {
     window.print();
   };
-
-  // Build items for transactions list
-  const transactionItems: any[] = [];
-  if (quotations.length > 0) {
-    quotations.forEach((q, idx) => {
-      const linkedContract = contracts.find(c => c.quotationId === q.id || c.soBaoGia === q.soBaoGia);
-      const linkedPayment = payments.find(p => p.quotationId === q.id || (linkedContract && p.contractId === linkedContract.id));
-      const linkedDelivery = deliveries.find(d => d.quotationId === q.id || (linkedContract && d.contractId === linkedContract.id) || (linkedPayment && d.paymentId === linkedPayment.id));
-      
-      const firstProduct = (q.sanPham || q.items || [])[0] || {};
-      const prodName = firstProduct.tenSanPham || firstProduct.name || (idx === 0 ? 'Bộ phốt ben' : 'Đầu bơm dầu');
-      const prodQty = firstProduct.soLuong || firstProduct.quantity || (idx === 0 ? 2 : 1);
-      const prodUnit = firstProduct.donViTinh || firstProduct.unit || (idx === 0 ? 'bộ' : 'cái');
-      const prodPrice = firstProduct.donGia || firstProduct.price || (idx === 0 ? 650000 : 3100000);
-      const rawVal = prodQty * prodPrice;
-      const totalVal = Number(q.tongGiaTri || q.totalAmount || (idx === 0 ? 1404000 : 3410000));
-      const diff = Math.max(0, totalVal - rawVal);
-
-      transactionItems.push({
-        index: idx + 1,
-        title: `${prodName} · ${String(prodQty).padStart(2, '0')} ${prodUnit}`,
-        detailName: `${prodName} (Chi tiết kỹ thuật SGM)`,
-        qty: `${String(prodQty).padStart(2, '0')} ${prodUnit}`,
-        price: prodPrice,
-        rawTotal: rawVal,
-        diff: diff,
-        total: totalVal,
-        quoteCode: q.soBaoGia || q.code || `11-BG2609-${String(idx + 14).padStart(3, '0')}`,
-        quoteDate: formatDate(q.ngayBaoGia || q.createdAt),
-        quoteStatus: q.trangThai || 'Mới',
-        hasContract: !!linkedContract,
-        contractCode: linkedContract?.soHopDong || (idx === 0 ? 'HD-2026-4550' : '—'),
-        contractDate: linkedContract ? formatDate(linkedContract.ngayKy || linkedContract.createdAt) : (idx === 0 ? '25/09/2026' : '—'),
-        contractStatus: linkedContract ? (linkedContract.trangThai || 'Đã ký') : (idx === 0 ? 'Đã ký' : 'Không qua HĐ'),
-        paymentCode: linkedPayment?.paymentId || linkedPayment?.soPhieuThu || (idx === 0 ? 'PT-2026-2259' : 'PT-2026-6805 [1]'),
-        paymentDate: linkedPayment ? formatDate(linkedPayment.ngayThanhToan || linkedPayment.createdAt) : '25/09/2026',
-        paymentStatus: linkedPayment?.trangThai || 'Tất toán',
-        paymentMethod: linkedPayment?.phuongThucThanhToan || 'Chuyển khoản',
-        deliveryCode: linkedDelivery?.soHieuGiaoHang || (idx === 0 ? 'PGH-2026-5500' : 'Chưa thể hiện'),
-        deliveryDate: linkedDelivery ? formatDate(linkedDelivery.ngayGiaoThucTe || linkedDelivery.ngayLapPhieu) : (idx === 0 ? '25/09/2026' : 'Chưa thể hiện'),
-        deliveryStatus: linkedDelivery ? `Hoàn thành · ${String(prodQty).padStart(2, '0')} ${prodUnit}` : (idx === 0 ? `Hoàn thành · 02 bộ` : 'Cần xác minh'),
-        orderPo: linkedContract?.soDonHangPo || (idx === 0 ? 'DH001-26' : '—'),
-        orderPoDue: idx === 0 ? '25/10/2026 (30 ngày)' : '—',
-        exportCode: linkedDelivery?.soPhieuXuat || (idx === 0 ? 'PXBH002-26' : '—'),
-        noteQuote: q.ghiChu || 'báo giá',
-        noteDelivery: linkedDelivery?.ghiChuVanChuyen || (idx === 0 ? '123123123' : '—'),
-      });
-    });
-  } else {
-    // Default fallback sample items matching the real PDF
-    transactionItems.push(
-      {
-        index: 1,
-        title: 'Bộ phốt ben · 02 bộ',
-        detailName: 'Bộ phốt ben KR B100 ×200 (Ty 50) Chín Lộc',
-        qty: '02 bộ',
-        price: 650000,
-        rawTotal: 1300000,
-        diff: 104000,
-        total: 1404000,
-        quoteCode: '11-BG2609-014',
-        quoteDate: '15/09/2026',
-        quoteStatus: 'Mới',
-        hasContract: true,
-        contractCode: 'HD-2026-4550',
-        contractDate: '25/09/2026',
-        contractStatus: 'Đã ký',
-        paymentCode: 'PT-2026-2259',
-        paymentDate: '25/09/2026',
-        paymentStatus: 'Tất toán',
-        paymentMethod: 'Chuyển khoản',
-        deliveryCode: 'PGH-2026-5500',
-        deliveryDate: '25/09/2026',
-        deliveryStatus: 'Hoàn thành · 02 bộ',
-        orderPo: 'DH001-26',
-        orderPoDue: '25/10/2026 (30 ngày)',
-        exportCode: 'PXBH002-26',
-        noteQuote: 'báo giá',
-        noteDelivery: '123123123',
-      },
-      {
-        index: 2,
-        title: 'Đầu bơm dầu · 01 cái',
-        detailName: 'Đầu bơm dầu Eternal TW PV2R1 -31F1',
-        qty: '01 cái',
-        price: 3100000,
-        rawTotal: 3100000,
-        diff: 310000,
-        total: 3410000,
-        quoteCode: '11-BG2609-025',
-        quoteDate: '25/09/2026',
-        quoteStatus: 'Mới',
-        hasContract: false,
-        contractCode: '—',
-        contractDate: '—',
-        contractStatus: 'Không qua HĐ',
-        paymentCode: 'PT-2026-6805 [1]',
-        paymentDate: '25/09/2026',
-        paymentStatus: 'Tất toán',
-        paymentMethod: 'Chuyển khoản',
-        deliveryCode: 'Chưa thể hiện',
-        deliveryDate: 'Chưa thể hiện',
-        deliveryStatus: 'Cần xác minh',
-        orderPo: '—',
-        orderPoDue: '—',
-        exportCode: '—',
-        noteQuote: 'Báo giá đầu bơm cho MCT1T - SGM0118/20 GM:13/10/20',
-        noteDelivery: '—',
-      }
-    );
-  }
 
   return (
     <div className="fixed inset-0 z-[999] bg-slate-900/70 backdrop-blur-sm flex flex-col items-center justify-between p-2 md:p-6 overflow-hidden animate-in fade-in duration-200">
@@ -265,10 +307,10 @@ export function CustomerReportModal({
               <div className="grid grid-cols-3 gap-3 border-t-2 border-emerald-600 pt-4 pb-4 mb-3">
                 <div className="bg-slate-50/70 p-3 rounded border border-slate-200/80">
                   <div className="text-3xs uppercase font-bold text-slate-500 mb-1">GIÁ TRỊ KHÁCH HÀNG</div>
-                  <div className="text-xl font-black text-slate-950 tracking-tight font-mono">
-                    {formatMoney(ltv)} <span className="text-xs font-normal">đ</span>
+                  <div className="text-xl font-black text-blue-900 tracking-tight font-mono">
+                    {formatMoney(totalQuotesVal || ltv)} <span className="text-xs font-normal">đ</span>
                   </div>
-                  <div className="text-3xs text-slate-400 mt-1">LTV theo hệ thống</div>
+                  <div className="text-3xs text-slate-500 mt-1 font-medium">Tổng {transactionItems.length} báo giá theo hệ thống</div>
                 </div>
 
                 <div className="bg-slate-50/70 p-3 rounded border border-slate-200/80">
@@ -284,13 +326,13 @@ export function CustomerReportModal({
                   <div className="text-xl font-black text-slate-950 tracking-tight font-mono">
                     {formatMoney(debt)} <span className="text-xs font-normal">đ</span>
                   </div>
-                  <div className="text-3xs text-slate-400 mt-1">Theo màn hình tổng quan</div>
+                  <div className="text-3xs text-slate-400 mt-1">Còn phải thu theo hệ thống</div>
                 </div>
               </div>
 
               {/* Summary Documents Counter Line */}
               <div className="text-center py-2 text-2xs font-semibold text-slate-600 bg-slate-100/70 rounded mb-6 border border-slate-200/60">
-                {String(quotations.length).padStart(2, '0')} báo giá &nbsp;/&nbsp; 
+                {String(transactionItems.length).padStart(2, '0')} báo giá &nbsp;/&nbsp; 
                 {String(contracts.length).padStart(2, '0')} hợp đồng &nbsp;/&nbsp; 
                 {String(payments.length).padStart(2, '0')} phiếu thanh toán &nbsp;/&nbsp; 
                 {String(deliveries.length).padStart(2, '0')} phiếu giao hàng
@@ -339,10 +381,13 @@ export function CustomerReportModal({
 
               {/* 02. Tình hình từng giao dịch */}
               <div className="mb-6">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-2">
-                  <span className="text-emerald-700 font-mono">02</span>
-                  <span>Tình hình từng giao dịch</span>
-                </h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <span className="text-emerald-700 font-mono">02</span>
+                    <span>Tình hình từng giao dịch / Báo giá ({transactionItems.length} Báo Giá)</span>
+                  </h3>
+                  <span className="text-3xs font-semibold text-slate-500">Đối chiếu thanh toán & giao nhận toàn bộ</span>
+                </div>
                 <table className="w-full text-left text-2xs border-collapse border border-slate-200">
                   <thead>
                     <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
@@ -353,29 +398,57 @@ export function CustomerReportModal({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {transactionItems.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/50">
-                        <td className="py-2 px-3">
-                          <div className="font-bold text-slate-900">{item.title}</div>
-                          <div className="font-mono text-3xs text-slate-500">{item.quoteCode}</div>
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
-                          {formatMoney(item.total)}
-                        </td>
-                        <td className="py-2 px-3">
-                          <span className="font-semibold text-emerald-700">Đã thu đủ {item.index === 2 ? '[1]' : ''}</span>
-                        </td>
-                        <td className="py-2 px-3">
-                          <span className={item.index === 1 ? 'font-semibold text-emerald-700' : 'text-slate-400'}>
-                            {item.index === 1 ? 'Hoàn thành' : 'Chưa thể hiện'}
-                          </span>
+                    {transactionItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-4 px-3 text-center text-slate-400 italic">
+                          Chưa có báo giá nào được tạo cho khách hàng này trên hệ thống.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      transactionItems.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="py-2 px-3">
+                            <div className="font-bold text-slate-900">{item.title}</div>
+                            <div className="font-mono text-3xs text-slate-500">{item.quoteCode} · {item.quoteDate}</div>
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
+                            {formatMoney(item.total)}
+                          </td>
+                          <td className="py-2 px-3">
+                            <span className={`font-semibold ${item.paymentPaid >= item.total && item.total > 0 ? 'text-emerald-700' : (item.paymentPaid > 0 ? 'text-amber-700' : 'text-slate-500')}`}>
+                              {item.paymentStatus}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3">
+                            <span className={`font-semibold ${item.deliveryDeliveredCount >= item.totalItemQty && item.totalItemQty > 0 ? 'text-emerald-700' : (item.deliveryDeliveredCount > 0 ? 'text-amber-700' : 'text-slate-400')}`}>
+                              {item.deliveryStatusText}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
+                  {transactionItems.length > 0 && (
+                    <tfoot>
+                      <tr className="bg-slate-100/90 font-black text-slate-950 border-t-2 border-slate-300">
+                        <td className="py-2.5 px-3 uppercase tracking-wider text-2xs">
+                          TỔNG TẤT CẢ BÁO GIÁ ({transactionItems.length} Báo Giá)
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-xs text-blue-900 font-black">
+                          {formatMoney(totalQuotesVal)}
+                        </td>
+                        <td className="py-2.5 px-3 text-emerald-800 font-mono text-2xs font-bold">
+                          Đã thu: {formatMoney(totalPaid)} đ
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-700 font-mono text-2xs font-bold">
+                          {totalDeliveredAll} / {totalRequiredAll} SP đã giao
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
                 <div className="text-3xs text-slate-500 mt-1.5 italic">
-                  [1] Phiếu PT-2026-6805 được ghép theo sản phẩm và số tiền; cần xác nhận mã báo giá liên kết. Chi tiết từng giao dịch tại trang 2.
+                  * Số liệu tổng hợp đối chiếu toàn bộ các báo giá, hợp đồng, phiếu thanh toán và giao hàng của khách hàng. Chi tiết từng giao dịch tại trang 2.
                 </div>
               </div>
 
@@ -440,110 +513,181 @@ export function CustomerReportModal({
               </div>
 
               {/* Title Section */}
-              <div className="mb-5">
-                <span className="text-3xs uppercase tracking-widest text-slate-400 font-bold block mb-1">
-                  MỖI GIAO DỊCH THEO MỘT CHUỖI CHỨNG TỪ
+              <div className="mb-4">
+                <span className="text-3xs uppercase tracking-widest text-slate-400 font-bold block mb-0.5">
+                  TỔNG HỢP TOÀN BỘ BÁO GIÁ & CHUỖI CHỨNG TỪ LIÊN KẾT
                 </span>
                 <h1 className="text-xl font-black tracking-tight text-slate-950">
-                  Chi tiết theo giao dịch
+                  Tổng hợp tất cả báo giá và chi tiết từng giao dịch
                 </h1>
               </div>
 
-              {/* List of Transactions */}
-              <div className="space-y-6">
-                {transactionItems.map((item, idx) => (
-                  <div key={idx} className="border border-slate-200 rounded p-4 bg-white space-y-3">
-                    {/* Header item */}
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <div>
-                        <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                          <span className="text-emerald-700 font-mono">{String(item.index).padStart(2, '0')}</span>
-                          <span>{item.title}</span>
-                        </h3>
-                        <p className="text-3xs text-slate-400">
-                          {item.hasContract ? 'Qua hợp đồng · Nhóm báo giá máy theo hệ thống' : 'Vật tư và dịch vụ · Không qua hợp đồng'}
-                        </p>
-                      </div>
-                      <span className="text-2xs font-semibold text-slate-600">{item.detailName}</span>
-                    </div>
-
-                    {/* Quantity & Financial Summary Row */}
-                    <div className="grid grid-cols-5 gap-2 text-center bg-slate-50 p-2.5 rounded border border-slate-200/80 text-2xs">
-                      <div>
-                        <span className="text-3xs text-slate-400 block uppercase">Số lượng</span>
-                        <span className="font-bold text-slate-800 font-mono">{item.qty}</span>
-                      </div>
-                      <div>
-                        <span className="text-3xs text-slate-400 block uppercase">Đơn giá</span>
-                        <span className="font-bold text-slate-800 font-mono">{formatMoney(item.price)}</span>
-                      </div>
-                      <div>
-                        <span className="text-3xs text-slate-400 block uppercase">Tiền hàng</span>
-                        <span className="font-bold text-slate-800 font-mono">{formatMoney(item.rawTotal)}</span>
-                      </div>
-                      <div>
-                        <span className="text-3xs text-slate-400 block uppercase">Chênh lệch [3]</span>
-                        <span className="font-bold text-slate-800 font-mono">{formatMoney(item.diff)}</span>
-                      </div>
-                      <div>
-                        <span className="text-3xs text-slate-400 block uppercase">Tổng giá trị</span>
-                        <span className="font-black text-slate-950 font-mono">{formatMoney(item.total)}</span>
-                      </div>
-                    </div>
-
-                    {/* Bước nghiệp vụ Table */}
-                    <table className="w-full text-left text-2xs border-collapse border border-slate-200 mt-2">
-                      <thead>
-                        <tr className="bg-slate-100/80 text-slate-700 font-bold border-b border-slate-200">
-                          <th className="py-1.5 px-3">Bước nghiệp vụ</th>
-                          <th className="py-1.5 px-3">Mã chứng từ</th>
-                          <th className="py-1.5 px-3">Ngày chứng từ</th>
-                          <th className="py-1.5 px-3">Trạng thái gốc</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        <tr>
-                          <td className="py-1.5 px-3 font-semibold text-slate-700">Báo giá</td>
-                          <td className="py-1.5 px-3 font-mono font-bold text-slate-900">{item.quoteCode}</td>
-                          <td className="py-1.5 px-3 text-slate-600">{item.quoteDate} {item.index === 1 ? '[2]' : ''}</td>
-                          <td className="py-1.5 px-3 text-emerald-700 font-semibold">{item.quoteStatus}</td>
-                        </tr>
-                        {item.hasContract && (
-                          <tr>
-                            <td className="py-1.5 px-3 font-semibold text-slate-700">Hợp đồng</td>
-                            <td className="py-1.5 px-3 font-mono font-bold text-slate-900">{item.contractCode}</td>
-                            <td className="py-1.5 px-3 text-slate-600">{item.contractDate}</td>
-                            <td className="py-1.5 px-3 text-emerald-700 font-semibold">{item.contractStatus}</td>
-                          </tr>
-                        )}
-                        <tr>
-                          <td className="py-1.5 px-3 font-semibold text-slate-700">Thanh toán</td>
-                          <td className="py-1.5 px-3 font-mono font-bold text-slate-900">{item.paymentCode}</td>
-                          <td className="py-1.5 px-3 text-slate-600">{item.paymentDate}</td>
-                          <td className="py-1.5 px-3 text-emerald-700 font-semibold">{item.paymentStatus}</td>
-                        </tr>
-                        <tr>
-                          <td className="py-1.5 px-3 font-semibold text-slate-700">Giao hàng</td>
-                          <td className="py-1.5 px-3 font-mono font-bold text-slate-900">{item.deliveryCode}</td>
-                          <td className="py-1.5 px-3 text-slate-600">{item.deliveryDate}</td>
-                          <td className="py-1.5 px-3 text-slate-700">{item.deliveryStatus}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    {/* Meta specifics */}
-                    <div className="grid grid-cols-2 gap-2 text-3xs text-slate-600 bg-slate-50/50 p-2 rounded border border-slate-100">
-                      <div>Đơn hàng: <span className="font-mono font-semibold text-slate-800">{item.orderPo}</span></div>
-                      <div>Dự kiến hoàn thành: <span className="font-semibold text-slate-800">{item.orderPoDue}</span></div>
-                      <div>Phiếu xuất: <span className="font-mono font-semibold text-slate-800">{item.exportCode}</span></div>
-                      <div>Thanh toán: <span className="font-mono font-semibold text-slate-800">{formatMoney(item.total)} đ · {item.paymentMethod}</span></div>
-                    </div>
-
-                    <div className="text-3xs text-slate-500 italic leading-snug">
-                      Ghi chú báo giá: “{item.noteQuote}”. Ghi chú vận chuyển: “{item.noteDelivery}”. Trường “Đơn vị” trên hợp đồng: “Máy”. Người nhận, điểm giao, đơn vị vận tải và chứng từ ký nhận chưa thể hiện.
-                    </div>
+              {/* Bảng KPI Tổng hợp Toàn bộ Báo giá của Khách hàng */}
+              <div className="mb-5 bg-gradient-to-r from-blue-50/70 via-slate-50 to-indigo-50/70 border border-slate-200/90 rounded-xl p-3.5 shadow-2xs">
+                <div className="flex items-center justify-between border-b border-slate-200/80 pb-2 mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                    <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider">
+                      TỔNG HỢP TẤT CẢ BÁO GIÁ CỦA KHÁCH HÀNG ({transactionItems.length} BÁO GIÁ)
+                    </h3>
                   </div>
-                ))}
+                  <span className="text-2xs font-mono font-bold text-slate-600">
+                    Khách hàng: {customer.tenKhachHang} ({customer.maKh})
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-5 gap-2 text-center text-2xs">
+                  <div className="bg-white p-2 rounded border border-slate-200">
+                    <span className="text-3xs text-slate-500 block uppercase font-bold">Tổng số báo giá</span>
+                    <span className="font-black text-slate-900 font-mono text-xs">{transactionItems.length}</span>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-slate-200">
+                    <span className="text-3xs text-slate-500 block uppercase font-bold">Tổng số lượng SP</span>
+                    <span className="font-black text-slate-900 font-mono text-xs">{totalRequiredAll} SP</span>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-slate-200">
+                    <span className="text-3xs text-slate-500 block uppercase font-bold">Tổng tiền hàng</span>
+                    <span className="font-black text-slate-900 font-mono text-xs">{formatMoney(totalRawAll)}</span>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-slate-200">
+                    <span className="text-3xs text-slate-500 block uppercase font-bold">Tổng chênh lệch</span>
+                    <span className="font-black text-slate-900 font-mono text-xs">{formatMoney(totalDiffAll)}</span>
+                  </div>
+                  <div className="bg-blue-50/50 p-2 rounded border border-blue-200">
+                    <span className="text-3xs text-blue-700 block uppercase font-black">TỔNG GIÁ TRỊ TOÀN BỘ</span>
+                    <span className="font-black text-blue-900 font-mono text-xs">{formatMoney(totalQuotesVal)} đ</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* List of Transactions */}
+              <div className="space-y-5">
+                {transactionItems.length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded text-slate-400 text-xs italic">
+                    Khách hàng chưa có báo giá nào được tạo trên hệ thống.
+                  </div>
+                ) : (
+                  transactionItems.map((item, idx) => (
+                    <div key={idx} className="border border-slate-200 rounded p-3.5 bg-white space-y-2.5">
+                      {/* Header item */}
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <div>
+                          <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                            <span className="text-emerald-700 font-mono">{String(item.index).padStart(2, '0')}</span>
+                            <span>{item.title}</span>
+                          </h3>
+                          <p className="text-3xs text-slate-400">
+                            {item.hasContract ? 'Qua hợp đồng · Nhóm báo giá máy theo hệ thống' : 'Vật tư và dịch vụ · Không qua hợp đồng'}
+                          </p>
+                        </div>
+                        <span className="text-2xs font-semibold text-slate-600 font-mono">{item.quoteCode}</span>
+                      </div>
+
+                      {/* Quantity & Financial Summary Row */}
+                      <div className="grid grid-cols-5 gap-2 text-center bg-slate-50 p-2 rounded border border-slate-200/80 text-2xs">
+                        <div>
+                          <span className="text-3xs text-slate-400 block uppercase">Số lượng</span>
+                          <span className="font-bold text-slate-800 font-mono">{item.qty}</span>
+                        </div>
+                        <div>
+                          <span className="text-3xs text-slate-400 block uppercase">Đơn giá TB</span>
+                          <span className="font-bold text-slate-800 font-mono">{formatMoney(item.price)}</span>
+                        </div>
+                        <div>
+                          <span className="text-3xs text-slate-400 block uppercase">Tiền hàng</span>
+                          <span className="font-bold text-slate-800 font-mono">{formatMoney(item.rawTotal)}</span>
+                        </div>
+                        <div>
+                          <span className="text-3xs text-slate-400 block uppercase">Chênh lệch</span>
+                          <span className="font-bold text-slate-800 font-mono">{formatMoney(item.diff)}</span>
+                        </div>
+                        <div>
+                          <span className="text-3xs text-slate-400 block uppercase">Tổng giá trị</span>
+                          <span className="font-black text-slate-950 font-mono">{formatMoney(item.total)}</span>
+                        </div>
+                      </div>
+
+                      {/* Danh sách sản phẩm của Báo giá nếu có nhiều sản phẩm */}
+                      {item.prods && item.prods.length > 0 && (
+                        <div className="border border-slate-100 rounded bg-slate-50/40 p-2 text-2xs space-y-1">
+                          <div className="text-3xs font-bold uppercase text-slate-500 mb-1 flex items-center justify-between">
+                            <span>Chi tiết sản phẩm ({item.prods.length} mặt hàng)</span>
+                            <span className="font-mono text-slate-400">Đơn vị: VNĐ</span>
+                          </div>
+                          <div className="space-y-1 max-h-36 overflow-y-auto">
+                            {item.prods.map((p: any, pIdx: number) => {
+                              const pName = p.tenSanPham || p.productName || p.name || 'Sản phẩm';
+                              const pQty = p.soLuong || p.quantity || 1;
+                              const pUnit = p.donViTinh || p.unit || 'cái';
+                              const pPrice = p.donGia || p.price || 0;
+                              const pTotal = pQty * pPrice;
+                              return (
+                                <div key={pIdx} className="flex items-center justify-between text-3xs border-b border-slate-100 last:border-0 pb-0.5">
+                                  <span className="font-semibold text-slate-800 truncate mr-2">{pIdx + 1}. {pName}</span>
+                                  <span className="font-mono text-slate-600 shrink-0">
+                                    {pQty} {pUnit} × {formatMoney(pPrice)} = <strong className="text-slate-900">{formatMoney(pTotal)} đ</strong>
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Bước nghiệp vụ Table */}
+                      <table className="w-full text-left text-2xs border-collapse border border-slate-200 mt-1.5">
+                        <thead>
+                          <tr className="bg-slate-100/80 text-slate-700 font-bold border-b border-slate-200">
+                            <th className="py-1 px-3">Bước nghiệp vụ</th>
+                            <th className="py-1 px-3">Mã chứng từ</th>
+                            <th className="py-1 px-3">Ngày chứng từ</th>
+                            <th className="py-1 px-3">Trạng thái gốc</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 text-3xs">
+                          <tr>
+                            <td className="py-1 px-3 font-semibold text-slate-700">Báo giá</td>
+                            <td className="py-1 px-3 font-mono font-bold text-slate-900">{item.quoteCode}</td>
+                            <td className="py-1 px-3 text-slate-600">{item.quoteDate}</td>
+                            <td className="py-1 px-3 text-emerald-700 font-semibold">{item.quoteStatus}</td>
+                          </tr>
+                          {item.hasContract && (
+                            <tr>
+                              <td className="py-1 px-3 font-semibold text-slate-700">Hợp đồng</td>
+                              <td className="py-1 px-3 font-mono font-bold text-slate-900">{item.contractCode}</td>
+                              <td className="py-1 px-3 text-slate-600">{item.contractDate}</td>
+                              <td className="py-1 px-3 text-emerald-700 font-semibold">{item.contractStatus}</td>
+                            </tr>
+                          )}
+                          <tr>
+                            <td className="py-1 px-3 font-semibold text-slate-700">Thanh toán</td>
+                            <td className="py-1 px-3 font-mono font-bold text-slate-900">{item.paymentCode}</td>
+                            <td className="py-1 px-3 text-slate-600">{item.paymentDate}</td>
+                            <td className="py-1 px-3 text-emerald-700 font-semibold">{item.paymentStatus}</td>
+                          </tr>
+                          <tr>
+                            <td className="py-1 px-3 font-semibold text-slate-700">Giao hàng</td>
+                            <td className="py-1 px-3 font-mono font-bold text-slate-900">{item.deliveryCode}</td>
+                            <td className="py-1 px-3 text-slate-600">{item.deliveryDate}</td>
+                            <td className="py-1 px-3 text-slate-700">{item.deliveryStatus}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                      {/* Meta specifics */}
+                      <div className="grid grid-cols-2 gap-2 text-3xs text-slate-600 bg-slate-50/50 p-2 rounded border border-slate-100">
+                        <div>Đơn hàng: <span className="font-mono font-semibold text-slate-800">{item.orderPo}</span></div>
+                        <div>Dự kiến hoàn thành: <span className="font-semibold text-slate-800">{item.orderPoDue}</span></div>
+                        <div>Phiếu xuất: <span className="font-mono font-semibold text-slate-800">{item.exportCode}</span></div>
+                        <div>Thanh toán: <span className="font-mono font-semibold text-slate-800">{formatMoney(item.total)} đ · {item.paymentMethod}</span></div>
+                      </div>
+
+                      <div className="text-3xs text-slate-500 italic leading-snug">
+                        Ghi chú báo giá: “{item.noteQuote}”. Ghi chú vận chuyển: “{item.noteDelivery}”.
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
 
               {/* Explanatory notes */}

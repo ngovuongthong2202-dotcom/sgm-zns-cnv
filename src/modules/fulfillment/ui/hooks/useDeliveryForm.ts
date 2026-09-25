@@ -15,7 +15,8 @@ export function useDeliveryForm(
   payments: any[],
   contracts: any[],
   quotations: any[],
-  customers: any[] = []
+  customers: any[] = [],
+  deliveries: any[] = []
 ) {
   const [isLockedByOther, setIsLockedByOther] = useState(false);
   const [isLookingUpExportSale, setIsLookingUpExportSale] = useState(false);
@@ -160,38 +161,96 @@ export function useDeliveryForm(
     setValue('sdtLienHe', contactPhone, { shouldValidate: true });
     setValue('diaChiGiaoHang', deliveryAddress, { shouldValidate: true });
 
-    const productSource = (source && Array.isArray(source.products) && source.products.length > 0)
-      ? source 
-      : (Array.isArray(p.products) && p.products.length > 0 ? p : null);
+    const productList = (Array.isArray(source?.products) && source.products.length > 0 ? source.products : null)
+      || (Array.isArray(source?.sanPham) && source.sanPham.length > 0 ? source.sanPham : null)
+      || (Array.isArray(p.products) && p.products.length > 0 ? p.products : null)
+      || (Array.isArray(p.sanPham) && p.sanPham.length > 0 ? p.sanPham : null)
+      || [];
 
-    if (productSource && productSource.products) {
-      setValue('subTotal', productSource.subTotal);
-      setValue('vatRate', productSource.vatRate);
-      setValue('vatAmount', productSource.vatAmount);
-      setValue('discountRate', productSource.discountRate);
-      setValue('discountAmount', productSource.discountAmount);
-      setValue('totalAmount', productSource.totalAmount);
+    if (source) {
+      setValue('subTotal', source.subTotal || p.subTotal);
+      setValue('vatRate', source.vatRate || p.vatRate);
+      setValue('vatAmount', source.vatAmount || p.vatAmount);
+      setValue('discountRate', source.discountRate || p.discountRate);
+      setValue('discountAmount', source.discountAmount || p.discountAmount);
+      setValue('totalAmount', source.totalAmount || p.totalAmount);
+    }
 
-      const currentDelivered = productSource.deliveredQuantities || {};
+    if (productList.length > 0) {
+      // Tìm deliveries hợp lệ liên kết với chứng từ này
+      const validDeliveries = (deliveries || []).filter((d: any) => 
+        !d.deletedAt && !d.deleted_at && String(d.tinhTrangGiaoHang || '').toUpperCase() !== 'HỦY'
+      );
+      const linkedDeliveries = validDeliveries.filter((d: any) => {
+        if (d.paymentId && (d.paymentId === p.id || d.paymentId === p.paymentId)) return true;
+        if (d.soChungTuThamChieu && (d.soChungTuThamChieu === p.paymentId || d.soChungTuThamChieu === p.id)) return true;
+        if (source?.id && d.contractId === source.id) return true;
+        if (p.contractId && d.contractId === p.contractId) return true;
+        if (source?.soHopDong && d.soHopDong === source.soHopDong) return true;
+        if (p.soHopDong && d.soHopDong === p.soHopDong) return true;
+        if (source?.id && d.quotationId === source.id) return true;
+        if (p.quotationId && d.quotationId === p.quotationId) return true;
+        if (source?.soPhieuBaoGia && d.soPhieuBaoGia === source.soPhieuBaoGia) return true;
+        if (p.soPhieuBaoGia && d.soPhieuBaoGia === p.soPhieuBaoGia) return true;
+        if (p.soDonHang && d.soDonHang === p.soDonHang) return true;
+        return false;
+      });
+
+      const actualDeliveredMap: Record<string, number> = {};
+      linkedDeliveries.forEach((d: any) => {
+        const dItems = Array.isArray(d.products) && d.products.length > 0 ? d.products : (Array.isArray(d.sanPham) ? d.sanPham : []);
+        dItems.forEach((dp: any, idx: number) => {
+          const itemKey = getProductItemKey(dp, idx);
+          const qty = Number(dp.quantity || dp.soLuong || 0);
+          actualDeliveredMap[itemKey] = (actualDeliveredMap[itemKey] || 0) + qty;
+          if (dp.productId) actualDeliveredMap[String(dp.productId)] = (actualDeliveredMap[String(dp.productId)] || 0) + qty;
+          if (dp.productName) {
+            const normName = String(dp.productName).trim().toLowerCase();
+            actualDeliveredMap[normName] = (actualDeliveredMap[normName] || 0) + qty;
+          }
+        });
+      });
+
+      const sourceDelivered = (source?.deliveredQuantities || p.deliveredQuantities || {}) as Record<string, number>;
       const limits: Record<string, number> = {};
-      
-      const remainingProducts = productSource.products.map((cp: any, index: number) => {
+
+      const remainingProducts = productList.map((cp: any, index: number) => {
         const itemKey = getProductItemKey(cp, index);
-        const delivered = Number(currentDelivered[itemKey] || 0);
-        const remaining = Math.max(0, Number(cp.quantity || 0) - delivered);
+        const normName = String(cp.productName || cp.tenSanPham || '').trim().toLowerCase();
+        const fromDeliveries = Number(
+          actualDeliveredMap[itemKey] ?? 
+          (cp.productId ? actualDeliveredMap[String(cp.productId)] : undefined) ?? 
+          (normName ? actualDeliveredMap[normName] : undefined) ?? 
+          0
+        );
+        const fromSource = Number(sourceDelivered[itemKey] || 0);
+        const delivered = Math.max(fromDeliveries, fromSource);
+        const reqQty = Number(cp.quantity || cp.soLuong || 0);
+        const remaining = Math.max(0, reqQty - delivered);
         limits[itemKey] = remaining;
-        
+
         return {
           ...cp,
           id: itemKey,
-          quantity: remaining
+          productName: cp.productName || cp.tenSanPham || '',
+          quantity: remaining,
+          price: cp.price || cp.donGia || 0
         };
       }).filter((cp: any) => limits[cp.id] > 0);
 
-      setValue('products', remainingProducts.length > 0 ? remainingProducts : productSource.products.map((cp: any, idx: number) => ({ ...cp, id: getProductItemKey(cp, idx), quantity: Number(cp.quantity || 0) })));
-      setMaxQuantities(limits);
+      if (remainingProducts.length === 0) {
+        setValue('products', []);
+        setValue('slMay', 0);
+        setMaxQuantities(limits);
+        notify.warning('Chứng từ này đã giao đủ 100% số lượng hàng hóa (còn phải giao = 0).');
+      } else {
+        setValue('products', remainingProducts);
+        const totalRemainingQty = remainingProducts.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0);
+        setValue('slMay', totalRemainingQty);
+        setMaxQuantities(limits);
+      }
     }
-  }, [contracts, quotations, customers, setValue, defaultOfficer]);
+  }, [contracts, quotations, customers, deliveries, setValue, defaultOfficer]);
 
   useEffect(() => {
     if (selectedPaymentId && !delivery?.id) {
