@@ -8,6 +8,7 @@ import { CustomerHoverCard } from './components/CustomerHoverCard';
 import { Button } from '@/src/design-system/Button';
 import { normalizeBusinessName, normalizePersonName, normalizeCode } from '@/src/shared/utils/textFormatter';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
+import { Printer } from 'lucide-react';
 
 import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
 
@@ -19,6 +20,7 @@ export const getCustomerColumns = (
   presenceMap?: Record<string, any[]>,
   sendingZnsIds?: Record<string, boolean>,
   onSelectQuotationTab?: (customer: Customer) => void,
+  onPrintReport?: (customer: Customer) => void,
 ): ColumnDef<Customer>[] => [
   createSttColumn<Customer>(),
   {
@@ -208,5 +210,31 @@ export const getCustomerColumns = (
          </span>
        </div>
     )
+  },
+  {
+    id: 'actions',
+    header: '',
+    size: 45,
+    enableResizing: false,
+    cell: (info) => {
+      const c = info.row.original;
+      if (!onPrintReport) return null;
+      return (
+        <div className="flex items-center justify-center">
+          <button
+            type="button"
+            aria-label="In / Xuất PDF Hồ Sơ"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPrintReport(c);
+            }}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+            title="In / Xuất PDF Hồ Sơ Khách Hàng (3 trang chuẩn)"
+          >
+            <Printer size={13} />
+          </button>
+        </div>
+      );
+    }
   }
 ];

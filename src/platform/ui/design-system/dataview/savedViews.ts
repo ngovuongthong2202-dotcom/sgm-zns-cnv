@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { settingsRepo } from '@/src/data/repositories/system.repo';
 
 export const savedViewSchema = z.object({
   id: z.string().optional(),
@@ -7,6 +8,7 @@ export const savedViewSchema = z.object({
   isDefault: z.boolean().optional(),
   state: z.object({
     columnVisibility: z.record(z.string(), z.boolean()).optional(),
+    columnSizing: z.record(z.string(), z.number()).optional(),
     columnOrder: z.array(z.string()).optional(),
     sorting: z.array(z.object({ id: z.string(), desc: z.boolean() })).optional(),
     grouping: z.array(z.string()).optional(),
@@ -30,21 +32,35 @@ export async function getSavedViews(uid: string, route?: string): Promise<SavedV
   if (!uid) return [];
   const views: SavedView[] = [];
 
-  // Add Org Template first from local storage
+  // Add Org Template first from local storage / remote settings
   if (route) {
     try {
-      const orgStr = localStorage.getItem(`dataview:${route}:org_template`);
-      if (orgStr) {
-        const data = JSON.parse(orgStr);
-        if (data && data.state) {
-          views.push({
-            id: '__org_template__',
-            name: data.isForced ? '★ Mặc định tổ chức (Bắt buộc)' : '★ Giao diện tổ chức',
-            sourceId: data.sourceId || `${route}_list`,
-            state: data.state,
-            isDefault: data.isForced || false
-          });
+      let data: any = null;
+      try {
+        const remoteSettings = await settingsRepo.getById('org_dataview_templates');
+        if (remoteSettings && (remoteSettings as any)[route]) {
+          data = (remoteSettings as any)[route];
+          localStorage.setItem(`dataview:${route}:org_template`, JSON.stringify(data));
         }
+      } catch {
+        // ignore
+      }
+
+      if (!data) {
+        const orgStr = localStorage.getItem(`dataview:${route}:org_template`);
+        if (orgStr) {
+          data = JSON.parse(orgStr);
+        }
+      }
+
+      if (data && data.state) {
+        views.push({
+          id: '__org_template__',
+          name: data.isForced ? '★ Mặc định tổ chức (Bắt buộc)' : '★ Giao diện tổ chức',
+          sourceId: data.sourceId || `${route}_list`,
+          state: data.state,
+          isDefault: data.isForced || false
+        });
       }
     } catch {
       // Ignore parse errors
@@ -98,4 +114,13 @@ export async function saveOrgTemplate(route: string, viewState: any, sourceId: s
     updatedAt: Date.now()
   };
   localStorage.setItem(`dataview:${route}:org_template`, JSON.stringify(data));
+  try {
+    const existing = await settingsRepo.getById('org_dataview_templates') || {};
+    await settingsRepo.update('org_dataview_templates', {
+      ...existing,
+      [route]: data
+    });
+  } catch (err) {
+    console.warn('Failed to sync org template to settingsRepo', err);
+  }
 }

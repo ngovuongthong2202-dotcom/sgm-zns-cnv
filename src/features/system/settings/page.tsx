@@ -14,6 +14,7 @@ import GatePage from './pages/GatePage';
 import TelegramPage from './pages/TelegramPage';
 import HealthScorePage from './pages/HealthScorePage';
 import ProductCatalogPage from './pages/ProductCatalogPage';
+import IntegrationsPage from './pages/IntegrationsPage';
 
 type SettingGroup = {
   id: string;
@@ -35,6 +36,7 @@ const settingGroups: SettingGroup[] = [
     id: 'data_integration',
     titleKey: 'settings.groups.data_integration',
     items: [
+      { path: '/settings/integrations', label: 'Liên kết API & ERP', icon: Globe, description: 'Cấu hình endpoint ERP SGM, Kho & Báo giá' },
       { path: '/settings/fields', label: 'Trường thông tin', icon: Database, description: 'Cấu hình thuộc tính chung' },
       { path: '/settings/catalog', label: 'Thư viện sản phẩm', icon: Database, description: 'Quản lý bảng giá & mẫu hàng' },
       { path: '/settings/telegram', label: 'Telegram Bot', icon: Send, description: 'Báo cáo & Cảnh báo qua Telegram' },
@@ -160,6 +162,7 @@ export default function SettingsFeature() {
 
             <ErrorBoundary>
               {(() => {
+                if (activePath.includes('/settings/integrations')) return <IntegrationsPage />;
                 if (activePath.includes('/settings/fields')) return <FieldsPage />;
                 if (activePath.includes('/settings/gates')) return <GatePage />;
                 if (activePath.includes('/settings/health-score')) return <HealthScorePage />;

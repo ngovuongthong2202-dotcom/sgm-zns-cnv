@@ -16,6 +16,8 @@ interface DeliverySourceCardProps {
   sdt?: string;
 }
 
+const isUuid = (s?: string) => !!s && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.trim());
+
 export function DeliverySourceCard({
   soHopDong,
   soDonHang,
@@ -26,7 +28,7 @@ export function DeliverySourceCard({
   maThanhToan,
   sdt
 }: DeliverySourceCardProps) {
-  const displayPaymentCode = maThanhToan || (paymentId && !paymentId.includes('-') ? paymentId : (paymentId ? paymentId : '---'));
+  const displayPaymentCode = maThanhToan || (!isUuid(paymentId) ? paymentId : undefined);
   const isTatToan = tinhTrangThanhToan?.toLowerCase().includes('tất toán') || tinhTrangThanhToan?.toLowerCase().includes('tat toan');
 
   return (

@@ -190,21 +190,25 @@ export function FinancialDashboardHeader({
 
           <div className="grid grid-cols-1 gap-1 text-2xs font-medium mt-auto">
              {[
-               { id: 'MÁY', label: 'MÁY', fallback: 'BG Máy' },
-               { id: 'VẬT TƯ', label: 'VẬT TƯ', fallback: 'BG Vật tư' },
-               { id: 'DỊCH VỤ', label: 'DỊCH VỤ', fallback: 'BG Dịch vụ' }
+               { id: 'BG MÁY', label: 'BG MÁY', fallback: 'BG Máy', rawId: 'MÁY' },
+               { id: 'BG VẬT TƯ', label: 'BG VẬT TƯ', fallback: 'BG Vật tư', rawId: 'VẬT TƯ' },
+               { id: 'BG DỊCH VỤ', label: 'BG DỊCH VỤ', fallback: 'BG Dịch vụ', rawId: 'DỊCH VỤ' }
              ].map(item => {
-               const st = (statsByType as any)[item.id] || (statsByType as any)[item.fallback] || { count: 0, customers: 0 };
-               const isSelected = selectedPhanLoai === item.id || selectedPhanLoai === item.fallback;
+               const st = (statsByType as any)[item.id] || (statsByType as any)[item.fallback] || (statsByType as any)[item.rawId] || { count: 0, customers: 0 };
+               const isSelected = selectedPhanLoai && (
+                 selectedPhanLoai.toUpperCase() === item.id || 
+                 selectedPhanLoai.toLowerCase() === item.fallback.toLowerCase() ||
+                 selectedPhanLoai.toUpperCase() === item.rawId
+               );
                return (
                   <div 
                     key={item.id} 
                     className={`flex justify-between items-center px-1.5 py-1 rounded cursor-pointer transition-colors border ${isSelected ? 'border-cyan-400 bg-cyan-50/70 ring-1 ring-cyan-400 font-bold text-cyan-700' : 'border-slate-100 bg-slate-50 hover:bg-cyan-50/50 hover:border-cyan-350'}`}
                     onClick={() => onFilterPhanLoai?.(isSelected ? '' : item.id)}
                   >
-                    <span className="text-slate-500 font-sans truncate">{item.label}</span>
+                    <span className="text-slate-700 font-sans font-bold truncate">{item.label}</span>
                     <span className="space-x-1 flex items-center shrink-0">
-                      <span className="text-slate-800 font-mono" title="Số lượng">{st.count} <span className="text-3xs text-slate-400 font-sans font-normal ml-0.5">phiếu</span></span> 
+                      <span className="text-slate-800 font-mono font-bold" title="Số lượng">{st.count} <span className="text-3xs text-slate-400 font-sans font-normal ml-0.5">phiếu</span></span> 
                       <span className="text-slate-300 font-sans">/</span> 
                       <span className="text-slate-500 font-mono" title="Số lượng khách hàng">{st.customers} <span className="text-3xs text-slate-400 font-sans font-normal ml-0.5">KH</span></span>
                     </span>

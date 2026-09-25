@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import axios from 'axios';
+import { getErpConfig } from '../services/erp/erp.config';
 
 const router = Router();
 
@@ -40,7 +41,8 @@ async function getOrFetchItems(): Promise<ErpItem[]> {
 
   fetchPromise = (async () => {
     try {
-      const erpUrl = 'https://sgm.vnaisoft.com/api/public/items';
+      const erpConfig = await getErpConfig();
+      const erpUrl = erpConfig.itemsUrl || 'https://sgm.vnaisoft.com/api/public/items';
       console.log(`[Items ERP] Starting fetch from ${erpUrl}...`);
       
       const response = await axios.get(erpUrl, {
@@ -189,7 +191,8 @@ router.get('/export-sale/lookup', async (req, res) => {
     const fromDate = (req.query.from_date as string) || `01-01-${currentYear}`;
     const toDate = (req.query.to_date as string) || `31-12-${currentYear}`;
 
-    const listUrl = `https://sgm.vnaisoft.com/api/public/export-sale?from_date=${fromDate}&to_date=${toDate}`;
+    const erpConfig = await getErpConfig();
+    const listUrl = `${erpConfig.exportSaleUrl}?from_date=${fromDate}&to_date=${toDate}`;
 
     const listResp = await axios.get(listUrl, {
       timeout: 20000,
@@ -213,7 +216,7 @@ router.get('/export-sale/lookup', async (req, res) => {
       return res.status(404).json({ success: false, error: `Không tìm thấy phiếu xuất có mã ${rawBatchCode}` });
     }
 
-    const detailUrl = `https://sgm.vnaisoft.com/api/public/export-sale/${foundItem._id}`;
+    const detailUrl = `${erpConfig.exportSaleUrl}/${foundItem._id}`;
 
     const detailResp = await axios.get(detailUrl, {
       timeout: 20000,

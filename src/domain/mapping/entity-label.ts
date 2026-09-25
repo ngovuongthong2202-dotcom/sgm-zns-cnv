@@ -27,7 +27,7 @@ export function getContractDisplayLabel(contract: Partial<Contract> | Record<str
 export function getPaymentDisplayLabel(payment: Partial<Payment> | Record<string, unknown> | null | undefined): string {
   if (!payment) return LABEL_FALLBACK;
   const p = payment as Record<string, unknown>;
-  return (p.soChungTu as string) || (p.maThanhToan as string) || (p.paymentId as string) || (p.code as string) || (p.maPhieuTH as string) || "Chưa có số chứng từ";
+  return (p.soChungTu as string) || (p.paymentId as string) || (p.soPhieuThu as string) || (p.maThanhToan as string) || (p.code as string) || (p.maPhieuTH as string) || "Chưa có số chứng từ";
 }
 
 export function getDeliveryDisplayLabel(delivery: Partial<Delivery> | Record<string, unknown> | null | undefined): string {

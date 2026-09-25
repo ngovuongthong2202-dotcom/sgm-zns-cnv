@@ -163,7 +163,7 @@ export const DataViewRow = React.memo(({
       ) : (() => {
         const rowContent = (
           <div className="flex flex-col w-full min-w-max relative z-0 group-hover:z-20">
-             <div className={`flex items-stretch min-w-full transition-all relative group bg-transparent`} style={{ height: density === 'compact' ? 32 : 40 }}>
+             <div className={`flex items-stretch min-w-full transition-all relative group bg-transparent`} style={{ minHeight: density === 'compact' ? 40 : density === 'comfortable' ? 56 : 48 }}>
               {typedRow.getVisibleCells().filter((cell: Cell<any, any>) => !cell.column.getIsGrouped()).map((typedCell: Cell<any, any>, index: number) => {
                 const isSticky = false; // (typedCell.column.columnDef.meta as any | undefined)?.isSticky;
                 const stickRight = false; // (typedCell.column.columnDef.meta as any | undefined)?.stickRight;
@@ -171,7 +171,7 @@ export const DataViewRow = React.memo(({
                 
                 if (typedCell.getIsPlaceholder()) return <div key={typedCell.id} style={{ width: `calc(var(--col-${typedCell.column.id}) + 0px)` }} className={`flex-shrink-0 ${hiddenOnTablet ? 'hidden xl:flex' : 'flex'}`} />;
                 
-                const pyClass = density === 'compact' ? 'py-0.5 text-2xs' : density === 'comfortable' ? 'py-2 text-xs' : 'py-1 text-xs';
+                const pyClass = density === 'compact' ? 'py-1.5 text-xs' : density === 'comfortable' ? 'py-3 text-xs' : 'py-2 text-xs';
                 const alignClass = (typedCell.column.columnDef.meta as any | undefined)?.align === 'right' ? 'justify-end text-right' : (typedCell.column.columnDef.meta as any | undefined)?.align === 'center' ? 'justify-center text-center' : 'justify-start text-left';
                 
                 const depthPadding = index === 0 ? typedRow.depth * 24 : 0;
@@ -189,11 +189,11 @@ export const DataViewRow = React.memo(({
                         e.stopPropagation();
                       }
                     }}
-                    className={`px-4 ${pyClass} flex-shrink-0 flex items-center ${alignClass} overflow-hidden ${isSticky ? `sticky left-0 z-10 shadow-[inset_-1px_0_0_#e2e8f0] bg-inherit` : ''} ${stickRight ? `sticky right-0 z-10 shadow-[inset_1px_0_0_#e2e8f0] bg-inherit max-xl:opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity` : ''} ${hiddenOnTablet ? 'hidden xl:flex' : 'flex'}`}
+                    className={`px-4 ${pyClass} flex-shrink-0 flex items-center ${alignClass} ${isSticky ? `sticky left-0 z-10 shadow-[inset_-1px_0_0_#e2e8f0] bg-inherit` : ''} ${stickRight ? `sticky right-0 z-10 shadow-[inset_1px_0_0_#e2e8f0] bg-inherit max-xl:opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity` : ''} ${hiddenOnTablet ? 'hidden xl:flex' : 'flex'}`}
                     style={{ width: index === 0 ? `calc(var(--col-${typedCell.column.id}) + ${depthPadding}px)` : `calc(var(--col-${typedCell.column.id}) + 0px)`, paddingLeft: index === 0 ? `${16 + depthPadding}px` : undefined }}
                   >
                     <div 
-                      className={`truncate w-full ${tabularClass}`} 
+                      className={`w-full ${tabularClass}`} 
                       title={typeof cellValue === 'string' || typeof cellValue === 'number' ? String(cellValue) : undefined}
                     >
                       {flexRender(typedCell.column.columnDef.cell, typedCell.getContext())}

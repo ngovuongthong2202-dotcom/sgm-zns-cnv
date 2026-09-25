@@ -7,6 +7,7 @@ import { useCustomersPage } from './hooks/useCustomersPage';
 import { CustomerFilterBar } from './components/CustomerFilterBar';
 import { PageHeader } from '@/src/design-system/PageHeader';
 import { CustomerDetailDrawer } from './components/CustomerDetailDrawer';
+import { CustomerReportModal } from './components/CustomerReportModal';
 import { CustomerForm } from './components/CustomerFormModal';
 import { CustomerStats } from './components/CustomerStats';
 import { useDataView } from '@/src/design-system/dataview/useDataView';
@@ -58,6 +59,8 @@ export default function CustomersFeature() {
     closeBlockingModal,
   } = useCustomersPage();
 
+  const [printingCustomer, setPrintingCustomer] = useState<Customer | null>(null);
+
   // Sequential drawer navigation logic
   const currentIndex = useMemo(() => {
     if (!drawerViewCustomer) return -1;
@@ -98,7 +101,8 @@ export default function CustomersFeature() {
       canSendZns ? handleSendZns : undefined,
       undefined,
       sendingZnsIds,
-      (c) => setDrawerState({ mode: 'view', customer: c, initialTab: 'quotes' })
+      (c) => setDrawerState({ mode: 'view', customer: c, initialTab: 'quotes' }),
+      (c) => setPrintingCustomer(c)
     );
   }, [handleDeleteCustomer, handleSendZns, sendingZnsIds, setDrawerState, userData?.role]);
 
@@ -286,6 +290,14 @@ export default function CustomersFeature() {
         blockingDocuments={blockingModalState.blockingDocuments}
         detailedBlocks={blockingModalState.detailedBlocks}
       />
+
+      {printingCustomer && (
+        <CustomerReportModal
+          isOpen={Boolean(printingCustomer)}
+          onClose={() => setPrintingCustomer(null)}
+          customer={printingCustomer}
+        />
+      )}
     </div>
   );
 }

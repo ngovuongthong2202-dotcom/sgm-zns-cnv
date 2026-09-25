@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import axios from 'axios';
+import { getErpConfig } from '../services/erp/erp.config';
 
 const router = Router();
 
@@ -13,9 +14,10 @@ router.get('/erp-lookup/:so', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Mã số báo giá không hợp lệ' });
     }
 
-    const erpUrl = `https://sgm.vnaisoft.com/api/public/bao-gia/${encodeURIComponent(cleanSo)}`;
+    const erpConfig = await getErpConfig();
+    const erpUrl = `${erpConfig.quotationUrl}/${encodeURIComponent(cleanSo)}`;
     const response = await axios.get(erpUrl, {
-      timeout: 10000, // 10s timeout
+      timeout: (erpConfig.timeoutSeconds || 10) * 1000,
       validateStatus: () => true // Handle statuses explicitly without throwing uncaught errors
     });
 

@@ -106,13 +106,15 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
   {
     id: 'diaChiGiaoHang',
     header: 'Địa chỉ giao hàng',
-    size: 220,
+    size: 260,
     cell: (info) => {
       const p = info.row.original as any;
       const diaChi = p.diaChiGiaoHang || p.diaChi || p.__customerInfo?.diaChi || p.__customerInfo?.tinhThanh || p.tinhThanh || '---';
       return (
-        <div className="w-full min-w-0 flex items-center text-xs">
-          <span className="truncate block text-slate-700 font-medium" title={diaChi}>{diaChi}</span>
+        <div className="w-full min-w-0 flex items-center text-xs py-0.5">
+          <span className="line-clamp-2 text-slate-750 font-medium leading-relaxed break-words" title={diaChi}>
+            {diaChi}
+          </span>
         </div>
       );
     }

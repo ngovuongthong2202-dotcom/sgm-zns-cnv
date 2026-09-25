@@ -143,6 +143,18 @@ const sanitizeViewState = (stateFragment: any, validColIds: Set<string>) => {
     }
     res.columnVisibility = newVis;
   } else if ('columnVisibility' in stateFragment) res.columnVisibility = stateFragment.columnVisibility;
+
+  if (stateFragment.columnSizing && typeof stateFragment.columnSizing === 'object') {
+    const newSizing: any = {};
+    for (const k of Object.keys(stateFragment.columnSizing)) {
+      if (validColIds.has(k)) newSizing[k] = stateFragment.columnSizing[k];
+    }
+    res.columnSizing = newSizing;
+  }
+
+  if (stateFragment.columnOrder && Array.isArray(stateFragment.columnOrder)) {
+    res.columnOrder = stateFragment.columnOrder.filter((id: string) => validColIds.has(id));
+  }
   
   return res;
 };
@@ -262,6 +274,8 @@ export function useDataView<T>(props: UseDataViewProps<T>) {
       sourceId: props.viewId,
       state: {
         columnVisibility: columnVisibility as Record<string, boolean>,
+        columnSizing,
+        columnOrder,
         columnFilters: columnFilters as any[],
         sorting: sorting as any[],
         grouping: grouping as string[],
@@ -297,9 +311,11 @@ export function useDataView<T>(props: UseDataViewProps<T>) {
     if (!currentUser || !props.viewId) return;
     const viewState = {
       columnVisibility,
+      columnSizing,
+      columnOrder,
       columnFilters,
       sorting,
-      grouping,
+      grouping: [], // Luôn mặc định: Không gộp nhóm theo yêu cầu toàn hệ thống
       density,
       viewType,
     };
@@ -323,8 +339,10 @@ export function useDataView<T>(props: UseDataViewProps<T>) {
     const cleanState = sanitizeViewState(view.state, validColIds);
     
     if (cleanState.sorting) setSorting(cleanState.sorting);
-    if (cleanState.grouping) setGrouping(cleanState.grouping);
+    if (cleanState.grouping) setGrouping(cleanState.grouping || []);
     if (cleanState.columnVisibility) setColumnVisibility(cleanState.columnVisibility);
+    if (cleanState.columnSizing) setColumnSizing(cleanState.columnSizing);
+    if (cleanState.columnOrder) setColumnOrder(cleanState.columnOrder);
     if (cleanState.columnFilters) setColumnFilters(cleanState.columnFilters);
     if (view.state.density) setDensity(view.state.density);
     if (view.state.viewType) setViewType(view.state.viewType as ViewType);

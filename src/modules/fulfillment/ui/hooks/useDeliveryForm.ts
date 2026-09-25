@@ -8,6 +8,7 @@ import { getProductItemKey } from '@/src/shared/utils/product-key';
 import { useAuth } from '@/src/modules/iam';
 import { formatUserOfficer } from '@/src/shared/utils/userProfile';
 import { notify } from '@/src/shared/utils/notify';
+import { settingsRepo } from '@/src/data/repositories/settings.repo';
 
 export function useDeliveryForm(
   delivery: any,
@@ -230,7 +231,9 @@ export function useDeliveryForm(
       // 2. Dự phòng gọi trực tiếp ERP nếu backend không phản hồi
       if (!json?.success || !json?.data) {
         const year = new Date().getFullYear();
-        const listResp = await fetch(`https://sgm.vnaisoft.com/api/public/export-sale?from_date=01-01-${year}&to_date=31-12-${year}`);
+        const erpSettings = await settingsRepo.getSettings<any>('erp_config').catch(() => null);
+        const exportSaleEndpoint = erpSettings?.exportSaleUrl?.trim() || 'https://sgm.vnaisoft.com/api/public/export-sale';
+        const listResp = await fetch(`${exportSaleEndpoint}?from_date=01-01-${year}&to_date=31-12-${year}`);
         if (listResp.ok) {
           const listJson = await listResp.json();
           const list = Array.isArray(listJson) ? listJson : (listJson.data || []);
@@ -240,7 +243,7 @@ export function useDeliveryForm(
             return b === normTarget || (it.batch_code && String(it.batch_code).toLowerCase().includes(code.toLowerCase()));
           });
           if (item?._id) {
-            const detailResp = await fetch(`https://sgm.vnaisoft.com/api/public/export-sale/${item._id}`);
+            const detailResp = await fetch(`${exportSaleEndpoint}/${item._id}`);
             if (detailResp.ok) {
               const detailJson = await detailResp.json();
               const d = detailJson.data || detailJson;

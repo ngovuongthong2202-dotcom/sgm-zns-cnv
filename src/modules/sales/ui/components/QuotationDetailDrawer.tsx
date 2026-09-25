@@ -16,6 +16,8 @@ import { TabLichSuGiaoHang } from "@/src/widgets/TabLichSuGiaoHang";
 import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
 import { TabLichSuHoatDong } from "@/src/widgets/TabLichSuHoatDong";
 import { TabLichSuHeThong } from "@/src/widgets/TabLichSuHeThong";
+import { DocumentLifecycleTimeline } from "@/src/widgets/DocumentLifecycleTimeline";
+import { EntityAuditMetadataCard } from "@/src/widgets/EntityAuditMetadataCard";
 import { TabLienKet } from "@/src/widgets/TabLienKet";
 import { normalizeLegacyStatus, EntityZnsStatus } from '@/src/domain/enums/zns-status';
 import { QuotationDetailOverview } from './QuotationDetailOverview';
@@ -220,7 +222,15 @@ export function QuotationDetailDrawer({
 
 
   // 2. HOẠT ĐỘNG TIMELINE PANEL
-  const timelinePanel = <TabLichSuHoatDong entityId={quotation.id || ""} entityType="quotation" />;
+  const timelinePanel = (
+    <DocumentLifecycleTimeline
+      currentType="quotation"
+      currentDoc={quotation}
+      relatedContracts={matchingContracts}
+      relatedPayments={matchingPayments}
+      relatedDeliveries={matchingDeliveries}
+    />
+  );
 
   // 3. HỢP ĐỒNG PANEL
   const contractsPanel = <TabHopDongLienQuan matchingContracts={matchingContracts} showCreateButton={normalizeLegacyStatus(quotation.trangThaiGuiTinBaoGia) === EntityZnsStatus.THANH_CONG && normalizeLoai(quotation.loai) === QUOTATION_LOAI.MAY} onNavigateNew={() => navigate(`/contracts/new?fromQuotation=${quotation.id}`)} />;
@@ -238,7 +248,20 @@ export function QuotationDetailDrawer({
   const linksPanel = <TabLienKet entityId={quotation.id || ""} entityType="quotation" />;
 
   // 8. AUDIT PANEL
-  const auditPanel = <TabLichSuHeThong entityId={quotation.id || ""} entityType="quotation" />;
+  const auditPanel = (
+    <EntityAuditMetadataCard
+      entityId={quotation.id || ""}
+      entityType="quotation"
+      documentCode={quotation.soPhieuBaoGia}
+      documentTypeLabel="phiếu báo giá"
+      creatorOrOfficer={quotation.nguoiPhuTrach}
+      statusLabel={quotation.trangThaiBaoGia || 'Mới'}
+      statusColor={quotation.trangThaiBaoGia === 'Đã duyệt' ? 'text-emerald-700' : 'text-blue-700'}
+      createdAt={quotation.createdAt || quotation.ngayBaoGia}
+      updatedAt={quotation.updatedAt || quotation.ngayCapNhat}
+      customerName={quotation.tenKhachHang}
+    />
+  );
 
   // FOOTER ACTIONS
   const footerContent = (

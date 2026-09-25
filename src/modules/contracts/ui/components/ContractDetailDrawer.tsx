@@ -18,6 +18,8 @@ import { TabLichSuGiaoHang } from "@/src/widgets/TabLichSuGiaoHang";
 import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
 import { TabLichSuHoatDong } from "@/src/widgets/TabLichSuHoatDong";
 import { TabLichSuHeThong } from "@/src/widgets/TabLichSuHeThong";
+import { DocumentLifecycleTimeline } from "@/src/widgets/DocumentLifecycleTimeline";
+import { EntityAuditMetadataCard } from "@/src/widgets/EntityAuditMetadataCard";
 import { TabLienKet } from "@/src/widgets/TabLienKet";
 import { checkContractLock } from '@/src/domain/policy/lock.policy';
 import { EntityBusinessLockWarning } from '@/src/widgets/EntityBusinessLockWarning';
@@ -367,7 +369,15 @@ export function ContractDetailDrawer({
   );
 
   // 2. HOẠT ĐỘNG TIMELINE PANEL
-  const timelinePanel = <TabLichSuHoatDong entityId={(drawerContract?.id || "")} entityType="contract" />;
+  const timelinePanel = (
+    <DocumentLifecycleTimeline
+      currentType="contract"
+      currentDoc={drawerContract}
+      relatedQuotations={drawerContract?.quotationId ? [quos.find(q => q.id === drawerContract.quotationId)].filter(Boolean) : []}
+      relatedPayments={pays}
+      relatedDeliveries={dels}
+    />
+  );
 
   // 3. THANH TOÁN (PAYMENTS) PANEL
   const paymentsPanel = <TabLichSuThanhToan matchingPayments={pays} showCreateButton={!!onCreatePayment} onNavigateNew={() => onCreatePayment?.(drawerContract)} />;
@@ -382,7 +392,20 @@ export function ContractDetailDrawer({
   const linksPanel = <TabLienKet entityId={(drawerContract?.id || "")} entityType="contract" />;
 
   // 7. AUDIT PANEL
-  const auditPanel = <TabLichSuHeThong entityId={(drawerContract?.id || "")} entityType="contract" />;
+  const auditPanel = (
+    <EntityAuditMetadataCard
+      entityId={drawerContract?.id || ""}
+      entityType="contract"
+      documentCode={drawerContract?.soHopDong}
+      documentTypeLabel="hợp đồng"
+      creatorOrOfficer={drawerContract?.nguoiPhuTrach}
+      statusLabel={drawerContract?.tinhTrangHopDong || 'Mới'}
+      statusColor={drawerContract?.tinhTrangHopDong === 'Đã ký' ? 'text-emerald-700' : 'text-blue-700'}
+      createdAt={drawerContract?.createdAt || drawerContract?.ngayKy}
+      updatedAt={drawerContract?.updatedAt || drawerContract?.ngayCapNhat}
+      customerName={drawerContract?.tenKhachHang}
+    />
+  );
 
   return (
     <DetailDrawer

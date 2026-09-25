@@ -66,13 +66,13 @@ interface DataViewProps<T> {
     }, [columnSizing, table.getFlatHeaders()]);
   
     const getRowHeight = (index: number) => {
-      if (index >= rows.length) return 32; // Spinner row
+      if (index >= rows.length) return 36; // Spinner row
       const row = rows[index];
-      if (row?.getIsGrouped()) return density === 'comfortable' ? 52 : 44;
+      if (row?.getIsGrouped()) return density === 'comfortable' ? 56 : 48;
       switch (density) {
-        case 'compact': return 30; 
-        case 'comfortable': return 44;
-        default: return 36; // cozy or normal behavior
+        case 'compact': return 40; 
+        case 'comfortable': return 58;
+        default: return 48; // cozy or normal behavior
       }
     };
   
@@ -111,12 +111,12 @@ interface DataViewProps<T> {
     return (
       <div
         ref={tableContainerRef}
-        className="overflow-auto border border-slate-200 rounded-xl bg-white relative"
+        className="overflow-auto border border-slate-200 rounded-xl bg-white relative shadow-xs"
         style={{ height, ...cssVars } as React.CSSProperties}
       >
         <div style={{ minWidth: table.getTotalSize(), width: 'max-content' }} className="flex flex-col min-w-full">
           {/* Header */}
-          <div className="sticky top-0 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200/80 shadow-[0_1px_2px_rgba(15,23,42,0.02)] z-[20] flex min-w-full">
+          <div className="sticky top-0 bg-slate-50/95 backdrop-blur-sm border-b-2 border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.05)] z-[20] flex min-w-full">
             {table.getHeaderGroups().map(headerGroup => (
               <React.Fragment key={headerGroup.id}>
                 {headerGroup.headers.map(header => {
@@ -129,7 +129,7 @@ interface DataViewProps<T> {
                   return (
                     <div
                       key={header.id}
-                      className={`px-4 py-2 text-2xs font-semibold text-slate-500 normal-case tracking-normal whitespace-nowrap relative group select-none flex-shrink-0 items-center ${alignClass} ${isSticky ? 'sticky left-0 bg-slate-50/95 z-30 shadow-[inset_-1px_0_0_#e2e8f0]' : ''} ${stickRight ? 'sticky right-0 bg-slate-50/95 z-30 shadow-[inset_1px_0_0_#e2e8f0]' : ''} ${hiddenOnTablet ? 'hidden xl:flex' : 'flex'}`}
+                      className={`px-4 py-3 text-2xs font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap relative group select-none flex-shrink-0 items-center ${alignClass} ${isSticky ? 'sticky left-0 bg-slate-50/95 z-30 shadow-[inset_-1px_0_0_#e2e8f0]' : ''} ${stickRight ? 'sticky right-0 bg-slate-50/95 z-30 shadow-[inset_1px_0_0_#e2e8f0]' : ''} ${hiddenOnTablet ? 'hidden xl:flex' : 'flex'}`}
                       style={{ width: `calc(var(--col-${header.column.id}) + 0px)` }}
                     >
                       <div className={`flex items-center gap-2 cursor-pointer ${alignClass} w-full truncate`} onClick={header.column.getToggleSortingHandler()}>

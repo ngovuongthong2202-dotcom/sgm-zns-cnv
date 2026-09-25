@@ -3,11 +3,10 @@ import { GroupingState, ExpandedState } from '@tanstack/react-table';
 
 export function useDataViewGrouping(
   initialGrouping?: GroupingState,
-  getSaved?: <S>(key: string, defaultVal: S) => S
+  _getSaved?: <S>(key: string, defaultVal: S) => S
 ) {
-  const [grouping, setGrouping] = useState<GroupingState>(() =>
-    getSaved ? getSaved<GroupingState>('grouping', initialGrouping || []) : initialGrouping || []
-  );
+  // Luôn mặc định: Không gộp nhóm
+  const [grouping, setGrouping] = useState<GroupingState>(() => initialGrouping || []);
   const [expanded, setExpanded] = useState<ExpandedState>({});
 
   return { grouping, setGrouping, expanded, setExpanded };

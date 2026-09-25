@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Payment } from '@/src/domain/schema/payment.schema';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
+import { normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { resolvePaymentLoai } from '../../domain/resolvePaymentLoai';
 
 const STATE_KEY = 'dataview:payments:state';
@@ -70,9 +71,10 @@ export function usePaymentsFilters(payments: Payment[], customers: Customer[] = 
       result = result.filter(p => p.tinhTrangThanhToan === selectedTinhTrangThanhToan);
     }
     if (selectedPhanLoai) {
+      const selectedNorm = normalizeLoai(selectedPhanLoai);
       result = result.filter(p => {
         const typeStr = resolvePaymentLoai(p);
-        return typeStr === selectedPhanLoai;
+        return normalizeLoai(typeStr) === selectedNorm || typeStr === selectedPhanLoai;
       });
     }
     if (selectedTinhThanh) {

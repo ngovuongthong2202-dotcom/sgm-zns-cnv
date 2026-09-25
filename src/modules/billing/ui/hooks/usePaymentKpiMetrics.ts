@@ -112,6 +112,9 @@ export function usePaymentKpiMetrics(payments: Payment[]) {
         'BG Máy': { count: statsByType['BG Máy'].count || statsByType['MÁY'].count, customers: statsByType['BG Máy'].customers.size || statsByType['MÁY'].customers.size },
         'BG Vật tư': { count: statsByType['BG Vật tư'].count || statsByType['VẬT TƯ'].count, customers: statsByType['BG Vật tư'].customers.size || statsByType['VẬT TƯ'].customers.size },
         'BG Dịch vụ': { count: statsByType['BG Dịch vụ'].count || statsByType['DỊCH VỤ'].count, customers: statsByType['BG Dịch vụ'].customers.size || statsByType['DỊCH VỤ'].customers.size },
+        'BG MÁY': { count: statsByType['BG Máy'].count || statsByType['MÁY'].count, customers: statsByType['BG Máy'].customers.size || statsByType['MÁY'].customers.size },
+        'BG VẬT TƯ': { count: statsByType['BG Vật tư'].count || statsByType['VẬT TƯ'].count, customers: statsByType['BG Vật tư'].customers.size || statsByType['VẬT TƯ'].customers.size },
+        'BG DỊCH VỤ': { count: statsByType['BG Dịch vụ'].count || statsByType['DỊCH VỤ'].count, customers: statsByType['BG Dịch vụ'].customers.size || statsByType['DỊCH VỤ'].customers.size },
         'KHÁC': { count: 0, customers: 0 },
       }
     };

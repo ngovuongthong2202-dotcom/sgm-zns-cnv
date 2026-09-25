@@ -1,4 +1,5 @@
 /* eslint-disable max-lines */
+import { getProductItemKey } from '@/src/shared/utils/product-key';
 import { getEntityDisplayLabel } from '@/src/domain/mapping/entity-label';
 import React from 'react';
 import { notify } from '@/src/shared/utils/notify';
@@ -54,14 +55,10 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
     const contractsMap = new Map((contracts || []).map((c: any) => [c.id, c]));
     const quoMap = new Map((quotations || []).map((q: any) => [q.id, q]));
 
-    const deliveriesByPayment = new Map<string, any[]>();
-    (deliveries || []).forEach((d: any) => {
-      if (!d.deletedAt && !d.deleted_at && d.tinhTrangGiaoHang !== 'HỦY' && d.tinhTrangGiaoHang !== 'Hủy' && d.paymentId) {
-        const list = deliveriesByPayment.get(d.paymentId) || [];
-        list.push(d);
-        deliveriesByPayment.set(d.paymentId, list);
-      }
-    });
+    // Lọc danh sách delivery hợp lệ (chưa bị xóa và không phải HỦY)
+    const validDeliveries = (deliveries || []).filter((d: any) => 
+      !d.deletedAt && !d.deleted_at && d.tinhTrangGiaoHang !== 'HỦY' && d.tinhTrangGiaoHang !== 'Hủy'
+    );
 
     return payments
       .filter((p: any) => !p.deletedAt && !p.deleted_at)
@@ -79,27 +76,58 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
         let totalDelivered = 0;
         let _isFullyDelivered = false;
 
+        // Match deliveries liên kết đa chiều: qua paymentId, soChungTuThamChieu, contractId, soHopDong, quotationId, soPhieuBaoGia
+        const linkedDeliveries = validDeliveries.filter((d: any) => {
+          if (d.paymentId && (d.paymentId === p.id || d.paymentId === p.paymentId)) return true;
+          if (d.soChungTuThamChieu && (d.soChungTuThamChieu === p.paymentId || d.soChungTuThamChieu === p.id)) return true;
+          if (p.contractId && d.contractId && d.contractId === p.contractId) return true;
+          if (p.soHopDong && d.soHopDong && d.soHopDong === p.soHopDong) return true;
+          if (p.quotationId && d.quotationId && d.quotationId === p.quotationId) return true;
+          if (p.soPhieuBaoGia && d.soPhieuBaoGia && d.soPhieuBaoGia === p.soPhieuBaoGia) return true;
+          return false;
+        });
+
         if (productList.length > 0) {
-          const linkedDeliveries = deliveriesByPayment.get(p.id) || deliveriesByPayment.get(p.paymentId) || [];
           const actualDeliveredMap: Record<string, number> = {};
 
-          linkedDeliveries.forEach(d => {
+          linkedDeliveries.forEach((d: any) => {
             (d.products || []).forEach((dp: any, idx: number) => {
-              const key = dp.id || dp.productId || dp.productName || String(idx);
-              actualDeliveredMap[key] = (actualDeliveredMap[key] || 0) + Number(dp.quantity || 0);
+              const itemKey = getProductItemKey(dp, idx);
+              actualDeliveredMap[itemKey] = (actualDeliveredMap[itemKey] || 0) + Number(dp.quantity || 0);
+              if (dp.productId) actualDeliveredMap[dp.productId] = (actualDeliveredMap[dp.productId] || 0) + Number(dp.quantity || 0);
+              if (dp.productName) actualDeliveredMap[dp.productName] = (actualDeliveredMap[dp.productName] || 0) + Number(dp.quantity || 0);
             });
           });
 
+          let allItemsDelivered = true;
           productList.forEach((cp: Record<string, unknown>, index: number) => {
-            const key = (cp.id as string) || (cp.productId as string) || (cp.productName as string) || String(index);
+            const itemKey = getProductItemKey(cp as any, index);
             const q = Number(cp.quantity || 0);
             totalContracted += q;
-            const fromSource = Number(((source?.deliveredQuantities || {}) as Record<string, number>)[key] || 0);
-            const fromDeliveries = Number(actualDeliveredMap[key] || 0);
-            totalDelivered += Math.max(fromSource, fromDeliveries);
+            const fromSource = Number(((source?.deliveredQuantities || {}) as Record<string, number>)[itemKey] || 0);
+            const fromDeliveries = Number(
+              actualDeliveredMap[itemKey] ?? 
+              (cp.productId ? actualDeliveredMap[cp.productId as string] : undefined) ?? 
+              (cp.productName ? actualDeliveredMap[cp.productName as string] : undefined) ?? 
+              0
+            );
+            const deliveredForThisItem = Math.max(fromSource, fromDeliveries);
+            totalDelivered += deliveredForThisItem;
+            if (deliveredForThisItem < q) {
+              allItemsDelivered = false;
+            }
           });
 
-          if (totalDelivered >= totalContracted && totalContracted > 0) {
+          if (totalContracted > 0 && (totalDelivered >= totalContracted || allItemsDelivered)) {
+            _isFullyDelivered = true;
+          }
+
+          // Kiểm tra nếu phiếu giao liên kết đã xác nhận hoàn tất
+          const hasCompletedDelivery = linkedDeliveries.some((d: any) => 
+            (d.tinhTrangGiaoHang === 'Hoàn tất' || d.tinhTrangGiaoHang === 'HOÀN TẤT' || !!d.ngayGiaoThucTe) &&
+            (d.products || []).length > 0
+          );
+          if (hasCompletedDelivery && (totalDelivered >= totalContracted || allItemsDelivered)) {
             _isFullyDelivered = true;
           }
         }
@@ -126,6 +154,11 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
         return true;
       });
   }, [payments, contracts, quotations, deliveries, delivery?.paymentId]);
+
+  const selectedPaymentDoc = React.useMemo(() => {
+    if (!selectedPaymentId) return null;
+    return (payments || []).find((p: any) => p.id === selectedPaymentId || p.paymentId === selectedPaymentId) || null;
+  }, [payments, selectedPaymentId]);
 
   return (
     <div className="fixed inset-0 bg-slate-50 z-50 flex flex-col h-screen overflow-hidden">
@@ -289,6 +322,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                       tenKhachHang={watch('tenKhachHang')}
                       tinhTrangThanhToan={watch('tinhTrangThanhToan')}
                       paymentId={selectedPaymentId}
+                      maThanhToan={selectedPaymentDoc?.paymentId || (selectedPaymentDoc as any)?.soPhieuThu || (selectedPaymentDoc as any)?.code || (selectedPaymentId && !selectedPaymentId.includes('-') ? selectedPaymentId : undefined)}
                       sdt={watch('sdt')}
                     />
                   )}

@@ -10,7 +10,8 @@ import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
 import { EntityZnsHistory } from '@/src/widgets/EntityZnsHistory';
 import { EntityAuditLogs } from '@/src/widgets/EntityAuditLogs';
 import { Button } from '@/src/design-system/Button';
-import { ArrowLeft, ArrowRight, Trash2, Send, Edit } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Trash2, Send, Edit, Printer } from 'lucide-react';
+import { CustomerReportModal } from './CustomerReportModal';
 import {
   QuotesTabContent,
   ContractsTabContent,
@@ -50,6 +51,7 @@ export function CustomerDetailDrawer({
   className,
 }: CustomerDetailDrawerProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'quotes' | 'contracts' | 'payments' | 'deliveries' | 'zns' | 'audit'>('overview');
+  const [isReportOpen, setIsReportOpen] = useState(false);
 
   // Reset tab to overview or initialTab when drawer opens for a new customer
   React.useEffect(() => {
@@ -164,6 +166,20 @@ export function CustomerDetailDrawer({
           >
             <ArrowRight size={16} />
           </Button>
+          <Button
+            aria-label="Xuất PDF Hồ Sơ"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsReportOpen(true);
+            }}
+            variant="secondary"
+            size="sm"
+            className="h-8 px-2.5 text-xs font-semibold text-blue-700 bg-blue-50/80 border-blue-200 hover:bg-blue-100 flex items-center gap-1.5 ml-1"
+            title="In / Xuất PDF Hồ Sơ Khách Hàng (3 trang chuẩn)"
+          >
+            <Printer size={14} />
+            <span className="hidden sm:inline">Xuất PDF</span>
+          </Button>
         </div>
       }
       footer={
@@ -183,6 +199,16 @@ export function CustomerDetailDrawer({
             )}
           </div>
           <div className="flex gap-2 justify-end">
+            <Button
+              aria-label="Xuất PDF Hồ sơ"
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsReportOpen(true)}
+              className="h-9 font-bold border-blue-300 text-blue-700 bg-blue-50/50 hover:bg-blue-100 flex items-center gap-1.5"
+              leftIcon={<Printer size={14} />}
+            >
+              Xuất PDF Hồ sơ
+            </Button>
             <Button aria-label="Đóng" variant="secondary" size="sm" onClick={onClose} className="h-9 font-bold">
               Đóng
             </Button>
@@ -368,6 +394,16 @@ export function CustomerDetailDrawer({
           </div>
         )}
       </div>
+
+      <CustomerReportModal
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
+        customer={customer}
+        quotations={drawerQuotations}
+        contracts={drawerContracts}
+        payments={drawerPayments}
+        deliveries={drawerDeliveries}
+      />
     </DetailDrawer>
   );
 }

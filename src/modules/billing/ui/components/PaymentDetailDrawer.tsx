@@ -14,6 +14,8 @@ import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
 import { TabLienKet } from "@/src/widgets/TabLienKet";
 import { DrawerProductList } from '@/src/widgets/DrawerProductList';
 import { TabLichSuHeThong } from "@/src/widgets/TabLichSuHeThong";
+import { DocumentLifecycleTimeline } from "@/src/widgets/DocumentLifecycleTimeline";
+import { EntityAuditMetadataCard } from "@/src/widgets/EntityAuditMetadataCard";
 import { ContractHoverCard } from '@/src/modules/contracts/ui/components/ContractHoverCard';
 import { QuotationHoverCard } from '@/src/modules/sales/ui/components/QuotationHoverCard';
 import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
@@ -356,11 +358,32 @@ export function PaymentDetailDrawer({
     >
       <div className="space-y-4">
         {activeTab === 'overview' && overviewPanel}
-        {activeTab === 'activity' && <TabLichSuHoatDong entityId={paymentId} entityType="payment" />}
+        {activeTab === 'activity' && (
+          <DocumentLifecycleTimeline
+            currentType="payment"
+            currentDoc={payment}
+            relatedQuotations={_quotationDoc ? [_quotationDoc] : []}
+            relatedContracts={contractDoc ? [contractDoc] : []}
+            relatedDeliveries={deliveries}
+          />
+        )}
         {activeTab === 'deliveries' && deliveriesPanel}
         {activeTab === 'links' && <TabLienKet entityId={paymentId} entityType="payment" />}
         {activeTab === 'zns' && <TabLichSuZNS entityId={paymentId} entityType="payment" />}
-        {activeTab === 'audit' && <TabLichSuHeThong entityId={paymentId} entityType="payment" />}
+        {activeTab === 'audit' && (
+          <EntityAuditMetadataCard
+            entityId={paymentId}
+            entityType="payment"
+            documentCode={payment.paymentId || (payment as any).soPhieuThu || (payment as any).soChungTu}
+            documentTypeLabel="chứng từ thanh toán"
+            creatorOrOfficer={payment.nguoiPhuTrach}
+            statusLabel={payment.tinhTrangThanhToan || 'Tất toán'}
+            statusColor={payment.tinhTrangThanhToan === 'Tất toán' ? 'text-emerald-700' : 'text-amber-700'}
+            createdAt={payment.createdAt || payment.ngayThanhToan}
+            updatedAt={(payment as any).updatedAt || (payment as any).ngayCapNhat}
+            customerName={payment.tenKhachHang}
+          />
+        )}
       </div>
     </DetailDrawer>
   );

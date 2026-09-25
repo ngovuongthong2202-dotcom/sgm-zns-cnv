@@ -21,18 +21,33 @@ export function TabLichSuGiaoHang({ matchingDeliveries, showCreateButton, onNavi
         )}
       </h4>
       <div className="space-y-2.5">
-        {matchingDeliveries.map(d => (
-          <div key={d.id} className="p-3 bg-slate-50 border border-slate-150 rounded-lg hover:bg-slate-100/50 transition-colors font-semibold text-xs text-slate-705 flex flex-col gap-1">
-            <div className="flex justify-between items-center gap-2">
-               <span className="text-slate-900 font-bold max-w-full overflow-hidden text-ellipsis whitespace-nowrap">{d.soPhieuXuat || (d as any).deliveryId || d.id?.slice(0, 8)}</span>
-               {d.kyNhan && <span className="text-2xs text-slate-500 max-w-[100px] truncate flex-shrink-0">Khách nhận: {d.kyNhan}</span>}
+        {matchingDeliveries.map(d => {
+          const displayDeliveryCode = (d as any).deliveryId || d.soPhieuXuat || (d as any).maGiaoHang || (d.id && !d.id.includes('-') ? d.id : 'Phiếu giao hàng');
+          return (
+            <div 
+              key={d.id} 
+              onClick={() => {
+                if (d.id) {
+                  window.location.href = `/deliveries?id=${d.id}`;
+                }
+              }}
+              className="p-3.5 bg-slate-50 border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 rounded-xl transition-all font-semibold text-xs text-slate-705 flex flex-col gap-1.5 cursor-pointer group shadow-xs"
+            >
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-slate-900 font-mono font-black text-xs group-hover:text-blue-700 transition-colors">
+                  {displayDeliveryCode}
+                </span>
+                <span className="text-3xs text-blue-700 bg-white border border-blue-200 px-2 py-0.5 rounded-full font-bold group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  Bấm mở chi tiết ↗
+                </span>
+              </div>
+              <div className="flex items-center justify-between mt-1 text-2xs pt-1 border-t border-slate-150/70">
+                <span className="text-slate-600 font-mono">Ngày giao: {formatDate(d.ngayGiaoThucTe || (d as any).ngayGiaoMay as string)}</span>
+                {(d as any).donViVanChuyen && <span className="font-mono text-slate-950 font-bold text-2xs">ĐVVC: {(d as any).donViVanChuyen}</span>}
+              </div>
             </div>
-            <div className="flex items-center justify-between mt-1">
-               <span className="text-2xs text-slate-600 font-mono">Ngày giao: {formatDate(d.ngayGiaoThucTe || (d as any).ngayGiaoMay as string)}</span>
-               {(d as any).donViVanChuyen && <span className="font-mono text-slate-950 font-bold text-2xs">ĐVVC: {(d as any).donViVanChuyen}</span>}
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {matchingDeliveries.length === 0 && (
           <div className="text-center py-6 text-slate-600 italic text-xs space-y-3">
              <p>Chưa ghi nhận đợt xuất giao hàng.</p>
