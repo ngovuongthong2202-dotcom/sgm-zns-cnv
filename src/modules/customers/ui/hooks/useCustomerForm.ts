@@ -65,6 +65,7 @@ export function useCustomerForm(
     control,
     trigger,
     getValues,
+    reset,
     formState: { errors, isSubmitting, isDirty }
   } = useForm<Customer>({
     resolver: zodResolver(CustomerSchema) as any,
@@ -144,8 +145,48 @@ export function useCustomerForm(
   useEffect(() => {
     if (!customer?.id) {
       setValue('nguoiPhuTrach', currentUserName, { shouldDirty: false });
+    } else {
+      const normalizedLoai = customer.loaiKh
+        ? ((loaiKhachHangList || []).find((l) => l.toLowerCase() === customer.loaiKh?.toLowerCase()) || customer.loaiKh)
+        : '';
+      const cContacts = (customer.contacts && customer.contacts.length > 0)
+        ? customer.contacts.filter(Boolean).map(c => ({
+            danhXung: c.danhXung || '',
+            nguoiDaiDien: c.nguoiDaiDien || '',
+            sdt: c.sdt || '',
+            chucVu: c.chucVu || '',
+            chiNhanh: c.chiNhanh || ''
+          }))
+        : [{
+            danhXung: '',
+            nguoiDaiDien: customer.nguoiDaiDien || '',
+            sdt: customer.sdt || '',
+            chucVu: '',
+            chiNhanh: customer.chiNhanh || ''
+          }];
+
+      reset({
+        ...customer,
+        maKh: customer.maKh || '',
+        tenKhachHang: customer.tenKhachHang || '',
+        loaiKh: normalizedLoai || '',
+        loaiHinhDoanhNghiep: (customer.loaiHinhDoanhNghiep || '').trim().toUpperCase(),
+        maSoThue: customer.maSoThue || '',
+        tinhThanh: customer.tinhThanh || '',
+        diaChi: customer.diaChi || '',
+        xaPhuong: customer.xaPhuong || '',
+        sdt: cContacts[0]?.sdt || customer.sdt || '',
+        nguoiDaiDien: cContacts[0]?.nguoiDaiDien || customer.nguoiDaiDien || '',
+        chiNhanh: cContacts[0]?.chiNhanh || customer.chiNhanh || '',
+        nhuCauKhachHang: customer.nhuCauKhachHang || '',
+        gioiTinh: customer.gioiTinh || '',
+        ngaySinh: customer.ngaySinh || '',
+        nguoiPhuTrach: customer.nguoiPhuTrach || currentUserName,
+        tags: Array.isArray(customer.tags) ? customer.tags : [],
+        contacts: cContacts
+      });
     }
-  }, [customer, currentUserName, setValue]);
+  }, [customer, currentUserName, setValue, reset, loaiKhachHangList]);
 
   useEffect(() => {
     if (draft && isRestored) {

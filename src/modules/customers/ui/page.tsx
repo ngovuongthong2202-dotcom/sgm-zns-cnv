@@ -251,6 +251,7 @@ export default function CustomersFeature() {
       {/* Stepper Create / Edit dialog */}
       {(drawerState.mode === 'new' || drawerState.mode === 'edit') && (
         <CustomerForm
+          key={drawerState.mode === 'edit' ? (drawerState.customer.id || drawerState.customer.maKh) : 'new'}
           customer={drawerState.mode === 'edit' ? drawerState.customer : null}
           nguoiPhuTrachList={nguoiPhuTrachList}
           loaiKhachHangList={loaiKhachHangList}

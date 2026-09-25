@@ -57,7 +57,21 @@ export function useQuotationForm({
     } as any
   });
 
-  const { control, register, handleSubmit, watch, setValue, getValues, trigger, formState: { errors, isSubmitting, isDirty } } = form;
+  const { control, register, handleSubmit, watch, setValue, getValues, trigger, reset, formState: { errors, isSubmitting, isDirty } } = form;
+
+  useEffect(() => {
+    if (quotation) {
+      reset({
+        ...quotation,
+        products: quotation.products || [],
+        noiDungGhiChu: quotation.noiDungGhiChu || '',
+        hieuLuc: quotation.hieuLuc ?? 7,
+        ngayBaoGia: quotation.ngayBaoGia || new Date().toISOString().split('T')[0],
+        nguoiPhuTrach: quotation.nguoiPhuTrach || '',
+        loai: quotation.loai || QUOTATION_LOAI.MAY
+      });
+    }
+  }, [quotation, reset]);
 
   const currentLoai = watch('loai');
   const isCreating = !quotation?.id;

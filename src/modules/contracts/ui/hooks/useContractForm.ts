@@ -25,10 +25,16 @@ export function useContractForm(
 
   const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Contract>('contracts', contract?.id || 'new');
 
-  const { register, handleSubmit, watch, setValue, getValues, formState: { errors, isSubmitting, isDirty } } = useForm<FormValues>({
+  const { register, handleSubmit, watch, setValue, getValues, reset, formState: { errors, isSubmitting, isDirty } } = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: getInitialContractFormValues(contract, draft)
   });
+
+  useEffect(() => {
+    if (contract) {
+      reset(getInitialContractFormValues(contract, null));
+    }
+  }, [contract, reset]);
 
   const selectedQuoId = watch('quotationId');
   const products = watch('products') || [];

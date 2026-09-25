@@ -83,13 +83,22 @@ export function normalizeCustomerFormValues(data: Customer): Customer {
     (normalized as any)[key] = trimStr((data as any)[key]);
   }
   normalized.maKh = normalizeCode(normalized.maKh);
-  normalized.loaiHinhDoanhNghiep = cleanProperVietnameseText(normalized.loaiHinhDoanhNghiep).toUpperCase();
+  normalized.loaiHinhDoanhNghiep = (normalized.loaiHinhDoanhNghiep || '').toString().trim().toUpperCase();
   normalized.tenKhachHang = normalizeBusinessName(normalized.tenKhachHang);
   normalized.diaChi = cleanProperVietnameseText(normalized.diaChi);
   normalized.tinhThanh = cleanProperVietnameseText(normalized.tinhThanh);
   normalized.nguoiDaiDien = normalizePersonName(normalized.nguoiDaiDien);
-  normalized.chiNhanh = cleanProperVietnameseText(normalized.chiNhanh);
+  const cleanBranchOrContactNote = (val?: string | null) => {
+    if (!val) return '';
+    const str = squeezeSpaces(val);
+    if (str.includes('@')) return str;
+    return cleanProperVietnameseText(str);
+  };
+
+  normalized.chiNhanh = cleanBranchOrContactNote(normalized.chiNhanh);
   normalized.sdt = normalizePhoneVN(normalized.sdt as any) || normalized.sdt;
+  normalized.nhuCauKhachHang = (normalized.nhuCauKhachHang || '').toString().trim();
+  normalized.tags = Array.isArray(normalized.tags) ? Array.from(new Set(normalized.tags.map((t: string) => (t || '').trim()).filter(Boolean))) : [];
   
   if (Array.isArray(normalized.contacts)) {
     normalized.contacts = normalized.contacts.map((c: import('@/src/domain/schema/customer.schema').ContactItem) => {
@@ -98,18 +107,19 @@ export function normalizeCustomerFormValues(data: Customer): Customer {
         nc[key] = trimStr((c as any)[key]);
       }
       nc.nguoiDaiDien = normalizePersonName(nc.nguoiDaiDien);
-      nc.chiNhanh = cleanProperVietnameseText(nc.chiNhanh);
+      nc.chiNhanh = cleanBranchOrContactNote(nc.chiNhanh);
       nc.chucVu = cleanProperVietnameseText(nc.chucVu);
       nc.sdt = normalizePhoneVN(nc.sdt) || nc.sdt;
       return nc;
     });
 
-    // Map root sdt and nguoiDaiDien from primary contact to prevent missing fields in ZNS payload
+    // Map root sdt, nguoiDaiDien, chiNhanh from primary contact to prevent missing fields
     if (normalized.contacts.length > 0) {
       const primaryContact = normalized.contacts[0];
       normalized.sdt = primaryContact.sdt || normalized.sdt || '';
       normalized.nguoiDaiDien = primaryContact.nguoiDaiDien || normalized.nguoiDaiDien || '';
-    } else if (normalized.sdt || normalized.nguoiDaiDien) {
+      normalized.chiNhanh = primaryContact.chiNhanh || normalized.chiNhanh || '';
+    } else if (normalized.sdt || normalized.nguoiDaiDien || normalized.chiNhanh) {
       normalized.contacts = [{
         danhXung: '',
         nguoiDaiDien: normalized.nguoiDaiDien || '',
@@ -118,7 +128,7 @@ export function normalizeCustomerFormValues(data: Customer): Customer {
         chiNhanh: normalized.chiNhanh || ''
       }];
     }
-  } else if (normalized.sdt || normalized.nguoiDaiDien) {
+  } else if (normalized.sdt || normalized.nguoiDaiDien || normalized.chiNhanh) {
     normalized.contacts = [{
       danhXung: '',
       nguoiDaiDien: normalized.nguoiDaiDien || '',

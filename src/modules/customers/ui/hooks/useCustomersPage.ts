@@ -132,7 +132,7 @@ export function useCustomersPage() {
     const cleaned = customers.map(c => ({
       ...c,
       tenKhachHang: c.tenKhachHang ? cleanProperVietnameseText(c.tenKhachHang) : '',
-      loaiHinhDoanhNghiep: c.loaiHinhDoanhNghiep ? cleanProperVietnameseText(c.loaiHinhDoanhNghiep) : '',
+      loaiHinhDoanhNghiep: c.loaiHinhDoanhNghiep ? c.loaiHinhDoanhNghiep.trim().toUpperCase() : '',
       diaChi: c.diaChi ? cleanProperVietnameseText(c.diaChi) : '',
       nguoiDaiDien: c.nguoiDaiDien ? cleanProperVietnameseText(c.nguoiDaiDien) : '',
     }));

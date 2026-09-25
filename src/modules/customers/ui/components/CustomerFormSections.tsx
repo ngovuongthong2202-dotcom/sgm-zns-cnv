@@ -99,6 +99,9 @@ export function CustomerFormProfileSection({
             {BUSINESS_TYPE_PREFIXES.map((type) => (
               <option key={type} value={type}>{type}</option>
             ))}
+            {watch('loaiHinhDoanhNghiep') && !BUSINESS_TYPE_PREFIXES.some(type => type.toUpperCase() === (watch('loaiHinhDoanhNghiep') || '').toUpperCase()) && (
+              <option value={watch('loaiHinhDoanhNghiep')}>{watch('loaiHinhDoanhNghiep')}</option>
+            )}
           </select>
         </div>
 
@@ -172,6 +175,9 @@ export function CustomerFormProfileSection({
             {PROVINCES.map((city) => (
               <option key={city} value={city}>{city}</option>
             ))}
+            {watch('tinhThanh') && !PROVINCES.includes(watch('tinhThanh')) && (
+              <option value={watch('tinhThanh')}>{watch('tinhThanh')}</option>
+            )}
           </select>
           {errors.tinhThanh && <p className="text-xs text-red-650 mt-1">{errors.tinhThanh.message as string}</p>}
         </div>

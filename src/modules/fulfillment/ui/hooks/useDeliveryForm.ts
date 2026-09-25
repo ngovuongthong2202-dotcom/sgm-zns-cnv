@@ -15,7 +15,7 @@ export function useDeliveryForm(
   const [isLockedByOther, setIsLockedByOther] = useState(false);
   const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Delivery>('deliveries', delivery?.id || 'new');
 
-  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<Delivery>({
+  const { register, handleSubmit, watch, setValue, reset, formState: { errors, isSubmitting } } = useForm<Delivery>({
     resolver: zodResolver(DeliverySchema) as any,
     defaultValues: draft ? draft : (delivery || { 
       trangThaiGuiTinGiaoHang: EntityZnsStatus.CHUA_GUI,
@@ -31,6 +31,20 @@ export function useDeliveryForm(
       products: []
     })
   });
+
+  useEffect(() => {
+    if (delivery) {
+      reset({
+        ...delivery,
+        products: delivery.products || [],
+        danhSachMaMay: delivery.danhSachMaMay || [],
+        ghiChu: delivery.ghiChu || '',
+        donViVanChuyen: delivery.donViVanChuyen || '',
+        soPhieuXuat: delivery.soPhieuXuat || '',
+        slMay: delivery.slMay || 0
+      });
+    }
+  }, [delivery, reset]);
 
   const watchAll = watch();
   

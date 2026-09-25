@@ -97,6 +97,14 @@ export function CustomerForm({
         onKeyDown={handleEnterToTab}
         onSubmit={handleSubmit(
           async (data: any) => {
+            if (tagInput && tagInput.trim()) {
+              const pendingTag = tagInput.trim();
+              if (!Array.isArray(data.tags)) data.tags = [];
+              if (!data.tags.includes(pendingTag)) {
+                data.tags = [...data.tags, pendingTag];
+              }
+              setTagInput('');
+            }
             const normalized = normalizeCustomerFormValues(data);
             if (!customer || !normalized.nguoiPhuTrach) {
               normalized.nguoiPhuTrach = customer?.nguoiPhuTrach || currentUserName;

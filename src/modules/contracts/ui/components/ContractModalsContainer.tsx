@@ -105,6 +105,7 @@ export function ContractModalsContainer({
       {isFormOpen && (
         <Suspense fallback={<ModalSkeleton />}>
           <ContractFormModal 
+            key={editingContract?.id || 'new'}
             contract={editingContract} 
             contracts={contracts} 
             quotations={quotations} 

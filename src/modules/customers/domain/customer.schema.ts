@@ -17,7 +17,7 @@ export const CustomerSchema = z.object({
   maKh: z.string().min(1, 'Mã KH là bắt buộc').transform((val) => (val || '').trim().replace(/[\u200B-\u200D\uFEFF]/g, '')), // Business Key
   loaiKh: zSafeString.optional(),
   tenKhachHang: z.string().min(1, 'Tên khách hàng là bắt buộc').transform((val) => cleanProperVietnameseText(val || '')),
-  loaiHinhDoanhNghiep: zProperString.optional(),
+  loaiHinhDoanhNghiep: zSafeString.optional().transform((val) => (val || '').trim().toUpperCase()),
   maSoThue: zSafeString.optional(),
   nguoiDaiDien: zProperString.optional(),
   gioiTinh: zSafeString.optional(),

@@ -307,6 +307,7 @@ export default function QuotationsFeature() {
       {isFormOpen && (
         <Suspense fallback={<ModalSkeleton />}>
           <QuotationFormModal 
+            key={editingQuotation?.id || 'new'}
             quotation={editingQuotation}
             quotations={quotations}
             customers={allCustomers}

@@ -284,6 +284,7 @@ export default function DeliveriesFeature() {
 
       {isFormOpen && (
         <DeliveryFormModal 
+          key={editingDelivery?.id || 'new'}
           delivery={editingDelivery} 
           payments={payments} 
           contracts={drawerContract ? [drawerContract] : []} 

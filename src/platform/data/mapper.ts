@@ -55,6 +55,13 @@ export const mapDocument = <T>(row: Record<string, unknown> | null | undefined):
     processedAt: (row.processed_at as string) || (row.processedAt as string) || undefined,
     timestamp: (row.timestamp as string) || (jsonb.timestamp as string) || (row.created_at as string) || (row.createdAt as string) || (jsonb.createdAt as string) || (row.processed_at as string) || undefined,
     userId: (row.user_id as string) || (row.userId as string) || (jsonb.userId as string) || undefined,
-    userName: (row.user_name as string) || (row.userName as string) || (jsonb.userName as string) || undefined
+    userName: (row.user_name as string) || (row.userName as string) || (jsonb.userName as string) || undefined,
+    tinhThanh: (cleanRow.tinh_thanh as string) || (cleanRow.tinhThanh as string) || (jsonb.tinhThanh as string) || undefined,
+    loaiKh: (cleanRow.loai_kh as string) || (cleanRow.loaiKh as string) || (jsonb.loaiKh as string) || undefined,
+    nguoiPhuTrach: (cleanRow.nguoi_phu_trach as string) || (cleanRow.nguoiPhuTrach as string) || (jsonb.nguoiPhuTrach as string) || undefined,
+    loaiHinhDoanhNghiep: (cleanRow.loai_hinh_doanh_nghiep as string) || (cleanRow.loaiHinhDoanhNghiep as string) || (jsonb.loaiHinhDoanhNghiep as string) || undefined,
+    diaChi: (cleanRow.dia_chi as string) || (cleanRow.diaChi as string) || (jsonb.diaChi as string) || undefined,
+    maSoThue: (cleanRow.ma_so_thue as string) || (cleanRow.maSoThue as string) || (jsonb.maSoThue as string) || undefined,
+    nhuCauKhachHang: (cleanRow.nhu_cau_khach_hang as string) || (cleanRow.nhuCauKhachHang as string) || (jsonb.nhuCauKhachHang as string) || undefined
   } as unknown as T;
 };
