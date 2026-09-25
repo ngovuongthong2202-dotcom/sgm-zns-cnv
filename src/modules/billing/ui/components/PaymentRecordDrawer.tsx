@@ -69,20 +69,41 @@ export function PaymentRecordDrawer({
     return checkPaymentLock(payment as any, myDeliveries);
   }, [payment, allDeliveries]);
 
-  const PaymentFormSchema = useMemo(() => PaymentSchema.extend({ sourceValue: z.string().optional() }).strip(), []);
+  const PaymentFormSchema = useMemo(() => PaymentSchema.extend({ 
+    sourceValue: z.string().optional(),
+    paymentId: z.string().optional().transform(v => (v && v.trim() && v !== '---') ? v : `PT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`)
+  }).strip(), []);
 
   const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Payment & { sourceValue: string }>('payments', payment?.id || 'new');
 
   const { register, handleSubmit, watch, setValue, control, reset, getValues, formState: { isSubmitting } } = useForm<Payment & { sourceValue: string }>({
     resolver: zodResolver(PaymentFormSchema) as any,
-    defaultValues: draft ? draft : (payment ? { ...payment, sourceValue: payment.contractId ? `CONTRACT:${payment.contractId}` : payment.quotationId ? `QUOTATION:${payment.quotationId}` : '' } : { trangThaiGuiTinThanhToan: EntityZnsStatus.CHUA_GUI, tinhTrangThanhToan: 'Chưa TT', phuongThucThanhToan: 'Chuyển khoản', products: [] } as any)
+    defaultValues: draft ? draft : (payment ? { ...payment, sourceValue: payment.contractId ? `CONTRACT:${payment.contractId}` : payment.quotationId ? `QUOTATION:${payment.quotationId}` : '' } : { 
+      paymentId: `PT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      trangThaiGuiTinThanhToan: EntityZnsStatus.CHUA_GUI, 
+      tinhTrangThanhToan: 'Chưa TT', 
+      phuongThucThanhToan: 'Chuyển khoản', 
+      products: [] 
+    } as any)
   });
 
+  const hasInitializedRef = React.useRef(false);
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      return;
+    }
+
+    if (hasInitializedRef.current) return;
+
+    const currentPaymentId = getValues('paymentId') || draft?.paymentId || (payment?.paymentId ? payment.paymentId : `PT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
 
     if (draft) {
-      reset(draft);
+      reset({
+        ...draft,
+        paymentId: (draft.paymentId && draft.paymentId !== '---') ? draft.paymentId : currentPaymentId
+      });
+      hasInitializedRef.current = true;
     } else if (payment) {
       const enriched = { ...payment };
       if (!enriched.soDonHang || !enriched.soHopDong) {
@@ -98,10 +119,16 @@ export function PaymentRecordDrawer({
           enriched.soHopDong = enriched.soHopDong || matchingContract?.soHopDong || '';
         }
       }
-      reset({ ...enriched, sourceValue: payment.contractId ? `CONTRACT:${payment.contractId}` : payment.quotationId ? `QUOTATION:${payment.quotationId}` : '' });
+      reset({ 
+        ...enriched, 
+        paymentId: enriched.paymentId || currentPaymentId,
+        sourceValue: payment.contractId ? `CONTRACT:${payment.contractId}` : payment.quotationId ? `QUOTATION:${payment.quotationId}` : '' 
+      });
+      hasInitializedRef.current = true;
     } else if (isNew) {
       if (prefillQuotation) {
         reset({
+          paymentId: currentPaymentId,
           trangThaiGuiTinThanhToan: EntityZnsStatus.CHUA_GUI,
           tinhTrangThanhToan: 'Chưa TT',
           phuongThucThanhToan: 'Chuyển khoản',
@@ -114,6 +141,7 @@ export function PaymentRecordDrawer({
           sdt: prefillQuotation.sdt || '',
           soDonHang: '',
           soHopDong: '',
+          soPhieuBaoGia: prefillQuotation.soPhieuBaoGia || '',
           subTotal: prefillQuotation.subTotal || 0,
           vatRate: prefillQuotation.vatRate || 0,
           vatAmount: prefillQuotation.vatAmount || 0,
@@ -126,6 +154,7 @@ export function PaymentRecordDrawer({
         } as any);
       } else {
         reset({
+          paymentId: currentPaymentId,
           trangThaiGuiTinThanhToan: EntityZnsStatus.CHUA_GUI,
           tinhTrangThanhToan: 'Chưa TT',
           phuongThucThanhToan: 'Chuyển khoản',
@@ -135,11 +164,13 @@ export function PaymentRecordDrawer({
           products: [],
           soDonHang: '',
           soHopDong: '',
+          soPhieuBaoGia: '',
           ngayThanhToan: format(new Date(), 'yyyy-MM-dd')
         } as any);
       }
+      hasInitializedRef.current = true;
     }
-  }, [payment, isOpen, reset, draft, isNew, contracts, prefillQuotation]);
+  }, [payment, isOpen, reset, draft, isNew, contracts, prefillQuotation, getValues]);
 
   const watchAll = watch();
   useEffect(() => {
@@ -162,34 +193,36 @@ export function PaymentRecordDrawer({
       return;
     }
     const currentId = getValues('paymentId') || '';
-    if (isNew && !currentId && !hasGeneratedCodeRef.current) {
-      hasGeneratedCodeRef.current = true;
-      let isCancelled = false;
-
+    if (isNew && (!currentId || currentId === '---')) {
       // 1. Gán fallback code tức thì để UI không trống
       const fallbackCode = `PT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      setValue('paymentId', fallbackCode, { shouldValidate: true });
+      setValue('paymentId', fallbackCode, { shouldValidate: true, shouldDirty: true });
 
-      // 2. Fetch mã chuẩn từ Universal Sequence Engine
-      if (typeof fetch === 'function') {
-        fetch('/api/workflow/next-code/payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        })
-          .then(res => res.json())
-          .then(data => {
-            if (!isCancelled && data?.success && data?.code) {
-              setValue('paymentId', data.code, { shouldValidate: true, shouldDirty: true });
-            }
+      if (!hasGeneratedCodeRef.current) {
+        hasGeneratedCodeRef.current = true;
+        let isCancelled = false;
+
+        // 2. Fetch mã chuẩn từ Universal Sequence Engine
+        if (typeof fetch === 'function') {
+          fetch('/api/workflow/next-code/payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
           })
-          .catch(() => {
-            // Giữ fallbackCode đã set
-          });
-      }
+            .then(res => res.json())
+            .then(data => {
+              if (!isCancelled && data?.success && data?.code) {
+                setValue('paymentId', data.code, { shouldValidate: true, shouldDirty: true });
+              }
+            })
+            .catch(() => {
+              // Giữ fallbackCode đã set
+            });
+        }
 
-      return () => {
-        isCancelled = true;
-      };
+        return () => {
+          isCancelled = true;
+        };
+      }
     }
   }, [isOpen, isNew, setValue, getValues]);
 
@@ -238,6 +271,9 @@ export function PaymentRecordDrawer({
     data.maKh = data.maKh ? normalizeCode(data.maKh) : '';
     data.tenKhachHang = data.tenKhachHang ? cleanProperVietnameseText(data.tenKhachHang) : '';
     data.paymentId = normalizeCode(data.paymentId);
+    if (!data.paymentId || data.paymentId === '---') {
+      data.paymentId = `PT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    }
     if (data.sdt) {
       data.sdt = normalizePhoneVN(data.sdt) || data.sdt;
     }

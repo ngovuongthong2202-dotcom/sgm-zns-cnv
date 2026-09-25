@@ -148,7 +148,7 @@ export function useMutation<T>({ collection: collectionName, onSuccess, onError 
         }
       }
 
-      const lastKnownVal = options.force ? null : (data._lastUpdatedAt || beforeUpdatedAt || null);
+      const lastKnownVal = options.force ? null : (data._lastUpdatedAt || null);
 
       const rawUpdatePayload = {
         ...data,

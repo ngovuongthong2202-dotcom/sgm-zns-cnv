@@ -190,9 +190,15 @@ router.put('/update/:entityType/:id', async (req, res) => {
     const oldDoc: any = docSnap.data();
 
     // Check Optimistic Concurrency if requested
-    const beforeUpdatedAt = oldDoc.updatedAt || oldDoc.ngayCapNhat;
-    if (data.lastKnownUpdatedAt && beforeUpdatedAt && data.lastKnownUpdatedAt !== beforeUpdatedAt) {
-       return res.status(409).json({ error: "CONCURRENCY_CONFLICT", message: "Concurrent modification detected." });
+    const beforeUpdatedAt = oldDoc.updatedAt || oldDoc.ngayCapNhat || oldDoc.updated_at;
+    if (data.lastKnownUpdatedAt && beforeUpdatedAt) {
+      const tClient = new Date(data.lastKnownUpdatedAt).getTime();
+      const tServer = new Date(beforeUpdatedAt).getTime();
+      // Chỉ xung đột nếu cả 2 timestamp hợp lệ, chênh lệch trên 3 giây và người sửa gần nhất khác người dùng hiện tại
+      const isDifferentUser = oldDoc.updatedBy && req.body.userId && oldDoc.updatedBy !== req.body.userId;
+      if (!isNaN(tClient) && !isNaN(tServer) && Math.abs(tClient - tServer) > 3000 && isDifferentUser) {
+        return res.status(409).json({ error: "CONCURRENCY_CONFLICT", message: "Concurrent modification detected." });
+      }
     }
 
     // Validate locks only for specific entities before update

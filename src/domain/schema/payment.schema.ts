@@ -15,6 +15,7 @@ export const PaymentSchema = z.object({
   sdt: z.string().optional().or(z.literal('')),
   soHopDong: z.string().optional().or(z.literal('')),
   soDonHang: z.string().optional().or(z.literal('')),
+  soPhieuBaoGia: z.string().optional().or(z.literal('')),
   ngayKy: z.string().optional().or(z.literal('')),
   
   // Payment specific (Manual Preserve)

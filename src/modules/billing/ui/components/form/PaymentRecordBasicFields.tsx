@@ -35,17 +35,23 @@ export function PaymentRecordBasicFields({
   phuongThucThanhToanList = ['Chuyển khoản', 'Tiền mặt'],
   tinhTrangThanhToanList = ['Tất toán', 'Công nợ', 'Chưa TT', 'Miễn phí']
 }: PaymentRecordBasicFieldsProps) {
-  const sourceVal = watch('sourceValue') || '';
-  const isContract = sourceVal.startsWith('CONTRACT:');
-  const contractId = isContract ? sourceVal.replace('CONTRACT:', '') : '';
-  const quotationId = !isContract && sourceVal.startsWith('QUOTATION:') ? sourceVal.replace('QUOTATION:', '') : '';
-
+  const watchAll = watch();
+  const sourceVal = watchAll.sourceValue || '';
   const [selectedDoc, setSelectedDoc] = React.useState<any>(null);
 
-  const activeDoc = selectedDoc || 
-    (isContract ? contracts.find(c => c.id === contractId) : quotations.find(q => q.id === quotationId));
+  const isContract = sourceVal.startsWith('CONTRACT:') ||
+                     (selectedDoc && selectedDoc._collectionType === 'contracts') ||
+                     (!!watchAll.contractId) ||
+                     (!!watchAll.soHopDong && !watchAll.soPhieuBaoGia);
 
-  const watchAll = watch();
+  const contractId = sourceVal.startsWith('CONTRACT:') ? sourceVal.replace('CONTRACT:', '') : (watchAll.contractId || (isContract ? sourceVal : ''));
+  const quotationId = sourceVal.startsWith('QUOTATION:') ? sourceVal.replace('QUOTATION:', '') : (watchAll.quotationId || (!isContract ? sourceVal : ''));
+
+  const activeDoc = selectedDoc || 
+    (isContract 
+      ? (contracts.find(c => c.id === contractId || (watchAll.soHopDong && c.soHopDong === watchAll.soHopDong)))
+      : (quotations.find(q => q.id === quotationId || (watchAll.soPhieuBaoGia && q.soPhieuBaoGia === watchAll.soPhieuBaoGia))));
+
   const totalAmountVal = Number(watch('totalAmount')) || 0;
   const soTienVal = Number(watch('soTien')) || 0;
   const statusVal = watch('tinhTrangThanhToan') || '';
@@ -120,42 +126,44 @@ export function PaymentRecordBasicFields({
                   value={watch('sourceValue') || ''}
                   disabled={disabled}
                   onChange={(val, doc: any) => {
-                      setValue('sourceValue', val, { shouldValidate: true });
                       if (doc) {
                         setSelectedDoc(doc);
-                        const isContract = doc._collectionType === 'contracts';
-                        const prefix = isContract ? 'CONTRACT:' : 'QUOTATION:';
-                        setValue('sourceValue', `${prefix}${doc.id}`, { shouldValidate: true });
+                        const isDocContract = doc._collectionType === 'contracts' || (!doc._collectionType && !!doc.soHopDong && !doc.soPhieuBaoGia);
+                        const prefix = isDocContract ? 'CONTRACT:' : 'QUOTATION:';
+                        setValue('sourceValue', `${prefix}${doc.id}`, { shouldValidate: true, shouldDirty: true });
                         
-                        setValue('customerId', doc.customerId || '');
-                        setValue('maKh', doc.maKh || '');
-                        setValue('tenKhachHang', doc.tenKhachHang || '');
-                        setValue('sdt', doc.sdt || '');
-                        setValue('soHopDong', isContract ? (doc.soHopDong || '') : '');
-                        setValue('soDonHang', isContract ? (doc.soDonHang || '') : '');
+                        setValue('customerId', doc.customerId || '', { shouldValidate: true, shouldDirty: true });
+                        setValue('maKh', doc.maKh || '', { shouldDirty: true });
+                        setValue('tenKhachHang', doc.tenKhachHang || '', { shouldDirty: true });
+                        setValue('sdt', doc.sdt || '', { shouldDirty: true });
+                        setValue('soHopDong', isDocContract ? (doc.soHopDong || '') : '', { shouldDirty: true });
+                        setValue('soDonHang', isDocContract ? (doc.soDonHang || '') : '', { shouldDirty: true });
+                        setValue('soPhieuBaoGia', !isDocContract ? (doc.soPhieuBaoGia || '') : '', { shouldDirty: true });
                         
-                        if (isContract) {
-                          setValue('contractId', doc.id);
-                          setValue('quotationId', '');
+                        if (isDocContract) {
+                          setValue('contractId', doc.id, { shouldDirty: true });
+                          setValue('quotationId', '', { shouldDirty: true });
                         } else {
-                          setValue('quotationId', doc.id);
-                          setValue('contractId', '');
+                          setValue('quotationId', doc.id, { shouldDirty: true });
+                          setValue('contractId', '', { shouldDirty: true });
                         }
 
-                        setValue('subTotal', doc.subTotal || 0);
-                        setValue('vatRate', doc.vatRate || 0);
-                        setValue('vatAmount', doc.vatAmount || 0);
-                        setValue('discountRate', doc.discountRate || 0);
-                        setValue('discountAmount', doc.discountAmount || 0);
-                        setValue('totalAmount', doc.totalAmount || 0);
-                        setValue('soTien', doc.totalAmount || doc.subTotal || 0);
-                        setValue('products', doc.products || []);
+                        setValue('subTotal', doc.subTotal || 0, { shouldDirty: true });
+                        setValue('vatRate', doc.vatRate || 0, { shouldDirty: true });
+                        setValue('vatAmount', doc.vatAmount || 0, { shouldDirty: true });
+                        setValue('discountRate', doc.discountRate || 0, { shouldDirty: true });
+                        setValue('discountAmount', doc.discountAmount || 0, { shouldDirty: true });
+                        setValue('totalAmount', doc.totalAmount || 0, { shouldDirty: true });
+                        setValue('soTien', doc.totalAmount || doc.subTotal || 0, { shouldValidate: true, shouldDirty: true });
+                        setValue('products', doc.products || [], { shouldDirty: true });
+                      } else {
+                        setValue('sourceValue', val, { shouldValidate: true });
                       }
                   }}
                   renderOption={(doc: any) => {
-                      const isContract = doc._collectionType === 'contracts';
+                      const isDocContract = doc._collectionType === 'contracts' || (!doc._collectionType && !!doc.soHopDong && !doc.soPhieuBaoGia);
                       return {
-                        label: `${isContract ? 'HĐ' : 'BG'} — ${isContract ? doc.soHopDong : doc.soPhieuBaoGia}`,
+                        label: `${isDocContract ? 'HĐ' : 'BG'} — ${isDocContract ? doc.soHopDong : doc.soPhieuBaoGia}`,
                         subLabel: doc.tenKhachHang
                       };
                   }}
@@ -165,8 +173,8 @@ export function PaymentRecordBasicFields({
                     return { disabled: false };
                   }}
                   renderItemWrapper={(doc: any, children) => {
-                    const isContract = doc._collectionType === 'contracts';
-                    if (isContract) {
+                    const isDocContract = doc._collectionType === 'contracts' || (!doc._collectionType && !!doc.soHopDong && !doc.soPhieuBaoGia);
+                    if (isDocContract) {
                       return (
                         <ContractHoverCard contract={doc}>
                           {children}
@@ -190,7 +198,7 @@ export function PaymentRecordBasicFields({
                   <div className="bg-blue-50/50 border border-blue-200/50 rounded-xl p-4 flex flex-col gap-1.5 shadow-xs">
                     <span className="text-2xs font-black uppercase text-blue-800 tracking-wider">Căn cứ tham chiếu</span>
                     <h4 className="text-xs font-bold text-slate-900">
-                      Thông tin được đồng bộ thông minh từ {isContract ? 'Hợp đồng' : 'Báo giá'}: #{isContract ? (watchAll.soHopDong || 'Chưa xác định') : (watchAll.soDonHang || 'Chưa xác định')}
+                      Thông tin được đồng bộ thông minh từ {isContract ? 'Hợp đồng' : 'Báo giá'}: #{isContract ? (watchAll.soHopDong || activeDoc?.soHopDong || 'Chưa xác định') : (watchAll.soPhieuBaoGia || activeDoc?.soPhieuBaoGia || 'Chưa xác định')}
                     </h4>
                     <p className="text-2xs text-slate-500 leading-normal font-semibold">
                       Khách hàng nhận hóa đơn, giá trị tài chính và lịch trình thanh toán được liên thông trực tiếp hệ thống. Bạn có thể ghi nhận số tiền thực tế nhận được theo từng mốc thanh toán cụ thể.
@@ -232,12 +240,18 @@ export function PaymentRecordBasicFields({
               <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 border border-slate-100 rounded-xl">
                   <div className="col-span-2 grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                        <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block">Số Hợp Đồng</label>
-                        <input aria-label="Nhập thông tin" disabled={disabled} {...register('soHopDong')} className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" placeholder="HD..."/>
+                        <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block">
+                          {isContract ? 'Số Hợp Đồng' : 'Số Phiếu Báo Giá'}
+                        </label>
+                        {isContract ? (
+                          <input aria-label="Số hợp đồng" disabled={disabled} {...register('soHopDong')} className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" placeholder="HD..."/>
+                        ) : (
+                          <input aria-label="Số phiếu báo giá" disabled={disabled} {...register('soPhieuBaoGia')} className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" placeholder="BG..."/>
+                        )}
                     </div>
                     <div className="space-y-1">
                         <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block">Số Đơn Hàng</label>
-                        <input aria-label="Nhập thông tin" disabled={disabled} {...register('soDonHang')} className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" placeholder="DH..."/>
+                        <input aria-label="Số đơn hàng" disabled={disabled} {...register('soDonHang')} className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" placeholder="DH..."/>
                     </div>
                   </div>
               </div>

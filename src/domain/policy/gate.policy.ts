@@ -26,34 +26,39 @@ export function canCreatePayment(
 
   if (!source) return { allowed: false, reason: "Không tìm thấy nguồn tham chiếu." };
 
-  const identified = identifyDocument(source);
+  const rec = source as Record<string, unknown>;
+  const isContractExplicit = rec._collectionType === 'contracts' || (!!rec.soHopDong && !rec.soPhieuBaoGia && !rec.tinhTrangBaoGia);
+  const isQuotationExplicit = rec._collectionType === 'quotations' || !!rec.soPhieuBaoGia || !!rec.tinhTrangBaoGia;
+
   let failReason: string | undefined;
 
-  if (identified?.kind === 'quotation') {
-    const q = identified.data;
-    if (normalizeLoai(q.loai) === QUOTATION_LOAI.MAY) {
-      failReason = "Báo giá Máy phải được khởi tạo Hợp đồng trước khi tạo Thanh toán.";
-    } else if (!ZnsStatusVO.isSuccess(q.trangThaiGuiTinBaoGia)) {
-      failReason = "Phải gửi ZNS Báo giá THÀNH CÔNG trước khi tạo Thanh toán.";
-    }
-  } else if (identified?.kind === 'contract') {
-    const c = identified.data;
-    if (!ZnsStatusVO.isSuccess(c.trangThaiGuiTinHopDong as string)) {
+  if (isContractExplicit) {
+    const c = source as Contract;
+    if (c.trangThaiGuiTinHopDong && !ZnsStatusVO.isSuccess(c.trangThaiGuiTinHopDong as string) && config?.paymentCreationGate === 'BLOCK') {
       failReason = "Phải gửi ZNS Hợp đồng THÀNH CÔNG trước khi tạo Thanh toán.";
     }
-  } else {
-    // Fallback nếu không xác định được loại nhưng có trường ZNS
-    const rec = source as Record<string, unknown>;
-    if (rec.soHopDong) {
-      if (!ZnsStatusVO.isSuccess(rec.trangThaiGuiTinHopDong as string)) {
-        failReason = "Phải gửi ZNS Hợp đồng THÀNH CÔNG trước khi tạo Thanh toán.";
-      }
+  } else if (isQuotationExplicit) {
+    const loai = normalizeLoai((rec.loai || rec.phanLoai || rec.loaiBaoGia) as string);
+    if (loai === QUOTATION_LOAI.MAY) {
+      failReason = "Báo giá Máy phải được khởi tạo Hợp đồng trước khi tạo Thanh toán.";
     } else {
-      if (normalizeLoai(rec.loai as string) === QUOTATION_LOAI.MAY) {
-        failReason = "Báo giá Máy phải được khởi tạo Hợp đồng trước khi tạo Thanh toán.";
-      } else if (!ZnsStatusVO.isSuccess(rec.trangThaiGuiTinBaoGia as string)) {
-        failReason = "Phải gửi ZNS Báo giá THÀNH CÔNG trước khi tạo Thanh toán.";
+      // BG Vật tư và BG Dịch vụ có thể đi thẳng đến thanh toán
+      if (rec.trangThaiGuiTinBaoGia && !ZnsStatusVO.isSuccess(rec.trangThaiGuiTinBaoGia as string) && config?.paymentCreationGate === 'BLOCK') {
+        return { allowed: true, warning: "Báo giá này chưa được gửi ZNS thành công." };
       }
+      return { allowed: true };
+    }
+  } else {
+    const identified = identifyDocument(source);
+    if (identified?.kind === 'quotation') {
+      const q = identified.data;
+      if (normalizeLoai(q.loai) === QUOTATION_LOAI.MAY) {
+        failReason = "Báo giá Máy phải được khởi tạo Hợp đồng trước khi tạo Thanh toán.";
+      } else {
+        return { allowed: true };
+      }
+    } else if (identified?.kind === 'contract') {
+      return { allowed: true };
     }
   }
 

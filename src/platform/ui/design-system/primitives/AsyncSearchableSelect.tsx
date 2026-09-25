@@ -101,13 +101,29 @@ export function AsyncSearchableSelect({
   const optionsData = rawOptionsData ? (filterOption ? rawOptionsData.filter(filterOption) : rawOptionsData) : undefined;
 
 
+  // Helper function to match raw ID with prefixed values like CONTRACT:id or QUOTATION:id
+  const matchesValue = (id: unknown, val: unknown): boolean => {
+    if (!id || !val) return false;
+    const strId = String(id).trim();
+    const strVal = String(val).trim();
+    return strId === strVal || 
+           strVal === `CONTRACT:${strId}` || 
+           strVal === `QUOTATION:${strId}` || 
+           strVal.endsWith(`:${strId}`) || 
+           strId.endsWith(`:${strVal}`);
+  };
+
+  // Clean value query: remove prefix CONTRACT: or QUOTATION: if present for search endpoint
+  const cleanQuery = value && typeof value === 'string' && value.includes(':') ? value.split(':')[1] : value;
+
   // Load the selected item details if value exists but we don't have it in optionsData
   const { data: selectedDocData } = useSWR<Record<string, unknown>[]>(
-    value && !isOpen ? `/api/search/${collection}?q=${encodeURIComponent(value)}` : null,
+    cleanQuery && !isOpen ? `/api/search/${collection}?q=${encodeURIComponent(cleanQuery)}` : null,
     fetcher
   );
 
-  const selectedDoc = (optionsData || []).find(o => (o.id as string) === value) || (selectedDocData || []).find(o => (o.id as string) === value);
+  const selectedDoc = (optionsData || []).find(o => matchesValue(o.id, value)) || 
+                      (selectedDocData || []).find(o => matchesValue(o.id, value));
   const selectedOption = selectedDoc ? renderOption(selectedDoc) : null;
 
   return (
@@ -160,13 +176,15 @@ export function AsyncSearchableSelect({
                 const optionId = option.id as string;
                 const disabledStatus = isOptionDisabled ? isOptionDisabled(option) : { disabled: false };
                 
+                const isSelected = matchesValue(optionId, value);
+                
                 const innerContent = (
                   <div 
                     title={disabledStatus.disabled ? disabledStatus.reason : undefined}
                     className={`px-3 py-2.5 mb-1 last:mb-0 rounded-lg flex items-center justify-between transition-colors ${
                       disabledStatus.disabled 
                         ? 'opacity-50 cursor-not-allowed bg-slate-50' 
-                        : `cursor-pointer ${value === optionId ? 'bg-brand-accent/5 border border-brand-accent/20' : 'hover:bg-slate-100 border border-transparent'}`
+                        : `cursor-pointer ${isSelected ? 'bg-brand-accent/5 border border-brand-accent/20' : 'hover:bg-slate-100 border border-transparent'}`
                     }`}
                     onClick={() => {
                       if (disabledStatus.disabled) return;
@@ -176,10 +194,10 @@ export function AsyncSearchableSelect({
                     }}
                   >
                     <div className="flex flex-col pr-4 overflow-hidden">
-                       <span className={`truncate text-sm ${value === optionId && !disabledStatus.disabled ? 'font-bold text-brand-accent' : 'font-medium text-slate-700'}`}>{rendered.label}</span>
-                       {rendered.subLabel && <span className={`truncate text-2xs ${value === optionId && !disabledStatus.disabled ? 'text-blue-800/70' : 'text-slate-600'}`}>{rendered.subLabel}</span>}
+                       <span className={`truncate text-sm ${isSelected && !disabledStatus.disabled ? 'font-bold text-brand-accent' : 'font-medium text-slate-700'}`}>{rendered.label}</span>
+                       {rendered.subLabel && <span className={`truncate text-2xs ${isSelected && !disabledStatus.disabled ? 'text-blue-800/70' : 'text-slate-600'}`}>{rendered.subLabel}</span>}
                     </div>
-                    {value === optionId && <Check size={16} className={`shrink-0 ${disabledStatus.disabled ? 'text-slate-400' : 'text-brand-accent'}`} />}
+                    {isSelected && <Check size={16} className={`shrink-0 ${disabledStatus.disabled ? 'text-slate-400' : 'text-brand-accent'}`} />}
                   </div>
                 );
                 
