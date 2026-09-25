@@ -104,15 +104,15 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
     }
   },
   {
-    id: 'tinhThanh',
-    header: 'Tỉnh/Thành',
-    size: 130,
+    id: 'diaChiGiaoHang',
+    header: 'Địa chỉ giao hàng',
+    size: 220,
     cell: (info) => {
-      const p = info.row.original;
-      const tinhThanh = p.__customerInfo?.tinhThanh || (p as any).tinhThanh || '---';
+      const p = info.row.original as any;
+      const diaChi = p.diaChiGiaoHang || p.diaChi || p.__customerInfo?.diaChi || p.__customerInfo?.tinhThanh || p.tinhThanh || '---';
       return (
         <div className="w-full min-w-0 flex items-center text-xs">
-          <span className="truncate block text-slate-700" title={tinhThanh}>{tinhThanh}</span>
+          <span className="truncate block text-slate-700 font-medium" title={diaChi}>{diaChi}</span>
         </div>
       );
     }
@@ -271,12 +271,7 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
       );
     }
   },
-  {
-    accessorKey: 'tinhTrangGiaoHang',
-    id: 'tinhTrangGiaoHang',
-    header: 'Tình trạng',
-    enableHiding: true,
-  },
+
   {
     accessorKey: 'donViVanChuyen',
     id: 'donViVanChuyen',

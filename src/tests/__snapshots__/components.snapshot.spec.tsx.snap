@@ -239,7 +239,12 @@ exports[`Component Snapshots (Baseline) > renders ContractFormModal 1`] = `
                   <label
                     class="text-2xs font-medium uppercase tracking-wide text-slate-500"
                   >
-                    Số Đơn Hàng PO/ĐH
+                    Số Đơn Hàng PO/ĐH 
+                    <span
+                      class="text-red-650"
+                    >
+                      *
+                    </span>
                   </label>
                   <input
                     aria-label="Số Đơn Hàng PO"
@@ -790,8 +795,8 @@ exports[`Component Snapshots (Baseline) > renders ContractFormModal 1`] = `
               >
                 <input
                   aria-label="mã máy"
-                  class="flex-1 bg-transparent border-none outline-none text-xs font-semibold py-0.5 px-1 min-w-[120px] placeholder:text-slate-400 font-mono"
-                  placeholder="Nhập mã máy (Enter để ghim)..."
+                  class="flex-1 bg-transparent border-none outline-none text-xs font-semibold py-0.5 px-1 min-w-[160px] placeholder:text-slate-400 font-mono"
+                  placeholder="Nhập mã máy / Serial (Gõ Enter, phẩy hoặc dán nhiều mã để tạo TAG)..."
                   type="text"
                   value=""
                 />
@@ -2700,6 +2705,54 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
                 >
                   <label
                     class="text-2xs font-medium uppercase tracking-wide text-slate-500 block"
+                    for="nguoiLienHe"
+                  >
+                    Tên người liên hệ nhận hàng
+                  </label>
+                  <input
+                    class="h-8 rounded-lg border border-slate-200 px-3 text-sm font-semibold w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-400"
+                    id="nguoiLienHe"
+                    name="nguoiLienHe"
+                    placeholder="Tên người nhận hàng..."
+                  />
+                </div>
+                <div
+                  class="space-y-1"
+                >
+                  <label
+                    class="text-2xs font-medium uppercase tracking-wide text-slate-500 block"
+                    for="sdtLienHe"
+                  >
+                    SĐT người nhận
+                  </label>
+                  <input
+                    class="h-8 rounded-lg border border-slate-200 px-3 text-sm font-mono font-semibold w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-400"
+                    id="sdtLienHe"
+                    name="sdtLienHe"
+                    placeholder="SĐT người nhận..."
+                  />
+                </div>
+                <div
+                  class="space-y-1"
+                >
+                  <label
+                    class="text-2xs font-medium uppercase tracking-wide text-slate-500 block"
+                    for="diaChiGiaoHang"
+                  >
+                    Địa chỉ giao hàng
+                  </label>
+                  <input
+                    class="h-8 rounded-lg border border-slate-200 px-3 text-sm font-medium w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-400"
+                    id="diaChiGiaoHang"
+                    name="diaChiGiaoHang"
+                    placeholder="Địa chỉ giao hàng chi tiết..."
+                  />
+                </div>
+                <div
+                  class="space-y-1"
+                >
+                  <label
+                    class="text-2xs font-medium uppercase tracking-wide text-slate-500 block"
                     for="keToanKho"
                   >
                     Kế toán kho
@@ -3174,8 +3227,8 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
               >
                 <input
                   aria-label="mã máy"
-                  class="flex-1 bg-transparent border-none outline-none text-xs font-semibold py-0.5 px-1 min-w-[120px] placeholder:text-slate-400 font-mono"
-                  placeholder="Nhập mã máy (Enter để ghim)..."
+                  class="flex-1 bg-transparent border-none outline-none text-xs font-semibold py-0.5 px-1 min-w-[160px] placeholder:text-slate-400 font-mono"
+                  placeholder="Nhập mã máy / Serial (Gõ Enter, phẩy hoặc dán nhiều mã để tạo TAG)..."
                   type="text"
                   value=""
                 />
@@ -3945,13 +3998,18 @@ exports[`Component Snapshots (Baseline) > renders PaymentRecordDrawer 1`] = `
                       <label
                         class="text-2xs font-medium uppercase tracking-wide text-slate-500 block"
                       >
-                        Số Đơn Hàng
+                        Số Đơn Hàng 
+                        <span
+                          class="text-red-650"
+                        >
+                          *
+                        </span>
                       </label>
                       <input
                         aria-label="Số đơn hàng"
                         class="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75"
                         name="soDonHang"
-                        placeholder="DH..."
+                        placeholder="Nhập số đơn hàng..."
                       />
                     </div>
                   </div>

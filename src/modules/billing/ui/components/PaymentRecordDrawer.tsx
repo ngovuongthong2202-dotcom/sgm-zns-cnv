@@ -14,6 +14,7 @@ import { Button } from '@/src/design-system/Button';
 import { useDraft } from '@/src/hooks/useDraft';
 import { squeezeSpaces, normalizeCode, cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
 import { normalizePhoneVN } from '@/src/shared/utils/phone';
+import { notify } from '@/src/shared/utils/notify';
 
 import { checkPaymentLock } from '@/src/domain/policy/lock.policy';
 import { checkA5Policy } from '@/src/modules/iam';
@@ -308,6 +309,22 @@ export function PaymentRecordDrawer({
     }
     if (!data.nguoiPhuTrach || !String(data.nguoiPhuTrach).trim()) {
       data.nguoiPhuTrach = defaultOfficer;
+    }
+
+    // Kiểm tra nghiệp vụ: Số Đơn Hàng bắt buộc đối với Báo giá Vật tư / Báo giá Dịch vụ
+    const isFromContract = Boolean(data.contractId || (data.soHopDong && String(data.soHopDong).trim() !== ''));
+    if (!isFromContract) {
+      if (!data.soDonHang || !String(data.soDonHang).trim()) {
+        notify.error('Vui lòng nhập "Số Đơn Hàng" cho phiếu thanh toán Báo giá Vật tư / Dịch vụ.');
+        return;
+      }
+    } else {
+      if (!data.soDonHang || !String(data.soDonHang).trim()) {
+        const matchedContract = contracts?.find((c: any) => c.id === data.contractId || c.soHopDong === data.soHopDong);
+        if (matchedContract?.soDonHang) {
+          data.soDonHang = matchedContract.soDonHang;
+        }
+      }
     }
 
     await onSave(data);

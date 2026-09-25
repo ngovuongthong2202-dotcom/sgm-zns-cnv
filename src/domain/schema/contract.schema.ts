@@ -5,7 +5,7 @@ import { ProductItemSchema } from './product.schema';
 export const ContractSchema = z.object({
   id: z.string().optional(),
   soHopDong: z.string().min(1, 'Số hợp đồng là bắt buộc'), // Business Key
-  soDonHang: z.string().optional().or(z.literal('')),
+  soDonHang: z.string().min(1, 'Số Đơn Hàng PO/ĐH là bắt buộc'),
   customerId: z.string().min(1),
   quotationId: z.string().min(1),
   maKh: z.string().optional().or(z.literal('')),

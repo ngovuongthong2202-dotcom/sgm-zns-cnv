@@ -13,6 +13,8 @@ import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { useEntityLifecycle } from '@/src/hooks/useEntityLifecycle';
 import { DeliveryStatusVO } from '@/src/domain/value-objects/DeliveryStatusVO';
 
+import { auditLogsRepo } from '@/src/data/repositories/system.repo';
+
 export function useDeliveriesActions(
   createDelivery: (data: Delivery) => Promise<string>,
   deleteDelivery: (id: string) => Promise<void>,
@@ -33,20 +35,76 @@ export function useDeliveriesActions(
   const handleDeleteDelivery = useCallback(async (del: Delivery) => {
     if (!del.id) return;
 
-    // Rule 9: Giao hàng đã hoàn tất thì không được xóa
-    if (DeliveryStatusVO.isCompleted(del.tinhTrangGiaoHang, del.ngayGiaoThucTe)) {
+    const isCompleted = DeliveryStatusVO.isCompleted(del.tinhTrangGiaoHang, del.ngayGiaoThucTe);
+    const roleLower = String(userRole || '').toLowerCase();
+    const isAdmin = roleLower === 'admin' || roleLower === 'administrator' || roleLower === 'ban_giam_doc';
+
+    // Nếu đã hoàn tất và không phải Administrator thì chặn
+    if (isCompleted && !isAdmin) {
       showBlockingModal({
         title: 'Không thể xóa phiếu giao đã hoàn tất',
         entityName: `Phiếu giao: ${del.deliveryId || del.id}`,
-        reason: `Phiếu giao hàng ${del.deliveryId} đã hoàn tất bàn giao thực tế (hoặc có ngày giao thực tế). Để bảo toàn chứng từ giao nhận, không được phép xóa.`
+        reason: `Phiếu giao hàng ${del.deliveryId} đã hoàn tất bàn giao thực tế (hoặc có ngày giao thực tế). Chỉ Quản trị viên (Administrator) mới có quyền xóa để bảo toàn chứng từ giao nhận.`
       });
       return;
     }
 
-    if (await confirm({ title: 'Xóa phiếu giao', message: 'Bạn có chắc chắn muốn xóa phiếu giao hàng này?' })) {
+    const confirmTitle = isCompleted ? 'Xóa phiếu giao đã hoàn tất (Administrator)' : 'Xóa phiếu giao';
+    const confirmMessage = isCompleted
+      ? `CẢNH BÁO QUẢN TRỊ VIÊN: Phiếu giao hàng ${del.deliveryId || del.id} đã hoàn tất bàn giao thực tế. Bạn có chắc chắn muốn xóa không? Số lượng bàn giao sẽ được hoàn lại cho Hợp đồng / Báo giá liên quan.`
+      : 'Bạn có chắc chắn muốn xóa phiếu giao hàng này?';
+
+    if (await confirm({ 
+      title: confirmTitle, 
+      message: confirmMessage,
+      variant: isCompleted ? 'danger' : undefined
+    })) {
       try {
-        // Backend workflow delete handles status update, clears cache, and fires DeliveryDeleted compensating event (reverting delivered quantities atomically)
+        // Hoàn lại số lượng đã bàn giao cho Hợp đồng / Báo giá
+        let sourceId = del.contractId;
+        let collectionName = 'contracts';
+        let updateSourceFn: (id: string, data: any) => Promise<void> = updateContract;
+
+        if (!sourceId && del.quotationId) {
+          sourceId = del.quotationId;
+          collectionName = 'quotations';
+          updateSourceFn = updateQuotation;
+        }
+
+        if (sourceId && del.tinhTrangGiaoHang !== 'HUY') {
+          const sourceSnap = await repositoryFactory.get<any>(collectionName).getById(sourceId);
+          if (sourceSnap) {
+            const currentDelivered = sourceSnap.deliveredQuantities || {};
+            const newDeliveredQuantities: Record<string, number> = { ...currentDelivered };
+
+            for (const [index, p] of (del.products || []).entries()) {
+              const itemKey = getProductItemKey(p, index);
+              const previousDelivered = currentDelivered[itemKey] || 0;
+              newDeliveredQuantities[itemKey] = Math.max(0, previousDelivered - Number((p as any).quantity || 0));
+            }
+            await updateSourceFn(sourceId, { deliveredQuantities: newDeliveredQuantities });
+          }
+        }
+
         await deleteDelivery(del.id);
+
+        // Ghi Audit log xóa
+        auditLogsRepo.create({
+          action: 'DELETE',
+          entityId: del.id,
+          entityType: 'delivery',
+          userId: userRole || 'Administrator',
+          timestamp: new Date().toISOString(),
+          details: {
+            before: {
+              deliveryId: del.deliveryId,
+              tinhTrangGiaoHang: del.tinhTrangGiaoHang,
+              ngayGiaoThucTe: del.ngayGiaoThucTe,
+              tenKhachHang: del.tenKhachHang
+            }
+          }
+        }).catch(() => {});
+
         if (drawerDelivery?.id === del.id) {
           setDrawerDelivery(null);
         }
@@ -66,7 +124,7 @@ export function useDeliveriesActions(
         }
       }
     }
-  }, [deleteDelivery, confirm, drawerDelivery, setDrawerDelivery, showBlockingModal]);
+  }, [deleteDelivery, confirm, drawerDelivery, setDrawerDelivery, showBlockingModal, userRole, updateContract, updateQuotation]);
 
   const handleMarkDelivered = useCallback((del: Delivery) => {
     if (del.ngayGiaoThucTe) return; // Already delivered
@@ -78,6 +136,23 @@ export function useDeliveriesActions(
      try {
         await updateDelivery(completingDelivery.id, data);
         notify.success(`Đã cập nhật trạng thái giao hàng thành công`);
+
+        // Ghi nhận Audit log hoàn tất
+        auditLogsRepo.create({
+          action: 'UPDATE',
+          entityId: completingDelivery.id,
+          entityType: 'delivery',
+          userId: userRole || 'user',
+          timestamp: new Date().toISOString(),
+          details: {
+            after: {
+              tinhTrangGiaoHang: 'Hoàn tất',
+              ngayGiaoThucTe: data.ngayGiaoThucTe,
+              kyNhan: data.kyNhan,
+              ghiChu: data.ghiChu
+            }
+          }
+        }).catch(() => {});
         
         const freshData = { ...completingDelivery, ...data, ngayGiaoThucTe: data.ngayGiaoThucTe! };
         
@@ -290,8 +365,29 @@ export function useDeliveriesActions(
 
       if (editingDelivery?.id) {
         await updateDelivery(editingDelivery.id, data);
+        auditLogsRepo.create({
+          action: 'UPDATE',
+          entityId: editingDelivery.id,
+          entityType: 'delivery',
+          userId: userRole || 'user',
+          timestamp: new Date().toISOString(),
+          details: {
+            before: editingDelivery,
+            after: data
+          }
+        }).catch(() => {});
       } else {
-        await apiCreateEntity('delivery', data);
+        const createdId = await apiCreateEntity('delivery', data);
+        auditLogsRepo.create({
+          action: 'CREATE',
+          entityId: String((createdId as any)?.id || createdId || data.deliveryId),
+          entityType: 'delivery',
+          userId: userRole || 'user',
+          timestamp: new Date().toISOString(),
+          details: {
+            after: data
+          }
+        }).catch(() => {});
       }
       await updateSourceFn(source.id!, { deliveredQuantities: newDeliveredQuantities });
 

@@ -13,7 +13,8 @@ export function useDeliveryForm(
   delivery: any,
   payments: any[],
   contracts: any[],
-  quotations: any[]
+  quotations: any[],
+  customers: any[] = []
 ) {
   const [isLockedByOther, setIsLockedByOther] = useState(false);
   const [isLookingUpExportSale, setIsLookingUpExportSale] = useState(false);
@@ -36,6 +37,9 @@ export function useDeliveryForm(
       tinhTrangThanhToan: 'CHƯA THANH TOÁN',
       products: [],
       nguoiPhuTrach: defaultOfficer,
+      nguoiLienHe: '',
+      sdtLienHe: '',
+      diaChiGiaoHang: '',
       keToanKho: '',
       khoXuat: '',
       ngayTaoPhieuXuat: '',
@@ -61,6 +65,9 @@ export function useDeliveryForm(
         soPhieuXuat: delivery.soPhieuXuat || '',
         slMay: delivery.slMay || 0,
         nguoiPhuTrach: defaultOfficer,
+        nguoiLienHe: delivery.nguoiLienHe || '',
+        sdtLienHe: delivery.sdtLienHe || '',
+        diaChiGiaoHang: delivery.diaChiGiaoHang || '',
         keToanKho: delivery.keToanKho || '',
         khoXuat: delivery.khoXuat || '',
         ngayTaoPhieuXuat: delivery.ngayTaoPhieuXuat || '',
@@ -139,6 +146,19 @@ export function useDeliveryForm(
     setValue('tinhTrangThanhToan', p.tinhTrangThanhToan || '');
     setValue('nguoiPhuTrach', defaultOfficer);
 
+    // Tự động lấy tên người liên hệ, SĐT liên hệ, Địa chỉ giao hàng từ Khách hàng
+    const targetCustId = p.customerId || source?.customerId;
+    const targetCustMa = p.maKh || source?.maKh;
+    const customer = customers?.find((c: any) => (targetCustId && c.id === targetCustId) || (targetCustMa && c.maKh === targetCustMa));
+
+    const contactPerson = customer?.contacts?.[0]?.nguoiDaiDien || customer?.nguoiDaiDien || source?.nguoiDaiDien || p.nguoiDaiDien || '';
+    const contactPhone = customer?.contacts?.[0]?.sdt || customer?.sdt || source?.sdt || p.sdt || '';
+    const deliveryAddress = customer?.diaChi || customer?.tinhThanh || source?.diaChi || p.diaChi || '';
+
+    setValue('nguoiLienHe', contactPerson, { shouldValidate: true });
+    setValue('sdtLienHe', contactPhone, { shouldValidate: true });
+    setValue('diaChiGiaoHang', deliveryAddress, { shouldValidate: true });
+
     const productSource = (source && Array.isArray(source.products) && source.products.length > 0)
       ? source 
       : (Array.isArray(p.products) && p.products.length > 0 ? p : null);
@@ -170,7 +190,7 @@ export function useDeliveryForm(
       setValue('products', remainingProducts.length > 0 ? remainingProducts : productSource.products.map((cp: any, idx: number) => ({ ...cp, id: getProductItemKey(cp, idx), quantity: Number(cp.quantity || 0) })));
       setMaxQuantities(limits);
     }
-  }, [contracts, quotations, setValue, defaultOfficer]);
+  }, [contracts, quotations, customers, setValue, defaultOfficer]);
 
   useEffect(() => {
     if (selectedPaymentId && !delivery?.id) {

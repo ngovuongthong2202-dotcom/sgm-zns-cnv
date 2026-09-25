@@ -30,6 +30,7 @@ import { PageHeader } from '@/src/design-system/PageHeader';
 import { DeliveryKPIs } from './components/DeliveryKPIs';
 import { PageSkeleton } from '@/src/design-system/skeletons/PageSkeleton';
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
+import { CompleteDeliveryModal } from './components/CompleteDeliveryModal';
 const DeliveryDrawerRouteListener = React.memo(function DeliveryDrawerRouteListener({
   hasDrawer,
   onOpenDrawer,
@@ -244,7 +245,6 @@ export default function DeliveriesFeature() {
             groupByOptions={[
               { id: 'customerId', label: 'Khách hàng' },
               { id: 'donViVanChuyen', label: 'Đơn vị vận chuyển' },
-              { id: 'tinhTrangGiaoHang', label: 'Tình trạng giao hàng' },
             ]}
             onRowSelect={(row) => setDrawerDelivery(row as Delivery)}
             onRowDoubleClick={(row) => { 
@@ -303,12 +303,22 @@ export default function DeliveriesFeature() {
           payments={payments} 
           contracts={contracts} 
           quotations={quotations} 
+          customers={customers}
           deliveries={deliveries} 
           nguoiPhuTrachList={nguoiPhuTrachList}
           onClose={() => { setIsFormOpen(false); setEditingDelivery(null); }} 
           onSave={handleSaveDelivery} 
         />
       )}
+
+      {completingDelivery && (
+        <CompleteDeliveryModal
+          delivery={completingDelivery}
+          onClose={() => setCompletingDelivery(null)}
+          onSave={onCompleteDeliverySubmit}
+        />
+      )}
+
       <BlockingDocumentsModal
         isOpen={blockingModalState.isOpen}
         onClose={closeBlockingModal}

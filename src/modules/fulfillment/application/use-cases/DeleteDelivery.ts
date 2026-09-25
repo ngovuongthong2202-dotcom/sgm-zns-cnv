@@ -13,15 +13,16 @@ export class DeleteDeliveryUseCase {
     private readonly updateQuotationUseCase: UpdateQuotationUseCase
   ) {}
 
-  public async execute(id: string): Promise<Result<void>> {
+  public async execute(id: string, options?: { isAdmin?: boolean }): Promise<Result<void>> {
     const delivery = await this.repo.getById(id);
     if (!delivery) {
       return Result.fail('Delivery not found');
     }
 
     const data = delivery.snapshot;
-    if (data.tinhTrangGiaoHang === 'HOAN TẤT' || data.tinhTrangGiaoHang === 'Hoàn tất' || data.ngayGiaoThucTe) {
-      return Result.fail('Cảnh báo: Phiếu giao hàng đã hoàn tất thì không được phép xóa!');
+    const isCompleted = data.tinhTrangGiaoHang === 'HOAN TẤT' || data.tinhTrangGiaoHang === 'Hoàn tất' || Boolean(data.ngayGiaoThucTe);
+    if (isCompleted && !options?.isAdmin) {
+      return Result.fail('Cảnh báo: Phiếu giao hàng đã hoàn tất, chỉ Quản trị viên (Administrator) mới có quyền xóa!');
     }
 
     let sourceId = data.contractId;

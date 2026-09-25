@@ -22,7 +22,7 @@ import { handleEnterToTab } from '@/src/shared/utils/formNavigation';
 import { normalizeDeliveryFormValues, validateDeliveryBusinessRules } from './DeliveryFormHelpers';
 import { useDeliveryForm } from '../hooks/useDeliveryForm';
 
-export function DeliveryFormModal({ delivery, payments, contracts, quotations, deliveries, nguoiPhuTrachList, onClose, onSave }: any) {
+export function DeliveryFormModal({ delivery, payments, contracts, quotations, customers, deliveries, nguoiPhuTrachList, onClose, onSave }: any) {
   const { user, userData } = useAuth();
   const { canEdit, reason: lockReason } = checkA5Policy(user, userData, delivery);
 
@@ -45,7 +45,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, d
     populateFromPayment,
     lookupExportSale,
     isLookingUpExportSale,
-  } = useDeliveryForm(delivery, payments, contracts, quotations);
+  } = useDeliveryForm(delivery, payments, contracts, quotations, customers);
 
   // Đồng bộ hóa tức thời 100% với danh sách payments đang hiển thị ở trang Thanh toán
   const enrichedPayments = React.useMemo(() => {
@@ -116,8 +116,16 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, d
           _totalContracted: totalContracted,
           _totalDelivered: totalDelivered
         };
+      })
+      .filter((p: any) => {
+        // Nếu đã giao đủ số lượng thì không hiển thị cho chọn / tạo nữa (trừ khi đang sửa chính phiếu giao hàng này)
+        if (p._isFullyDelivered) {
+          const isCurrentSelected = delivery?.paymentId && (delivery.paymentId === p.id || delivery.paymentId === p.paymentId);
+          if (!isCurrentSelected) return false;
+        }
+        return true;
       });
-  }, [payments, contracts, quotations, deliveries]);
+  }, [payments, contracts, quotations, deliveries, delivery?.paymentId]);
 
   return (
     <div className="fixed inset-0 bg-slate-50 z-50 flex flex-col h-screen overflow-hidden">
@@ -241,6 +249,10 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, d
                       filterOption={(p: any) => {
                         // Loại trừ phiếu thu đã bị xóa
                         if (p.deletedAt || p.deleted_at) return false;
+                        if (p._isFullyDelivered) {
+                          const isCurrentSelected = delivery?.paymentId && (delivery.paymentId === p.id || delivery.paymentId === p.paymentId);
+                          if (!isCurrentSelected) return false;
+                        }
                         return true;
                       }}
                       isOptionDisabled={(p: any) => {

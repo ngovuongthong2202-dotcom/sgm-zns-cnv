@@ -87,8 +87,9 @@ export function ContractDefinitionSection({ register, errors, estimatedCompletio
         </div>
 
         <div className="space-y-1">
-          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Số Đơn Hàng PO/ĐH</label>
+          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Số Đơn Hàng PO/ĐH <span className="text-red-650">*</span></label>
           <input aria-label="Số Đơn Hàng PO" {...register('soDonHang')} className="premium-input w-full font-semibold h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white" placeholder="PO-XXXX" />
+          {errors.soDonHang && <p className="text-red-600 text-xs font-medium mt-1">{errors.soDonHang.message as string}</p>}
         </div>
 
         <div className="space-y-1">

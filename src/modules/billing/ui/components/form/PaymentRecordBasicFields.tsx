@@ -152,6 +152,57 @@ export function PaymentRecordBasicFields({
     setValue('ngayThanhToan', format(targetDate, 'yyyy-MM-dd'), { shouldValidate: true, shouldDirty: true });
   };
 
+  // Lọc tức thời danh sách nguồn tham chiếu:
+  // 1. Chỉ hiển thị Contract hoặc Quotation Vật tư/Dịch vụ (loại bỏ BG Máy vì bắt buộc qua HĐ)
+  // 2. Loại bỏ triệt để các Báo giá / Hợp đồng đã được tạo phiếu thanh toán rồi
+  const eligibleSources = React.useMemo(() => {
+    const paidContractIds = new Set<string>();
+    const paidContractCodes = new Set<string>();
+    const paidQuotationIds = new Set<string>();
+    const paidQuotationCodes = new Set<string>();
+
+    (payments || []).forEach((p: any) => {
+      if (p.deletedAt || p.deleted_at || p.isDeleted) return;
+      if (currentPaymentId && (p.id === currentPaymentId || p.paymentId === currentPaymentId)) return;
+      if (p.contractId) paidContractIds.add(String(p.contractId).trim());
+      if (p.soHopDong) paidContractCodes.add(String(p.soHopDong).trim());
+      if (p.quotationId) paidQuotationIds.add(String(p.quotationId).trim());
+      if (p.soPhieuBaoGia) paidQuotationCodes.add(String(p.soPhieuBaoGia).trim());
+    });
+
+    const contractItems = (contracts || [])
+      .filter((c: any) => {
+        if (c.deletedAt || c.deleted_at) return false;
+        if (paidContractIds.has(String(c.id).trim())) return false;
+        if (c.soHopDong && paidContractCodes.has(String(c.soHopDong).trim())) return false;
+        return true;
+      })
+      .map((c: any) => ({
+        ...c,
+        _collectionType: 'contracts',
+        id: `CONTRACT:${c.id}`,
+        _rawId: c.id
+      }));
+
+    const quotationItems = (quotations || [])
+      .filter((q: any) => {
+        if (q.deletedAt || q.deleted_at) return false;
+        const loai = normalizeLoai((q.loai || q.phanLoai || q.loaiBaoGia) as string);
+        if (loai === QUOTATION_LOAI.MAY) return false; // BG Máy bắt buộc phải qua HĐ
+        if (paidQuotationIds.has(String(q.id).trim())) return false;
+        if (q.soPhieuBaoGia && paidQuotationCodes.has(String(q.soPhieuBaoGia).trim())) return false;
+        return true;
+      })
+      .map((q: any) => ({
+        ...q,
+        _collectionType: 'quotations',
+        id: `QUOTATION:${q.id}`,
+        _rawId: q.id
+      }));
+
+    return [...contractItems, ...quotationItems];
+  }, [contracts, quotations, payments, currentPaymentId]);
+
   return (
     <div className="flex flex-col lg:flex-row gap-6">
       {/* Left Col */}
@@ -183,6 +234,7 @@ export function PaymentRecordBasicFields({
                 </label>
                 <AsyncSearchableSelect
                   collection="contracts,quotations"
+                  options={eligibleSources}
                   value={watch('sourceValue') || ''}
                   disabled={disabled}
                   onChange={(val, doc: any) => {
@@ -190,7 +242,7 @@ export function PaymentRecordBasicFields({
                         setSelectedDoc(doc);
                         const isDocContract = isContractDoc(doc);
                         const prefix = isDocContract ? 'CONTRACT:' : 'QUOTATION:';
-                        setValue('sourceValue', `${prefix}${doc.id}`, { shouldValidate: true, shouldDirty: true });
+                        setValue('sourceValue', `${prefix}${doc._rawId || doc.id.replace(/^(CONTRACT|QUOTATION):/, '')}`, { shouldValidate: true, shouldDirty: true });
                         
                         setValue('customerId', doc.customerId || doc.customer_id || '', { shouldValidate: true, shouldDirty: true });
                         setValue('maKh', doc.maKh || '', { shouldDirty: true });
@@ -201,13 +253,13 @@ export function PaymentRecordBasicFields({
                         setValue('soPhieuBaoGia', doc.soPhieuBaoGia || '', { shouldDirty: true });
                         
                         if (isDocContract) {
-                          setValue('contractId', doc.id, { shouldDirty: true });
+                          setValue('contractId', doc._rawId || doc.id.replace('CONTRACT:', ''), { shouldDirty: true });
                           setValue('quotationId', doc.quotationId || '', { shouldDirty: true });
                           setValue('phanLoai', QUOTATION_LOAI.MAY, { shouldDirty: true });
                           setValue('loai', QUOTATION_LOAI.MAY, { shouldDirty: true });
                         } else {
                           const normLoai = normalizeLoai((doc.loai || doc.phanLoai || doc.loaiBaoGia) as string) || QUOTATION_LOAI.VAT_TU;
-                          setValue('quotationId', doc.id, { shouldDirty: true });
+                          setValue('quotationId', doc._rawId || doc.id.replace('QUOTATION:', ''), { shouldDirty: true });
                           setValue('contractId', '', { shouldDirty: true });
                           setValue('phanLoai', normLoai, { shouldDirty: true });
                           setValue('loai', normLoai, { shouldDirty: true });
@@ -244,12 +296,13 @@ export function PaymentRecordBasicFields({
 
                     // Loại bỏ chứng từ đã được tạo thanh toán rồi (trừ khi đang sửa chính phiếu thanh toán đó)
                     const isAlreadyPaid = (payments || []).some((p: any) => {
-                      if (p.isDeleted || p.deletedAt) return false;
+                      if (p.isDeleted || p.deletedAt || p.deleted_at) return false;
                       if (currentPaymentId && (p.id === currentPaymentId || p.paymentId === currentPaymentId)) return false;
+                      const rawDocId = doc._rawId || doc.id.replace(/^(CONTRACT|QUOTATION):/, '');
                       if (isDocContract) {
-                        return (p.contractId && p.contractId === doc.id) || (p.soHopDong && doc.soHopDong && p.soHopDong === doc.soHopDong);
+                        return (p.contractId && (p.contractId === rawDocId || p.contractId === doc.id)) || (p.soHopDong && doc.soHopDong && p.soHopDong === doc.soHopDong);
                       } else {
-                        return (p.quotationId && p.quotationId === doc.id) || (p.soPhieuBaoGia && doc.soPhieuBaoGia && p.soPhieuBaoGia === doc.soPhieuBaoGia);
+                        return (p.quotationId && (p.quotationId === rawDocId || p.quotationId === doc.id)) || (p.soPhieuBaoGia && doc.soPhieuBaoGia && p.soPhieuBaoGia === doc.soPhieuBaoGia);
                       }
                     });
 
@@ -359,8 +412,16 @@ export function PaymentRecordBasicFields({
                         )}
                     </div>
                     <div className="space-y-1">
-                        <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block">Số Đơn Hàng</label>
-                        <input aria-label="Số đơn hàng" disabled={disabled} {...register('soDonHang')} className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" placeholder="DH..."/>
+                        <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block">
+                          Số Đơn Hàng {!isContract && <span className="text-red-650">*</span>}
+                        </label>
+                        <input 
+                          aria-label="Số đơn hàng" 
+                          disabled={disabled || isContract} 
+                          {...register('soDonHang')} 
+                          className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" 
+                          placeholder={isContract ? (watchAll.soDonHang ? watchAll.soDonHang : "Tự động kế thừa từ HĐ") : "Nhập số đơn hàng..."}
+                        />
                     </div>
                   </div>
               </div>

@@ -7,7 +7,7 @@ import { swrDocFetcher } from '@/src/data/swr-fetchers';
 import { PaymentHoverCard } from '@/src/modules/billing/ui/components/PaymentHoverCard';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
-import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send } from 'lucide-react';
+import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, Calendar, ShieldCheck, Clock } from 'lucide-react';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
 import { TabLichSuHoatDong } from "@/src/widgets/TabLichSuHoatDong";
@@ -17,7 +17,6 @@ import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
 import { DrawerProductList } from '@/src/widgets/DrawerProductList';
 
 import { Button } from '@/src/design-system/Button';
-import { CompleteDeliveryModal } from './CompleteDeliveryModal';
 
 interface DeliveryDetailDrawerProps {
   drawerDelivery: Delivery | null;
@@ -240,20 +239,43 @@ export function DeliveryDetailDrawer({
          )}
       </div>
 
-      {/* Overview Stack */}
+      {/* Overview Stack - Thông tin Giao nhận & Địa chỉ chi tiết */}
       <div className="flex flex-col gap-3">
         <div className="p-4 bg-white border border-slate-200 shadow-sm rounded-xl flex items-start gap-3">
-          <div className="p-2.5 bg-brand-50 text-brand-600 rounded-lg shrink-0"><MapPin size={16} /></div>
-          <div className="min-w-0">
-            <div className="text-2xs text-slate-500 uppercase font-bold tracking-wider mb-0.5">Địa chỉ vận chuyển (Smart)</div>
-            <div className="font-semibold text-slate-900 text-xs leading-relaxed" title={smartAddress}>{smartAddress}</div>
+          <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg shrink-0"><MapPin size={16} /></div>
+          <div className="min-w-0 flex-1">
+            <div className="text-2xs text-slate-500 uppercase font-bold tracking-wider mb-0.5">Địa chỉ nhận hàng chi tiết</div>
+            <div className="font-semibold text-slate-900 text-xs leading-relaxed" title={(drawerDelivery as any).diaChiGiaoHang || (drawerDelivery as any).diaChi || smartAddress}>
+              {(drawerDelivery as any).diaChiGiaoHang || (drawerDelivery as any).diaChi || smartAddress}
+            </div>
           </div>
         </div>
-        <div className="p-4 bg-white border border-slate-200 shadow-sm rounded-xl flex items-start gap-3">
-          <div className="p-2.5 bg-orange-50 text-orange-600 rounded-lg shrink-0"><Truck size={16} /></div>
-          <div className="min-w-0">
-            <div className="text-2xs text-slate-500 uppercase font-bold tracking-wider mb-0.5">Đơn vị vận hành tải</div>
-            <div className="font-semibold text-slate-900 text-xs truncate" title={drawerDelivery.donViVanChuyen}>{drawerDelivery.donViVanChuyen || 'N/A'}</div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="p-4 bg-white border border-slate-200 shadow-sm rounded-xl flex items-start gap-3">
+            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg shrink-0"><User size={16} /></div>
+            <div className="min-w-0">
+              <div className="text-2xs text-slate-500 uppercase font-bold tracking-wider mb-0.5">Người liên hệ nhận hàng</div>
+              <div className="font-bold text-slate-900 text-xs truncate">
+                {(drawerDelivery as any).nguoiLienHe || drawerDelivery.nguoiDaiDien || drawerDelivery.tenKhachHang || '---'}
+              </div>
+              <div className="text-2xs font-mono text-slate-600 font-semibold mt-0.5">
+                {(drawerDelivery as any).sdtLienHe || drawerDelivery.sdt || 'Chưa có SĐT'}
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 bg-white border border-slate-200 shadow-sm rounded-xl flex items-start gap-3">
+            <div className="p-2.5 bg-orange-50 text-orange-600 rounded-lg shrink-0"><Truck size={16} /></div>
+            <div className="min-w-0">
+              <div className="text-2xs text-slate-500 uppercase font-bold tracking-wider mb-0.5">Đơn vị vận hành tải</div>
+              <div className="font-bold text-slate-900 text-xs truncate" title={drawerDelivery.donViVanChuyen}>
+                {drawerDelivery.donViVanChuyen || 'N/A'}
+              </div>
+              <div className="text-2xs font-mono text-slate-600 font-semibold mt-0.5">
+                {drawerDelivery.soDienThoaiDonViVanChuyen ? `Hotline: ${drawerDelivery.soDienThoaiDonViVanChuyen}` : 'Chưa có SĐT lái xe'}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -390,8 +412,143 @@ export function DeliveryDetailDrawer({
     </div>
   );
 
-  // 2. HOẠT ĐỘNG TIMELINE PANEL
-  const timelinePanel = <TabLichSuHoatDong entityId={drawerDelivery.id || ""} entityType="delivery" />;
+  // 2. HOẠT ĐỘNG TIMELINE PANEL (Lộ trình hành trình giao nhận thực tế + Lịch sử tương tác CRM)
+  const timelinePanel = (
+    <div className="space-y-6 pt-2">
+      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+        <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
+          <Truck size={14} className="text-blue-600" />
+          Tiến trình & Lộ trình giao nhận thực tế
+        </h3>
+
+        <div className="relative pl-6 space-y-6 before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+          {/* Mốc 1: Khởi tạo phiếu & liên kết */}
+          <div className="relative group">
+            <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-blue-100 border-2 border-blue-600 flex items-center justify-center">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+            </div>
+            <div className="bg-slate-50 border border-slate-200/70 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-slate-800">Khởi tạo phiếu giao hàng: {drawerDelivery.deliveryId}</span>
+                <span className="text-2xs font-mono text-slate-500">
+                  {drawerDelivery.ngayLapPgh ? formatDate(drawerDelivery.ngayLapPgh) : ((drawerDelivery as any).createdAt ? formatDate((drawerDelivery as any).createdAt) : '---')}
+                </span>
+              </div>
+              <p className="text-2xs text-slate-600">
+                Người phụ trách: <strong>{drawerDelivery.nguoiPhuTrach || '---'}</strong> • Khách hàng: <strong>{drawerDelivery.tenKhachHang || '---'}</strong>
+              </p>
+              <div className="flex gap-2 mt-2">
+                {drawerDelivery.soHopDong && (
+                  <span className="text-3xs font-mono bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded border border-emerald-200">
+                    HĐ: {drawerDelivery.soHopDong}
+                  </span>
+                )}
+                {drawerDelivery.soDonHang && (
+                  <span className="text-3xs font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
+                    ĐH: #{drawerDelivery.soDonHang}
+                  </span>
+                )}
+                {drawerDelivery.paymentId && (
+                  <span className="text-3xs font-mono bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-200">
+                    Đã liên kết thanh toán
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Mốc 2: Căn cứ xuất kho ERP */}
+          <div className="relative group">
+            <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-amber-100 border-2 border-amber-600 flex items-center justify-center">
+              <Package size={10} className="text-amber-700" />
+            </div>
+            <div className="bg-slate-50 border border-slate-200/70 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-slate-800">Căn cứ xuất kho ERP</span>
+                <span className="text-2xs font-mono text-slate-500">
+                  {drawerDelivery.ngayTaoPhieuXuat ? formatDate(drawerDelivery.ngayTaoPhieuXuat) : '---'}
+                </span>
+              </div>
+              <p className="text-2xs text-slate-600">
+                Số phiếu xuất: <strong className="font-mono text-blue-700">{drawerDelivery.soPhieuXuat || 'Chưa cập nhật'}</strong> • Kế toán kho: <strong>{drawerDelivery.keToanKho || '---'}</strong> • Kho xuất: <strong>{drawerDelivery.khoXuat || '---'}</strong>
+              </p>
+            </div>
+          </div>
+
+          {/* Mốc 3: Lộ trình vận chuyển */}
+          <div className="relative group">
+            <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-indigo-100 border-2 border-indigo-600 flex items-center justify-center">
+              <Truck size={10} className="text-indigo-700" />
+            </div>
+            <div className="bg-slate-50 border border-slate-200/70 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-slate-800">Kế hoạch vận chuyển & Giao nhận</span>
+                <span className="text-2xs font-mono text-amber-700 font-bold">
+                  Dự kiến: {drawerDelivery.ngayGiaoMay ? formatDate(drawerDelivery.ngayGiaoMay) : '---'}
+                </span>
+              </div>
+              <p className="text-2xs text-slate-600">
+                Đơn vị vận tải: <strong>{drawerDelivery.donViVanChuyen || 'Tự vận chuyển'}</strong> • SĐT: <span className="font-mono">{drawerDelivery.soDienThoaiDonViVanChuyen || '---'}</span>
+              </p>
+              <p className="text-2xs text-slate-600 mt-1">
+                Người nhận: <strong>{(drawerDelivery as any).nguoiLienHe || drawerDelivery.nguoiDaiDien || drawerDelivery.tenKhachHang}</strong> • SĐT: <strong className="font-mono">{(drawerDelivery as any).sdtLienHe || drawerDelivery.sdt || '---'}</strong>
+              </p>
+              <p className="text-2xs text-slate-600 mt-1">
+                Địa chỉ giao: <strong>{(drawerDelivery as any).diaChiGiaoHang || (drawerDelivery as any).diaChi || smartAddress}</strong>
+              </p>
+            </div>
+          </div>
+
+          {/* Mốc 4: Tương tác ZNS */}
+          <div className="relative group">
+            <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-cyan-100 border-2 border-cyan-600 flex items-center justify-center">
+              <Send size={10} className="text-cyan-700" />
+            </div>
+            <div className="bg-slate-50 border border-slate-200/70 rounded-lg p-3 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-800 block">Thông báo tiến độ qua Zalo ZNS</span>
+                <span className="text-2xs text-slate-500">Mẫu: GIAOHANG_ZNS / GIAOHANG_HOANTAT</span>
+              </div>
+              <div>
+                <StatusPill statusStr={drawerDelivery.trangThaiGuiTinGiaoHang as any} />
+              </div>
+            </div>
+          </div>
+
+          {/* Mốc 5: Bàn giao thực tế */}
+          <div className="relative group">
+            <div className={`absolute -left-6 top-0.5 w-5 h-5 rounded-full flex items-center justify-center border-2 ${
+              isCompleted ? 'bg-emerald-100 border-emerald-600' : 'bg-slate-100 border-slate-300'
+            }`}>
+              {isCompleted ? <CheckCircle2 size={12} className="text-emerald-700" /> : <Clock size={10} className="text-slate-400" />}
+            </div>
+            <div className={`border rounded-lg p-3 ${isCompleted ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+              <div className="flex items-center justify-between mb-1">
+                <span className={`text-xs font-bold ${isCompleted ? 'text-emerald-900' : 'text-slate-700'}`}>
+                  {isCompleted ? 'Bàn giao thực tế hoàn tất' : 'Chờ xác nhận bàn giao thực tế'}
+                </span>
+                <span className="text-2xs font-mono text-slate-600">
+                  {drawerDelivery.ngayGiaoThucTe ? formatDate(drawerDelivery.ngayGiaoThucTe) : 'Chưa giao'}
+                </span>
+              </div>
+              {isCompleted ? (
+                <p className="text-2xs text-emerald-800">
+                  Người ký nhận: <strong>{drawerDelivery.kyNhan || 'Đã ký nhận'}</strong>
+                  {drawerDelivery.ghiChu && <span className="block mt-1 italic">Ghi chú: {drawerDelivery.ghiChu}</span>}
+                </p>
+              ) : (
+                <p className="text-2xs text-slate-500 italic">
+                  Chưa ghi nhận ngày giao thực tế từ người phụ trách hoặc đối tác vận chuyển.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <TabLichSuHoatDong entityId={drawerDelivery.id || ""} entityType="delivery" />
+    </div>
+  );
 
   // 3. ZNS OA PANEL
   const znsPanel = <TabLichSuZNS entityId={drawerDelivery.id || ""} entityType="delivery" />;
@@ -399,85 +556,107 @@ export function DeliveryDetailDrawer({
   // 4. LIÊN KẾT PANEL
   const linksPanel = <TabLienKet entityId={drawerDelivery.id || ""} entityType="delivery" />;
 
-  // 5. AUDIT PANEL
-  const auditPanel = <TabLichSuHeThong entityId={drawerDelivery.id || ""} entityType="delivery" />;
+  // 5. AUDIT PANEL (Nhật ký hệ thống)
+  const auditPanel = (
+    <div className="space-y-4 pt-2">
+      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+        <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 mb-3 flex items-center gap-2 border-b border-slate-100 pb-2">
+          <ShieldCheck size={14} className="text-emerald-600" />
+          Hồ sơ kiểm toán chứng từ (System Audit Metadata)
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
+            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Mã hồ sơ hệ thống</span>
+            <span className="font-mono text-2xs font-bold text-slate-800 select-all">{drawerDelivery.id || '---'}</span>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
+            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Số hiệu phiếu giao</span>
+            <span className="font-mono text-2xs font-bold text-blue-700">{drawerDelivery.deliveryId || '---'}</span>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
+            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Người lập / Phụ trách</span>
+            <span className="font-semibold text-slate-800">{drawerDelivery.nguoiPhuTrach || '---'}</span>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
+            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Trạng thái hồ sơ</span>
+            <span className={`font-bold ${isCompleted ? 'text-emerald-700' : 'text-blue-700'}`}>
+              {isCompleted ? 'Đã hoàn tất bàn giao' : 'Đang xử lý giao hàng'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <TabLichSuHeThong entityId={drawerDelivery.id || ""} entityType="delivery" />
+    </div>
+  );
 
   return (
-    <>
-      <DetailDrawer
-        isOpen={!!drawerDelivery}
-        onClose={onClose}
-        modal={modal}
-        className={className}
-        title={`XUẤT KHO VẬN CHUYỂN: ${drawerDelivery.soPhieuXuat || 'N/A'}`}
-        subTitle={
-          <div className="flex items-center gap-2">
-            <span className="font-mono">{drawerDelivery.deliveryId}</span>
-            •
-            <span className="text-slate-600">HĐ: {drawerDelivery.soHopDong || 'N/A'}</span>
-            •
-            <span className="text-slate-600">ĐH: {drawerDelivery.soDonHang || 'N/A'}</span>
-          </div>
-        }
-        entityId={drawerDelivery.id || ''}
-        entityType="delivery"
-        icon={<Package size={16} />}
-        size="screen"
-        tabs={customTabsList}
-        footer={
-          <div className="flex justify-end w-full">
-            <div className="flex gap-2 items-center">
-              <Button aria-label="Đóng" variant="secondary" size="sm" onClick={onClose} className="h-9 font-bold">Đóng</Button>
-              
-              <div className="relative group">
-                <Button aria-label="Gửi ZNS" variant="subtle" size="sm" className="h-9 font-bold flex items-center justify-center gap-1.5" leftIcon={<Send size={14} />}>
-                  Gửi tin Zalo
-                </Button>
-                {/* Dropdown Options overlay for sending specific ZNS */}
-                <div className="absolute right-0 bottom-full mb-1.5 hidden group-hover:block hover:block bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 w-60 z-30 animate-in fade-in slide-in-from-bottom-2">
-                  <Button 
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onSendZns(drawerDelivery, 'GIAOHANG_ZNS')}
-                    className="w-full justify-start text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2"
-                  >
-                    <Send size={12} className="text-amber-600" />
-                    Cập Nhật Lộ Trình (GIAOHANG_ZNS)
-                  </Button>
-                  <Button 
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onSendZns(drawerDelivery, 'GIAOHANG_HOANTAT')}
-                    className="w-full justify-start text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2 border-t border-slate-100"
-                  >
-                    <Send size={12} className="text-emerald-600" />
-                    Gửi Hoàn Tất (GIAOHANG_HOANTAT)
-                  </Button>
-                </div>
-              </div>
-
-              <Button aria-label="Chỉnh sửa" variant="dark" size="sm" onClick={() => { onEdit(drawerDelivery); onClose(); }} className="h-9 font-bold">Chỉnh sửa</Button>
-            </div>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          {activeTab === 'overview' && overviewPanel}
-          {activeTab === 'activity' && timelinePanel}
-          {activeTab === 'links' && linksPanel}
-          {activeTab === 'zns' && znsPanel}
-          {activeTab === 'audit' && auditPanel}
+    <DetailDrawer
+      isOpen={!!drawerDelivery}
+      onClose={onClose}
+      modal={modal}
+      className={className}
+      title={`XUẤT KHO VẬN CHUYỂN: ${drawerDelivery.soPhieuXuat || 'N/A'}`}
+      subTitle={
+        <div className="flex items-center gap-2">
+          <span className="font-mono">{drawerDelivery.deliveryId}</span>
+          •
+          <span className="text-slate-600">HĐ: {drawerDelivery.soHopDong || 'N/A'}</span>
+          •
+          <span className="text-slate-600">ĐH: {drawerDelivery.soDonHang || 'N/A'}</span>
         </div>
-      </DetailDrawer>
-      {completingDelivery && onCompleteDeliverySubmit && setCompletingDelivery && (
-        <CompleteDeliveryModal
-          delivery={completingDelivery}
-          onClose={() => setCompletingDelivery(null)}
-          onSave={onCompleteDeliverySubmit}
-        />
-      )}
-    </>
+      }
+      entityId={drawerDelivery.id || ''}
+      entityType="delivery"
+      icon={<Package size={16} />}
+      size="screen"
+      tabs={customTabsList}
+      footer={
+        <div className="flex justify-end w-full">
+          <div className="flex gap-2 items-center">
+            <Button aria-label="Đóng" variant="secondary" size="sm" onClick={onClose} className="h-9 font-bold">Đóng</Button>
+            
+            <div className="relative group">
+              <Button aria-label="Gửi ZNS" variant="subtle" size="sm" className="h-9 font-bold flex items-center justify-center gap-1.5" leftIcon={<Send size={14} />}>
+                Gửi tin Zalo
+              </Button>
+              {/* Dropdown Options overlay for sending specific ZNS */}
+              <div className="absolute right-0 bottom-full mb-1.5 hidden group-hover:block hover:block bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 w-60 z-30 animate-in fade-in slide-in-from-bottom-2">
+                <Button 
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSendZns(drawerDelivery, 'GIAOHANG_ZNS')}
+                  className="w-full justify-start text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2"
+                >
+                  <Send size={12} className="text-amber-600" />
+                  Cập Nhật Lộ Trình (GIAOHANG_ZNS)
+                </Button>
+                <Button 
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSendZns(drawerDelivery, 'GIAOHANG_HOANTAT')}
+                  className="w-full justify-start text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2 border-t border-slate-100"
+                >
+                  <Send size={12} className="text-emerald-600" />
+                  Gửi Hoàn Tất (GIAOHANG_HOANTAT)
+                </Button>
+              </div>
+            </div>
+
+            <Button aria-label="Chỉnh sửa" variant="dark" size="sm" onClick={() => { onEdit(drawerDelivery); onClose(); }} className="h-9 font-bold">Chỉnh sửa</Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        {activeTab === 'overview' && overviewPanel}
+        {activeTab === 'activity' && timelinePanel}
+        {activeTab === 'links' && linksPanel}
+        {activeTab === 'zns' && znsPanel}
+        {activeTab === 'audit' && auditPanel}
+      </div>
+    </DetailDrawer>
   );
 }

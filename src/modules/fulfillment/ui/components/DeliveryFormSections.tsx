@@ -6,62 +6,69 @@ import { Truck, Package } from 'lucide-react';
 interface DeliverySourceCardProps {
   soHopDong?: string;
   soDonHang?: string;
+  soPhieuBaoGia?: string;
+  soTien?: number;
   tenKhachHang?: string;
   tinhTrangThanhToan?: string;
   paymentId?: string;
+  maThanhToan?: string;
+  ngayThanhToan?: string;
   sdt?: string;
 }
 
 export function DeliverySourceCard({
   soHopDong,
   soDonHang,
+  soPhieuBaoGia,
   tenKhachHang,
   tinhTrangThanhToan,
   paymentId,
+  maThanhToan,
   sdt
 }: DeliverySourceCardProps) {
+  const displayPaymentCode = maThanhToan || (paymentId && !paymentId.includes('-') ? paymentId : (paymentId ? paymentId : '---'));
+  const isTatToan = tinhTrangThanhToan?.toLowerCase().includes('tất toán') || tinhTrangThanhToan?.toLowerCase().includes('tat toan');
+
   return (
-    <div className="space-y-4">
-      <div className="bg-blue-50/50 border border-blue-200/50 rounded-xl p-4 flex flex-col gap-1.5 shadow-xs">
-        <span className="text-2xs font-black uppercase text-blue-800 tracking-wider">Căn cứ thanh toán</span>
-        <h4 className="text-xs font-bold text-slate-900">
-          Thông tin được đồng bộ thông minh từ Thanh toán: #{paymentId || 'Chưa xác định'}
-        </h4>
-        <p className="text-2xs text-slate-500 leading-normal font-semibold font-semibold">
-          Khách hàng nhận hóa đơn, giá trị tài chính, danh mục sản phẩm và trạng thái thanh toán được kế thừa trực tiếp để khởi tạo lệnh giao hàng. Bạn có thể cập nhật số lượng thực tế giao nhận tương ứng.
-        </p>
-      </div>
+    <div className="space-y-3">
+      <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/60 border border-blue-200/70 rounded-xl p-4 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-100/80 pb-2.5 mb-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+            <span className="text-2xs font-black uppercase text-blue-900 tracking-wider">CĂN CỨ THANH TOÁN THAM CHIẾU</span>
+            {displayPaymentCode && (
+              <span className="text-xs font-mono font-bold text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200">
+                {displayPaymentCode}
+              </span>
+            )}
+          </div>
+          <div className={`text-2xs font-extrabold px-2.5 py-0.5 rounded-full border uppercase tracking-wider ${
+            isTatToan ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-amber-700 bg-amber-50 border-amber-200'
+          }`}>
+            {tinhTrangThanhToan || 'CHƯA THANH TOÁN'}
+          </div>
+        </div>
 
-      <div className="grid grid-cols-2 gap-4 border border-slate-150 text-xs font-semibold text-slate-700 bg-slate-50/50 p-4 rounded-xl shadow-xs">
-        <div>
-          <span className="text-slate-500 uppercase text-3xs tracking-wider block mb-0.5 font-bold">Khách hàng nhận HĐ</span>
-          <strong className="text-slate-950 text-sm font-bold block">{tenKhachHang || '---'}</strong>
-        </div>
-        <div>
-          <span className="text-slate-500 uppercase text-3xs tracking-wider block mb-0.5 font-bold">Liên hệ & giao nhận</span>
-          <strong className="text-slate-950 font-mono text-xs font-bold block">{sdt || '---'}</strong>
-        </div>
-      </div>
-
-      <div className="bg-slate-50/50 border border-slate-150 rounded-xl p-4 grid grid-cols-3 gap-4 shadow-xs">
-        <div>
-          <span className="text-2xs text-slate-500 block uppercase font-bold tracking-wider mb-0.5 font-bold">TT Tài chính</span>
-          <div className="text-xs font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 mt-1 uppercase w-max">
-            {tinhTrangThanhToan || '---'}
-          </div>
-        </div>
-        {soHopDong && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div>
-            <span className="text-2xs text-slate-500 block uppercase font-bold tracking-wider mb-0.5 font-bold">Số Hợp Đồng</span>
-            <div className="text-xs font-extrabold font-mono text-emerald-950 mt-1">{soHopDong}</div>
+            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Khách hàng nhận</span>
+            <strong className="text-slate-900 text-xs font-bold block truncate" title={tenKhachHang}>{tenKhachHang || '---'}</strong>
           </div>
-        )}
-        {soDonHang && (
           <div>
-            <span className="text-2xs text-slate-500 block uppercase font-bold tracking-wider mb-0.5 font-bold">Số Đơn Hàng</span>
-            <div className="text-xs font-bold font-mono text-slate-800 mt-1">{soDonHang}</div>
+            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">SĐT khách hàng</span>
+            <span className="text-slate-900 font-mono font-bold block truncate">{sdt || '---'}</span>
           </div>
-        )}
+          <div>
+            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Chứng từ liên quan</span>
+            <span className="text-slate-800 font-mono font-bold block truncate">
+              {soHopDong ? `HĐ: ${soHopDong}` : (soPhieuBaoGia ? `BG: ${soPhieuBaoGia}` : 'Không')}
+            </span>
+          </div>
+          <div>
+            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Số Đơn Hàng PO/ĐH</span>
+            <span className="text-blue-700 font-mono font-bold block truncate">{soDonHang ? `#${soDonHang}` : 'Chưa gắn'}</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -160,6 +167,37 @@ export function DeliveryInfoSection({
             {...register('nguoiPhuTrach')}
             className="h-8 rounded-lg border border-slate-200 px-3 text-sm font-semibold w-full text-slate-700 bg-slate-100 cursor-not-allowed select-none outline-none"
             placeholder="Người phụ trách theo tài khoản"
+          />
+        </div>
+
+        {/* Thông tin Người nhận & Địa chỉ giao hàng tự động lấy từ khách hàng */}
+        <div className="space-y-1">
+          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="nguoiLienHe">Tên người liên hệ nhận hàng</label>
+          <input
+            id="nguoiLienHe"
+            {...register('nguoiLienHe')}
+            className="h-8 rounded-lg border border-slate-200 px-3 text-sm font-semibold w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-400"
+            placeholder="Tên người nhận hàng..."
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="sdtLienHe">SĐT người nhận</label>
+          <input
+            id="sdtLienHe"
+            {...register('sdtLienHe')}
+            className="h-8 rounded-lg border border-slate-200 px-3 text-sm font-mono font-semibold w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-400"
+            placeholder="SĐT người nhận..."
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="diaChiGiaoHang">Địa chỉ giao hàng</label>
+          <input
+            id="diaChiGiaoHang"
+            {...register('diaChiGiaoHang')}
+            className="h-8 rounded-lg border border-slate-200 px-3 text-sm font-medium w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-400"
+            placeholder="Địa chỉ giao hàng chi tiết..."
           />
         </div>
 
