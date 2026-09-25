@@ -43,7 +43,7 @@ export const DeliverySchema = z.object({
   ghiChuNoiBo: z.string().optional(),
   donViVanChuyen: z.string().optional(),
   ngayGiaoMay: z.string().optional(),
-  ngayGiaoThucTe: z.string().optional(),
+  ngayGiaoThucTe: z.string().optional().nullable(),
   tinhTrangGiaoHang: z.string().optional(),
   kyNhan: z.string().optional(),
   ghiChu: z.string().optional(),

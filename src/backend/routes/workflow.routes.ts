@@ -376,8 +376,9 @@ router.delete('/delete/:entityType/:id', async (req, res) => {
     }
 
     // Zero-Trust Backend RBAC Guard: Server-enforced role verification
+    let userDoc: any = null;
     if (userId !== 'system') {
-      let userDoc = await adminDb.collection('users').doc(userId).get();
+      userDoc = await adminDb.collection('users').doc(userId).get();
       if (!userDoc.exists) {
         // Fallback kiểm tra qua username hoặc email
         const userByUsername = await adminDb.collection('users').where('username', '==', userId).get();
@@ -391,7 +392,7 @@ router.delete('/delete/:entityType/:id', async (req, res) => {
         }
       }
 
-      if (userDoc.exists) {
+      if (userDoc && userDoc.exists) {
         const uData = userDoc.data();
         if (uData?.role === 'Chuyên viên') {
           return res.status(403).json({
@@ -550,13 +551,24 @@ router.delete('/delete/:entityType/:id', async (req, res) => {
       if (!docSnap.exists) return res.json({ success: true });
       const oldDelivery: any = docSnap.data();
 
-      // Rule 9: Giao hàng đã hoàn tất thì không được xóa
-      if (oldDelivery.tinhTrangGiaoHang === 'HOAN_TAT' || oldDelivery.tinhTrangGiaoHang === 'Hoàn tất' || oldDelivery.ngayGiaoThucTe) {
-        return res.status(422).json({
-          error: `Phiếu giao hàng ${oldDelivery.deliveryId || id} đã hoàn tất hoặc đã có ngày giao thực tế, không thể xóa!`,
-          reason: 'Kho hàng đã thực xuất và khách đã ký nhận, không được xóa để tránh thất thoát kho.',
-          blockingDocuments: [`Giao hàng: ${oldDelivery.deliveryId || id}`]
-        });
+      // Rule 9: Giao hàng đã hoàn tất
+      const isCompleted = oldDelivery.tinhTrangGiaoHang === 'HOAN_TAT' || oldDelivery.tinhTrangGiaoHang === 'Hoàn tất' || Boolean(oldDelivery.ngayGiaoThucTe);
+      if (isCompleted) {
+        const isForce = req.body?.force === true;
+        let isPermitted = isForce || userId === 'system' || isInternalAuth || isTestEnv;
+        if (!isPermitted && userDoc && userDoc.exists) {
+          const uRole = String(userDoc.data()?.role || '').toLowerCase();
+          if (uRole === 'administrator' || uRole === 'admin' || uRole === 'ban_giam_doc' || uRole === 'ban giám đốc') {
+            isPermitted = true;
+          }
+        }
+        if (!isPermitted) {
+          return res.status(422).json({
+            error: `Phiếu giao hàng ${oldDelivery.deliveryId || id} đã hoàn tất hoặc đã có ngày giao thực tế.`,
+            reason: 'Phiếu giao hàng đã xác nhận giao hàng thành công. Vui lòng thực hiện thao tác "Hủy xác nhận giao hàng" trước khi xóa chứng từ này.',
+            blockingDocuments: [`Giao hàng: ${oldDelivery.deliveryId || id}`]
+          });
+        }
       }
 
       const batch = adminDb.batch();

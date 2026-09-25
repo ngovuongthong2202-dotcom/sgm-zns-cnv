@@ -30,7 +30,83 @@ export function useDeliveriesActions(
   userRole?: string
 ) {
   const [completingDelivery, setCompletingDelivery] = useState<Delivery | null>(null);
+  const [viewingConfirmationDelivery, setViewingConfirmationDelivery] = useState<Delivery | null>(null);
   const { blockingModalState, showBlockingModal, closeBlockingModal } = useEntityLifecycle();
+
+  const handleRevertDeliveryConfirmation = useCallback(async (del: Delivery) => {
+    if (!del.id) return;
+    const ok = await confirm({
+      title: 'Hủy xác nhận giao hàng',
+      message: `Bạn có chắc chắn muốn xóa/hủy thông tin xác nhận giao hàng của phiếu "${del.deliveryId || del.id}"? Phiếu sẽ quay về trạng thái "Đang giao", xóa ngày giao thực tế và cho phép chỉnh sửa hoặc xóa chứng từ.`,
+      variant: 'warning',
+      confirmText: 'Xác nhận hủy',
+      cancelText: 'Quay lại'
+    });
+    if (!ok) return;
+
+    try {
+      await updateDelivery(del.id, {
+        ngayGiaoThucTe: null,
+        tinhTrangGiaoHang: 'Đang giao',
+        kyNhan: '',
+      });
+
+      // Nếu hợp đồng liên quan đang có cờ HOAN_TAT / COMPLETED, đưa về DANG_GIAO
+      if (del.contractId) {
+        const cSnap = await repositoryFactory.get<any>('contracts').getById(del.contractId);
+        if (cSnap && (cSnap.tinhTrangGiaoHang === 'HOAN_TAT' || cSnap.tinhTrangHopDong === 'COMPLETED')) {
+          await updateContract(del.contractId, {
+            tinhTrangGiaoHang: 'DANG_GIAO',
+            tinhTrangHopDong: 'DANG_THUC_HIEN',
+            status: 'ACTIVE'
+          });
+        }
+      }
+
+      auditLogsRepo.create({
+        action: 'UPDATE',
+        entityId: del.id,
+        entityType: 'delivery',
+        userId: userRole || 'user',
+        timestamp: new Date().toISOString(),
+        details: {
+          note: 'Hủy xác nhận giao hàng, đưa về trạng thái Đang giao',
+          before: {
+            tinhTrangGiaoHang: del.tinhTrangGiaoHang,
+            ngayGiaoThucTe: del.ngayGiaoThucTe,
+            kyNhan: del.kyNhan
+          },
+          after: {
+            tinhTrangGiaoHang: 'Đang giao',
+            ngayGiaoThucTe: null,
+            kyNhan: ''
+          }
+        }
+      }).catch(() => {});
+
+      if (drawerDelivery?.id === del.id) {
+        setDrawerDelivery(prev => prev ? {
+          ...prev,
+          ngayGiaoThucTe: undefined,
+          tinhTrangGiaoHang: 'Đang giao',
+          kyNhan: ''
+        } as Delivery : null);
+      }
+
+      if (viewingConfirmationDelivery?.id === del.id) {
+        setViewingConfirmationDelivery(null);
+      }
+
+      notify.success('Đã xóa thông tin xác nhận giao hàng thành công. Phiếu giao hiện ở trạng thái Đang giao.');
+    } catch (err: any) {
+      logger.error('Revert delivery confirmation error:', err);
+      notify.error(err.message || 'Lỗi khi hủy xác nhận giao hàng');
+    }
+  }, [updateDelivery, updateContract, confirm, drawerDelivery, setDrawerDelivery, viewingConfirmationDelivery, userRole]);
+
+  const handleViewDeliveryConfirmation = useCallback((del: Delivery) => {
+    setViewingConfirmationDelivery(del);
+  }, []);
 
   const handleDeleteDelivery = useCallback(async (del: Delivery) => {
     if (!del.id) return;
@@ -39,27 +115,31 @@ export function useDeliveriesActions(
     const roleLower = String(userRole || '').toLowerCase();
     const isAdmin = roleLower === 'admin' || roleLower === 'administrator' || roleLower === 'ban_giam_doc';
 
-    // Nếu đã hoàn tất và không phải Administrator thì chặn
-    if (isCompleted && !isAdmin) {
-      showBlockingModal({
-        title: 'Không thể xóa phiếu giao đã hoàn tất',
-        entityName: `Phiếu giao: ${del.deliveryId || del.id}`,
-        reason: `Phiếu giao hàng ${del.deliveryId} đã hoàn tất bàn giao thực tế (hoặc có ngày giao thực tế). Chỉ Quản trị viên (Administrator) mới có quyền xóa để bảo toàn chứng từ giao nhận.`
-      });
-      return;
-    }
+    let confirmTitle = 'Xóa phiếu giao';
+    let confirmMessage = `Bạn có chắc chắn muốn xóa phiếu giao hàng ${del.deliveryId || del.id}?`;
 
-    const confirmTitle = isCompleted ? 'Xóa phiếu giao đã hoàn tất (Administrator)' : 'Xóa phiếu giao';
-    const confirmMessage = isCompleted
-      ? `CẢNH BÁO QUẢN TRỊ VIÊN: Phiếu giao hàng ${del.deliveryId || del.id} đã hoàn tất bàn giao thực tế. Bạn có chắc chắn muốn xóa không? Số lượng bàn giao sẽ được hoàn lại cho Hợp đồng / Báo giá liên quan.`
-      : 'Bạn có chắc chắn muốn xóa phiếu giao hàng này?';
+    if (isCompleted) {
+      confirmTitle = 'Xóa phiếu giao đã xác nhận thành công';
+      confirmMessage = `Phiếu giao hàng ${del.deliveryId || del.id} đã hoàn tất bàn giao thực tế (ngày ${del.ngayGiaoThucTe ? formatDate(del.ngayGiaoThucTe) : '---'}). Bạn có chắc chắn muốn HỦY XÁC NHẬN GIAO HÀNG và XÓA phiếu này không? Số lượng bàn giao sẽ được hoàn lại cho Hợp đồng / Báo giá liên quan.`;
+    }
 
     if (await confirm({ 
       title: confirmTitle, 
       message: confirmMessage,
-      variant: isCompleted ? 'danger' : undefined
+      variant: isCompleted ? 'danger' : undefined,
+      confirmText: isCompleted ? 'Hủy xác nhận & Xóa' : 'Xóa phiếu',
+      cancelText: 'Quay lại'
     })) {
       try {
+        // Nếu đã hoàn tất, tự động hủy xác nhận trước để gỡ cờ hoàn tất
+        if (isCompleted) {
+          await updateDelivery(del.id, {
+            ngayGiaoThucTe: null,
+            tinhTrangGiaoHang: 'Đang giao',
+            kyNhan: '',
+          });
+        }
+
         // Hoàn lại số lượng đã bàn giao cho Hợp đồng / Báo giá
         let sourceId = del.contractId;
         let collectionName = 'contracts';
@@ -108,6 +188,9 @@ export function useDeliveriesActions(
         if (drawerDelivery?.id === del.id) {
           setDrawerDelivery(null);
         }
+        if (viewingConfirmationDelivery?.id === del.id) {
+          setViewingConfirmationDelivery(null);
+        }
         notify.success("Đã xóa phiếu giao hàng thành công");
       } catch (err: any) {
         if (err.blockingDocuments?.length || err.detailedBlocks?.length) {
@@ -124,7 +207,7 @@ export function useDeliveriesActions(
         }
       }
     }
-  }, [deleteDelivery, confirm, drawerDelivery, setDrawerDelivery, showBlockingModal, userRole, updateContract, updateQuotation]);
+  }, [deleteDelivery, updateDelivery, confirm, drawerDelivery, setDrawerDelivery, viewingConfirmationDelivery, setViewingConfirmationDelivery, showBlockingModal, userRole, updateContract, updateQuotation]);
 
   const handleMarkDelivered = useCallback((del: Delivery) => {
     if (del.ngayGiaoThucTe) return; // Already delivered
@@ -134,7 +217,11 @@ export function useDeliveriesActions(
   const onCompleteDeliverySubmit = async (data: Partial<Delivery>) => {
      if (!completingDelivery?.id) return;
      try {
-        await updateDelivery(completingDelivery.id, data);
+        const updatePayload = {
+          ...data,
+          tinhTrangGiaoHang: 'Hoàn tất'
+        };
+        await updateDelivery(completingDelivery.id, updatePayload);
         notify.success(`Đã cập nhật trạng thái giao hàng thành công`);
 
         // Ghi nhận Audit log hoàn tất
@@ -154,7 +241,7 @@ export function useDeliveriesActions(
           }
         }).catch(() => {});
         
-        const freshData = { ...completingDelivery, ...data, ngayGiaoThucTe: data.ngayGiaoThucTe! };
+        const freshData = { ...completingDelivery, ...updatePayload, ngayGiaoThucTe: data.ngayGiaoThucTe! };
         
         if (drawerDelivery?.id === completingDelivery.id) {
            setDrawerDelivery(freshData as Delivery);
@@ -409,6 +496,10 @@ export function useDeliveriesActions(
     handleCancelDelivery,
     handleReschedule,
     handleSaveDelivery,
+    handleRevertDeliveryConfirmation,
+    handleViewDeliveryConfirmation,
+    viewingConfirmationDelivery,
+    setViewingConfirmationDelivery,
     completingDelivery,
     setCompletingDelivery,
     blockingModalState,

@@ -31,6 +31,8 @@ import { DeliveryKPIs } from './components/DeliveryKPIs';
 import { PageSkeleton } from '@/src/design-system/skeletons/PageSkeleton';
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
 import { CompleteDeliveryModal } from './components/CompleteDeliveryModal';
+import { DeliveryConfirmationModal } from './components/DeliveryConfirmationModal';
+import { CheckCircle2 } from 'lucide-react';
 const DeliveryDrawerRouteListener = React.memo(function DeliveryDrawerRouteListener({
   hasDrawer,
   onOpenDrawer,
@@ -90,6 +92,9 @@ export default function DeliveriesFeature() {
   const { 
     handleDeleteDelivery, handleMarkDelivered, onCompleteDeliverySubmit, 
     handleSendZns, handleCancelDelivery, handleSaveDelivery,
+    handleRevertDeliveryConfirmation,
+    handleViewDeliveryConfirmation,
+    viewingConfirmationDelivery, setViewingConfirmationDelivery,
     completingDelivery, setCompletingDelivery,
     blockingModalState, closeBlockingModal
   } = useDeliveriesActions(
@@ -261,12 +266,26 @@ export default function DeliveriesFeature() {
             customRowActions={(row) => {
               const delivery = row as Delivery;
               const isCompleted = !!delivery.ngayGiaoThucTe;
-              if (isCompleted || !can('update', 'delivery', userData?.role)) return null;
+              if (!can('update', 'delivery', userData?.role)) return null;
+
+              if (isCompleted) {
+                return (
+                  <Button
+                    type="button"
+                    title="Xem / Hủy xác nhận giao hàng"
+                    onClick={(e) => { e.stopPropagation(); handleViewDeliveryConfirmation(delivery); }}
+                    className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
+                  >
+                    <CheckCircle2 size={15} />
+                  </Button>
+                );
+              }
+
               if (!can('approve', 'delivery', userData?.role)) return null;
               return (
                 <Button
                   type="button"
-                  title="Đánh dấu hoàn tất"
+                  title="Xác nhận hoàn tất giao hàng"
                   onClick={(e) => { e.stopPropagation(); handleMarkDelivered(delivery); }}
                   className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-100 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
                 >
@@ -287,6 +306,8 @@ export default function DeliveriesFeature() {
         onClose={() => setDrawerDelivery(null)}
         onEdit={(del) => { setEditingDelivery(del); setIsFormOpen(true); }}
         onMarkDelivered={can('approve', 'delivery', userData?.role) ? handleMarkDelivered : undefined}
+        onRevertDelivered={can('update', 'delivery', userData?.role) ? handleRevertDeliveryConfirmation : undefined}
+        onViewConfirmation={handleViewDeliveryConfirmation}
         onSendZns={handleSendZns}
         onCancelDelivery={handleCancelDelivery}
         drawerContract={drawerContract}
@@ -316,6 +337,15 @@ export default function DeliveriesFeature() {
           delivery={completingDelivery}
           onClose={() => setCompletingDelivery(null)}
           onSave={onCompleteDeliverySubmit}
+        />
+      )}
+
+      {viewingConfirmationDelivery && (
+        <DeliveryConfirmationModal
+          delivery={viewingConfirmationDelivery}
+          onClose={() => setViewingConfirmationDelivery(null)}
+          onRevertConfirmation={handleRevertDeliveryConfirmation}
+          canRevert={can('update', 'delivery', userData?.role)}
         />
       )}
 

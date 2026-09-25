@@ -7,7 +7,7 @@ import { swrDocFetcher } from '@/src/data/swr-fetchers';
 import { PaymentHoverCard } from '@/src/modules/billing/ui/components/PaymentHoverCard';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
-import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, Calendar, ShieldCheck, Clock } from 'lucide-react';
+import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, Calendar, ShieldCheck, Clock, RotateCcw } from 'lucide-react';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
 import { TabLichSuHoatDong } from "@/src/widgets/TabLichSuHoatDong";
@@ -23,6 +23,8 @@ interface DeliveryDetailDrawerProps {
   onClose: () => void;
   onEdit: (delivery: Delivery) => void;
   onMarkDelivered?: (delivery: Delivery) => void;
+  onRevertDelivered?: (delivery: Delivery) => Promise<void>;
+  onViewConfirmation?: (delivery: Delivery) => void;
   onSendZns: (delivery: Delivery, templateCode: 'GIAOHANG_ZNS' | 'GIAOHANG_HOANTAT') => void;
   onCancelDelivery: (delivery: Delivery, reason: string) => Promise<void>;
   drawerContract: any | null;
@@ -39,6 +41,8 @@ export function DeliveryDetailDrawer({
   onClose, 
   onEdit, 
   onMarkDelivered, 
+  onRevertDelivered,
+  onViewConfirmation,
   onSendZns,
   onCancelDelivery,
   drawerContract,
@@ -185,13 +189,49 @@ export function DeliveryDetailDrawer({
           </Button>
         </div>
       ) : (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col items-start gap-4">
-          <div className="flex gap-3 items-center">
-            <CheckCircle2 className="text-emerald-700 shrink-0" size={24} />
-            <div>
-              <h4 className="font-bold text-emerald-900 text-xs text-left">Giao hàng thành công</h4>
-              <p className="text-emerald-700 text-2xs text-left mt-0.5">Ngày giao thực tế: <strong className="font-mono">{formatDate(drawerDelivery.ngayGiaoThucTe)}</strong></p>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col items-start gap-3 shadow-xs">
+          <div className="flex gap-3 items-center w-full">
+            <div className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-xs shrink-0">
+              <CheckCircle2 size={20} />
             </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-emerald-900 text-sm">Giao hàng thành công</h4>
+                <span className="text-3xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Đã bàn giao
+                </span>
+              </div>
+              <p className="text-emerald-700 text-xs mt-0.5">
+                Ngày giao thực tế: <strong className="font-mono text-emerald-900">{formatDate(drawerDelivery.ngayGiaoThucTe)}</strong>
+                {drawerDelivery.kyNhan && <> • Người nhận: <strong className="text-emerald-900">{drawerDelivery.kyNhan}</strong></>}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full pt-2.5 border-t border-emerald-100/90">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => onViewConfirmation && onViewConfirmation(drawerDelivery)}
+              className="flex-1 bg-white hover:bg-emerald-50 text-emerald-800 border-emerald-200 text-xs font-bold h-8 flex items-center justify-center gap-1.5 shadow-2xs"
+            >
+              <FileText size={13} className="text-emerald-600" />
+              Xem biên bản xác nhận
+            </Button>
+            {onRevertDelivered && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => onRevertDelivered(drawerDelivery)}
+                className="bg-white hover:bg-red-50 text-red-700 hover:text-red-800 border-red-200 text-xs font-bold h-8 px-3 flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
+                title="Hủy/xóa thông tin xác nhận giao hàng và đưa về trạng thái Đang giao"
+              >
+                <RotateCcw size={13} className="text-red-600" />
+                Hủy xác nhận giao
+              </Button>
+            )}
           </div>
         </div>
       )}
