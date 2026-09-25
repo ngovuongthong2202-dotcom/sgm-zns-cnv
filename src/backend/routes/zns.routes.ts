@@ -16,9 +16,58 @@ const sendZnsUseCase = new SendZnsMessageUseCase(znsRepository, znsVendor);
 router.post('/vendor-webhook/zns-result', (req, res) => vendorWebhookHandler.handleResult(req, res));
 router.post('/webhook/cnv', (req, res) => vendorWebhookHandler.handleResult(req, res));
 
-// Endpoint for app to trigger ZNS send
-router.post('/test-webhook-dryrun', (req, res) => {
-  res.json({ success: true, message: 'Ping OK' });
+// Endpoint for testing connection to vendor webhook
+router.post('/test-webhook-dryrun', async (req, res) => {
+  try {
+    const settingsDoc = await adminDb.collection('settings').doc('zns_config').get();
+    const configData = settingsDoc.exists ? settingsDoc.data() || {} : {};
+    const testUrl = configData.vendorUrl_CUSTOMER_PRE_QUOTE || 
+                    configData.vendorUrl_DEFAULT || 
+                    process.env.CNV_DEFAULT_WEBHOOK_URL ||
+                    configData.vendorUrl_BAOGIA;
+    
+    if (!testUrl || typeof testUrl !== 'string' || !testUrl.trim()) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Chưa cấu hình URL Webhook Vendor trong mục Ánh xạ giao thức (Vào Cài đặt → Vendor & Webhook).' 
+      });
+    }
+
+    const trimmedUrl = testUrl.trim();
+    const pingResponse = await fetch(trimmedUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        action: 'Ping',
+        source: 'SGM_CRM_DRY_RUN',
+        timestamp: new Date().toISOString() 
+      })
+    });
+
+    const status = pingResponse.status;
+    const responseText = await pingResponse.text().catch(() => '');
+
+    if (status >= 200 && status < 300) {
+      return res.json({ 
+        success: true, 
+        message: `Kết nối thành công tới Webhook CNV (HTTP ${status}). Hệ thống đã liên kết tốt với CNV.`,
+        url: trimmedUrl,
+        response: responseText
+      });
+    } else {
+      return res.status(502).json({
+        success: false,
+        error: `Webhook CNV phản hồi mã lỗi HTTP ${status}. Kiểm tra lại trạng thái kịch bản trên CNV.`,
+        url: trimmedUrl,
+        response: responseText
+      });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ 
+      success: false, 
+      error: `Không thể kết nối tới Webhook CNV: ${err instanceof Error ? err.message : String(err)}` 
+    });
+  }
 });
 
 function normalizeVNPhone(raw: string): string | null {
@@ -92,33 +141,69 @@ router.post('/preview', async (req, res) => {
 
 router.post('/send', async (req, res) => {
   try {
-    const payload = req.body;
-    if (!payload || !payload.entityId || !payload.entityType || !payload.messageType) {
+    const body = req.body;
+    if (!body || !body.entityId || !body.entityType || !body.messageType) {
       return res.status(400).json({ error: 'Missing required payload: entityId, entityType, messageType' });
     }
     
     // Normalize phone TRƯỚC khi validate
-    const normalizedPhone = normalizeVNPhone(payload.phone);
+    const rawPhone = body.phone || body.payload?.phone || body.payload?.sdt || (body.payload?.contacts as any)?.[0]?.sdt;
+    const normalizedPhone = normalizeVNPhone(rawPhone);
     if (!normalizedPhone) {
       return res.status(400).json({ 
         success: false, 
-        error: `Số điện thoại không hợp lệ: "${payload.phone}". Định dạng đúng: 0xxxxxxxxx (10 số bắt đầu 0).`,
+        error: `Số điện thoại không hợp lệ: "${rawPhone}". Định dạng đúng: 0xxxxxxxxx (10 số bắt đầu 0).`,
         code: 'INVALID_PHONE'
       });
     }
-    payload.phone = normalizedPhone; // overwrite với phone đã normalize
+
+    // Unwrap nested entity payload if sent from client
+    const clientEntity = (body.payload && typeof body.payload === 'object') ? body.payload : {};
+
+    // Auto-fetch entity snapshot from database to ensure complete required fields (tenKhachHang, etc.)
+    const collectionMap: Record<string, string> = {
+      'CUSTOMER': 'customers',
+      'QUOTATION': 'quotations',
+      'CONTRACT': 'contracts',
+      'PAYMENT': 'payments',
+      'DELIVERY': 'deliveries'
+    };
+    let dbEntity: Record<string, unknown> = {};
+    const collName = collectionMap[body.entityType];
+    if (collName && body.entityId) {
+      try {
+        const docSnap = await adminDb.collection(collName).doc(body.entityId).get();
+        if (docSnap.exists) {
+          dbEntity = (docSnap.data() as Record<string, unknown>) || {};
+        }
+      } catch (err) {
+        // Fallback gracefully
+      }
+    }
+
+    const mergedPayload: Record<string, unknown> = {
+      ...dbEntity,
+      ...clientEntity,
+      phone: normalizedPhone,
+      sdt: normalizedPhone,
+      tenKhachHang: clientEntity.tenKhachHang || dbEntity.tenKhachHang || clientEntity.customer_name || dbEntity.customer_name || '',
+      customerId: body.entityId || clientEntity.customerId || dbEntity.customerId,
+      entityId: body.entityId,
+      entityType: body.entityType,
+      messageType: body.messageType,
+      attemptBucket: body.attemptBucket || Date.now()
+    };
 
     const result = await sendZnsUseCase.execute({
-      entityId: payload.entityId,
-      entityType: payload.entityType,
-      messageType: payload.messageType,
-      phone: payload.phone,
-      payload: payload
+      entityId: body.entityId,
+      entityType: body.entityType,
+      messageType: body.messageType,
+      phone: normalizedPhone,
+      payload: mergedPayload
     });
     
     res.status(200).json({ success: true, messageId: result.messageId, status: result.status });
   } catch (error: unknown) { 
-
     const errMsg = error instanceof Error ? error.message : String(error);
     const code = (error as { code?: string })?.code || 'INTERNAL_ERROR';
     console.error('Failed to enqueue ZNS message:', errMsg);

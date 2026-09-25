@@ -111,6 +111,14 @@ export class ZnsPayloadBuilder {
         rendered.so_don_hang = rendered.So_don_hang;
     }
     
+    // Fallbacks cho customer_name & phone (áp dụng cho mọi template)
+    if (requiredVarsSet.has('customer_name') && isEmp(rendered.customer_name)) {
+      rendered.customer_name = (p.tenKhachHang as string) || (p.customer_name as string) || (p.customerName as string) || (p.name as string) || ((p.contacts as any)?.[0]?.nguoiDaiDien as string) || (p.nguoiDaiDien as string) || '';
+    }
+    if (requiredVarsSet.has('phone') && isEmp(rendered.phone)) {
+      rendered.phone = message.phone || (p.sdt as string) || (p.phone as string) || (p.soDienThoai as string) || ((p.contacts as any)?.[0]?.sdt as string) || '';
+    }
+
     if (requiredVarsSet.has('order_code')) {
         // use combined string if both are present
         if (p.soHopDong && p.soDonHang) {
@@ -172,6 +180,37 @@ export class ZnsPayloadBuilder {
         } else if (typeof p.danhSachMaMay === 'string') {
             rendered.danh_sach_ma_may = p.danhSachMaMay;
         }
+    }
+
+    if (requiredVarsSet.has('so_phieu_bao_gia') && isEmp(rendered.so_phieu_bao_gia)) {
+      rendered.so_phieu_bao_gia = (p.soPhieuBaoGia as string) || (p.maBaoGia as string) || 'BG-AUTO';
+    }
+    if (requiredVarsSet.has('ngay_bao_gia') && isEmp(rendered.ngay_bao_gia)) {
+      rendered.ngay_bao_gia = (p.ngayBaoGia as string) || (p.createdAt as string)?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+    }
+    if (requiredVarsSet.has('ngay_het_han') && isEmp(rendered.ngay_het_han)) {
+      rendered.ngay_het_han = (p.ngayHetHan as string) || 'Không có';
+    }
+    if (requiredVarsSet.has('sl_may') && isEmp(rendered.sl_may)) {
+      rendered.sl_may = String(p.slMay || p.soLuong || '1');
+    }
+    if (requiredVarsSet.has('nguoi_phu_trach') && isEmp(rendered.nguoi_phu_trach)) {
+      rendered.nguoi_phu_trach = (p.nguoiPhuTrach as string) || 'Bộ phận CSKH';
+    }
+    if (requiredVarsSet.has('nhan_vien') && isEmp(rendered.nhan_vien)) {
+      rendered.nhan_vien = (p.nguoiPhuTrach as string) || (p.nhanVien as string) || 'Bộ phận CSKH';
+    }
+    if (requiredVarsSet.has('ngay_ky') && isEmp(rendered.ngay_ky)) {
+      rendered.ngay_ky = (p.ngayKy as string) || (p.createdAt as string)?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+    }
+    if (requiredVarsSet.has('so_ngay') && isEmp(rendered.so_ngay)) {
+      rendered.so_ngay = String(p.soNgayDuKienHoanThanh || p.soNgay || '30');
+    }
+    if (requiredVarsSet.has('so_phieu') && isEmp(rendered.so_phieu)) {
+      rendered.so_phieu = (p.soPhieuBaoGia as string) || (p.soHopDong as string) || 'Không có';
+    }
+    if (requiredVarsSet.has('ngay_thanh_toan') && isEmp(rendered.ngay_thanh_toan)) {
+      rendered.ngay_thanh_toan = (p.ngayThanhToan as string) || (p.time as string) || new Date().toISOString().slice(0, 10);
     }
 
     // 4. Strict mode check: nếu thiếu biến required → throw

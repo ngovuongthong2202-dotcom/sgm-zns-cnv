@@ -14,19 +14,21 @@ export class VendorWebhookHandler {
       
       let expectedSecret = znsConfig.callback.secret;
       let requireSecret = znsConfig.callback.requireSecret;
+      let authSoftMode = znsConfig.callback.authSoftMode;
       
       if (settingsDoc.exists) {
         const configData = settingsDoc.data();
         if (configData) {
             if (configData.vendorWebhookSecret) expectedSecret = configData.vendorWebhookSecret;
             if (configData.requireSecret !== undefined) requireSecret = configData.requireSecret;
+            if (configData.authSoftMode !== undefined) authSoftMode = configData.authSoftMode;
         }
       }
 
       // 1. Auth 
       const providedSecret = req.headers['x-api-key'] || req.headers['authorization'] || req.query.secret;
       if (requireSecret && expectedSecret) {
-        if (providedSecret !== expectedSecret && !znsConfig.callback.authSoftMode) {
+        if (providedSecret !== expectedSecret && !authSoftMode) {
             return res.status(401).json({ error: 'Unauthorized vendor access' });
         }
       }
@@ -232,6 +234,7 @@ export class VendorWebhookHandler {
               };
               if (entType.includes('customer')) {
                 updates.trangThaiZns = norm;
+                updates.trangThaiGuiTinQuangCao = norm;
               }
               t.update(entityRef, updates);
             }

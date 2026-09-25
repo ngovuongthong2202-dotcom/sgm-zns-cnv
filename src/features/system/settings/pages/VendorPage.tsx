@@ -52,10 +52,13 @@ export default function VendorPage() {
     setTesting(true);
     try {
       const res = await fetch('/api/zns/test-webhook-dryrun', { method: 'POST' });
-      if(!res.ok) throw new Error('Test webhook thất bại');
-      notify.success('Ping webhook thành công');
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `Lỗi HTTP ${res.status}`);
+      }
+      notify.success(data?.message || 'Kết nối thành công tới Webhook CNV');
     } catch (err: any) { 
-      notify.error('Lỗi khi test webhook: ' + (err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err)));
+      notify.error(err instanceof Error ? err.message : String(err));
     } finally {
       setTesting(false);
     }

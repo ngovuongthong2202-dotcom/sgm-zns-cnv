@@ -18,6 +18,118 @@ export type AnyEntity =
   | z.infer<typeof DeliverySchema>
   | Record<string, unknown>;
 
+const BUILTIN_DEFAULT_TEMPLATES: Record<string, ZnsTemplate> = {
+  CUSTOMER_PRE_QUOTE: {
+    templateKey: 'CUSTOMER_PRE_QUOTE',
+    label: 'Tin nhắn giới thiệu (trước báo giá)',
+    entityType: 'CUSTOMER',
+    version: 1,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    updatedBy: 'SYSTEM',
+    variables: [
+      { name: 'customer_name', label: 'Tên KH', sourceField: 'tenKhachHang', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'phone', label: 'SĐT', sourceField: 'sdt', sourceEntity: 'SELF', format: 'raw' },
+    ],
+  },
+  BAOGIA: {
+    templateKey: 'BAOGIA',
+    label: 'Tin nhắn báo giá',
+    entityType: 'QUOTATION',
+    version: 1,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    updatedBy: 'SYSTEM',
+    variables: [
+      { name: 'customer_name', label: 'Tên KH', sourceField: 'tenKhachHang', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'so_phieu_bao_gia', label: 'Số phiếu BG', sourceField: 'soPhieuBaoGia', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'ngay_bao_gia', label: 'Ngày BG', sourceField: 'ngayBaoGia', format: 'date', sourceEntity: 'SELF' },
+      { name: 'ngay_het_han', label: 'Ngày hết hạn', sourceField: 'ngayHetHan', format: 'date', sourceEntity: 'SELF' },
+      { name: 'sl_may', label: 'SL máy', sourceField: 'slMay', format: 'number', sourceEntity: 'SELF' },
+      { name: 'nguoi_phu_trach', label: 'Người PT', sourceField: 'nguoiPhuTrach', sourceEntity: 'SELF', format: 'raw' },
+    ],
+  },
+  HOPDONG_SIGN_ZNS: {
+    templateKey: 'HOPDONG_SIGN_ZNS',
+    label: 'Tin nhắn ký hợp đồng',
+    entityType: 'CONTRACT',
+    version: 1,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    updatedBy: 'SYSTEM',
+    variables: [
+      { name: 'customer_name', label: 'Tên KH', sourceField: 'tenKhachHang', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'phone', label: 'SĐT', sourceField: 'sdt', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'order_code', label: 'Mã HĐ (order_code)', sourceField: 'soHopDong', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'So_don_hang', label: 'Số đơn hàng', sourceField: 'soDonHang', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'ngay_ky', label: 'Ngày ký', sourceField: 'ngayKy', format: 'date', sourceEntity: 'SELF' },
+      { name: 'so_ngay', label: 'Số ngày hoàn thành', sourceField: 'soNgayDuKienHoanThanh', format: 'number', sourceEntity: 'SELF' },
+      { name: 'so_phieu', label: 'Số phiếu BG nguồn', sourceField: 'soPhieuBaoGia', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'nhan_vien', label: 'Nhân viên PT', sourceField: 'nguoiPhuTrach', sourceEntity: 'SELF', format: 'raw' },
+    ],
+  },
+  THANH_TOAN_TAT_TOAN: {
+    templateKey: 'THANH_TOAN_TAT_TOAN',
+    label: 'Tin nhắn thanh toán — Tất toán',
+    entityType: 'PAYMENT',
+    paymentSubtype: 'TAT_TOAN',
+    version: 1,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    updatedBy: 'SYSTEM',
+    variables: [
+      { name: 'customer_name', label: 'Tên KH', sourceField: 'tenKhachHang', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'phone', label: 'SĐT', sourceField: 'sdt', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'so_don_hang', label: 'Số đơn hàng', sourceField: 'soDonHang', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'so_hop_dong', label: 'Số HĐ', sourceField: 'soHopDong', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'ngay_thanh_toan', label: 'Ngày TT', sourceField: 'ngayThanhToan', format: 'date', sourceEntity: 'SELF' },
+    ],
+  },
+  THANH_TOAN_CONG_NO: {
+    templateKey: 'THANH_TOAN_CONG_NO',
+    label: 'Tin nhắn thanh toán — Công nợ',
+    entityType: 'PAYMENT',
+    paymentSubtype: 'CONG_NO',
+    version: 1,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    updatedBy: 'SYSTEM',
+    variables: [
+      { name: 'customer_name', label: 'Tên KH', sourceField: 'tenKhachHang', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'phone', label: 'SĐT', sourceField: 'sdt', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'order_code', label: 'Mã HĐ', sourceField: 'soHopDong', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'time', label: 'Thời điểm ghi nhận', sourceField: 'ngayThanhToan', format: 'date', sourceEntity: 'SELF' },
+      { name: 'so_luong', label: 'Số lượng máy', sourceField: 'slMay', format: 'number', sourceEntity: 'SELF' },
+    ],
+  },
+  GIAOHANG_ZNS: {
+    templateKey: 'GIAOHANG_ZNS',
+    label: 'Tin nhắn giao hàng',
+    entityType: 'DELIVERY',
+    version: 1,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    updatedBy: 'SYSTEM',
+    variables: [
+      { name: 'customer_name', label: 'Tên KH', sourceField: 'tenKhachHang', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'phone', label: 'SĐT', sourceField: 'sdt', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'So_hop_dong', label: 'Số HĐ', sourceField: 'soHopDong', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'So_don_hang', label: 'Số đơn hàng', sourceField: 'soDonHang', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'so_phieu_xuat', label: 'Số phiếu xuất', sourceField: 'soPhieuXuat', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'ngay_giao_may', label: 'Ngày giao', sourceField: 'ngayGiaoMay', format: 'date', sourceEntity: 'SELF' },
+      { name: 'danh_sach_ma_may', label: 'Danh sách mã máy', sourceField: 'danhSachMaMay', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'so_luong', label: 'Số lượng', sourceField: 'slMay', format: 'number', sourceEntity: 'SELF' },
+      { name: 'dvt', label: 'ĐVT', sourceField: 'dvt', sourceEntity: 'SELF', format: 'raw' },
+    ],
+  },
+};
+
 export class TemplateRendererService {
   private cache: Map<string, { tpl: ZnsTemplate; ts: number }> = new Map();
 
@@ -37,34 +149,46 @@ export class TemplateRendererService {
         return cached.tpl;
     }
 
-    let query: any = adminDb.collection('znsTemplates')
-      .where('templateKey', '==', templateKey)
-      .where('isActive', '==', true);
+    try {
+      let query: any = adminDb.collection('znsTemplates')
+        .where('templateKey', '==', templateKey)
+        .where('isActive', '==', true);
 
-    if (paymentSubtype) {
-      query = query.where('paymentSubtype', '==', paymentSubtype);
+      if (paymentSubtype) {
+        query = query.where('paymentSubtype', '==', paymentSubtype);
+      }
+
+      const snapshot = await query.orderBy('version', 'desc').limit(1).get();
+
+      if (!snapshot.empty) {
+        const template = snapshot.docs[0].data() as ZnsTemplate;
+        this.cache.set(cacheKey, { tpl: template, ts: now });
+        return template;
+      }
+
+      if (paymentSubtype) {
+        const fallbackSnapshot = await adminDb.collection('znsTemplates')
+          .where('templateKey', '==', templateKey)
+          .where('isActive', '==', true)
+          .orderBy('version', 'desc').limit(1).get();
+        if (!fallbackSnapshot.empty) {
+          const tpl = fallbackSnapshot.docs[0].data() as ZnsTemplate;
+          this.cache.set(cacheKey, { tpl, ts: now });
+          return tpl;
+        }
+      }
+    } catch (err) {
+      console.warn('Query znsTemplates from DB failed, using builtin fallback:', err);
     }
 
-    const snapshot = await query.orderBy('version', 'desc').limit(1).get();
-
-    if (snapshot.empty) {
-       if (paymentSubtype) {
-             const fallbackSnapshot = await adminDb.collection('znsTemplates')
-                .where('templateKey', '==', templateKey)
-                .where('isActive', '==', true)
-                .orderBy('version', 'desc').limit(1).get();
-             if (!fallbackSnapshot.empty) {
-                 const tpl = fallbackSnapshot.docs[0].data() as ZnsTemplate;
-                 this.cache.set(cacheKey, { tpl, ts: now });
-                 return tpl;
-             }
-       }
-      return null;
+    // Builtin default fallback
+    const fallbackTemplate = BUILTIN_DEFAULT_TEMPLATES[cacheKey] || BUILTIN_DEFAULT_TEMPLATES[templateKey] || null;
+    if (fallbackTemplate) {
+      this.cache.set(cacheKey, { tpl: fallbackTemplate, ts: now });
+      return fallbackTemplate;
     }
 
-    const template = snapshot.docs[0].data() as ZnsTemplate;
-    this.cache.set(cacheKey, { tpl: template, ts: now });
-    return template;
+    return null;
   }
 
   async render(templateKey: string, entity: AnyEntity, opts?: { paymentSubtype?: string, templateOverride?: ZnsTemplate }): Promise<Record<string, unknown>> {
@@ -222,20 +346,44 @@ export class TemplateRendererService {
   private extractValue(doc: AnyEntity, sourceField: string): unknown {
     if (!doc || !sourceField) return undefined;
     
+    let val: unknown = undefined;
     if (sourceField.includes('[]')) {
       const parts = sourceField.split('[].');
       if (parts.length === 2) {
         const arr = get(doc, parts[0]);
         if (Array.isArray(arr)) {
-          return arr.map((item: unknown) => get(item, parts[1]) as unknown)
+          val = arr.map((item: unknown) => get(item, parts[1]) as unknown)
                     .filter((v: unknown) => v !== undefined && v !== null && v !== '')
                     .join(' | ');
         }
       } else {
-        return get(doc, sourceField.replace('[]', ''));
+        val = get(doc, sourceField.replace('[]', ''));
+      }
+    } else {
+      val = get(doc, sourceField);
+    }
+
+    // Fallback: check inside doc.payload if doc is a wrapped payload
+    if (!this.isMeaningful(val) && (doc as any).payload && typeof (doc as any).payload === 'object') {
+      val = get((doc as any).payload, sourceField);
+    }
+
+    // Smart aliases fallback cho các trường phổ biến
+    if (!this.isMeaningful(val)) {
+      if (sourceField === 'tenKhachHang') {
+        val = (doc as any).tenKhachHang || (doc as any).customer_name || (doc as any).customerName || (doc as any).name || (doc as any).contacts?.[0]?.nguoiDaiDien || (doc as any).nguoiDaiDien;
+      } else if (sourceField === 'sdt') {
+        val = (doc as any).sdt || (doc as any).phone || (doc as any).soDienThoai || (doc as any).phoneNumber || (doc as any).contacts?.[0]?.sdt;
+      } else if (sourceField === 'soHopDong') {
+        val = (doc as any).soHopDong || (doc as any).maHopDong || (doc as any).order_code;
+      } else if (sourceField === 'soDonHang') {
+        val = (doc as any).soDonHang || (doc as any).maDonHang;
+      } else if (sourceField === 'soPhieuBaoGia') {
+        val = (doc as any).soPhieuBaoGia || (doc as any).maBaoGia;
       }
     }
-    return get(doc, sourceField);
+
+    return val;
   }
 
   /** Một giá trị được coi là "có nghĩa" — không undefined/null/'' */
