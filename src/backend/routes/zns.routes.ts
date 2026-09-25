@@ -8,6 +8,7 @@ import { znsRepository } from '../../modules/messaging/infrastructure/ZnsRepoSup
 import { znsVendor } from '../../modules/messaging/infrastructure/CnvZnsVendor';
 import { bulkEnqueueHelper } from '../services/zns/outbound-helpers';
 import '../../modules/messaging/application/handlers/EntityEventsHandler';
+import { normalizeLegacyStatus, EntityZnsStatus } from '../../domain/enums/zns-status';
 
 const router = Router();
 const sendZnsUseCase = new SendZnsMessageUseCase(znsRepository, znsVendor);
@@ -178,6 +179,39 @@ router.post('/send', async (req, res) => {
         }
       } catch (err) {
         // Fallback gracefully
+      }
+    }
+
+    // Chặn gửi trùng: Nếu đã gửi thành công trước đó và số điện thoại không thay đổi
+    if (!body.forceResend) {
+      const existingStatus = normalizeLegacyStatus(
+        (dbEntity.trangThaiGuiTinQuangCao ||
+         dbEntity.trangThaiGuiTinBaoGia ||
+         dbEntity.trangThaiGuiTinHopDong ||
+         dbEntity.trangThaiGuiTinThanhToan ||
+         dbEntity.trangThaiGuiTinGiaoHang ||
+         dbEntity.trangThaiZns ||
+         clientEntity.trangThaiGuiTinQuangCao ||
+         clientEntity.trangThaiGuiTinBaoGia ||
+         clientEntity.trangThaiGuiTinHopDong ||
+         clientEntity.trangThaiGuiTinThanhToan ||
+         clientEntity.trangThaiGuiTinGiaoHang ||
+         clientEntity.trangThaiZns) as string | undefined
+      );
+
+      if (existingStatus === EntityZnsStatus.THANH_CONG) {
+        const lastSentPhone = normalizeVNPhone(
+          (dbEntity.znsLastSentPhone || dbEntity.sdt || dbEntity.phone ||
+           clientEntity.znsLastSentPhone || clientEntity.sdt || clientEntity.phone) as string
+        );
+
+        if (lastSentPhone && lastSentPhone === normalizedPhone) {
+          return res.status(409).json({
+            success: false,
+            code: 'DUPLICATE_SENT',
+            error: `Tin nhắn ZNS đã được gửi thành công đến số điện thoại ${normalizedPhone}. Hệ thống đã chặn gửi trùng để bảo vệ chi phí.`
+          });
+        }
       }
     }
 

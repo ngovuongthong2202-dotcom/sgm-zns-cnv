@@ -12,8 +12,12 @@ export const ProductItemSchema = z.object({
   ngayHetHanBaoHanh: z.string().optional(),
   // D1: Line-item finance fields
   ghiChu: z.string().optional(),
+  note: z.string().optional().nullable(),
+  item_code: z.string().optional(),
   discountPct: z.number().optional(),
   discountAmount: z.number().optional(),
+  subtotalAfterDiscount: z.number().optional(),
+  unitPriceAfterDiscount: z.number().optional(),
   subtotalBeforeTax: z.number().optional(),
   vatPct: z.number().optional(),
   taxAmount: z.number().optional(),

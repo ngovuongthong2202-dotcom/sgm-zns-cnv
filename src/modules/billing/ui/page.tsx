@@ -99,7 +99,7 @@ export default function PaymentsFeature() {
     handleCreatePrepaidFinalPayment,
     blockingModalState,
     closeBlockingModal,
-  } = usePaymentsActions(deletePayment, refresh, deliveries);
+  } = usePaymentsActions(deletePayment, refresh, deliveries, userData?.role);
 
   const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'OVERDUE' | 'PAID'>('ALL');
   const { filteredPayments, selectedTinhTrangThanhToan, setSelectedTinhTrangThanhToan, selectedPhanLoai, setSelectedPhanLoai, selectedTinhThanh, setSelectedTinhThanh, selectedZns, setSelectedZns, selectedNguoiPhuTrach, setSelectedNguoiPhuTrach, selectedDateRange, setSelectedDateRange } = usePaymentsFilters(payments, customers, activeTab);

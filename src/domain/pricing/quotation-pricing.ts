@@ -5,15 +5,33 @@ export function computeLineItem(item: ProductItem): ProductItem {
   const quantity = Number(item.quantity) || 0;
   const gross = Math.round(price * quantity);
   
-  let discountAmount = Number(item.discountAmount) || 0;
-  if (item.discountPct !== undefined && item.discountPct !== null) {
+  let discountAmount = item.discountAmount !== undefined && item.discountAmount !== null
+    ? Number(item.discountAmount)
+    : 0;
+  if ((item.discountPct !== undefined && item.discountPct !== null) && item.discountPct > 0) {
     discountAmount = Math.round(gross * (Number(item.discountPct) / 100));
   }
   
-  const subtotalBeforeTax = Math.max(0, gross - discountAmount);
+  const subtotalAfterDiscount = item.subtotalAfterDiscount !== undefined && item.subtotalAfterDiscount !== null
+    ? Number(item.subtotalAfterDiscount)
+    : Math.max(0, gross - discountAmount);
+
+  const unitPriceAfterDiscount = item.unitPriceAfterDiscount !== undefined && item.unitPriceAfterDiscount !== null
+    ? Number(item.unitPriceAfterDiscount)
+    : (quantity > 0 ? Math.round(subtotalAfterDiscount / quantity) : price);
+
+  const subtotalBeforeTax = item.subtotalBeforeTax !== undefined && item.subtotalBeforeTax !== null
+    ? Number(item.subtotalBeforeTax)
+    : subtotalAfterDiscount;
+
   const vatPct = Number(item.vatPct) || 0;
-  const taxAmount = Math.round(subtotalBeforeTax * (vatPct / 100));
-  const subtotalAfterTax = subtotalBeforeTax + taxAmount;
+  const taxAmount = item.taxAmount !== undefined && item.taxAmount !== null
+    ? Number(item.taxAmount)
+    : Math.round(subtotalBeforeTax * (vatPct / 100));
+
+  const subtotalAfterTax = item.subtotalAfterTax !== undefined && item.subtotalAfterTax !== null
+    ? Number(item.subtotalAfterTax)
+    : (subtotalBeforeTax + taxAmount);
 
   return {
     ...item,
@@ -21,6 +39,8 @@ export function computeLineItem(item: ProductItem): ProductItem {
     quantity,
     discountPct: item.discountPct,
     discountAmount,
+    subtotalAfterDiscount,
+    unitPriceAfterDiscount,
     subtotalBeforeTax,
     vatPct: item.vatPct,
     taxAmount,

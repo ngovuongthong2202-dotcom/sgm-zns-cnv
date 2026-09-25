@@ -1,10 +1,14 @@
 import { Payment } from '@/src/domain/schema/payment.schema';
 import { notify } from '@/src/shared/utils/notify';
-import { sendZnsAndToast, nextAttempt } from '@/src/domain/zns-client';
+import { sendZnsAndToast, nextAttempt, checkZnsResendAllowed } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 
-export function usePaymentZns(confirm: (opts: import('@/src/design-system/Confirm').ConfirmOptions) => Promise<boolean>, refresh: () => void) {
+export function usePaymentZns(
+  confirm: (opts: import('@/src/design-system/Confirm').ConfirmOptions) => Promise<boolean>, 
+  refresh: () => void,
+  userRole?: string
+) {
   const handleSendZns = async (payment: Payment) => {
     let phone = payment.sdt;
     let customerName = payment.tenKhachHang;
@@ -20,7 +24,30 @@ export function usePaymentZns(confirm: (opts: import('@/src/design-system/Confir
        notify.error("Khách hàng không có số điện thoại hợp lệ");
        return;
     }
-    if (!await confirm({ title: "Gửi ZNS Thanh Toán", message: `Gửi ZNS Thanh toán đến ${customerName}?` })) return;
+
+    // Kiểm tra gửi trùng lặp nếu đã gửi thành công trước đó
+    const duplicateCheck = checkZnsResendAllowed(payment as any, phone, userRole);
+    let forceResend = false;
+    if (!duplicateCheck.allowed) {
+      if (duplicateCheck.canAdminOverride) {
+        const force = await confirm({
+          title: 'Xác nhận gửi lại ZNS Thanh Toán (Admin)',
+          message: `Phiếu thu này đã được gửi ZNS thành công đến số điện thoại ${phone}. Bạn đang thao tác với quyền Quản trị viên, bạn có chắc chắn muốn buộc gửi lại (Force Resend) tin này không?`,
+          variant: 'warning',
+          confirmText: 'Buộc gửi lại',
+          cancelText: 'Hủy bỏ'
+        });
+        if (!force) return;
+        forceResend = true;
+      } else {
+        notify.warning(duplicateCheck.reason || 'Phiếu thu này đã được gửi ZNS thành công đến số điện thoại này.');
+        return;
+      }
+    }
+
+    if (!forceResend) {
+      if (!await confirm({ title: "Gửi ZNS Thanh Toán", message: `Gửi ZNS Thanh toán đến ${customerName}?` })) return;
+    }
     
     const enrichedPayment = { ...payment };
     if (!enrichedPayment.soDonHang || !enrichedPayment.soHopDong) {
@@ -62,7 +89,9 @@ export function usePaymentZns(confirm: (opts: import('@/src/design-system/Confir
 
     await sendZnsAndToast({
        entityId: payment.id!, entityType: 'PAYMENT', messageType, phone: phone, payload: enrichedPayment as Record<string, unknown>,
-       attemptBucket: nextAttempt(payment.trangThaiGuiTinThanhToan as string | undefined)
+       attemptBucket: nextAttempt(payment.trangThaiGuiTinThanhToan as string | undefined),
+       userRole,
+       forceResend
     });
     refresh();
   };

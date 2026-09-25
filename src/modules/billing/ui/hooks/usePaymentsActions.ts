@@ -9,7 +9,8 @@ import { useEntityLifecycle } from '@/src/hooks/useEntityLifecycle';
 export function usePaymentsActions(
   deletePayment: (id: string) => Promise<void>,
   refresh: () => void,
-  deliveries: any[] = []
+  deliveries: any[] = [],
+  userRole?: string
 ) {
   const { confirm } = useConfirm();
   const { blockingModalState, showBlockingModal, closeBlockingModal } = useEntityLifecycle();
@@ -73,7 +74,7 @@ export function usePaymentsActions(
     }
   }, [deletePayment, confirm, drawerPayment, refresh, deliveries, showBlockingModal]);
 
-  const { handleSendZns } = usePaymentZns(confirm, refresh);
+  const { handleSendZns } = usePaymentZns(confirm, refresh, userRole);
 
   const handleCreatePrepaidFinalPayment = useCallback((delivery: Delivery | any) => {
     const code = `PT${Date.now().toString().slice(-6)}`;

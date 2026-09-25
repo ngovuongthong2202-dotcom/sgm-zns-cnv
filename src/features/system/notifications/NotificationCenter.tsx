@@ -98,7 +98,7 @@ export function NotificationCenter() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-12 w-[380px] bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-50 flex flex-col max-h-[500px]"
+            className="absolute right-0 top-12 w-[380px] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-[100] flex flex-col max-h-[500px] ring-1 ring-slate-900/10"
           >
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <h3 className="font-semibold text-sm text-slate-900">Thông báo</h3>

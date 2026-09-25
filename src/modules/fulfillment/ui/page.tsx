@@ -82,7 +82,8 @@ export default function DeliveriesFeature() {
     blockingModalState, closeBlockingModal
   } = useDeliveriesActions(
     createDelivery as any, deleteDelivery, updateDelivery, updateContract as any, updateQuotation as any, 
-    confirm, setDrawerDelivery, drawerDelivery, editingDelivery, setEditingDelivery, setIsFormOpen
+    confirm, setDrawerDelivery, drawerDelivery, editingDelivery, setEditingDelivery, setIsFormOpen,
+    userData?.role
   );
 
   const handlePrefetchDelivery = (delivery: Delivery) => {

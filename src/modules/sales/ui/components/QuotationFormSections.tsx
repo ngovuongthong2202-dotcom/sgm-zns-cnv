@@ -41,7 +41,6 @@ export function QuotationBasicInfoSection({
               onBlur={(e) => {
                 const val = normalizeCode(e.target.value);
                 setValue('soPhieuBaoGia', val, { shouldValidate: true, shouldDirty: true });
-                if (val && !businessLock?.locked && isCreating) lookupErp(val);
               }}
               onKeyDown={(e) => {
                  if (e.key === 'Enter') {
@@ -52,22 +51,24 @@ export function QuotationBasicInfoSection({
                  }
               }}
               className="h-8 pl-3 pr-20 text-sm border border-slate-200 rounded-lg focus:border-blue-600 focus:ring-1 focus:ring-blue-600 w-full font-mono outline-none disabled:bg-slate-100 disabled:opacity-75" 
-              placeholder="E.g., BG-M-2026001" 
+              placeholder="E.g., 11-BG2609-025" 
             />
             <Button
                type="button"
                disabled={isLookingUp || businessLock?.locked}
+               onMouseDown={(e) => e.preventDefault()}
                onClick={() => {
-                  let val = getValues('soPhieuBaoGia');
+                  const inputEl = document.getElementById('soPhieuBaoGia') as HTMLInputElement | null;
+                  let val = (inputEl?.value || getValues('soPhieuBaoGia') || '').trim();
                   if (val) {
                      val = normalizeCode(val);
                      setValue('soPhieuBaoGia', val, { shouldValidate: true, shouldDirty: true });
                      lookupErp(val);
                   }
                }}
-               className="absolute right-1 top-1 bottom-1 px-2 flex items-center justify-center bg-blue-50 text-blue-600 hover:bg-blue-100 rounded text-2xs font-bold border border-blue-200 transition-colors disabled:opacity-50"
+               className="absolute right-1 top-1 bottom-1 px-2.5 flex items-center justify-center bg-blue-50 text-blue-600 hover:bg-blue-100 rounded text-2xs font-bold border border-blue-200 transition-colors disabled:opacity-50"
             >
-               TÌM ERP
+               {isLookingUp ? 'ĐANG TÌM...' : 'TÌM ERP'}
             </Button>
           </div>
           {errors.soPhieuBaoGia && <p className="text-red-650 text-2xs mt-1 font-semibold">{errors.soPhieuBaoGia.message}</p>}

@@ -125,7 +125,7 @@ export default function QuotationsFeature() {
   } = useQuotationActions(
     createQuotation, updateQuotation, deleteQuotation, confirm,
     drawerQuotation, setDrawerQuotation, editingQuotation, setEditingQuotation, setIsFormOpen, drawerCustomer,
-    allContracts, allPayments, allDeliveries
+    allContracts, allPayments, allDeliveries, userData
   );
 
   const columns = useMemo(() => getQuotationColumns(

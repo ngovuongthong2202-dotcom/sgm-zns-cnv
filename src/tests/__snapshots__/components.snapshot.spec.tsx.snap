@@ -4608,10 +4608,10 @@ exports[`Component Snapshots (Baseline) > renders QuotationFormModal 1`] = `
                     class="h-8 pl-3 pr-20 text-sm border border-slate-200 rounded-lg focus:border-blue-600 focus:ring-1 focus:ring-blue-600 w-full font-mono outline-none disabled:bg-slate-100 disabled:opacity-75"
                     id="soPhieuBaoGia"
                     name="soPhieuBaoGia"
-                    placeholder="E.g., BG-M-2026001"
+                    placeholder="E.g., 11-BG2609-025"
                   />
                   <button
-                    class="duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:pointer-events-none active:scale-[0.98] hover:text-blue-800 active:bg-blue-200/70 focus-visible:ring-blue-300 h-8 gap-1.5 absolute right-1 top-1 bottom-1 px-2 flex items-center justify-center bg-blue-50 text-blue-600 hover:bg-blue-100 rounded text-2xs font-bold border border-blue-200 transition-colors disabled:opacity-50"
+                    class="duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:pointer-events-none active:scale-[0.98] hover:text-blue-800 active:bg-blue-200/70 focus-visible:ring-blue-300 h-8 gap-1.5 absolute right-1 top-1 bottom-1 px-2.5 flex items-center justify-center bg-blue-50 text-blue-600 hover:bg-blue-100 rounded text-2xs font-bold border border-blue-200 transition-colors disabled:opacity-50"
                     type="button"
                   >
                     TÌM ERP

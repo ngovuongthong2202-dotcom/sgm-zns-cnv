@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { Contract } from '@/src/domain/schema/contract.schema';
 import { useConfirm } from '@/src/design-system/Confirm';
 import { notify } from '@/src/shared/utils/notify';
-import { sendZnsAndToast, nextAttempt } from '@/src/domain/zns-client';
+import { sendZnsAndToast, nextAttempt, checkZnsResendAllowed } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { customerRepo } from '@/src/modules/customers';
 import { useEntityLifecycle } from '@/src/hooks/useEntityLifecycle';
@@ -10,7 +10,8 @@ import { useEntityLifecycle } from '@/src/hooks/useEntityLifecycle';
 export function useContractsActions(
   deleteContract: (id: string) => Promise<void>,
   realtimePayments: any[] = [],
-  realtimeDeliveries: any[] = []
+  realtimeDeliveries: any[] = [],
+  userRole?: string
 ) {
   const { confirm } = useConfirm();
   const { blockingModalState, showBlockingModal, closeBlockingModal } = useEntityLifecycle();
@@ -82,16 +83,40 @@ export function useContractsActions(
         }
     }
     if (!c.id || !phone) return notify.error("Khách hàng thiếu SĐT");
-    if (!await confirm({ title: "Gửi ZNS Hợp Đồng", message: `Gửi ZNS Hợp đồng đến khách hàng ${customerName}?` })) return;
+
+    const duplicateCheck = checkZnsResendAllowed(c as any, phone, userRole);
+    let forceResend = false;
+    if (!duplicateCheck.allowed) {
+      if (duplicateCheck.canAdminOverride) {
+        const force = await confirm({
+          title: 'Xác nhận gửi lại ZNS Hợp Đồng (Admin)',
+          message: `Hợp đồng này đã được gửi ZNS thành công đến số điện thoại ${phone}. Bạn đang thao tác với quyền Quản trị viên, bạn có chắc chắn muốn buộc gửi lại (Force Resend) tin này không?`,
+          variant: 'warning',
+          confirmText: 'Buộc gửi lại',
+          cancelText: 'Hủy bỏ'
+        });
+        if (!force) return;
+        forceResend = true;
+      } else {
+        notify.warning(duplicateCheck.reason || 'Hợp đồng này đã được gửi ZNS thành công đến số điện thoại này.');
+        return;
+      }
+    }
+
+    if (!forceResend) {
+      if (!await confirm({ title: "Gửi ZNS Hợp Đồng", message: `Gửi ZNS Hợp đồng đến khách hàng ${customerName}?` })) return;
+    }
     await sendZnsAndToast({
       entityId: c.id,
       entityType: 'CONTRACT',
       messageType: ZnsMessageType.HOPDONG_SIGN_ZNS,
       phone: phone as string,
       payload: { ...c },
-      attemptBucket: nextAttempt(c.trangThaiGuiTinHopDong || undefined)
+      attemptBucket: nextAttempt(c.trangThaiGuiTinHopDong || undefined),
+      userRole,
+      forceResend
     });
-  }, [confirm]);
+  }, [confirm, userRole]);
 
   return {
     editingContract,

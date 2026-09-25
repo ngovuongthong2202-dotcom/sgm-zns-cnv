@@ -104,7 +104,7 @@ export default function ContractsFeature() {
     handleSendContractZns,
     blockingModalState,
     closeBlockingModal
-  } = useContractsActions(deleteContract, realtimePayments, realtimeDeliveries);
+  } = useContractsActions(deleteContract, realtimePayments, realtimeDeliveries, userData?.role);
 
   // Extract Province (Tỉnh/Thành) details using L1 cache
   const customerTinhThanhMap = useMemo(() => extractContractCustomerTinhThanhMap([]), []);

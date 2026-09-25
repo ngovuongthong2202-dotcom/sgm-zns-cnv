@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { logger } from '@/src/shared/lib/logger';
 import { Customer } from '@/src/domain/schema/customer.schema';
 import { notify } from '@/src/shared/utils/notify';
-import { sendZnsAndToast, nextAttempt, checkRecentZnsDoc } from '@/src/domain/zns-client';
+import { sendZnsAndToast, nextAttempt, checkRecentZnsDoc, checkZnsResendAllowed } from '@/src/domain/zns-client';
 import { handleDatabaseError, OperationType } from '@/src/shared/errors/database-error';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { OptimisticConflictError } from '@/src/design-system/OptimisticConflictError';
@@ -20,6 +20,7 @@ interface UseCustomerActionsProps {
   drawerState: import('./useCustomersPage').DrawerState;
   setDrawerState: (state: import('./useCustomersPage').DrawerState) => void;
   user: { uid?: string, email?: string | null } | null;
+  userData?: { role?: string } | null;
   confirm: (opts: import('@/src/design-system/Confirm').ConfirmOptions) => Promise<boolean>;
   allQuotations?: any[];
   allContracts?: any[];
@@ -38,6 +39,7 @@ export function useCustomerActions({
   drawerState,
   setDrawerState,
   user,
+  userData,
   confirm,
   allQuotations = [],
   allContracts = [],
@@ -274,13 +276,36 @@ export function useCustomerActions({
 
     setSendingZnsIds(prev => ({ ...prev, [customerId]: true }));
     try {
+      const duplicateCheck = checkZnsResendAllowed(c, phone, userData?.role);
+      let forceResend = false;
+      if (!duplicateCheck.allowed) {
+        if (duplicateCheck.canAdminOverride) {
+          const force = await confirm({
+            title: 'Xác nhận gửi lại ZNS (Admin)',
+            message: `Tin ZNS này đã được gửi thành công đến số điện thoại ${phone}. Bạn đang thao tác với quyền Quản trị viên, bạn có chắc chắn muốn buộc gửi lại (Force Resend) tin này không?`,
+            variant: 'warning',
+            confirmText: 'Buộc gửi lại',
+            cancelText: 'Hủy bỏ'
+          });
+          if (!force) {
+            setSendingZnsIds(prev => ({ ...prev, [customerId]: false }));
+            return;
+          }
+          forceResend = true;
+        } else {
+          notify.warning(duplicateCheck.reason || 'Tin ZNS đã được gửi thành công đến số điện thoại này.');
+          setSendingZnsIds(prev => ({ ...prev, [customerId]: false }));
+          return;
+        }
+      }
+
       const recent = await checkRecentZnsDoc(customerId, ZnsMessageType.CUSTOMER_PRE_QUOTE);
-      if (recent) {
+      if (recent && !forceResend) {
         if (!await confirm({ title: 'Cảnh báo gửi đúp', message: `Tin nhắn này đã được gửi lúc ${new Date(recent.createdAt).toLocaleTimeString()} bởi user khác. Bạn vẫn muốn gửi lại?`, confirmText: 'Vẫn gửi', cancelText: 'Hủy' })) {
           setSendingZnsIds(prev => ({ ...prev, [customerId]: false }));
           return;
         }
-      } else {
+      } else if (!forceResend) {
         if (!await confirm({ title: 'Gửi ZNS Khách Hàng', message: `Gửi tin ZNS đến ${c.tenKhachHang} (${phone})?` })) {
           setSendingZnsIds(prev => ({ ...prev, [customerId]: false }));
           return;
@@ -292,14 +317,16 @@ export function useCustomerActions({
         messageType: ZnsMessageType.CUSTOMER_PRE_QUOTE,
         phone: phone, 
         payload: { ...c, sdt: phone, phone }, 
-        attemptBucket: nextAttempt(c.trangThaiGuiTinQuangCao as string | undefined)
+        attemptBucket: nextAttempt(c.trangThaiGuiTinQuangCao as string | undefined),
+        userRole: userData?.role,
+        forceResend
       });
     } catch (err: unknown) {
       notify.error(`Lỗi gửi tin: ${(err instanceof Error ? err.message : String(err))}`);
     } finally {
       setSendingZnsIds(prev => ({ ...prev, [customerId]: false }));
     }
-  }, [sendingZnsIds, confirm]);
+  }, [sendingZnsIds, confirm, userData]);
 
   return {
     isSaving,

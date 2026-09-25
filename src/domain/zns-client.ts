@@ -1,8 +1,14 @@
 import { sendZnsMessage } from './zns';
 import { notify } from '@/src/shared/utils/notify';
 import { auditLogsRepo, znsMessagesRepo } from '@/src/data/repositories/system.repo';
+import { normalizeLegacyStatus, EntityZnsStatus } from './enums/zns-status';
+import { normalizePhoneVN } from '@/src/shared/utils/phone';
 
-export type SendZnsArgs = Parameters<typeof sendZnsMessage>[0] & { attemptBucket?: number };
+export type SendZnsArgs = Parameters<typeof sendZnsMessage>[0] & { 
+  attemptBucket?: number;
+  userRole?: string;
+  forceResend?: boolean;
+};
 
 export async function checkRecentZnsDoc(entityId: string, messageType: string) {
   try {
@@ -56,6 +62,46 @@ export function preCheckEntitySnapshot(entityType: string, entity: Record<string
   return { ok: missing.length === 0, missing };
 }
 
+export function isZnsAlreadySent(entity: Record<string, unknown>): boolean {
+  if (!entity) return false;
+  const rawStatus = (
+    entity.trangThaiGuiTinQuangCao ||
+    entity.trangThaiGuiTinBaoGia ||
+    entity.trangThaiGuiTinHopDong ||
+    entity.trangThaiGuiTinThanhToan ||
+    entity.trangThaiGuiTinGiaoHang ||
+    entity.trangThaiZns
+  ) as string | undefined;
+
+  return normalizeLegacyStatus(rawStatus) === EntityZnsStatus.THANH_CONG;
+}
+
+export function checkZnsResendAllowed(
+  entity: Record<string, unknown>,
+  targetPhone: string,
+  userRole?: string
+): { allowed: boolean; reason?: string; isAlreadySent?: boolean; canAdminOverride?: boolean } {
+  if (!entity || !isZnsAlreadySent(entity)) {
+    return { allowed: true };
+  }
+
+  const cleanTarget = normalizePhoneVN(targetPhone);
+  const cleanOriginal = normalizePhoneVN((entity.znsLastSentPhone || entity.sdt || entity.phone) as string);
+
+  // If phone changed, allow sending to new phone!
+  if (cleanTarget && cleanOriginal && cleanTarget !== cleanOriginal) {
+    return { allowed: true };
+  }
+
+  const isAdmin = userRole === 'Administrator' || userRole === 'Ban Giám Đốc';
+  return {
+    allowed: false,
+    isAlreadySent: true,
+    canAdminOverride: isAdmin,
+    reason: `Tin nhắn ZNS đã được gửi thành công đến số điện thoại ${targetPhone}. Hệ thống đã chặn gửi trùng để bảo vệ chi phí và tránh làm phiền khách hàng. (Nếu khách hàng đổi số, vui lòng cập nhật SĐT mới trước khi gửi).`
+  };
+}
+
 const ERROR_MESSAGES: Record<string, string> = {
   MISSING_REQUIRED_FIELDS: 'Thiếu thông tin bắt buộc để gửi ZNS',
   INVALID_PHONE: 'Số điện thoại không đúng định dạng (phải bắt đầu 0 + 9-10 số)',
@@ -63,6 +109,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   VENDOR_NOT_CONFIGURED: 'Chưa cấu hình URL Vendor — vào Cài đặt → Vendor & Webhook',
   ZALO_LIMIT: 'Zalo đã vượt hạn mức ngày — vui lòng thử lại ngày mai',
   INTERNAL_ERROR: 'Lỗi hệ thống — xem chi tiết trong ZNS Hub',
+  DUPLICATE_SENT: 'Tin ZNS đã được gửi thành công đến số điện thoại này. Hệ thống chặn gửi trùng để bảo vệ chi phí.',
 };
 
 const STATUS_MESSAGES: Record<string, string> = {
@@ -74,6 +121,14 @@ const STATUS_MESSAGES: Record<string, string> = {
 };
 
 export async function sendZnsAndToast(args: SendZnsArgs, label?: string) {
+  // Pre-check duplicate send if already successful to the same phone
+  if (args.payload && !args.forceResend) {
+    const duplicateCheck = checkZnsResendAllowed(args.payload, args.phone, args.userRole);
+    if (!duplicateCheck.allowed) {
+      notify.warning(duplicateCheck.reason || 'Tin ZNS đã gửi thành công đến số điện thoại này.');
+      throw new Error(`DUPLICATE_SENT: ${duplicateCheck.reason}`);
+    }
+  }
   // Pre-check snapshot — block sớm để UX tốt hơn
   if (args.payload) {
     const check = preCheckEntitySnapshot(args.entityType, args.payload);

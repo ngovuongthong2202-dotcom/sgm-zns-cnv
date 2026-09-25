@@ -227,7 +227,7 @@ export default function AppLayout() {
       {/* Main Content Pane */}
       <main className="flex-1 flex flex-col min-w-0 relative h-full">
         {/* Topbar exactly 48px high */}
-        <header className="h-12 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 z-10 select-none">
+        <header className="h-12 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 z-50 select-none">
           <div className="flex items-center gap-2 text-xs">
             <span className="text-slate-600 font-medium">Bản đồ IA</span>
             <ChevronRight size={10} className="text-slate-300" />

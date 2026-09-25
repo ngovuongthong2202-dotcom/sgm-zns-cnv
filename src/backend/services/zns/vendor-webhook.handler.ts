@@ -232,6 +232,9 @@ export class VendorWebhookHandler {
                 [targetField]: norm,
                 updatedAt: new Date().toISOString()
               };
+              if (norm === EntityZnsStatus.THANH_CONG && znsData.phone) {
+                updates.znsLastSentPhone = znsData.phone;
+              }
               if (entType.includes('customer')) {
                 updates.trangThaiZns = norm;
                 updates.trangThaiGuiTinQuangCao = norm;

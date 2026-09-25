@@ -249,6 +249,7 @@ export function useCustomersPage() {
     drawerState,
     setDrawerState,
     user,
+    userData,
     confirm
   });
 
