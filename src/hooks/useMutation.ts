@@ -172,7 +172,9 @@ export function useMutation<T>({ collection: collectionName, onSuccess, onError 
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || `Lỗi cập nhật (Backend). HTTP ${response.status}`);
+        const rawErr = body.error || body.message || `Lỗi cập nhật (Backend). HTTP ${response.status}`;
+        const errorMsg = typeof rawErr === 'string' ? rawErr : (rawErr.message || rawErr.details || JSON.stringify(rawErr));
+        throw new Error(errorMsg);
       }
       
       if (collectionName === 'customers') {
@@ -384,7 +386,9 @@ export function useMutation<T>({ collection: collectionName, onSuccess, onError 
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || `Lỗi cập nhật (Backend). HTTP ${response.status}`);
+        const rawErr = body.error || body.message || `Lỗi cập nhật (Backend). HTTP ${response.status}`;
+        const errorMsg = typeof rawErr === 'string' ? rawErr : (rawErr.message || rawErr.details || JSON.stringify(rawErr));
+        throw new Error(errorMsg);
       }
       
       try {

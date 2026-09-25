@@ -38,21 +38,50 @@ function CustomerHoverCardContent({ customer }: { customer: Customer }) {
 
       {/* Contact Details Panel */}
       <div className="p-3.5 bg-slate-50/60 border-b border-slate-100 text-2xs text-slate-700 space-y-2">
-        <div className="flex items-center gap-1 text-slate-500 uppercase tracking-wider text-2xs font-black">
-          <User size={12} className="text-slate-400" />
-          <span>Thông tin liên hệ</span>
+        <div className="flex items-center justify-between text-slate-500 uppercase tracking-wider text-2xs font-black">
+          <div className="flex items-center gap-1">
+            <User size={12} className="text-slate-400" />
+            <span>Đầu mối liên hệ ({customer.contacts?.length || 1})</span>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 pb-0.5">
-          <div>
-            <span className="text-slate-450 block text-2xs uppercase font-bold tracking-wide">Người đại diện:</span>
-            <span className="font-semibold text-slate-850 block">{customer.nguoiDaiDien || customer.contacts?.[0]?.nguoiDaiDien || '—'}</span>
+
+        {Array.isArray(customer.contacts) && customer.contacts.length > 0 ? (
+          <div className="space-y-1.5 divide-y divide-slate-100">
+            {customer.contacts.map((ct, idx) => (
+              <div key={idx} className="pt-1.5 first:pt-0 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="font-semibold text-slate-800 block truncate">
+                    {ct.nguoiDaiDien || `Đầu mối ${idx + 1}`}
+                  </span>
+                  {ct.chucVu && <span className="text-3xs text-slate-500">{ct.chucVu}</span>}
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="font-mono text-2xs font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 block">
+                    {ct.sdt || '—'}
+                  </span>
+                  {ct.trangThaiZns === 'THANH_CONG' && (
+                    <span className="text-3xs text-emerald-600 block mt-0.5 font-medium">✓ Đã gửi ZNS</span>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-          <div>
-            <span className="text-slate-450 block text-2xs uppercase font-bold tracking-wide">Số điện thoại:</span>
-            <span className="font-mono font-semibold text-slate-855 block flex items-center gap-1">
-              <Phone size={10} className="text-slate-400" /> {customer.sdt || customer.contacts?.[0]?.sdt || '—'}
-            </span>
+        ) : (
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 pb-0.5">
+            <div>
+              <span className="text-slate-450 block text-2xs uppercase font-bold tracking-wide">Người đại diện:</span>
+              <span className="font-semibold text-slate-850 block">{customer.nguoiDaiDien || '—'}</span>
+            </div>
+            <div>
+              <span className="text-slate-450 block text-2xs uppercase font-bold tracking-wide">Số điện thoại:</span>
+              <span className="font-mono font-semibold text-slate-855 block flex items-center gap-1">
+                <Phone size={10} className="text-slate-400" /> {customer.sdt || '—'}
+              </span>
+            </div>
           </div>
+        )}
+
+        <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-x-4 gap-y-1">
           <div className="col-span-2">
             <span className="text-slate-450 block text-2xs uppercase font-bold tracking-wide">Tỉnh / Thành phố:</span>
             <span className="font-semibold text-slate-850 block">{customer.tinhThanh || '—'}</span>

@@ -29,19 +29,25 @@ export function CustomersTable({
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const { rows } = table.getRowModel();
 
-  // Dynamic row height calculator based on styling density
+  // Dynamic row height calculator based on styling density and multiple contacts
   const getRowHeight = (index: number) => {
     if (index >= rows.length) return 40; // Spinner/boundary bottom loader row
     const row = rows[index];
     if (row?.getIsGrouped()) return density === 'comfortable' ? 56 : 44;
 
+    const contactsCount = Array.isArray(row?.original?.contacts) && row.original.contacts.length > 0
+      ? row.original.contacts.filter(c => c && (c.sdt || c.nguoiDaiDien)).length
+      : 1;
+    const extraContacts = Math.max(0, contactsCount - 1);
+    const extraHeight = extraContacts * 24;
+
     switch (density) {
       case 'compact':
-        return 42;
+        return 42 + extraHeight;
       case 'comfortable':
-        return 68;
+        return 68 + extraHeight;
       default:
-        return 54;
+        return 54 + extraHeight;
     }
   };
 

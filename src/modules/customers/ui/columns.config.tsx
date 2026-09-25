@@ -85,19 +85,61 @@ export const getCustomerColumns = (
   },
   {
     id: 'lienHe',
-    accessorFn: (row) => `${row.sdt || row.contacts?.[0]?.sdt || ''} ${row.diaChi || ''}`,
-    header: 'Liên hệ',
-    size: 190,
+    accessorFn: (row) => {
+      const contactsStr = (row.contacts || []).map(ct => `${ct.nguoiDaiDien || ''} ${ct.sdt || ''} ${ct.chucVu || ''}`).join(' ');
+      return `${row.sdt || ''} ${row.nguoiDaiDien || ''} ${contactsStr} ${row.diaChi || ''}`;
+    },
+    header: 'Đầu mối liên hệ & SĐT',
+    size: 260,
     cell: (info) => {
       const c = info.row.original;
-      const phone = c.sdt || c.contacts?.[0]?.sdt;
+      const contacts = (Array.isArray(c.contacts) && c.contacts.length > 0)
+        ? c.contacts.filter(ct => ct && (ct.nguoiDaiDien || ct.sdt))
+        : [];
+
+      // Fallback to primary customer fields if no array contacts
+      const displayContacts = contacts.length > 0
+        ? contacts
+        : (c.nguoiDaiDien || c.sdt ? [{ nguoiDaiDien: c.nguoiDaiDien || '', sdt: c.sdt || '', chucVu: '', chiNhanh: c.chiNhanh || '', trangThaiZns: c.trangThaiGuiTinQuangCao || undefined, ngayGuiZns: undefined }] : []);
+
+      if (displayContacts.length === 0) {
+        return (
+          <div className="w-full min-w-0 flex flex-col justify-center gap-0.5">
+            <span className="text-xs text-slate-400 italic">Chưa có đầu mối</span>
+            {c.diaChi && <span className="truncate block text-2xs text-slate-500" title={c.diaChi}>{c.diaChi}</span>}
+          </div>
+        );
+      }
+
       return (
-        <div className="w-full min-w-0 flex flex-col justify-center gap-0.5">
-          <span className="truncate block font-medium text-xs text-slate-700 leading-tight" title={phone || ''}>
-            {phone || '—'}
-          </span>
+        <div className="w-full min-w-0 flex flex-col justify-center gap-1.5 py-1">
+          {displayContacts.map((ct: any, idx: number) => {
+            const hasSentZns = ct.trangThaiZns === 'THANH_CONG' || Boolean(ct.ngayGuiZns) || Boolean((c as any)?.contactsZnsHistory?.[ct.sdt || '']);
+            return (
+              <div key={idx} className="flex items-center gap-1.5 flex-wrap text-xs leading-tight">
+                <span className="font-semibold text-slate-800" title={ct.nguoiDaiDien || `Đầu mối ${idx + 1}`}>
+                  {ct.nguoiDaiDien || `Đầu mối ${idx + 1}`}
+                </span>
+                {ct.chucVu && (
+                  <span className="text-3xs bg-slate-100 text-slate-600 px-1 py-0.2 rounded border border-slate-200">
+                    {ct.chucVu}
+                  </span>
+                )}
+                {ct.sdt && (
+                  <span className="font-mono text-2xs text-blue-700 bg-blue-50/80 px-1.5 py-0.5 rounded border border-blue-100 font-medium">
+                    {ct.sdt}
+                  </span>
+                )}
+                {hasSentZns && (
+                  <span className="text-3xs text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 font-medium" title="Đã gửi ZNS">
+                    ✓ ZNS
+                  </span>
+                )}
+              </div>
+            );
+          })}
           {c.diaChi && (
-            <span className="truncate block font-normal text-xs text-slate-500 leading-tight" title={c.diaChi}>
+            <span className="truncate block font-normal text-2xs text-slate-500 leading-tight mt-0.5" title={c.diaChi}>
               {c.diaChi}
             </span>
           )}

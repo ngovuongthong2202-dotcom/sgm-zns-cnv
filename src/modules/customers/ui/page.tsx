@@ -20,6 +20,7 @@ import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
 import { can } from '@/src/modules/iam';
 import { useAuth } from '@/src/modules/iam';
+import { CustomerZnsContactModal } from './components/CustomerZnsContactModal';
 
 export default function CustomersFeature() {
   const { userData } = useAuth();
@@ -57,6 +58,9 @@ export default function CustomersFeature() {
     sendingZnsIds,
     blockingModalState,
     closeBlockingModal,
+    znsContactModalState,
+    closeZnsContactModal,
+    refresh
   } = useCustomersPage();
 
   const [printingCustomer, setPrintingCustomer] = useState<Customer | null>(null);
@@ -310,6 +314,14 @@ export default function CustomersFeature() {
           customer={printingCustomer}
         />
       )}
+
+      <CustomerZnsContactModal
+        isOpen={znsContactModalState.isOpen}
+        onClose={closeZnsContactModal}
+        customer={znsContactModalState.customer}
+        onUpdateCustomer={handleUpdateCustomer}
+        onRefresh={refresh}
+      />
     </div>
   );
 }

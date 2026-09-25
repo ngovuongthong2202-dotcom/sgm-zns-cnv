@@ -8,6 +8,9 @@ export const ContactSchema = z.object({
   sdt: zPhoneString.optional(),
   chucVu: zProperString.optional(),
   chiNhanh: zSafeString.optional(),
+  trangThaiZns: zSafeString.optional(),
+  ngayGuiZns: zSafeString.optional(),
+  lastZnsTrackingId: zSafeString.optional(),
 });
 export type ContactItem = z.infer<typeof ContactSchema>;
 
@@ -30,6 +33,7 @@ export const CustomerSchema = z.object({
   nhuCauKhachHang: zSafeString.optional(),
   chiNhanh: zSafeString.optional(),
   contacts: z.array(ContactSchema).optional().default([]),
+  contactsZnsHistory: z.record(z.string(), z.unknown()).optional().default({}),
   
   tags: z.array(z.string()).optional().default([]),
   mergedInto: z.string().optional().nullable(),

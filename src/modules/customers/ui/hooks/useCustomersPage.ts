@@ -237,7 +237,11 @@ export function useCustomersPage() {
     handleCreateCustomer,
     handleSendZns,
     blockingModalState,
-    closeBlockingModal
+    closeBlockingModal,
+    znsContactModalState,
+    setZnsContactModalState,
+    openZnsContactModal,
+    closeZnsContactModal
   } = useCustomerActions({
     localCustomers,
     setLocalCustomers,
@@ -298,6 +302,10 @@ export function useCustomersPage() {
     handleSendZns,
     confirm,
     blockingModalState,
-    closeBlockingModal
+    closeBlockingModal,
+    znsContactModalState,
+    setZnsContactModalState,
+    openZnsContactModal,
+    closeZnsContactModal
   };
 }

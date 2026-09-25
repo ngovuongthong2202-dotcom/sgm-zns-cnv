@@ -197,20 +197,31 @@ export function CustomerOverviewBento({ customer, onEdit: _onEdit, quotationCoun
 
           <div className="flex items-start gap-4 overflow-x-auto scrollbar-hide pb-1">
             {customer.contacts?.length ? (
-              customer.contacts.map((contact, idx) => (
-                <div key={idx} className="shrink-0 flex flex-col gap-3.5 min-w-[130px] pr-4 border-r border-slate-100 last:border-0 last:pr-0">
-                  <div>
-                    <span className="text-2xs text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Người đại diện {idx + 1}</span>
-                    <p className="text-sm font-semibold text-slate-900 truncate" title={contact.nguoiDaiDien || ''}>{contact.nguoiDaiDien || '—'}</p>
+              customer.contacts.map((contact, idx) => {
+                const hasSent = contact.trangThaiZns === 'THANH_CONG' || Boolean(contact.ngayGuiZns) || Boolean((customer as any)?.contactsZnsHistory?.[contact.sdt || '']);
+                return (
+                  <div key={idx} className="shrink-0 flex flex-col gap-3 min-w-[140px] pr-4 border-r border-slate-100 last:border-0 last:pr-0">
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-0.5">
+                        <span className="text-2xs text-slate-500 font-bold uppercase tracking-wider block">Người đại diện {idx + 1}</span>
+                        {hasSent ? (
+                          <span className="text-3xs text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 font-medium">✓ ZNS</span>
+                        ) : (
+                          <span className="text-3xs text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200">Chưa gửi</span>
+                        )}
+                      </div>
+                      <p className="text-sm font-semibold text-slate-900 truncate" title={contact.nguoiDaiDien || ''}>{contact.nguoiDaiDien || '—'}</p>
+                      {contact.chucVu && <span className="text-2xs text-slate-500 block truncate">{contact.chucVu}</span>}
+                    </div>
+                    <div>
+                      <span className="text-2xs text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Số điện thoại</span>
+                      <p className="font-mono text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 w-fit px-2 py-0.5 rounded truncate" title={contact.sdt || ''}>
+                        {contact.sdt || '—'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-2xs text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Số điện thoại</span>
-                    <p className="font-mono text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 w-fit px-2 py-0.5 rounded truncate" title={contact.sdt || ''}>
-                      {contact.sdt || '—'}
-                    </p>
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
                 <div className="shrink-0 flex flex-col gap-3.5 min-w-[130px]">
                   <div>

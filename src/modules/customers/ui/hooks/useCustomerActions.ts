@@ -51,6 +51,10 @@ export function useCustomerActions({
   const [isSaving, setIsSaving] = useState(false);
   const [isFormDirty, setIsFormDirty] = useState(false);
   const [sendingZnsIds, setSendingZnsIds] = useState<Record<string, boolean>>({});
+  const [znsContactModalState, setZnsContactModalState] = useState<{ isOpen: boolean; customer: Customer | null }>({
+    isOpen: false,
+    customer: null
+  });
 
   const handleUpdateCustomer = useCallback(async (id: string, updatedFields: Partial<Customer>) => {
     const previousLocal = [...localCustomers];
@@ -117,7 +121,8 @@ export function useCustomerActions({
       if (err instanceof OptimisticConflictError || (err instanceof Error ? err.message : String(err)) === 'OPTIMISTIC_CONCURRENCY_ABORTED') {
         notify.info('Đã hủy cập nhật do xung đột dữ liệu.');
       } else {
-        notify.error(`Không thể chỉnh sửa: ${(err instanceof Error ? err.message : String(err))}`);
+        const errorMsg = (err as any)?.message || (err as any)?.details || (err instanceof Error ? err.message : (typeof err === 'object' ? JSON.stringify(err) : String(err)));
+        notify.error(`Không thể chỉnh sửa: ${errorMsg}`);
       }
       throw err;
     }
@@ -273,7 +278,17 @@ export function useCustomerActions({
 
   const handleSendZns = useCallback(async (c: Customer) => {
     const customerId = c.id || c.maKh;
-    const phone = (c.sdt || c.contacts?.[0]?.sdt || '').trim();
+    const validContacts = (Array.isArray(c.contacts) && c.contacts.length > 0)
+      ? c.contacts.filter(ct => ct && (ct.sdt || ct.nguoiDaiDien))
+      : [];
+
+    // Nếu khách hàng có từ 2 đầu mối liên hệ trở lên -> Mở panel chuyên dụng để chọn đầu mối và xem lịch sử từng người
+    if (validContacts.length > 1) {
+      setZnsContactModalState({ isOpen: true, customer: c });
+      return;
+    }
+
+    const phone = (validContacts[0]?.sdt || c.sdt || '').trim();
 
     if (!customerId) {
       return notify.error('Lỗi: Không tìm thấy ID của khách hàng');
@@ -347,6 +362,10 @@ export function useCustomerActions({
     handleCreateCustomer,
     handleSendZns,
     blockingModalState,
-    closeBlockingModal
+    closeBlockingModal,
+    znsContactModalState,
+    setZnsContactModalState,
+    openZnsContactModal: (c: Customer) => setZnsContactModalState({ isOpen: true, customer: c }),
+    closeZnsContactModal: () => setZnsContactModalState({ isOpen: false, customer: null })
   };
 }

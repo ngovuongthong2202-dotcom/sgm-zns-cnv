@@ -200,6 +200,26 @@ export class BaseRepository<T> {
 
     const tablesWithoutUpdatedAt = new Set(['notifications', 'telegram_sent_log', 'idempotency_keys']);
 
+    const TABLE_PHYSICAL_COLUMNS: Record<string, string[]> = {
+      customers: ['id', 'ma_kh', 'ten_khach_hang', 'sdt', 'tinh_thanh', 'nguoi_phu_trach', 'loai_kh', 'is_archived', 'total_debt', 'ltv', 'deleted_at', 'deleted_by', 'created_at', 'updated_at', 'data'],
+      quotations: ['id', 'ma_bao_gia', 'customer_id', 'trang_thai', 'tong_tien', 'nguoi_tao', 'deleted_at', 'deleted_by', 'created_at', 'updated_at', 'data'],
+      contracts: ['id', 'ma_hop_dong', 'quotation_id', 'customer_id', 'trang_thai', 'gia_tri_hop_dong', 'ngay_hoan_thanh', 'deleted_at', 'deleted_by', 'created_at', 'updated_at', 'data'],
+      payments: ['id', 'ma_thanh_toan', 'contract_id', 'customer_id', 'quotation_id', 'so_tien', 'trang_thai', 'deleted_at', 'deleted_by', 'created_at', 'updated_at', 'data'],
+      deliveries: ['id', 'ma_giao_hang', 'contract_id', 'payment_id', 'quotation_id', 'customer_id', 'trang_thai', 'deleted_at', 'deleted_by', 'created_at', 'updated_at', 'data'],
+      users: ['id', 'username', 'display_name', 'role', 'department', 'position', 'email', 'created_at', 'updated_at', 'data'],
+      settings: ['id', 'data', 'updated_at'],
+      zns_messages: ['id', 'tracking_id', 'entity_type', 'entity_id', 'status', 'phone', 'created_at', 'updated_at', 'data'],
+      zns_templates: ['id', 'template_id', 'template_name', 'status', 'price', 'apply_template_id', 'created_at', 'updated_at', 'data'],
+      zns_callbacks: ['id', 'tracking_id', 'status', 'phone', 'error_code', 'received_at', 'data'],
+      zns_dead_letters: ['id', 'tracking_id', 'error_message', 'retry_count', 'created_at', 'data'],
+      workflow_events: ['id', 'event_name', 'aggregate_id', 'aggregate_type', 'payload', 'created_at'],
+      audit_logs: ['id', 'entity_type', 'entity_id', 'action', 'user_id', 'created_at', 'data'],
+      notifications: ['id', 'user_id', 'title', 'message', 'is_read', 'created_at', 'data'],
+      drafts: ['id', 'user_id', 'entity_type', 'data', 'updated_at'],
+      presence: ['id', 'user_id', 'entity_type', 'entity_id', 'user_name', 'last_seen_at'],
+      telegram_sent_log: ['id', 'message_id', 'chat_id', 'status', 'created_at', 'data']
+    };
+
     const payload: Record<string, any> = {
       id,
       data: data as Record<string, unknown>
@@ -209,49 +229,56 @@ export class BaseRepository<T> {
       payload.updated_at = new Date().toISOString();
     }
 
+    const allowedCols = TABLE_PHYSICAL_COLUMNS[this.tableName];
+    const setCol = (colName: string, val: any) => {
+      if (!allowedCols || allowedCols.includes(colName)) {
+        payload[colName] = val;
+      }
+    };
+
     // Extract core physical indexed columns for fast PostgreSQL queries & CDC filtering
     const rec = data as Record<string, any>;
     const sanitizeFk = (v: any) => (v && typeof v === 'string' && v.trim() !== '') ? v.trim() : null;
-    if ('customerId' in rec) payload.customer_id = sanitizeFk(rec.customerId);
-    if ('quotationId' in rec) payload.quotation_id = sanitizeFk(rec.quotationId);
-    if ('contractId' in rec) payload.contract_id = sanitizeFk(rec.contractId);
-    if ('trackingId' in rec) payload.tracking_id = rec.trackingId;
-    if ('entityType' in rec) payload.entity_type = rec.entityType;
-    if ('entityId' in rec) payload.entity_id = rec.entityId;
-    if ('maKh' in rec) payload.ma_kh = rec.maKh;
-    if ('maBaoGia' in rec) payload.ma_bao_gia = rec.maBaoGia;
-    if ('maHopDong' in rec) payload.ma_hop_dong = rec.maHopDong;
-    if ('paymentId' in rec) {
-      if (this.tableName === 'payments') payload.ma_thanh_toan = rec.paymentId;
-      else payload.payment_id = sanitizeFk(rec.paymentId);
+    if ('customerId' in rec && rec.customerId) setCol('customer_id', sanitizeFk(rec.customerId));
+    if ('quotationId' in rec && rec.quotationId) setCol('quotation_id', sanitizeFk(rec.quotationId));
+    if ('contractId' in rec && rec.contractId) setCol('contract_id', sanitizeFk(rec.contractId));
+    if ('trackingId' in rec && rec.trackingId) setCol('tracking_id', rec.trackingId);
+    if ('entityType' in rec && rec.entityType) setCol('entity_type', rec.entityType);
+    if ('entityId' in rec && rec.entityId) setCol('entity_id', rec.entityId);
+    if ('maKh' in rec && rec.maKh) setCol('ma_kh', rec.maKh);
+    if ('maBaoGia' in rec && rec.maBaoGia) setCol('ma_bao_gia', rec.maBaoGia);
+    if ('maHopDong' in rec && rec.maHopDong) setCol('ma_hop_dong', rec.maHopDong);
+    if ('paymentId' in rec && rec.paymentId) {
+      if (this.tableName === 'payments') setCol('ma_thanh_toan', rec.paymentId);
+      else setCol('payment_id', sanitizeFk(rec.paymentId));
     }
-    if ('maThanhToan' in rec && this.tableName === 'payments') payload.ma_thanh_toan = rec.maThanhToan;
-    if ('deliveryId' in rec && this.tableName === 'deliveries') payload.ma_giao_hang = rec.deliveryId;
-    if ('maGiaoHang' in rec && this.tableName === 'deliveries') payload.ma_giao_hang = rec.maGiaoHang;
-    if ('userId' in rec) payload.user_id = rec.userId;
-    if ('currentEntityId' in rec) payload.current_entity_id = rec.currentEntityId;
-    if ('currentEntityType' in rec) payload.current_entity_type = rec.currentEntityType;
-    if ('status' in rec) payload.status = rec.status;
-    if ('trangThai' in rec) payload.trang_thai = rec.trangThai;
-    if ('deletedAt' in rec) payload.deleted_at = rec.deletedAt;
+    if ('maThanhToan' in rec && rec.maThanhToan) setCol('ma_thanh_toan', rec.maThanhToan);
+    if ('deliveryId' in rec && rec.deliveryId) setCol('ma_giao_hang', rec.deliveryId);
+    if ('maGiaoHang' in rec && rec.maGiaoHang) setCol('ma_giao_hang', rec.maGiaoHang);
+    if ('userId' in rec && rec.userId) setCol('user_id', rec.userId);
+    if ('status' in rec && rec.status) setCol('status', rec.status);
+    if ('trangThai' in rec && rec.trangThai) setCol('trang_thai', rec.trangThai);
+    if ('deletedAt' in rec) setCol('deleted_at', rec.deletedAt || null);
+    if ('deletedBy' in rec) setCol('deleted_by', rec.deletedBy || null);
     if ('isRead' in rec || 'read' in rec || 'is_read' in rec) {
       const readVal = Boolean(rec.isRead ?? rec.read ?? rec.is_read);
-      payload.is_read = readVal;
+      setCol('is_read', readVal);
       if (payload.data && typeof payload.data === 'object') {
         payload.data.read = readVal;
         payload.data.isRead = readVal;
       }
     }
     if ('sdt' in rec || 'contacts' in rec) {
-      payload.sdt = rec.sdt || rec.contacts?.[0]?.sdt || null;
+      const resolvedPhone = rec.sdt || rec.contacts?.[0]?.sdt || null;
+      setCol('sdt', resolvedPhone);
     }
-    if ('tenKhachHang' in rec) payload.ten_khach_hang = rec.tenKhachHang;
-    if ('tinhThanh' in rec) payload.tinh_thanh = rec.tinhThanh;
-    if ('nguoiPhuTrach' in rec) payload.nguoi_phu_trach = rec.nguoiPhuTrach;
-    if ('loaiKh' in rec) payload.loai_kh = rec.loaiKh;
-    if ('title' in rec) payload.title = rec.title;
-    if ('message' in rec) payload.message = rec.message;
-    if ('type' in rec && this.tableName !== 'notifications') payload.type = rec.type;
+    if ('tenKhachHang' in rec && rec.tenKhachHang) setCol('ten_khach_hang', rec.tenKhachHang);
+    if ('tinhThanh' in rec && rec.tinhThanh) setCol('tinh_thanh', rec.tinhThanh);
+    if ('nguoiPhuTrach' in rec && rec.nguoiPhuTrach) setCol('nguoi_phu_trach', rec.nguoiPhuTrach);
+    if ('loaiKh' in rec && rec.loaiKh) setCol('loai_kh', rec.loaiKh);
+    if ('title' in rec && rec.title) setCol('title', rec.title);
+    if ('message' in rec && rec.message) setCol('message', rec.message);
+    if ('type' in rec && this.tableName !== 'notifications' && rec.type) setCol('type', rec.type);
 
     // Update L1 cache
     const merged = { ...data, id } as T;
@@ -261,7 +288,10 @@ export class BaseRepository<T> {
       const { error } = await supabase.from(this.tableName).upsert(payload);
       if (error) {
         logger.error(`Upsert error on ${this.tableName}:`, error);
-        throw error;
+        const errMsg = error.message || error.details || error.hint || (typeof error === 'object' ? JSON.stringify(error) : String(error));
+        const customErr = new Error(errMsg);
+        Object.assign(customErr, error);
+        throw customErr;
       }
     }
 

@@ -101,16 +101,25 @@ export function normalizeCustomerFormValues(data: Customer): Customer {
   normalized.tags = Array.isArray(normalized.tags) ? Array.from(new Set(normalized.tags.map((t: string) => (t || '').trim()).filter(Boolean))) : [];
   
   if (Array.isArray(normalized.contacts)) {
-    normalized.contacts = normalized.contacts.map((c: import('@/src/domain/schema/customer.schema').ContactItem) => {
+    const rawCleaned = normalized.contacts.map((c: any) => {
       const nc: any = {};
-      for (const key of Object.keys(c)) {
+      for (const key of Object.keys(c || {})) {
         nc[key] = trimStr((c as any)[key]);
       }
       nc.nguoiDaiDien = normalizePersonName(nc.nguoiDaiDien);
       nc.chiNhanh = cleanBranchOrContactNote(nc.chiNhanh);
       nc.chucVu = cleanProperVietnameseText(nc.chucVu);
       nc.sdt = normalizePhoneVN(nc.sdt) || nc.sdt;
+      if (c.trangThaiZns) nc.trangThaiZns = c.trangThaiZns;
+      if (c.ngayGuiZns) nc.ngayGuiZns = c.ngayGuiZns;
+      if (c.lastZnsTrackingId) nc.lastZnsTrackingId = c.lastZnsTrackingId;
       return nc;
+    });
+
+    // Keep primary contact or any contact that has at least name, phone, title or branch
+    normalized.contacts = rawCleaned.filter((c: any, idx: number) => {
+      if (idx === 0) return true;
+      return Boolean((c.nguoiDaiDien || '').trim() || (c.sdt || '').trim() || (c.chucVu || '').trim() || (c.chiNhanh || '').trim());
     });
 
     // Map root sdt, nguoiDaiDien, chiNhanh from primary contact to prevent missing fields
