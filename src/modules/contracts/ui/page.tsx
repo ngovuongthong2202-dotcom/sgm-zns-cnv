@@ -92,6 +92,7 @@ export default function ContractsFeature() {
   // On-demand streams with L1 EntityCachePool fallback
   const { data: realtimePayments = [] } = useRealtimeCollection<any>('non-existent-skip');
   const { data: realtimeDeliveries = [] } = useRealtimeCollection<any>('non-existent-skip');
+  const { data: allCustomers = [] } = useRealtimeCollection<any>('customers');
   const quotations: any[] = [];
 
   const {
@@ -107,7 +108,7 @@ export default function ContractsFeature() {
   } = useContractsActions(deleteContract, realtimePayments, realtimeDeliveries, userData?.role);
 
   // Extract Province (Tỉnh/Thành) details using L1 cache
-  const customerTinhThanhMap = useMemo(() => extractContractCustomerTinhThanhMap([]), []);
+  const customerTinhThanhMap = useMemo(() => extractContractCustomerTinhThanhMap(allCustomers), [allCustomers]);
   const tinhThanhList = useMemo(() => extractContractTinhThanhList(contracts, customerTinhThanhMap), [contracts, customerTinhThanhMap]);
 
   const { 
@@ -143,7 +144,7 @@ export default function ContractsFeature() {
   const [prefillQuotation, setPrefillQuotation] = useState<any>(null);
 
   // Real-time pillars
-  const columns = useMemo(() => getContractColumns(realtimeDeliveries, realtimePayments, []), [realtimeDeliveries, realtimePayments]);
+  const columns = useMemo(() => getContractColumns(realtimeDeliveries, realtimePayments, allCustomers), [realtimeDeliveries, realtimePayments, allCustomers]);
 
   const handleResetAllFilters = () => {
     setSelectedNguoiPhuTrach('');

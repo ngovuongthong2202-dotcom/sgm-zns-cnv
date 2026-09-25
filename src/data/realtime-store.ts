@@ -87,6 +87,13 @@ class RealtimeStore {
     this.subscribeInternal(collectionName);
   }
 
+  refresh(collectionName: string) {
+    const entry = this.listeners.get(collectionName);
+    if (entry) {
+      this.subscribeInternal(collectionName);
+    }
+  }
+
   private subscribeInternal<T>(collectionName: string) {
     const entry = this.listeners.get(collectionName);
     if (!entry) return;

@@ -198,11 +198,16 @@ export class BaseRepository<T> {
   async set(id: string, data: Partial<T>): Promise<void> {
     sessionCostCounter.incrementWrites(1);
 
+    const tablesWithoutUpdatedAt = new Set(['notifications', 'telegram_sent_log', 'idempotency_keys']);
+
     const payload: Record<string, any> = {
       id,
-      data: data as Record<string, unknown>,
-      updated_at: new Date().toISOString()
+      data: data as Record<string, unknown>
     };
+
+    if (!tablesWithoutUpdatedAt.has(this.tableName)) {
+      payload.updated_at = new Date().toISOString();
+    }
 
     // Extract core physical indexed columns for fast PostgreSQL queries & CDC filtering
     const rec = data as Record<string, any>;
@@ -229,7 +234,12 @@ export class BaseRepository<T> {
     if ('trangThai' in rec) payload.trang_thai = rec.trangThai;
     if ('deletedAt' in rec) payload.deleted_at = rec.deletedAt;
     if ('isRead' in rec || 'read' in rec || 'is_read' in rec) {
-      payload.is_read = rec.isRead ?? rec.read ?? rec.is_read;
+      const readVal = Boolean(rec.isRead ?? rec.read ?? rec.is_read);
+      payload.is_read = readVal;
+      if (payload.data && typeof payload.data === 'object') {
+        payload.data.read = readVal;
+        payload.data.isRead = readVal;
+      }
     }
     if ('sdt' in rec || 'contacts' in rec) {
       payload.sdt = rec.sdt || rec.contacts?.[0]?.sdt || null;
@@ -247,7 +257,11 @@ export class BaseRepository<T> {
     entityCachePool.set(this.collectionName, merged as any);
 
     if (isSupabaseConfigured) {
-      await supabase.from(this.tableName).upsert(payload);
+      const { error } = await supabase.from(this.tableName).upsert(payload);
+      if (error) {
+        logger.error(`Upsert error on ${this.tableName}:`, error);
+        throw error;
+      }
     }
 
     if (this.collectionName !== 'presence') {

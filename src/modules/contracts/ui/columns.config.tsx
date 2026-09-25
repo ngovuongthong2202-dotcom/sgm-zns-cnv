@@ -15,6 +15,8 @@ import { ContractHoverCard } from './components/ContractHoverCard';
 import { CurrencyCell } from '@/src/design-system/dataview/cells/CurrencyCell';
 
 
+import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
+
 export const getContractColumns = (
   deliveries: Delivery[],
   payments: Payment[],
@@ -111,10 +113,13 @@ export const getContractColumns = (
     size: 130,
     cell: (info) => {
       const c = info.row.original;
-      let prov = '';
-      if (c.customerId && customers.length) {
+      let prov = (c as any).tinhThanh || '';
+      if (!prov && c.customerId && customers.length) {
          const found = customers.find(x => x.id === c.customerId);
          if (found) prov = found.tinhThanh || '';
+      }
+      if (!prov && c.customerId) {
+        prov = entityCachePool.get('customers', c.customerId)?.tinhThanh || '';
       }
       if (!prov) return <span className="text-2xs text-slate-500">—</span>;
       return (

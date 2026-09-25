@@ -14,7 +14,10 @@ export function useQuotations(_options?: { loadRelated?: boolean }) {
 
   const { createRecord, updateRecord, deleteRecord, withTransaction } = useMutation<Quotation>({ collection: 'quotations' });
 
-  const dummyRefresh = async () => {};
+  const refresh = async () => {
+    const { realtimeStore } = await import('@/src/data/realtime-store');
+    realtimeStore.refresh('quotations');
+  };
 
   return {
     quotations,
@@ -23,7 +26,7 @@ export function useQuotations(_options?: { loadRelated?: boolean }) {
     loading: dataLoading || globalLoading,
     loadMore,
     hasMore,
-    refresh: dummyRefresh,
+    refresh,
     createQuotation: createRecord,
     updateQuotation: updateRecord,
     updateQuotationWithTransaction: withTransaction,

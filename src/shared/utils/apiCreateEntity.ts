@@ -1,3 +1,6 @@
+import { realtimeStore } from '@/src/data/realtime-store';
+import { clearSwrColCache } from '@/src/data/swr-fetchers';
+
 export async function apiCreateEntity(entityType: string, data: any) {
   const res = await fetch(`/api/workflow/create/${entityType}`, {
     method: 'POST',
@@ -8,6 +11,26 @@ export async function apiCreateEntity(entityType: string, data: any) {
   if (!res.ok) {
     throw new Error(json.error || `HTTP ${res.status}`);
   }
+
+  const finalId = json.id || data.id;
+  const colMap: Record<string, string> = {
+    payment: 'payments',
+    contract: 'contracts',
+    delivery: 'deliveries',
+    quotation: 'quotations',
+    customer: 'customers'
+  };
+  const colName = colMap[entityType] || entityType;
+
+  if (finalId) {
+    const itemData = { ...data, id: finalId };
+    realtimeStore.mutateOptimistic(colName, 'create', itemData);
+    try {
+      clearSwrColCache(colName);
+    } catch (_e) {}
+    realtimeStore.refresh(colName);
+  }
+
   return json;
 }
 

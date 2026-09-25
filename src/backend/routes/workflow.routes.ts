@@ -94,6 +94,13 @@ router.post('/create/:entityType', async (req, res) => {
       const gateResult = canCreateContract(quoDoc.data() as any);
       if (!gateResult.allowed) return res.status(422).json({ error: gateResult.reason });
       
+      if (!data.tinhThanh && data.customerId) {
+        const cusDoc = await adminDb.collection('customers').doc(data.customerId).get();
+        if (cusDoc.exists) {
+          data.tinhThanh = cusDoc.data()?.tinhThanh || '';
+        }
+      }
+
       const newRef = data.id ? adminDb.collection('contracts').doc(data.id) : adminDb.collection('contracts').doc();
       const batch = adminDb.batch();
       batch.set(newRef, { ...data, id: newRef.id, createdAt: new Date().toISOString(), deletedAt: null });

@@ -30,7 +30,10 @@ export function usePayments(options?: { loadRelated?: boolean }) {
 
   const { createRecord, updateRecord, deleteRecord, withTransaction } = useMutation<Payment>({ collection: 'payments' });
 
-  const dummyRefresh = async () => {};
+  const refresh = async () => {
+    const { realtimeStore } = await import('@/src/data/realtime-store');
+    realtimeStore.refresh('payments');
+  };
 
   return {
     payments,
@@ -41,7 +44,7 @@ export function usePayments(options?: { loadRelated?: boolean }) {
     loading,
     loadMore,
     hasMore,
-    refresh: dummyRefresh,
+    refresh,
     createPayment: createRecord,
     updatePayment: updateRecord,
     updatePaymentWithTransaction: withTransaction,

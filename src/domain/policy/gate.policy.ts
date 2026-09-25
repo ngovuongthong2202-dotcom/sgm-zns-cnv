@@ -27,8 +27,8 @@ export function canCreatePayment(
   if (!source) return { allowed: false, reason: "Không tìm thấy nguồn tham chiếu." };
 
   const rec = source as Record<string, unknown>;
-  const isContractExplicit = rec._collectionType === 'contracts' || (!!rec.soHopDong && !rec.soPhieuBaoGia && !rec.tinhTrangBaoGia);
-  const isQuotationExplicit = rec._collectionType === 'quotations' || !!rec.soPhieuBaoGia || !!rec.tinhTrangBaoGia;
+  const isContractExplicit = rec._collectionType === 'contracts' || (!!rec.soHopDong && !rec.paymentId && !rec.deliveryId);
+  const isQuotationExplicit = !isContractExplicit && (rec._collectionType === 'quotations' || !!rec.soPhieuBaoGia || !!rec.tinhTrangBaoGia);
 
   let failReason: string | undefined;
 

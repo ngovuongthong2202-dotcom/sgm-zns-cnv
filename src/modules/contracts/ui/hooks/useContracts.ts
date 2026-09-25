@@ -25,7 +25,10 @@ export function useContracts(options?: { loadRelated?: boolean }) {
   
   const { createRecord, updateRecord, deleteRecord, softDeleteRecord, restoreRecord, withTransaction } = useMutation<Contract>({ collection: 'contracts' });
 
-  const dummyRefresh = async () => {};
+  const refresh = async () => {
+    const { realtimeStore } = await import('@/src/data/realtime-store');
+    realtimeStore.refresh('contracts');
+  };
 
   return {
     contracts,
@@ -36,7 +39,7 @@ export function useContracts(options?: { loadRelated?: boolean }) {
     loading,
     loadMore,
     hasMore,
-    refresh: dummyRefresh,
+    refresh,
     createContract: createRecord,
     updateContract: updateRecord,
     updateContractWithTransaction: withTransaction,

@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { AsyncSearchableSelect } from '@/src/design-system/primitives/AsyncSearchableSelect';
 import { MoneyInput } from '../PaymentRecordDrawerHelpers';
 import { canCreatePayment } from '@/src/domain/policy/gate.policy';
+import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { ContractHoverCard } from '@/src/modules/contracts/ui/components/ContractHoverCard';
 import { QuotationHoverCard } from '@/src/modules/sales/ui/components/QuotationHoverCard';
 
@@ -39,10 +40,15 @@ export function PaymentRecordBasicFields({
   const sourceVal = watchAll.sourceValue || '';
   const [selectedDoc, setSelectedDoc] = React.useState<any>(null);
 
+  const isContractDoc = (doc: any): boolean => {
+    if (!doc) return false;
+    return doc._collectionType === 'contracts' || Boolean(doc.soHopDong);
+  };
+
   const isContract = sourceVal.startsWith('CONTRACT:') ||
-                     (selectedDoc && selectedDoc._collectionType === 'contracts') ||
-                     (!!watchAll.contractId) ||
-                     (!!watchAll.soHopDong && !watchAll.soPhieuBaoGia);
+                     Boolean(selectedDoc && isContractDoc(selectedDoc)) ||
+                     Boolean(watchAll.contractId) ||
+                     Boolean(watchAll.soHopDong);
 
   const contractId = sourceVal.startsWith('CONTRACT:') ? sourceVal.replace('CONTRACT:', '') : (watchAll.contractId || (isContract ? sourceVal : ''));
   const quotationId = sourceVal.startsWith('QUOTATION:') ? sourceVal.replace('QUOTATION:', '') : (watchAll.quotationId || (!isContract ? sourceVal : ''));
@@ -128,7 +134,7 @@ export function PaymentRecordBasicFields({
                   onChange={(val, doc: any) => {
                       if (doc) {
                         setSelectedDoc(doc);
-                        const isDocContract = doc._collectionType === 'contracts' || (!doc._collectionType && !!doc.soHopDong && !doc.soPhieuBaoGia);
+                        const isDocContract = isContractDoc(doc);
                         const prefix = isDocContract ? 'CONTRACT:' : 'QUOTATION:';
                         setValue('sourceValue', `${prefix}${doc.id}`, { shouldValidate: true, shouldDirty: true });
                         
@@ -138,11 +144,11 @@ export function PaymentRecordBasicFields({
                         setValue('sdt', doc.sdt || '', { shouldDirty: true });
                         setValue('soHopDong', isDocContract ? (doc.soHopDong || '') : '', { shouldDirty: true });
                         setValue('soDonHang', isDocContract ? (doc.soDonHang || '') : '', { shouldDirty: true });
-                        setValue('soPhieuBaoGia', !isDocContract ? (doc.soPhieuBaoGia || '') : '', { shouldDirty: true });
+                        setValue('soPhieuBaoGia', doc.soPhieuBaoGia || '', { shouldDirty: true });
                         
                         if (isDocContract) {
                           setValue('contractId', doc.id, { shouldDirty: true });
-                          setValue('quotationId', '', { shouldDirty: true });
+                          setValue('quotationId', doc.quotationId || '', { shouldDirty: true });
                         } else {
                           setValue('quotationId', doc.id, { shouldDirty: true });
                           setValue('contractId', '', { shouldDirty: true });
@@ -160,8 +166,16 @@ export function PaymentRecordBasicFields({
                         setValue('sourceValue', val, { shouldValidate: true });
                       }
                   }}
+                  filterOption={(doc: any) => {
+                    const isDocContract = isContractDoc(doc);
+                    // Hợp đồng luôn được hiển thị làm chứng từ thanh toán
+                    if (isDocContract) return true;
+                    // Đối với Báo giá: chỉ hiển thị Báo giá Vật tư hoặc Dịch vụ, loại bỏ BG Máy (bắt buộc phải qua HĐ)
+                    const loai = normalizeLoai((doc.loai || doc.phanLoai || doc.loaiBaoGia) as string);
+                    return loai !== QUOTATION_LOAI.MAY;
+                  }}
                   renderOption={(doc: any) => {
-                      const isDocContract = doc._collectionType === 'contracts' || (!doc._collectionType && !!doc.soHopDong && !doc.soPhieuBaoGia);
+                      const isDocContract = isContractDoc(doc);
                       return {
                         label: `${isDocContract ? 'HĐ' : 'BG'} — ${isDocContract ? doc.soHopDong : doc.soPhieuBaoGia}`,
                         subLabel: doc.tenKhachHang
@@ -173,7 +187,7 @@ export function PaymentRecordBasicFields({
                     return { disabled: false };
                   }}
                   renderItemWrapper={(doc: any, children) => {
-                    const isDocContract = doc._collectionType === 'contracts' || (!doc._collectionType && !!doc.soHopDong && !doc.soPhieuBaoGia);
+                    const isDocContract = isContractDoc(doc);
                     if (isDocContract) {
                       return (
                         <ContractHoverCard contract={doc}>

@@ -40,8 +40,8 @@ router.get('/:collection', async (req, res) => {
       const snap = await queryRef.get();
       let collResults: SearchItem[] = snap.docs.map((doc: any) => ({ 
          id: doc.id, 
-         _collectionType: coll,
-         ...doc.data() 
+         ...doc.data(),
+         _collectionType: coll
       }));
       
       if (q) {
