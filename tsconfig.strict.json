@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strictNullChecks": true,
+    "noImplicitAny": true
+  },
+  "include": [
+    "src/platform/**/*",
+    "src/modules/*/domain/**/*"
+  ]
+}

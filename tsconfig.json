@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react-jsx",
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["*"],
+      "@/src/design-system": ["src/platform/ui/design-system"],
+      "@/src/design-system/*": ["src/platform/ui/design-system/*"],
+      "@/ds": ["src/platform/ui/design-system"],
+      "@/ds/*": ["src/platform/ui/design-system/*"]
+    },
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*", "server.ts"],
+  "exclude": ["node_modules", "dist", "**/*.stories.tsx", "**/*.story.tsx"]
+}

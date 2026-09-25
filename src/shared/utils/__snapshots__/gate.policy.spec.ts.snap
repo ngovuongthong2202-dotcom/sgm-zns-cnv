@@ -1,0 +1,53 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Core Policy Gates Golden Master > canCreateContract > matches golden master for invalid quotation 1`] = `
+{
+  "allowed": false,
+  "reason": "Phải gửi ZNS Báo giá THÀNH CÔNG trước khi tạo Hợp đồng.",
+}
+`;
+
+exports[`Core Policy Gates Golden Master > canCreateContract > matches golden master for missing quotation 1`] = `
+{
+  "allowed": false,
+  "reason": "Không tìm thấy báo giá.",
+}
+`;
+
+exports[`Core Policy Gates Golden Master > canCreateContract > matches golden master for valid quotation 1`] = `
+{
+  "allowed": true,
+}
+`;
+
+exports[`Core Policy Gates Golden Master > canCreateDelivery > matches golden master for invalid payment 1`] = `
+{
+  "allowed": false,
+  "reason": "Phải gửi ZNS Thanh toán THÀNH CÔNG trước khi tạo Giao hàng.",
+}
+`;
+
+exports[`Core Policy Gates Golden Master > canCreateDelivery > matches golden master for valid payment 1`] = `
+{
+  "allowed": true,
+}
+`;
+
+exports[`Core Policy Gates Golden Master > canCreatePayment > matches golden master for missing source 1`] = `
+{
+  "allowed": false,
+  "reason": "Không tìm thấy nguồn tham chiếu.",
+}
+`;
+
+exports[`Core Policy Gates Golden Master > canCreatePayment > matches golden master for valid Contract source 1`] = `
+{
+  "allowed": true,
+}
+`;
+
+exports[`Core Policy Gates Golden Master > canCreatePayment > matches golden master for valid Quotation source 1`] = `
+{
+  "allowed": true,
+}
+`;

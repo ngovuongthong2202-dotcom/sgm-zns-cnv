@@ -1,0 +1,6 @@
+{
+  "name": "ZNS SGM",
+  "description": "Hệ thống quản lý báo giá, hợp đồng, thanh toán và giao hàng tích hợp Zalo ZNS",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

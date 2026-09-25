@@ -1,0 +1,32 @@
+google_cloud_scheduler:
+  jobs:
+    - name: zns-daily-sweep
+      description: "Runs ZNS daily cron job to scan and send reminders + archive old logs"
+      schedule: "0 8 * * *" # Daily at 08:00 AM
+      timeZone: "Asia/Ho_Chi_Minh"
+      httpTarget:
+        uri: "YOUR_CLOUD_RUN_APP_URL/api/cron/daily"
+        httpMethod: "POST"
+        headers:
+          Authorization: "Bearer YOUR_CRON_SECRET"
+
+    - name: zns-outbox-worker
+      description: "Processes failed ZNS messages with retry logic every minute"
+      schedule: "* * * * *" # Every 1 minute
+      timeZone: "Asia/Ho_Chi_Minh"
+      httpTarget:
+        uri: "YOUR_CLOUD_RUN_APP_URL/api/cron/process-outbox"
+        httpMethod: "POST"
+        headers:
+          Authorization: "Bearer YOUR_CRON_SECRET"
+
+# To deploy via CLI:
+# gcloud scheduler jobs create http zns-daily-sweep \
+#   --schedule="0 8 * * *" --time-zone="Asia/Ho_Chi_Minh" \
+#   --uri="https://YOUR_APP_URL/api/cron/daily" --http-method=POST \
+#   --headers="Authorization=Bearer YOUR_CRON_SECRET"
+#
+# gcloud scheduler jobs create http zns-outbox-worker \
+#   --schedule="* * * * *" --time-zone="Asia/Ho_Chi_Minh" \
+#   --uri="https://YOUR_APP_URL/api/cron/process-outbox" --http-method=POST \
+#   --headers="Authorization=Bearer YOUR_CRON_SECRET"
