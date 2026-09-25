@@ -35,6 +35,28 @@ export function useCustomerForm(
     ? ((loaiKhachHangList || []).find((l) => l.toLowerCase() === customer.loaiKh?.toLowerCase()) || customer.loaiKh)
     : '';
 
+  const initialContacts = (customer?.contacts && customer.contacts.length > 0)
+    ? customer.contacts
+        .filter(Boolean)
+        .map((c) => ({
+          danhXung: c.danhXung || '',
+          nguoiDaiDien: c.nguoiDaiDien || '',
+          sdt: c.sdt || '',
+          chucVu: c.chucVu || '',
+          chiNhanh: c.chiNhanh || ''
+        }))
+    : [{
+        danhXung: '',
+        nguoiDaiDien: customer?.nguoiDaiDien || '',
+        sdt: customer?.sdt || '',
+        chucVu: '',
+        chiNhanh: customer?.chiNhanh || ''
+      }];
+
+  const validContacts = initialContacts.length > 0
+    ? initialContacts
+    : [{ danhXung: '', nguoiDaiDien: customer?.nguoiDaiDien || '', sdt: customer?.sdt || '', chucVu: '', chiNhanh: '' }];
+
   const {
     register,
     handleSubmit,
@@ -49,13 +71,23 @@ export function useCustomerForm(
     defaultValues: customer
       ? {
           ...customer,
-          loaiKh: normalizedLoaiKh,
+          maKh: customer.maKh || '',
+          tenKhachHang: customer.tenKhachHang || '',
+          loaiKh: normalizedLoaiKh || '',
           loaiHinhDoanhNghiep: customer.loaiHinhDoanhNghiep || '',
+          maSoThue: customer.maSoThue || '',
           tinhThanh: customer.tinhThanh || '',
           diaChi: customer.diaChi || '',
+          xaPhuong: customer.xaPhuong || '',
+          sdt: validContacts[0]?.sdt || customer.sdt || '',
+          nguoiDaiDien: validContacts[0]?.nguoiDaiDien || customer.nguoiDaiDien || '',
+          chiNhanh: customer.chiNhanh || '',
+          nhuCauKhachHang: customer.nhuCauKhachHang || '',
+          gioiTinh: customer.gioiTinh || '',
+          ngaySinh: customer.ngaySinh || '',
           nguoiPhuTrach: customer.nguoiPhuTrach || currentUserName,
           tags: customer.tags || [],
-          contacts: (customer.contacts || []).filter((c) => c && (c.nguoiDaiDien || c.sdt))
+          contacts: validContacts
         }
       : {
           loaiHinhDoanhNghiep: '',
@@ -65,8 +97,16 @@ export function useCustomerForm(
           tags: [],
           maKh: '',
           tenKhachHang: '',
+          maSoThue: '',
+          diaChi: '',
+          xaPhuong: '',
           sdt: '',
-          contacts: [{ nguoiDaiDien: '', sdt: '', chiNhanh: '', chucVu: '' }]
+          nguoiDaiDien: '',
+          chiNhanh: '',
+          nhuCauKhachHang: '',
+          gioiTinh: '',
+          ngaySinh: '',
+          contacts: [{ danhXung: '', nguoiDaiDien: '', sdt: '', chiNhanh: '', chucVu: '' }]
         }
   });
 

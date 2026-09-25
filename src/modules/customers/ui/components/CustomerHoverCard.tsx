@@ -45,12 +45,12 @@ function CustomerHoverCardContent({ customer }: { customer: Customer }) {
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 pb-0.5">
           <div>
             <span className="text-slate-450 block text-2xs uppercase font-bold tracking-wide">Người đại diện:</span>
-            <span className="font-semibold text-slate-850 block">{customer.nguoiDaiDien || '—'}</span>
+            <span className="font-semibold text-slate-850 block">{customer.nguoiDaiDien || customer.contacts?.[0]?.nguoiDaiDien || '—'}</span>
           </div>
           <div>
             <span className="text-slate-450 block text-2xs uppercase font-bold tracking-wide">Số điện thoại:</span>
             <span className="font-mono font-semibold text-slate-855 block flex items-center gap-1">
-              <Phone size={10} className="text-slate-400" /> {customer.sdt || '—'}
+              <Phone size={10} className="text-slate-400" /> {customer.sdt || customer.contacts?.[0]?.sdt || '—'}
             </span>
           </div>
           <div className="col-span-2">

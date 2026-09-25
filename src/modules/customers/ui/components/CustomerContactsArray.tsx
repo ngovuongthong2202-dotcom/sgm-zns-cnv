@@ -3,7 +3,7 @@ import { useFieldArray, Control, UseFormRegister, FieldErrors, UseFormSetValue }
 import { Customer } from "@/src/domain/schema/customer.schema";
 import { Button } from "@/src/design-system/Button";
 import { Plus, Trash, Contact } from "lucide-react";
-import { cleanProperVietnameseText } from "@/src/shared/utils/textFormatter";
+import { cleanProperVietnameseText, normalizePhoneNumber } from "@/src/shared/utils/textFormatter";
 
 interface CustomerContactsArrayProps {
   control: Control<Customer>;
@@ -48,10 +48,19 @@ export function CustomerContactsArray({ control, register, errors, setValue }: C
               </label>
               <input
                 id={"contact-name-" + index}
-                {...register("contacts." + index + ".nguoiDaiDien" as any)}
+                {...register("contacts." + index + ".nguoiDaiDien" as any, {
+                  onChange: (e) => {
+                    if (index === 0) {
+                      setValue("nguoiDaiDien", e.target.value, { shouldDirty: true });
+                    }
+                  }
+                })}
                 onBlur={(e) => {
                   const formatted = cleanProperVietnameseText(e.target.value);
                   setValue("contacts." + index + ".nguoiDaiDien" as any, formatted, { shouldDirty: true });
+                  if (index === 0) {
+                    setValue("nguoiDaiDien", formatted, { shouldDirty: true, shouldValidate: true });
+                  }
                 }}
                 className="w-full h-8 border border-slate-200 rounded-lg px-3 bg-white text-sm placeholder:text-slate-300"
                 placeholder="Nguyễn Văn A..."
@@ -67,7 +76,20 @@ export function CustomerContactsArray({ control, register, errors, setValue }: C
               </label>
               <input
                 id={"contact-phone-" + index}
-                {...register("contacts." + index + ".sdt" as any)}
+                {...register("contacts." + index + ".sdt" as any, {
+                  onChange: (e) => {
+                    if (index === 0) {
+                      setValue("sdt", e.target.value, { shouldDirty: true, shouldValidate: true });
+                    }
+                  }
+                })}
+                onBlur={(e) => {
+                  const cleaned = normalizePhoneNumber(e.target.value);
+                  setValue("contacts." + index + ".sdt" as any, cleaned, { shouldDirty: true });
+                  if (index === 0) {
+                    setValue("sdt", cleaned, { shouldDirty: true, shouldValidate: true });
+                  }
+                }}
                 className="w-full font-mono h-8 border border-slate-200 rounded-lg px-3 bg-white text-sm placeholder:text-slate-300"
                 placeholder="09xx xxx xxx"
               />

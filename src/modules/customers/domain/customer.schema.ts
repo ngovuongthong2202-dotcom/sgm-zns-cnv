@@ -1,48 +1,49 @@
 import { z } from 'zod';
 import { zProperString, zPhoneString, zSafeString } from '@/src/domain/mapping/zod-transforms';
+import { cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
 
 export const ContactSchema = z.object({
-  danhXung: z.string().optional().pipe(zSafeString.optional()),
-  nguoiDaiDien: z.string().optional().pipe(zProperString.optional()),
-  sdt: z.string().optional().pipe(zPhoneString.optional()),
-  chucVu: z.string().optional().pipe(zProperString.optional()),
-  chiNhanh: z.string().optional().pipe(zSafeString.optional()),
+  danhXung: zSafeString.optional(),
+  nguoiDaiDien: zProperString.optional(),
+  sdt: zPhoneString.optional(),
+  chucVu: zProperString.optional(),
+  chiNhanh: zSafeString.optional(),
 });
 export type ContactItem = z.infer<typeof ContactSchema>;
 
 export const CustomerSchema = z.object({
   id: z.string().optional(), // Internal ID
   stt: z.number().int().optional(),
-  maKh: z.string().min(1, 'Mã KH là bắt buộc').pipe(zSafeString), // Business Key
-  loaiKh: z.string().optional().or(z.literal('')).pipe(zSafeString.optional().or(z.literal(''))),
-  tenKhachHang: z.string().min(1, 'Tên khách hàng là bắt buộc').pipe(zProperString),
-  loaiHinhDoanhNghiep: z.string().optional().pipe(zProperString.optional()),
-  maSoThue: z.string().optional().pipe(zSafeString.optional()),
-  nguoiDaiDien: z.string().optional().pipe(zProperString.optional()),
-  gioiTinh: z.string().optional().pipe(zSafeString.optional()),
-  ngaySinh: z.string().optional().pipe(zSafeString.optional()), // ISO Date string
-  sdt: z.string().optional().pipe(zPhoneString.optional()),
-  xaPhuong: z.string().optional().pipe(zProperString.optional()),
-  tinhThanh: z.string().optional().or(z.literal('')).pipe(zProperString.optional().or(z.literal(''))),
-  diaChi: z.string().optional().or(z.literal('')).pipe(zProperString.optional().or(z.literal(''))),
-  nguoiPhuTrach: z.string().optional().or(z.literal('')).pipe(zSafeString.optional().or(z.literal(''))),
-  nhuCauKhachHang: z.string().optional().pipe(zSafeString.optional()),
-  chiNhanh: z.string().optional().pipe(zSafeString.optional()),
+  maKh: z.string().min(1, 'Mã KH là bắt buộc').transform((val) => (val || '').trim().replace(/[\u200B-\u200D\uFEFF]/g, '')), // Business Key
+  loaiKh: zSafeString.optional(),
+  tenKhachHang: z.string().min(1, 'Tên khách hàng là bắt buộc').transform((val) => cleanProperVietnameseText(val || '')),
+  loaiHinhDoanhNghiep: zProperString.optional(),
+  maSoThue: zSafeString.optional(),
+  nguoiDaiDien: zProperString.optional(),
+  gioiTinh: zSafeString.optional(),
+  ngaySinh: zSafeString.optional(), // ISO Date string
+  sdt: zPhoneString.optional(),
+  xaPhuong: zProperString.optional(),
+  tinhThanh: zProperString.optional(),
+  diaChi: zProperString.optional(),
+  nguoiPhuTrach: zSafeString.optional(),
+  nhuCauKhachHang: zSafeString.optional(),
+  chiNhanh: zSafeString.optional(),
   contacts: z.array(ContactSchema).optional().default([]),
   
   tags: z.array(z.string()).optional().default([]),
-  mergedInto: z.string().optional(),
+  mergedInto: z.string().optional().nullable(),
   isArchived: z.boolean().optional().default(false),
   ltv: z.number().optional().default(0),
   totalDebt: z.number().optional().default(0),
   
   // System fields - not strictly validated
-  ngayTao: z.string().optional(),
-  ngayCapNhat: z.string().optional(),
+  ngayTao: z.string().optional().nullable(),
+  ngayCapNhat: z.string().optional().nullable(),
   trangThaiGuiTinQuangCao: z.string().optional().nullable(),
-  thongTinGuiZnsTruocBaoGia: z.record(z.string(), z.unknown()).optional(),
-  logTomTat: z.string().optional(),
-  computedHealthScore: z.union([z.number(), z.record(z.string(), z.unknown())]).optional(),
+  thongTinGuiZnsTruocBaoGia: z.record(z.string(), z.unknown()).optional().nullable(),
+  logTomTat: z.string().optional().nullable(),
+  computedHealthScore: z.union([z.number(), z.record(z.string(), z.unknown())]).optional().nullable(),
   deletedAt: z.union([z.string(), z.null()]).optional(),
   deletedBy: z.union([z.string(), z.null()]).optional(),
 }).strip();

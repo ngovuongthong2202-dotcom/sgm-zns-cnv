@@ -107,9 +107,25 @@ export function normalizeCustomerFormValues(data: Customer): Customer {
     // Map root sdt and nguoiDaiDien from primary contact to prevent missing fields in ZNS payload
     if (normalized.contacts.length > 0) {
       const primaryContact = normalized.contacts[0];
-      normalized.sdt = primaryContact.sdt || '';
-      normalized.nguoiDaiDien = primaryContact.nguoiDaiDien || '';
+      normalized.sdt = primaryContact.sdt || normalized.sdt || '';
+      normalized.nguoiDaiDien = primaryContact.nguoiDaiDien || normalized.nguoiDaiDien || '';
+    } else if (normalized.sdt || normalized.nguoiDaiDien) {
+      normalized.contacts = [{
+        danhXung: '',
+        nguoiDaiDien: normalized.nguoiDaiDien || '',
+        sdt: normalized.sdt || '',
+        chucVu: '',
+        chiNhanh: normalized.chiNhanh || ''
+      }];
     }
+  } else if (normalized.sdt || normalized.nguoiDaiDien) {
+    normalized.contacts = [{
+      danhXung: '',
+      nguoiDaiDien: normalized.nguoiDaiDien || '',
+      sdt: normalized.sdt || '',
+      chucVu: '',
+      chiNhanh: normalized.chiNhanh || ''
+    }];
   }
 
   return normalized as Customer;

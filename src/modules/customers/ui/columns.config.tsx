@@ -80,15 +80,16 @@ export const getCustomerColumns = (
   },
   {
     id: 'lienHe',
-    accessorFn: (row) => `${row.sdt || ''} ${row.diaChi || ''}`,
+    accessorFn: (row) => `${row.sdt || row.contacts?.[0]?.sdt || ''} ${row.diaChi || ''}`,
     header: 'Liên hệ',
     size: 190,
     cell: (info) => {
       const c = info.row.original;
+      const phone = c.sdt || c.contacts?.[0]?.sdt;
       return (
         <div className="w-full min-w-0 flex flex-col justify-center gap-0.5">
-          <span className="truncate block font-medium text-xs text-slate-700 leading-tight" title={c.sdt}>
-            {c.sdt || '—'}
+          <span className="truncate block font-medium text-xs text-slate-700 leading-tight" title={phone || ''}>
+            {phone || '—'}
           </span>
           {c.diaChi && (
             <span className="truncate block font-normal text-xs text-slate-500 leading-tight" title={c.diaChi}>
