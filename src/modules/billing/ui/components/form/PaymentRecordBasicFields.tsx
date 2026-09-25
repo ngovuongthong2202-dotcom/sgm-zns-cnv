@@ -284,13 +284,15 @@ export function PaymentRecordBasicFields({
               </div>
               <div className="space-y-1">
                   <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block mb-1">Người phụ trách</label>
-                  <select aria-label="Người phụ trách" disabled={disabled} {...register('nguoiPhuTrach')} className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full bg-white cursor-pointer disabled:bg-slate-50/50 disabled:opacity-75">
-                    <option value="">-- Chưa chỉ định (Hệ thống) --</option>
-                    {(nguoiPhuTrachList || []).map((n: string) => <option key={n} value={n}>{n}</option>)}
-                    {watch('nguoiPhuTrach') && !nguoiPhuTrachList.includes(watch('nguoiPhuTrach')) && (
-                      <option value={watch('nguoiPhuTrach')}>{watch('nguoiPhuTrach')}</option>
-                    )}
-                  </select>
+                  <input 
+                    type="text"
+                    disabled
+                    readOnly
+                    value={watch('nguoiPhuTrach') || ''}
+                    {...register('nguoiPhuTrach')} 
+                    className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full bg-slate-100 font-semibold text-slate-700 cursor-not-allowed select-none" 
+                    placeholder="Người phụ trách theo tài khoản"
+                  />
               </div>
 
               {/* Date Inputs */}

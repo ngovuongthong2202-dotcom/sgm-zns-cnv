@@ -5,6 +5,8 @@ import { Delivery, DeliverySchema } from '@/src/domain/schema/delivery.schema';
 import { EntityZnsStatus } from '@/src/domain/enums/zns-status';
 import { useDraft } from '@/src/hooks/useDraft';
 import { getProductItemKey } from '@/src/shared/utils/product-key';
+import { useAuth } from '@/src/modules/iam';
+import { formatUserOfficer } from '@/src/shared/utils/userProfile';
 
 export function useDeliveryForm(
   delivery: any,
@@ -13,11 +15,13 @@ export function useDeliveryForm(
   quotations: any[]
 ) {
   const [isLockedByOther, setIsLockedByOther] = useState(false);
+  const { user, userData } = useAuth();
+  const defaultOfficer = formatUserOfficer(userData, user);
   const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Delivery>('deliveries', delivery?.id || 'new');
 
-  const { register, handleSubmit, watch, setValue, reset, formState: { errors, isSubmitting } } = useForm<Delivery>({
+  const { register, handleSubmit, watch, setValue, getValues, reset, formState: { errors, isSubmitting } } = useForm<Delivery>({
     resolver: zodResolver(DeliverySchema) as any,
-    defaultValues: draft ? draft : (delivery || { 
+    defaultValues: draft ? { ...draft, nguoiPhuTrach: defaultOfficer } : (delivery ? { ...delivery, nguoiPhuTrach: defaultOfficer } : { 
       trangThaiGuiTinGiaoHang: EntityZnsStatus.CHUA_GUI,
       ngayLapPgh: new Date().toISOString().split('T')[0],
       ngayGiaoMay: new Date().toISOString().split('T')[0],
@@ -28,9 +32,16 @@ export function useDeliveryForm(
       soDonHang: '',
       giaTriHopDong: 1,
       tinhTrangThanhToan: 'CHƯA THANH TOÁN',
-      products: []
+      products: [],
+      nguoiPhuTrach: defaultOfficer
     })
   });
+
+  useEffect(() => {
+    if (defaultOfficer && getValues('nguoiPhuTrach') !== defaultOfficer) {
+      setValue('nguoiPhuTrach', defaultOfficer, { shouldValidate: true });
+    }
+  }, [defaultOfficer, setValue, getValues]);
 
   useEffect(() => {
     if (delivery) {
@@ -41,10 +52,11 @@ export function useDeliveryForm(
         ghiChu: delivery.ghiChu || '',
         donViVanChuyen: delivery.donViVanChuyen || '',
         soPhieuXuat: delivery.soPhieuXuat || '',
-        slMay: delivery.slMay || 0
+        slMay: delivery.slMay || 0,
+        nguoiPhuTrach: defaultOfficer
       });
     }
-  }, [delivery, reset]);
+  }, [delivery, reset, defaultOfficer]);
 
   const watchAll = watch();
   
@@ -115,7 +127,7 @@ export function useDeliveryForm(
         setValue('soHopDong', p.soHopDong || '');
         setValue('ngayKy', p.ngayKy || '');
         setValue('tinhTrangThanhToan', p.tinhTrangThanhToan || '');
-        setValue('nguoiPhuTrach', p.nguoiPhuTrach || '');
+        setValue('nguoiPhuTrach', defaultOfficer);
 
         if (source && source.products) {
           setValue('subTotal', source.subTotal);

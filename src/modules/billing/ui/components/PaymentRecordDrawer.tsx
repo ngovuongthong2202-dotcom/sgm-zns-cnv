@@ -19,6 +19,7 @@ import { checkPaymentLock } from '@/src/domain/policy/lock.policy';
 import { checkA5Policy } from '@/src/modules/iam';
 import { useAuth } from '@/src/modules/iam';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
+import { formatUserOfficer } from '@/src/shared/utils/userProfile';
 
 import { PaymentRecordBasicFields } from './form/PaymentRecordBasicFields';
 import { PaymentRecordProductsSection } from './form/PaymentRecordProductsSection';
@@ -61,6 +62,7 @@ export function PaymentRecordDrawer({
   const isNew = !payment;
   const { confirm: _confirm} = useConfirm();
   const { user, userData } = useAuth();
+  const defaultOfficer = formatUserOfficer(userData, user);
   const { canEdit, reason: lockReason } = checkA5Policy(user, userData, payment);
 
   const businessLock = useMemo(() => {
@@ -78,14 +80,21 @@ export function PaymentRecordDrawer({
 
   const { register, handleSubmit, watch, setValue, control, reset, getValues, formState: { isSubmitting } } = useForm<Payment & { sourceValue: string }>({
     resolver: zodResolver(PaymentFormSchema) as any,
-    defaultValues: draft ? draft : (payment ? { ...payment, sourceValue: payment.contractId ? `CONTRACT:${payment.contractId}` : payment.quotationId ? `QUOTATION:${payment.quotationId}` : '' } : { 
+    defaultValues: draft ? { ...draft, nguoiPhuTrach: defaultOfficer } : (payment ? { ...payment, nguoiPhuTrach: defaultOfficer, sourceValue: payment.contractId ? `CONTRACT:${payment.contractId}` : payment.quotationId ? `QUOTATION:${payment.quotationId}` : '' } : { 
       paymentId: `PT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
       trangThaiGuiTinThanhToan: EntityZnsStatus.CHUA_GUI, 
       tinhTrangThanhToan: 'Chưa TT', 
       phuongThucThanhToan: 'Chuyển khoản', 
-      products: [] 
+      products: [],
+      nguoiPhuTrach: defaultOfficer
     } as any)
   });
+
+  useEffect(() => {
+    if (defaultOfficer && getValues('nguoiPhuTrach') !== defaultOfficer) {
+      setValue('nguoiPhuTrach', defaultOfficer, { shouldValidate: true });
+    }
+  }, [defaultOfficer, setValue, getValues]);
 
   const hasInitializedRef = React.useRef(false);
   useEffect(() => {

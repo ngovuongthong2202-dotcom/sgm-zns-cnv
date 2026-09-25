@@ -13,6 +13,9 @@ import {
   filterExistingContractsForQuo
 } from '../components/ContractFormHelpers';
 
+import { useAuth } from '@/src/modules/iam';
+import { formatUserOfficer } from '@/src/shared/utils/userProfile';
+
 export function useContractForm(
   contract: Contract | null,
   contracts: Contract[],
@@ -22,19 +25,35 @@ export function useContractForm(
 ) {
   const [isLockedByOther, setIsLockedByOther] = useState(false);
   const [activeQuotationDoc, setActiveQuotationDoc] = useState<any>(null);
+  const { user, userData } = useAuth();
+  const defaultOfficer = formatUserOfficer(userData, user);
 
   const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Contract>('contracts', contract?.id || 'new');
 
+  const initialFormValues = useMemo(() => {
+    const base = getInitialContractFormValues(contract, draft);
+    return { ...base, nguoiPhuTrach: defaultOfficer };
+  }, [contract, draft, defaultOfficer]);
+
   const { register, handleSubmit, watch, setValue, getValues, reset, formState: { errors, isSubmitting, isDirty } } = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
-    defaultValues: getInitialContractFormValues(contract, draft)
+    defaultValues: initialFormValues
   });
 
   useEffect(() => {
-    if (contract) {
-      reset(getInitialContractFormValues(contract, null));
+    if (defaultOfficer && getValues('nguoiPhuTrach') !== defaultOfficer) {
+      setValue('nguoiPhuTrach', defaultOfficer, { shouldValidate: true });
     }
-  }, [contract, reset]);
+  }, [defaultOfficer, setValue, getValues]);
+
+  useEffect(() => {
+    if (contract) {
+      reset({
+        ...getInitialContractFormValues(contract, null),
+        nguoiPhuTrach: defaultOfficer
+      });
+    }
+  }, [contract, reset, defaultOfficer]);
 
   const selectedQuoId = watch('quotationId');
   const products = watch('products') || [];

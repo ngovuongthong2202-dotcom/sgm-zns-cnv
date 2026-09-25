@@ -117,13 +117,15 @@ export function ContractDefinitionSection({ register, errors, estimatedCompletio
 
         <div className="space-y-1">
           <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Người phụ trách</label>
-          <select aria-label="Người Phụ Trách" {...register('nguoiPhuTrach')} className="premium-input w-full bg-white h-8 py-0 leading-normal rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none appearance-none">
-            <option value="">Chọn người phụ trách...</option>
-            {(nguoiPhuTrachList || []).map((n: string) => <option key={n} value={n}>{n}</option>)}
-            {watch && watch('nguoiPhuTrach') && !(nguoiPhuTrachList || []).includes(watch('nguoiPhuTrach')) && (
-              <option value={watch('nguoiPhuTrach')}>{watch('nguoiPhuTrach')}</option>
-            )}
-          </select>
+          <input 
+            type="text"
+            disabled
+            readOnly
+            value={watch ? (watch('nguoiPhuTrach') || '') : ''}
+            {...register('nguoiPhuTrach')} 
+            className="premium-input w-full bg-slate-100 text-slate-700 font-semibold h-8 py-0 leading-normal rounded-lg border border-slate-200 px-3 text-sm cursor-not-allowed select-none outline-none"
+            placeholder="Người phụ trách theo tài khoản"
+          />
         </div>
       </div>
     </div>

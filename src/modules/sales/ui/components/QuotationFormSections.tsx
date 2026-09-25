@@ -220,19 +220,16 @@ export function QuotationBasicInfoSection({
           <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 mb-1 block">
             Người phụ trách
           </label>
-          <select 
+          <input 
             id="nguoiPhuTrach"
+            type="text"
+            disabled
+            readOnly
+            value={watch('nguoiPhuTrach') || ''}
             {...register('nguoiPhuTrach')} 
-            className="h-8 px-3 text-sm border border-slate-200 rounded-lg w-full outline-none bg-white font-sans" 
-          >
-            <option value="">-- Chưa chỉ định (Khách có thể liên lạc sau) --</option>
-            {(nguoiPhuTrachList || []).map((n: string) => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-            {watch('nguoiPhuTrach') && !nguoiPhuTrachList?.includes(watch('nguoiPhuTrach')) && (
-              <option value={watch('nguoiPhuTrach')}>{watch('nguoiPhuTrach')}</option>
-            )}
-          </select>
+            className="h-8 px-3 text-sm font-semibold border border-slate-200 rounded-lg w-full outline-none bg-slate-100 text-slate-700 cursor-not-allowed select-none" 
+            placeholder="Người phụ trách theo tài khoản"
+          />
         </div>
       </div>
     </div>

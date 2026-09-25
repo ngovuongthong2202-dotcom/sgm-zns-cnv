@@ -12,6 +12,7 @@ import { useErpLookup } from './useErpLookup';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { EntityZnsStatus } from '@/src/domain/enums/zns-status';
 import { aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
+import { formatUserOfficer } from '@/src/shared/utils/userProfile';
 
 interface UseQuotationFormProps {
   quotation: Quotation | null;
@@ -45,19 +46,28 @@ export function useQuotationForm({
     return checkQuotationLock(quotation, myContracts, myPayments, myDeliveries);
   }, [quotation, allContracts, allPayments, allDeliveries]);
   
+  const defaultOfficer = formatUserOfficer(userData, user);
+  
   const form: UseFormReturn<Quotation> = useForm<Quotation>({
     resolver: zodResolver(QuotationSchema) as any,
-    defaultValues: quotation || draft || { 
+    defaultValues: quotation ? { ...quotation, nguoiPhuTrach: defaultOfficer } : draft ? { ...draft, nguoiPhuTrach: defaultOfficer } : { 
       tinhTrangBaoGia: 'MỚI',
       ngayBaoGia: new Date().toISOString().split('T')[0],
       hieuLuc: 7,
       trangThaiGuiTinBaoGia: EntityZnsStatus.CHUA_GUI,
       products: [],
-      loai: QUOTATION_LOAI.MAY
+      loai: QUOTATION_LOAI.MAY,
+      nguoiPhuTrach: defaultOfficer
     } as any
   });
 
   const { control, register, handleSubmit, watch, setValue, getValues, trigger, reset, formState: { errors, isSubmitting, isDirty } } = form;
+
+  useEffect(() => {
+    if (defaultOfficer && getValues('nguoiPhuTrach') !== defaultOfficer) {
+      setValue('nguoiPhuTrach', defaultOfficer, { shouldValidate: true });
+    }
+  }, [defaultOfficer, setValue, getValues]);
 
   useEffect(() => {
     if (quotation) {
@@ -67,11 +77,11 @@ export function useQuotationForm({
         noiDungGhiChu: quotation.noiDungGhiChu || '',
         hieuLuc: quotation.hieuLuc ?? 7,
         ngayBaoGia: quotation.ngayBaoGia || new Date().toISOString().split('T')[0],
-        nguoiPhuTrach: quotation.nguoiPhuTrach || '',
+        nguoiPhuTrach: defaultOfficer,
         loai: quotation.loai || QUOTATION_LOAI.MAY
       });
     }
-  }, [quotation, reset]);
+  }, [quotation, reset, defaultOfficer]);
 
   const currentLoai = watch('loai');
   const isCreating = !quotation?.id;

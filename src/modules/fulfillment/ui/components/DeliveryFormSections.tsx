@@ -111,14 +111,13 @@ export function DeliveryInfoSection({
           <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="nguoiPhuTrach">Người phụ trách</label>
           <input
             id="nguoiPhuTrach"
+            type="text"
+            disabled
+            readOnly
             {...register('nguoiPhuTrach')}
-            list="deliveryOwnerList"
-            className="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-400 bg-white"
-            placeholder="Chọn người phụ trách..."
+            className="h-8 rounded-lg border border-slate-200 px-3 text-sm font-semibold w-full text-slate-700 bg-slate-100 cursor-not-allowed select-none outline-none"
+            placeholder="Người phụ trách theo tài khoản"
           />
-          <datalist id="deliveryOwnerList">
-            {nguoiPhuTrachList.map((n: string) => <option key={n} value={n} />)}
-          </datalist>
         </div>
 
         <div className="space-y-1">
