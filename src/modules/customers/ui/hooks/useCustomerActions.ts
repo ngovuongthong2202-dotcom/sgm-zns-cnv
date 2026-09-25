@@ -8,6 +8,8 @@ import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { OptimisticConflictError } from '@/src/design-system/OptimisticConflictError';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { useEntityLifecycle } from '@/src/hooks/useEntityLifecycle';
+import { realtimeStore } from '@/src/data/realtime-store';
+import { crossTabSync } from '@/src/shared/utils/crossTabSync';
 
 interface UseCustomerActionsProps {
   localCustomers: Customer[];
@@ -187,7 +189,12 @@ export function useCustomerActions({
 
       setIsSaving(true);
       const previousLocal = [...localCustomers];
-      setLocalCustomers(prev => prev.filter(item => item.id !== c.id));
+      setLocalCustomers(prev => prev.filter(item => item.id !== c.id && item.maKh !== c.id && item.id !== c.maKh));
+      realtimeStore.mutateOptimistic('customers', 'delete', c.id);
+      if (c.maKh) realtimeStore.mutateOptimistic('customers', 'delete', c.maKh);
+      if (drawerState.mode !== 'closed' && (drawerState as any).customer?.id === c.id) {
+        setDrawerState({ mode: 'closed' });
+      }
 
       const res = await fetch(`/api/customers/${c.id}`, {
         method: 'DELETE',
@@ -197,6 +204,7 @@ export function useCustomerActions({
       const data = await res.json();
       if (!res.ok) {
         setLocalCustomers(previousLocal);
+        realtimeStore.restoreSnapshot('customers', previousLocal);
         if (data.blockingDocuments?.length || data.detailedBlocks?.length) {
           showBlockingModal({
             title: 'Không thể xóa khách hàng',
@@ -209,6 +217,7 @@ export function useCustomerActions({
         }
         throw new Error(data.error || 'Lỗi server khi thực hiện xóa');
       }
+      crossTabSync.broadcast({ type: 'ENTITY_DELETED', collectionName: 'customers', id: c.id });
       notify.success(data.message || `Đã xóa thành công khách hàng ${c.tenKhachHang}`);
       await refresh();
     } catch (err: unknown) {

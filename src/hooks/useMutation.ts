@@ -7,6 +7,7 @@ import { mutate as globalMutate } from 'swr';
 import { clearSwrColCache } from '@/src/data/swr-fetchers';
 import { logger } from '@/src/shared/lib/logger';
 import { crossTabSync } from '@/src/shared/utils/crossTabSync';
+import { realtimeStore } from '@/src/data/realtime-store';
 
 const removeUndefined = <U>(obj: U): U => {
   if (Array.isArray(obj)) {
@@ -67,6 +68,7 @@ export function useMutation<T>({ collection: collectionName, onSuccess, onError 
       // Optimistically resolve UI state
       onSuccess?.((responseData as unknown) as T); 
       setLoading(false);
+      realtimeStore.mutateOptimistic(collectionName, 'create', responseData);
 
       try {
         clearSwrColCache(collectionName);
@@ -197,6 +199,7 @@ export function useMutation<T>({ collection: collectionName, onSuccess, onError 
       // Optimistically resolve UI state
       onSuccess?.((updatePayload as unknown) as T); 
       setLoading(false);
+      realtimeStore.mutateOptimistic(collectionName, 'update', { id, ...updatePayload });
 
       try {
         clearSwrColCache(collectionName);
@@ -295,6 +298,7 @@ export function useMutation<T>({ collection: collectionName, onSuccess, onError 
       // Optimistically resolve UI state
       onSuccess?.(({} as unknown) as T); 
       setLoading(false);
+      realtimeStore.mutateOptimistic(collectionName, 'delete', id);
       crossTabSync.broadcast({ type: 'ENTITY_DELETED', collectionName, id });
 
       try {

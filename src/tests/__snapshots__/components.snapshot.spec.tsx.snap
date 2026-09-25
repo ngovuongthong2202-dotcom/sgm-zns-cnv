@@ -674,11 +674,12 @@ exports[`Component Snapshots (Baseline) > renders ContractFormModal 1`] = `
                       class="relative"
                     >
                       <button
-                        class="justify-center transition-all duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] border border-transparent hover:text-slate-900 active:bg-slate-200/70 focus-visible:ring-slate-200 px-2.5 rounded-md text-xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 flex items-center gap-1 h-8"
+                        class="justify-center transition-all duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] hover:text-slate-900 active:bg-slate-200/70 focus-visible:ring-slate-200 px-2.5 rounded-md text-xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 flex items-center gap-1.5 h-8 border border-blue-200/60 shadow-xs"
+                        type="button"
                       >
                         <svg
                           aria-hidden="true"
-                          class="lucide lucide-package"
+                          class="lucide lucide-package text-blue-600"
                           fill="none"
                           height="14"
                           stroke="currentColor"
@@ -4969,11 +4970,12 @@ exports[`Component Snapshots (Baseline) > renders QuotationFormModal 1`] = `
                         class="relative"
                       >
                         <button
-                          class="justify-center transition-all duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] border border-transparent hover:text-slate-900 active:bg-slate-200/70 focus-visible:ring-slate-200 px-2.5 rounded-md text-xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 flex items-center gap-1 h-8"
+                          class="justify-center transition-all duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] hover:text-slate-900 active:bg-slate-200/70 focus-visible:ring-slate-200 px-2.5 rounded-md text-xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 flex items-center gap-1.5 h-8 border border-blue-200/60 shadow-xs"
+                          type="button"
                         >
                           <svg
                             aria-hidden="true"
-                            class="lucide lucide-package"
+                            class="lucide lucide-package text-blue-600"
                             fill="none"
                             height="14"
                             stroke="currentColor"

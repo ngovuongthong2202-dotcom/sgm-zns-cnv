@@ -21,6 +21,7 @@ import { searchRoutes } from './src/backend/routes/search.routes';
 import customerRoutes from './src/backend/routes/customer.routes';
 import reportsRoutes from './src/backend/routes/reports.routes';
 import quotationRoutes from './src/backend/routes/quotation.routes';
+import itemsRoutes from './src/backend/routes/items.routes';
 import { correlationIdMiddleware } from './src/backend/middleware/correlationId.middleware';
 import { bootstrapMachines } from './src/backend/workflow/machines';
 
@@ -70,6 +71,7 @@ async function startServer() {
   app.use('/api/customers', customerRoutes);
   app.use('/api/reports', reportsRoutes);
   app.use('/api/quotations', quotationRoutes);
+  app.use('/api/items', itemsRoutes);
 
   // Permanent caching for local /fonts folder (Vietnamese local network optimization)
   const fontsPath = path.join(process.cwd(), process.env.NODE_ENV === 'production' ? 'dist/fonts' : 'public/fonts');

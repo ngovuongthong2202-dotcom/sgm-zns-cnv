@@ -259,7 +259,17 @@ class RealtimeStore {
       }
     } else if (operation === 'delete') {
       if (id) {
-        updatedData = updatedData.filter((item) => item.id !== id);
+        updatedData = updatedData.filter((item) => {
+          if (!item) return false;
+          if (item.id === id) return false;
+          const anyItem = item as any;
+          if (anyItem.maKh && anyItem.maKh === id) return false;
+          if (anyItem.soPhieuBaoGia && anyItem.soPhieuBaoGia === id) return false;
+          if (anyItem.soHopDong && anyItem.soHopDong === id) return false;
+          if (anyItem.paymentId && anyItem.paymentId === id) return false;
+          if (anyItem.deliveryId && anyItem.deliveryId === id) return false;
+          return true;
+        });
       }
     }
 
