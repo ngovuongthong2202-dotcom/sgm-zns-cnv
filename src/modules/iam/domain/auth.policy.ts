@@ -53,25 +53,116 @@ export function can(action: ResourceAction, resourceType: ResourceType, role?: s
   return false;
 }
 
+function normalizeAuthString(str?: string | null): string {
+  if (!str || typeof str !== 'string') return '';
+  return str
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, '') // Bỏ các hậu tố như (Admin), (Chuyên viên), (Sales), (Phụ trách)...
+    .replace(/\[[^\]]*\]/g, '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/\s+/g, ' ');
+}
+
 /**
- * Vẫn giữ lại checkA5Policy cho các logic đang phụ thuộc vào createdBy nếu cần,
- * nhưng tương lai nên migrate qua can(..., resource)
+ * Kiểm tra quyền chỉnh sửa chứng từ / bản ghi:
+ * - Admin hoặc Ban Giám Đốc: Full quyền chỉnh sửa.
+ * - Người tạo (createdBy, nguoiTao) hoặc Chủ sở hữu / Người phụ trách (nguoiPhuTrach, assignedTo):
+ *   Có toàn quyền chỉnh sửa phiếu/hồ sơ của mình.
+ * - Khớp theo uid, username, displayName hoặc email (không phân biệt dấu tiếng Việt hay hoa thường).
+ * - Bản ghi chưa gán người phụ trách/người tạo: Chuyên viên được phép chỉnh sửa/tiếp nhận.
  */
 export function checkA5Policy(
-  user: { uid?: string } | null | undefined, 
-  userData: { role?: string } | null | undefined, 
-  entity: { id?: string, createdBy?: string } | null | undefined
+  user: { uid?: string; id?: string; username?: string; displayName?: string; email?: string } | null | undefined, 
+  userData: { role?: string; displayName?: string; username?: string; userName?: string; fullName?: string; ten?: string; email?: string } | null | undefined, 
+  entity: { id?: string; createdBy?: string; created_by?: string; nguoiTao?: string; nguoiPhuTrach?: string; userId?: string; user_id?: string; owner?: string } | null | undefined
 ): { canEdit: boolean, reason?: string } {
   if (!entity || !entity.id) return { canEdit: true };
-  if (!user || !user.uid) return { canEdit: false, reason: "Chưa đăng nhập" };
-  
-  if (userData?.role === 'Administrator' || userData?.role === 'Ban Giám Đốc') {
+  if (!user && !userData) return { canEdit: false, reason: "Chưa đăng nhập" };
+
+  const role = String(userData?.role || (user as any)?.role || '').trim();
+  const roleNormalized = normalizeAuthString(role);
+
+  if (
+    roleNormalized === 'administrator' || 
+    roleNormalized === 'admin' || 
+    roleNormalized === 'ban giam doc' || 
+    roleNormalized === 'bgd' ||
+    roleNormalized.includes('admin') ||
+    roleNormalized.includes('giam doc')
+  ) {
     return { canEdit: true };
   }
-  
-  if (entity.createdBy === user.uid) {
+
+  // Thu thập các giá trị định danh của người dùng hiện tại
+  const rawUserIdentifiers = [
+    user?.uid,
+    (user as any)?.id,
+    user?.username,
+    user?.displayName,
+    user?.email,
+    user?.email?.split('@')[0],
+    (userData as any)?.id,
+    (userData as any)?.uid,
+    userData?.username,
+    userData?.userName,
+    userData?.displayName,
+    userData?.fullName,
+    userData?.ten,
+    userData?.email,
+    userData?.email?.split('@')[0],
+  ].filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+
+  // Thu thập các trường đại diện cho người tạo / người phụ trách / chủ sở hữu của bản ghi
+  const rawEntityOwners = [
+    entity.createdBy,
+    entity.created_by,
+    entity.nguoiTao,
+    entity.nguoiPhuTrach,
+    entity.userId,
+    entity.user_id,
+    entity.owner,
+  ].filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+
+  // Nếu bản ghi chưa có người phụ trách hay người tạo (chưa gán chủ sở hữu) -> Cho phép chuyên viên tiếp nhận/chỉnh sửa
+  if (rawEntityOwners.length === 0) {
     return { canEdit: true };
   }
-  
+
+  // Chuẩn hóa chuỗi để so sánh
+  const normalizedUserIds = rawUserIdentifiers.map(normalizeAuthString).filter(Boolean);
+  const normalizedOwners = rawEntityOwners.map(normalizeAuthString).filter(Boolean);
+
+  // 1. Kiểm tra so khớp chính xác sau khi chuẩn hóa họ tên / username / email
+  const isExactMatch = normalizedUserIds.some(uId => 
+    normalizedOwners.some(eOwner => uId === eOwner)
+  );
+  if (isExactMatch) {
+    return { canEdit: true };
+  }
+
+  // 2. Kiểm tra so khớp trực tiếp chuỗi thô (như UID hoặc username chính xác)
+  const isRawMatch = rawUserIdentifiers.some(uId => 
+    rawEntityOwners.some(eOwner => uId.trim() === eOwner.trim())
+  );
+  if (isRawMatch) {
+    return { canEdit: true };
+  }
+
+  // 3. Kiểm tra chứa tên đầy đủ nếu chuỗi đủ độ dài đặc trưng (ví dụ họ tên >= 5 ký tự)
+  const isFuzzyMatch = normalizedUserIds.some(uId => 
+    normalizedOwners.some(eOwner => {
+      if (uId.length >= 5 && eOwner.length >= 5) {
+        return uId.includes(eOwner) || eOwner.includes(uId);
+      }
+      return false;
+    })
+  );
+  if (isFuzzyMatch) {
+    return { canEdit: true };
+  }
+
   return { canEdit: false, reason: "Chỉ người tạo (chủ sở hữu), Admin hoặc BGĐ mới được chỉnh sửa phiếu này." };
 }
