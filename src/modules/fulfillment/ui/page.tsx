@@ -51,19 +51,29 @@ const EMPTY_PROCESSED_DELIVERIES: any[] = [];
 
 export default function DeliveriesFeature() {
   const { userData } = useAuth();
-  const { deliveries, payments, customers, quotations, loading, loadMore, createDelivery, updateDelivery, deleteDelivery, updateContract, updateQuotation } = useDeliveries({ loadRelated: false });
+  const location = useLocation();
+  const { deliveries, payments, customers, quotations, contracts, loading, loadMore, createDelivery, updateDelivery, deleteDelivery, updateContract, updateQuotation } = useDeliveries({ loadRelated: true });
   const { nguoiPhuTrachList } = useSharedFields();
   const { confirm } = useConfirm();
 
-  
-  
   // View mode selection
- 
   const [viewMode, setViewMode] = useState<'table'>('table');
 
   const [editingDelivery, setEditingDelivery] = useState<Delivery | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [drawerDelivery, setDrawerDelivery] = useState<Delivery | null>(null);
+
+  // Tự động mở Modal lập phiếu giao hàng khi điều hướng từ Phiếu thu (Payment)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const fromPayment = params.get('fromPayment') || params.get('paymentId') || (location.state as any)?.createFromPayment;
+    const targetPaymentId = typeof fromPayment === 'string' ? fromPayment : fromPayment?.id || fromPayment?.paymentId;
+    if (targetPaymentId && !isFormOpen) {
+      setEditingDelivery({ paymentId: targetPaymentId } as any);
+      setIsFormOpen(true);
+      window.history.replaceState({}, document.title, location.pathname);
+    }
+  }, [location, isFormOpen]);
   
   const activeTab: string = 'all';
   const {
@@ -291,8 +301,8 @@ export default function DeliveriesFeature() {
           key={editingDelivery?.id || 'new'}
           delivery={editingDelivery} 
           payments={payments} 
-          contracts={drawerContract ? [drawerContract] : []} 
-          quotations={drawerQuotation ? [drawerQuotation] : []} 
+          contracts={contracts} 
+          quotations={quotations} 
           deliveries={deliveries} 
           nguoiPhuTrachList={nguoiPhuTrachList}
           onClose={() => { setIsFormOpen(false); setEditingDelivery(null); }} 

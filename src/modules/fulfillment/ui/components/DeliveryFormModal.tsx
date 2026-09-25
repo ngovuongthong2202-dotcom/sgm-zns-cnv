@@ -42,6 +42,9 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, d
     maxQuantities,
     deliveryProducts,
     selectedPaymentId,
+    populateFromPayment,
+    lookupExportSale,
+    isLookingUpExportSale,
   } = useDeliveryForm(delivery, payments, contracts, quotations);
 
   return (
@@ -156,16 +159,23 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, d
                     <AsyncSearchableSelect
                       collection="payments"
                       value={watch('paymentId') || ''}
-                      onChange={(val) => {
+                      onChange={(val, doc) => {
                         setValue('paymentId', val, { shouldValidate: true });
+                        if (doc) {
+                          populateFromPayment(doc);
+                        }
                       }}
                       filterOption={(p: any) => {
-                          if (p._isFullyDelivered) return false;
-                          return true;
+                        // Loại trừ phiếu thu đã bị xóa
+                        if (p.deletedAt) return false;
+                        return true;
                       }}
                       isOptionDisabled={(p: any) => {
                          const gateResult = canCreateDelivery(p);
                          if (!gateResult.allowed) return { disabled: true, reason: gateResult.reason };
+                         if (p._isFullyDelivered) {
+                           return { disabled: true, reason: 'Đã giao đủ 100% số lượng' };
+                         }
                          return { disabled: false };
                       }}
                       renderOption={(p: any) => ({
@@ -204,6 +214,8 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, d
                 register={register}
                 errors={errors}
                 nguoiPhuTrachList={nguoiPhuTrachList}
+                onLookupExportSale={lookupExportSale}
+                isLookingUpExportSale={isLookingUpExportSale}
               />
             </div>
 

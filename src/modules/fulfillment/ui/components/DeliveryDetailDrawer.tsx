@@ -319,6 +319,42 @@ export function DeliveryDetailDrawer({
           </div>
         )}
       </div>
+
+      {/* Thông tin xuất kho ERP */}
+      <div className="p-4 bg-blue-50/40 border border-blue-200/60 rounded-xl space-y-3">
+        <div className="flex items-center justify-between border-b border-blue-100 pb-2">
+          <span className="text-2xs font-black uppercase text-blue-900 tracking-wider flex items-center gap-1.5">
+            <Package size={14} /> CĂN CỨ XUẤT KHO ERP
+          </span>
+          {drawerDelivery.soPhieuXuat && (
+            <span className="font-mono text-2xs font-bold text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200">
+              {drawerDelivery.soPhieuXuat}
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div>
+            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Kế toán kho</span>
+            <span className="font-bold text-slate-900">{drawerDelivery.keToanKho || '---'}</span>
+          </div>
+          <div>
+            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Kho xuất</span>
+            <span className="font-bold text-slate-900">{drawerDelivery.khoXuat || '---'}</span>
+          </div>
+          <div>
+            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Ngày tạo phiếu xuất</span>
+            <span className="font-mono font-bold text-slate-900">{drawerDelivery.ngayTaoPhieuXuat ? formatDate(drawerDelivery.ngayTaoPhieuXuat) : '---'}</span>
+          </div>
+        </div>
+        {(drawerDelivery.ghiChuNoiBo || drawerDelivery.ghiChu) && (
+          <div className="pt-2 border-t border-blue-100/60 text-xs">
+            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Ghi chú xuất kho (Nội bộ)</span>
+            <p className="text-slate-700 text-xs leading-relaxed italic bg-white/70 p-2.5 rounded-lg border border-blue-100/80">
+              {drawerDelivery.ghiChuNoiBo || drawerDelivery.ghiChu}
+            </p>
+          </div>
+        )}
+      </div>
       
       {/* Products Check */}
       <div>

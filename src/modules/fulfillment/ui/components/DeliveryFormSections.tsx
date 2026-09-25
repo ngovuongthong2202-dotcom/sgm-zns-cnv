@@ -71,18 +71,34 @@ interface DeliveryInfoSectionProps {
   register: UseFormRegister<Delivery>;
   errors: FieldErrors<Delivery>;
   nguoiPhuTrachList: string[];
+  onLookupExportSale?: () => void;
+  isLookingUpExportSale?: boolean;
 }
 
 export function DeliveryInfoSection({
   register,
   errors,
-  nguoiPhuTrachList
+  nguoiPhuTrachList,
+  onLookupExportSale,
+  isLookingUpExportSale
 }: DeliveryInfoSectionProps) {
   return (
     <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-      <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-2">
-        <Package size={14} /> THÔNG TIN LỆNH GIAO HÀNG
-      </h3>
+      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+        <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-2">
+          <Package size={14} /> THÔNG TIN LỆNH GIAO HÀNG
+        </h3>
+        {onLookupExportSale && (
+          <button
+            type="button"
+            onClick={onLookupExportSale}
+            disabled={isLookingUpExportSale}
+            className="text-2xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded px-2.5 py-1 flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {isLookingUpExportSale ? 'Đang tra cứu ERP...' : '🔍 Lấy dữ liệu từ Số Phiếu Xuất (ERP)'}
+          </button>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <div className="space-y-1">
@@ -97,13 +113,40 @@ export function DeliveryInfoSection({
         </div>
 
         <div className="space-y-1">
-          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="soPhieuXuat">Số Phiếu Xuất <span className="text-red-700">*</span></label>
-          <input
-            id="soPhieuXuat"
-            {...register('soPhieuXuat')}
-            className="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-normal placeholder:text-slate-400"
-            placeholder="Nhập mã phiếu xuất..."
-          />
+          <div className="flex justify-between items-center">
+            <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="soPhieuXuat">Số Phiếu Xuất (ERP) <span className="text-red-700">*</span></label>
+            <span className="text-3xs text-slate-400">VD: PXBH-230926-0002</span>
+          </div>
+          <div className="relative flex items-center">
+            <input
+              id="soPhieuXuat"
+              {...register('soPhieuXuat')}
+              onBlur={() => onLookupExportSale?.()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  onLookupExportSale?.();
+                }
+              }}
+              className="h-8 rounded-lg border border-slate-200 px-3 pr-8 text-sm w-full font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-normal placeholder:text-slate-400"
+              placeholder="Nhập mã phiếu xuất..."
+            />
+            {onLookupExportSale && (
+              <button
+                type="button"
+                onClick={onLookupExportSale}
+                disabled={isLookingUpExportSale}
+                className="absolute right-1 text-slate-400 hover:text-blue-600 p-1 rounded"
+                title="Tra cứu ERP"
+              >
+                {isLookingUpExportSale ? (
+                  <span className="animate-spin inline-block text-xs">⏳</span>
+                ) : (
+                  <span className="text-xs">🔍</span>
+                )}
+              </button>
+            )}
+          </div>
           {errors.soPhieuXuat && <p className="text-red-600 text-2xs font-medium mt-0.5">{errors.soPhieuXuat.message as string}</p>}
         </div>
 
@@ -117,6 +160,36 @@ export function DeliveryInfoSection({
             {...register('nguoiPhuTrach')}
             className="h-8 rounded-lg border border-slate-200 px-3 text-sm font-semibold w-full text-slate-700 bg-slate-100 cursor-not-allowed select-none outline-none"
             placeholder="Người phụ trách theo tài khoản"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="keToanKho">Kế toán kho</label>
+          <input
+            id="keToanKho"
+            {...register('keToanKho')}
+            className="h-8 rounded-lg border border-slate-200 px-3 text-sm font-medium w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-400"
+            placeholder="Tên kế toán kho xuất..."
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="khoXuat">Kho xuất</label>
+          <input
+            id="khoXuat"
+            {...register('khoXuat')}
+            className="h-8 rounded-lg border border-slate-200 px-3 text-sm font-medium w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-400"
+            placeholder="Kho xuất hàng..."
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="ngayTaoPhieuXuat">Ngày tạo phiếu xuất</label>
+          <input
+            id="ngayTaoPhieuXuat"
+            type="date"
+            {...register('ngayTaoPhieuXuat' as any)}
+            className="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
 
@@ -219,6 +292,7 @@ export function DeliveryHiddenInputs({ register }: { register: UseFormRegister<D
       <input type="hidden" {...register('kyNhan')} />
       <input type="hidden" {...register('loai')} />
       <input type="hidden" {...register('soDonHang')} />
+      <input type="hidden" {...register('ghiChuNoiBo')} />
     </div>
   );
 }

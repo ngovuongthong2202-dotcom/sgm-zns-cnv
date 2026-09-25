@@ -177,6 +177,87 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Tra cứu chi tiết phiếu xuất bán hàng từ máy chủ ERP theo batch_code
+router.get('/export-sale/lookup', async (req, res) => {
+  try {
+    const rawBatchCode = String(req.query.batch_code || req.query.q || '').trim();
+    if (!rawBatchCode) {
+      return res.status(400).json({ success: false, error: 'Thiếu mã phiếu xuất batch_code' });
+    }
+
+    const currentYear = new Date().getFullYear();
+    const fromDate = (req.query.from_date as string) || `01-01-${currentYear}`;
+    const toDate = (req.query.to_date as string) || `31-12-${currentYear}`;
+
+    const listUrl = `https://sgm.vnaisoft.com/api/public/export-sale?from_date=${fromDate}&to_date=${toDate}`;
+
+    const listResp = await axios.get(listUrl, {
+      timeout: 20000,
+      headers: { 'Accept': 'application/json', 'User-Agent': 'SGM-ZNS-Client/1.0' },
+      validateStatus: () => true
+    });
+
+    if (listResp.status !== 200 || !listResp.data) {
+      return res.status(listResp.status || 500).json({ success: false, error: 'Không thể kết nối đến máy chủ ERP xuất kho' });
+    }
+
+    const rawList = Array.isArray(listResp.data) ? listResp.data : (listResp.data.data || []);
+    const normalizedTarget = rawBatchCode.toLowerCase().replace(/[\s\-_]/g, '');
+
+    const foundItem = rawList.find((item: any) => {
+      const bCode = String(item.batch_code || item.voucher_code || item.code || '').toLowerCase().replace(/[\s\-_]/g, '');
+      return bCode === normalizedTarget || (item.batch_code && String(item.batch_code).toLowerCase().includes(rawBatchCode.toLowerCase()));
+    });
+
+    if (!foundItem || !foundItem._id) {
+      return res.status(404).json({ success: false, error: `Không tìm thấy phiếu xuất có mã ${rawBatchCode}` });
+    }
+
+    const detailUrl = `https://sgm.vnaisoft.com/api/public/export-sale/${foundItem._id}`;
+
+    const detailResp = await axios.get(detailUrl, {
+      timeout: 20000,
+      headers: { 'Accept': 'application/json', 'User-Agent': 'SGM-ZNS-Client/1.0' },
+      validateStatus: () => true
+    });
+
+    if (detailResp.status !== 200 || !detailResp.data) {
+      return res.status(detailResp.status || 500).json({ success: false, error: 'Không thể tải chi tiết phiếu xuất từ ERP' });
+    }
+
+    const detailData = detailResp.data.data || detailResp.data;
+
+    // Trích xuất các trường theo yêu cầu
+    const note = detailData.note || '';
+    const created_at = detailData.created_at || detailData.event_date || '';
+    const by_name = detailData.by_name || detailData.created_by_name || detailData.approved_by_name || detailData.created_by || '';
+    const warehouse_name = detailData.warehouse_name || '';
+
+    return res.json({
+      success: true,
+      data: {
+        _id: detailData._id,
+        batch_code: detailData.batch_code || foundItem.batch_code || rawBatchCode,
+        note,
+        created_at,
+        by_name,
+        warehouse_name,
+        customer_name: detailData.customer_name || detailData.partner_name || '',
+        customer_code: detailData.customer_code || '',
+        vehicle_no: detailData.vehicle_no || '',
+        driver_name: detailData.driver_name || '',
+        vehicle_phone: detailData.vehicle_phone || '',
+        transport_company: detailData.transport_company || '',
+        delivery_address: detailData.delivery_address || '',
+        lines: detailData.lines || []
+      }
+    });
+  } catch (error: any) {
+    console.error('[Export Sale Lookup Error]:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Lỗi tra cứu phiếu xuất kho' });
+  }
+});
+
 // Force refresh cache endpoint
 router.post('/refresh', async (req, res) => {
   cachedItems = null;

@@ -165,8 +165,66 @@ router.post('/create/:entityType', async (req, res) => {
       const payDoc = await adminDb.collection('payments').doc(data.paymentId).get();
       if (!payDoc.exists) return res.status(404).json({ error: "Payment not found" });
       
-      const gateResult = canCreateDelivery(payDoc.data() as any);
+      const payData = payDoc.data() as any;
+      const gateResult = canCreateDelivery(payData);
       if (!gateResult.allowed) return res.status(422).json({ error: gateResult.reason });
+
+      // Kiểm tra số lượng giao hàng (Hỗ trợ nhiều đợt giao, ngăn giao vượt số lượng)
+      const targetSource = payData.contractId 
+        ? await adminDb.collection('contracts').doc(payData.contractId).get()
+        : (payData.quotationId ? await adminDb.collection('quotations').doc(payData.quotationId).get() : null);
+      
+      const sourceObj = (targetSource && targetSource.exists ? targetSource.data() : null) || payData;
+      const srcProducts: any[] = sourceObj?.products || payData.products || [];
+      
+      if (srcProducts.length > 0) {
+        const existingDeliveriesSnap = await adminDb.collection('deliveries')
+          .where('paymentId', '==', data.paymentId)
+          .get();
+        
+        const existingDeliveries = existingDeliveriesSnap.docs
+          .map((d: any) => ({ id: d.id, ...d.data() }))
+          .filter((d: any) => !d.deletedAt && d.tinhTrangGiaoHang !== 'HỦY' && d.tinhTrangGiaoHang !== 'Hủy' && d.id !== data.id);
+
+        const currentDeliveredMap: Record<string, number> = {};
+        existingDeliveries.forEach((d: any) => {
+          (d.products || []).forEach((dp: any, idx: number) => {
+            const key = dp.id || dp.productId || dp.productName || String(idx);
+            currentDeliveredMap[key] = (currentDeliveredMap[key] || 0) + Number(dp.quantity || 0);
+          });
+        });
+
+        let totalContracted = 0;
+        let totalDelivered = 0;
+        let hasOverDelivered = false;
+        let overItemName = '';
+
+        const newShipmentItems = Array.isArray(data.products) && data.products.length > 0 ? data.products : [];
+
+        for (const [index, cp] of srcProducts.entries()) {
+          const key = cp.id || cp.productId || cp.productName || String(index);
+          const cQty = Number(cp.quantity || 0);
+          totalContracted += cQty;
+          const prevDelivered = currentDeliveredMap[key] || 0;
+          totalDelivered += prevDelivered;
+
+          const newQty = (newShipmentItems.find((np: any, nIdx: number) => (np.id || np.productId || np.productName || String(nIdx)) === key)?.quantity) || 0;
+          const remaining = Math.max(0, cQty - prevDelivered);
+          if (newQty > remaining) {
+            hasOverDelivered = true;
+            overItemName = `${cp.productName || key} (còn lại: ${remaining}, yêu cầu: ${newQty})`;
+            break;
+          }
+        }
+
+        if (totalDelivered >= totalContracted && totalContracted > 0) {
+          return res.status(422).json({ error: "Chứng từ thanh toán này đã được giao đủ 100% số lượng sản phẩm, không thể tạo thêm phiếu giao hàng." });
+        }
+
+        if (hasOverDelivered) {
+          return res.status(422).json({ error: `Giao vượt số lượng cho phép: ${overItemName}` });
+        }
+      }
       
       const newRef = data.id ? adminDb.collection('deliveries').doc(data.id) : adminDb.collection('deliveries').doc();
       const batch = adminDb.batch();

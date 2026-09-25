@@ -82,12 +82,18 @@ export function canCreateDelivery(
 
   if (!payment) return { allowed: false, reason: "Không tìm thấy thanh toán." };
 
-  if (!ZnsStatusVO.isSuccess(payment.trangThaiGuiTinThanhToan)) {
-    const failReason = "Phải gửi ZNS Thanh toán THÀNH CÔNG trước khi tạo Giao hàng.";
-    if (config?.deliveryCreationGate === 'WARN') {
-      return { allowed: true, warning: failReason };
+  // Quy tắc nghiệp vụ bắt buộc: Không cho phép giao hàng nếu Chưa TT
+  const pStatus = ((payment as any).tinhTrangThanhToan || '').toLowerCase().trim();
+  if (pStatus === 'chưa tt' || pStatus === 'chua tt' || pStatus === 'chưa thanh toán') {
+    return { allowed: false, reason: "Không được phép tạo phiếu giao hàng khi tình trạng thanh toán là 'Chưa TT'." };
+  }
+
+  if (config?.deliveryCreationGate === 'BLOCK') {
+    if (!ZnsStatusVO.isSuccess(payment.trangThaiGuiTinThanhToan)) {
+      return { allowed: false, reason: "Phải gửi ZNS Thanh toán THÀNH CÔNG trước khi tạo Giao hàng." };
     }
-    return { allowed: false, reason: failReason };
+  } else if (!ZnsStatusVO.isSuccess(payment.trangThaiGuiTinThanhToan)) {
+    return { allowed: true, warning: "Thanh toán này chưa gửi tin ZNS thành công." };
   }
 
   return { allowed: true };

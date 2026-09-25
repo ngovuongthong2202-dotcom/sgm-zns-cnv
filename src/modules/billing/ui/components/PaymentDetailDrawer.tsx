@@ -1,5 +1,6 @@
 /* eslint-disable max-lines */
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useSWR from 'swr';
 import { swrColFetcher, swrDocFetcher } from '@/src/data/swr-fetchers';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
@@ -224,7 +225,19 @@ export function PaymentDetailDrawer({
   );
 
   // 3. GIAO HÀNG TRONG HỢP ĐỒNG LIÊN KẾT (TT-GH constraints)
-  const deliveriesPanel = <TabLichSuGiaoHang matchingDeliveries={deliveries} showCreateButton={false} />;
+  const navigate = useNavigate();
+  const pStatus = (payment.tinhTrangThanhToan || '').toLowerCase().trim();
+  const isChuaTT = pStatus === 'chưa tt' || pStatus === 'chua tt' || pStatus === 'chưa thanh toán';
+  const deliveriesPanel = (
+    <TabLichSuGiaoHang 
+      matchingDeliveries={deliveries} 
+      showCreateButton={!isChuaTT} 
+      onNavigateNew={() => {
+        onClose();
+        navigate('/deliveries', { state: { createFromPayment: payment } });
+      }} 
+    />
+  );
 
   return (
     <DetailDrawer

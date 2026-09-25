@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Delivery, DeliverySchema } from '@/src/domain/schema/delivery.schema';
@@ -7,6 +7,7 @@ import { useDraft } from '@/src/hooks/useDraft';
 import { getProductItemKey } from '@/src/shared/utils/product-key';
 import { useAuth } from '@/src/modules/iam';
 import { formatUserOfficer } from '@/src/shared/utils/userProfile';
+import { notify } from '@/src/shared/utils/notify';
 
 export function useDeliveryForm(
   delivery: any,
@@ -15,6 +16,7 @@ export function useDeliveryForm(
   quotations: any[]
 ) {
   const [isLockedByOther, setIsLockedByOther] = useState(false);
+  const [isLookingUpExportSale, setIsLookingUpExportSale] = useState(false);
   const { user, userData } = useAuth();
   const defaultOfficer = formatUserOfficer(userData, user);
   const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Delivery>('deliveries', delivery?.id || 'new');
@@ -33,7 +35,12 @@ export function useDeliveryForm(
       giaTriHopDong: 1,
       tinhTrangThanhToan: 'CHƯA THANH TOÁN',
       products: [],
-      nguoiPhuTrach: defaultOfficer
+      nguoiPhuTrach: defaultOfficer,
+      keToanKho: '',
+      khoXuat: '',
+      ngayTaoPhieuXuat: '',
+      ghiChuNoiBo: '',
+      soPhieuXuat: ''
     })
   });
 
@@ -53,7 +60,11 @@ export function useDeliveryForm(
         donViVanChuyen: delivery.donViVanChuyen || '',
         soPhieuXuat: delivery.soPhieuXuat || '',
         slMay: delivery.slMay || 0,
-        nguoiPhuTrach: defaultOfficer
+        nguoiPhuTrach: defaultOfficer,
+        keToanKho: delivery.keToanKho || '',
+        khoXuat: delivery.khoXuat || '',
+        ngayTaoPhieuXuat: delivery.ngayTaoPhieuXuat || '',
+        ghiChuNoiBo: delivery.ghiChuNoiBo || delivery.ghiChu || ''
       });
     }
   }, [delivery, reset, defaultOfficer]);
@@ -104,63 +115,165 @@ export function useDeliveryForm(
   const deliveryProducts = watch('products') || [];
   const [maxQuantities, setMaxQuantities] = useState<Record<string, number>>({});
 
+  const populateFromPayment = useCallback((p: any) => {
+    if (!p) return;
+    const source = p.contractId
+      ? contracts?.find((c: any) => c.id === p.contractId || c.soHopDong === p.soHopDong)
+      : quotations?.find((q: any) => q.id === p.quotationId || q.soPhieuBaoGia === p.soPhieuBaoGia);
+
+    setValue('paymentId', p.id || p.paymentId || '', { shouldValidate: true });
+    setValue('customerId', p.customerId || source?.customerId || '');
+    setValue('maKh', p.maKh || source?.maKh || '');
+    setValue('tenKhachHang', p.tenKhachHang || source?.tenKhachHang || '');
+    setValue('sdt', p.sdt || source?.sdt || '');
+    setValue('nguoiDaiDien', source?.nguoiDaiDien || p.nguoiDaiDien || '');
+    setValue('contractId', p.contractId || '');
+    setValue('quotationId', p.quotationId || '');
+    setValue('soDonHang', p.soDonHang || '');
+    setValue('loai', p.loai || source?.loai || '');
+    setValue('dvt', p.dvt || source?.dvt || 'Máy');
+    setValue('slMay', Number(p.slMay || source?.slMay) || 1);
+    setValue('giaTriHopDong', Number(p.giaTriHopDong || p.totalAmount || source?.totalAmount) || 1);
+    setValue('soHopDong', p.soHopDong || source?.soHopDong || '');
+    setValue('ngayKy', p.ngayKy || source?.ngayKy || '');
+    setValue('tinhTrangThanhToan', p.tinhTrangThanhToan || '');
+    setValue('nguoiPhuTrach', defaultOfficer);
+
+    const productSource = (source && Array.isArray(source.products) && source.products.length > 0)
+      ? source 
+      : (Array.isArray(p.products) && p.products.length > 0 ? p : null);
+
+    if (productSource && productSource.products) {
+      setValue('subTotal', productSource.subTotal);
+      setValue('vatRate', productSource.vatRate);
+      setValue('vatAmount', productSource.vatAmount);
+      setValue('discountRate', productSource.discountRate);
+      setValue('discountAmount', productSource.discountAmount);
+      setValue('totalAmount', productSource.totalAmount);
+
+      const currentDelivered = productSource.deliveredQuantities || {};
+      const limits: Record<string, number> = {};
+      
+      const remainingProducts = productSource.products.map((cp: any, index: number) => {
+        const itemKey = getProductItemKey(cp, index);
+        const delivered = Number(currentDelivered[itemKey] || 0);
+        const remaining = Math.max(0, Number(cp.quantity || 0) - delivered);
+        limits[itemKey] = remaining;
+        
+        return {
+          ...cp,
+          id: itemKey,
+          quantity: remaining
+        };
+      }).filter((cp: any) => limits[cp.id] > 0);
+
+      setValue('products', remainingProducts.length > 0 ? remainingProducts : productSource.products.map((cp: any, idx: number) => ({ ...cp, id: getProductItemKey(cp, idx), quantity: Number(cp.quantity || 0) })));
+      setMaxQuantities(limits);
+    }
+  }, [contracts, quotations, setValue, defaultOfficer]);
+
   useEffect(() => {
-    if (selectedPaymentId && !delivery && !draft?.paymentId) {
-      const p = payments?.find((x: any) => x.id === selectedPaymentId);
+    if (selectedPaymentId && !delivery?.id) {
+      const p = payments?.find((x: any) => x.id === selectedPaymentId || x.paymentId === selectedPaymentId);
       if (p) {
-        const source = p.contractId
-          ? contracts?.find((c: any) => c.id === p.contractId)
-          : quotations?.find((q: any) => q.id === p.quotationId);
-
-        setValue('customerId', p.customerId || '');
-        setValue('maKh', p.maKh || '');
-        setValue('tenKhachHang', p.tenKhachHang || '');
-        setValue('sdt', p.sdt || source?.sdt || '');
-        setValue('nguoiDaiDien', source?.nguoiDaiDien || p.nguoiDaiDien || '');
-        setValue('contractId', p.contractId || '');
-        setValue('quotationId', p.quotationId || '');
-        setValue('soDonHang', p.soDonHang || '');
-        setValue('loai', p.loai || '');
-        setValue('dvt', p.dvt || 'Máy');
-        setValue('slMay', Number(p.slMay) || 1);
-        setValue('giaTriHopDong', Number(p.giaTriHopDong || p.totalAmount) || 1);
-        setValue('soHopDong', p.soHopDong || '');
-        setValue('ngayKy', p.ngayKy || '');
-        setValue('tinhTrangThanhToan', p.tinhTrangThanhToan || '');
-        setValue('nguoiPhuTrach', defaultOfficer);
-
-        if (source && source.products) {
-          setValue('subTotal', source.subTotal);
-          setValue('vatRate', source.vatRate);
-          setValue('vatAmount', source.vatAmount);
-          setValue('discountRate', source.discountRate);
-          setValue('discountAmount', source.discountAmount);
-          setValue('totalAmount', source.totalAmount);
-
-          const currentDelivered = source.deliveredQuantities || {};
-          const limits: Record<string, number> = {};
-          
-          const remainingProducts = source.products.map((cp: any, index: number) => {
-            const itemKey = getProductItemKey(cp, index);
-            const delivered = currentDelivered[itemKey] || 0;
-            const remaining = cp.quantity - delivered;
-            limits[itemKey] = remaining;
-            
-            return {
-              ...cp,
-              id: itemKey,
-              quantity: remaining
-            };
-          }).filter((cp: any) => limits[cp.id] > 0);
-
-          setValue('products', remainingProducts);
-          setMaxQuantities(limits);
-        } else if (p.products) {
-           setValue('products', p.products.map((cp: any, index: number) => ({ ...cp, id: getProductItemKey(cp, index), quantity: cp.quantity })));
-        }
+        populateFromPayment(p);
+      } else {
+        fetch(`/api/search/payments?q=${encodeURIComponent(selectedPaymentId)}&limit=1`)
+          .then(res => res.json())
+          .then(resData => {
+            const found = resData?.data?.[0];
+            if (found && (found.id === selectedPaymentId || found.paymentId === selectedPaymentId)) {
+              populateFromPayment(found);
+            }
+          })
+          .catch(() => {});
       }
     }
-  }, [selectedPaymentId, payments, delivery, draft, setValue, contracts, quotations]);
+  }, [selectedPaymentId, delivery?.id, payments, populateFromPayment]);
+
+  const lookupExportSale = useCallback(async (batchCodeToLookup?: string) => {
+    const code = (batchCodeToLookup || getValues('soPhieuXuat') || '').trim();
+    if (!code) {
+      notify.warning('Vui lòng nhập số phiếu xuất kho cần tra cứu');
+      return;
+    }
+
+    try {
+      setIsLookingUpExportSale(true);
+      // 1. Gọi backend lookup endpoint
+      let res = await fetch(`/api/items/export-sale/lookup?batch_code=${encodeURIComponent(code)}`);
+      let json: any = null;
+      if (res.ok) {
+        json = await res.json();
+      }
+
+      // 2. Dự phòng gọi trực tiếp ERP nếu backend không phản hồi
+      if (!json?.success || !json?.data) {
+        const year = new Date().getFullYear();
+        const listResp = await fetch(`https://sgm.vnaisoft.com/api/public/export-sale?from_date=01-01-${year}&to_date=31-12-${year}`);
+        if (listResp.ok) {
+          const listJson = await listResp.json();
+          const list = Array.isArray(listJson) ? listJson : (listJson.data || []);
+          const normTarget = code.toLowerCase().replace(/[\s\-_]/g, '');
+          const item = list.find((it: any) => {
+            const b = String(it.batch_code || it.code || '').toLowerCase().replace(/[\s\-_]/g, '');
+            return b === normTarget || (it.batch_code && String(it.batch_code).toLowerCase().includes(code.toLowerCase()));
+          });
+          if (item?._id) {
+            const detailResp = await fetch(`https://sgm.vnaisoft.com/api/public/export-sale/${item._id}`);
+            if (detailResp.ok) {
+              const detailJson = await detailResp.json();
+              const d = detailJson.data || detailJson;
+              json = {
+                success: true,
+                data: {
+                  batch_code: d.batch_code || item.batch_code || code,
+                  note: d.note || '',
+                  created_at: d.created_at || d.event_date || '',
+                  by_name: d.created_by_name || d.by_name || d.approved_by_name || d.created_by || '',
+                  warehouse_name: d.warehouse_name || '',
+                  transport_company: d.transport_company || '',
+                  vehicle_phone: d.vehicle_phone || ''
+                }
+              };
+            }
+          }
+        }
+      }
+
+      if (json?.success && json?.data) {
+        const { note, created_at, by_name, warehouse_name, transport_company, vehicle_phone } = json.data;
+        if (note) {
+          setValue('ghiChu', note, { shouldDirty: true });
+          setValue('ghiChuNoiBo', note, { shouldDirty: true });
+        }
+        if (created_at) {
+          const dateStr = created_at.includes('T') ? created_at.split('T')[0] : created_at;
+          setValue('ngayTaoPhieuXuat', dateStr, { shouldDirty: true });
+        }
+        if (by_name) {
+          setValue('keToanKho', by_name, { shouldDirty: true });
+        }
+        if (warehouse_name) {
+          setValue('khoXuat', warehouse_name, { shouldDirty: true });
+        }
+        if (transport_company && !getValues('donViVanChuyen')) {
+          setValue('donViVanChuyen', transport_company, { shouldDirty: true });
+        }
+        if (vehicle_phone && !getValues('soDienThoaiDonViVanChuyen')) {
+          setValue('soDienThoaiDonViVanChuyen', vehicle_phone, { shouldDirty: true });
+        }
+        notify.success(`Đã tự động lấy dữ liệu phiếu xuất ${json.data.batch_code || code} từ ERP`);
+      } else {
+        notify.warning(`Không tìm thấy thông tin phiếu xuất kho cho mã: ${code}`);
+      }
+    } catch (err: any) {
+      console.error('Error looking up export sale:', err);
+      notify.error('Lỗi khi tra cứu thông tin phiếu xuất bán hàng');
+    } finally {
+      setIsLookingUpExportSale(false);
+    }
+  }, [getValues, setValue]);
 
   useEffect(() => {
     let source: any = null;
@@ -241,5 +354,9 @@ export function useDeliveryForm(
     maxQuantities,
     deliveryProducts,
     selectedPaymentId,
+    populateFromPayment,
+    lookupExportSale,
+    isLookingUpExportSale,
+    getValues,
   };
 }

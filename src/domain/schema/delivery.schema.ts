@@ -34,6 +34,10 @@ export const DeliverySchema = z.object({
   // Delivery specific (Manual Preserve)
   ngayLapPgh: z.string().optional(),
   soPhieuXuat: z.string().optional(),
+  keToanKho: z.string().optional(),
+  khoXuat: z.string().optional(),
+  ngayTaoPhieuXuat: z.string().optional(),
+  ghiChuNoiBo: z.string().optional(),
   donViVanChuyen: z.string().optional(),
   ngayGiaoMay: z.string().optional(),
   ngayGiaoThucTe: z.string().optional(),
