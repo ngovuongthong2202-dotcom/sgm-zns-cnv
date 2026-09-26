@@ -76,11 +76,27 @@ export function useProductListInput({
   }, [bulkDiscAmount, products, onChange]);
 
   const addProduct = useCallback(() => {
-    onChange([...products, { id: crypto.randomUUID(), productId: '', productName: '', quantity: 1, unit: defaultUnit }]);
+    const defaultVat = products.length > 0 && products[0].vatPct !== undefined ? products[0].vatPct : 8;
+    const newItem = computeLineItem({
+      id: crypto.randomUUID(),
+      productId: '',
+      productName: '',
+      quantity: 1,
+      unit: defaultUnit,
+      vatPct: defaultVat,
+      price: 0
+    });
+    onChange([...products, newItem]);
   }, [products, onChange, defaultUnit]);
 
   const addFromCatalog = useCallback((p: ProductItem) => {
-    onChange([...products, p]);
+    const defaultVat = p.vatPct !== undefined ? p.vatPct : (products.length > 0 && products[0].vatPct !== undefined ? products[0].vatPct : 8);
+    const newItem = computeLineItem({
+      ...p,
+      vatPct: defaultVat,
+      id: p.id || crypto.randomUUID()
+    });
+    onChange([...products, newItem]);
   }, [products, onChange]);
 
   const removeProduct = useCallback((index: number) => {

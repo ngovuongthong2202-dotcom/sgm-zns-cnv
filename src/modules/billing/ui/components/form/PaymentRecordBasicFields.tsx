@@ -8,6 +8,7 @@ import { canCreatePayment } from '@/src/domain/policy/gate.policy';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { ContractHoverCard } from '@/src/modules/contracts/ui/components/ContractHoverCard';
 import { QuotationHoverCard } from '@/src/modules/sales/ui/components/QuotationHoverCard';
+import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
 
 interface PaymentRecordBasicFieldsProps {
   register: any;
@@ -266,22 +267,31 @@ export function PaymentRecordBasicFields({
                         }
 
                         // Compute total quantity and unit
-                        const totalQty = (doc.products && Array.isArray(doc.products) && doc.products.length > 0)
-                          ? doc.products.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)
-                          : (doc.slMay || 1);
-                        const firstUnit = (doc.products && doc.products[0]?.unit) || doc.dvt || 'Cái';
+                        const healedProducts = (doc.products && Array.isArray(doc.products)) ? doc.products.map(computeLineItem) : [];
+                        const aggs = aggregateProducts(healedProducts);
+                        const resolvedSubTotal = aggs.totalGross > 0 ? aggs.totalGross : (Number(doc.subTotal) || 0);
+                        const resolvedDiscount = aggs.totalDiscount > 0 ? aggs.totalDiscount : (Number(doc.discountAmount) || 0);
+                        const resolvedVat = aggs.totalVat > 0 ? aggs.totalVat : (Number(doc.vatAmount) || 0);
+                        const resolvedTotal = aggs.totalAfterTax > 0 ? aggs.totalAfterTax : (Number(doc.totalAmount) || Number(doc.giaTriHopDong) || resolvedSubTotal);
+                        const resolvedVatRate = aggs.totalBeforeTax > 0 ? Math.round((resolvedVat / aggs.totalBeforeTax) * 100) : (Number(doc.vatRate) || 0);
+                        const resolvedDiscountRate = resolvedSubTotal > 0 ? Number(((resolvedDiscount / resolvedSubTotal) * 100).toFixed(2)) : (Number(doc.discountRate) || 0);
+
+                        const totalQty = (healedProducts.length > 0)
+                          ? healedProducts.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)
+                          : (Number(doc.slMay) || 1);
+                        const firstUnit = (healedProducts.length > 0 && healedProducts[0]?.unit) || doc.dvt || 'Cái';
                         setValue('slMay', totalQty, { shouldDirty: true });
                         setValue('soLuong', totalQty, { shouldDirty: true });
                         setValue('dvt', firstUnit, { shouldDirty: true });
 
-                        setValue('subTotal', doc.subTotal || 0, { shouldDirty: true });
-                        setValue('vatRate', doc.vatRate || 0, { shouldDirty: true });
-                        setValue('vatAmount', doc.vatAmount || 0, { shouldDirty: true });
-                        setValue('discountRate', doc.discountRate || 0, { shouldDirty: true });
-                        setValue('discountAmount', doc.discountAmount || 0, { shouldDirty: true });
-                        setValue('totalAmount', doc.totalAmount || 0, { shouldDirty: true });
-                        setValue('soTien', doc.totalAmount || doc.subTotal || 0, { shouldValidate: true, shouldDirty: true });
-                        setValue('products', doc.products || [], { shouldDirty: true });
+                        setValue('subTotal', resolvedSubTotal, { shouldDirty: true });
+                        setValue('vatRate', resolvedVatRate, { shouldDirty: true });
+                        setValue('vatAmount', resolvedVat, { shouldDirty: true });
+                        setValue('discountRate', resolvedDiscountRate, { shouldDirty: true });
+                        setValue('discountAmount', resolvedDiscount, { shouldDirty: true });
+                        setValue('totalAmount', resolvedTotal, { shouldDirty: true });
+                        setValue('soTien', resolvedTotal, { shouldValidate: true, shouldDirty: true });
+                        setValue('products', healedProducts, { shouldDirty: true });
                       } else {
                         setValue('sourceValue', val, { shouldValidate: true });
                       }

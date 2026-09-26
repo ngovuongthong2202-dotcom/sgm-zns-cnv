@@ -2,10 +2,8 @@ import React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/src/design-system/Button';
 import { 
-  calculateSubTotal, 
-  calculateDiscountAmount, 
-  calculateVatAmount, 
-  calculateTotalAmount, 
+  computeLineItem,
+  aggregateProducts, 
   formatVietnameseCurrency 
 } from '@/src/domain/pricing/quotation-pricing';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
@@ -21,22 +19,23 @@ interface Props {
 export function QuotationRevisionCompareModal({ isOpen, onClose, quotation, revision }: Props) {
   if (!revision) return null;
 
-  const currentProducts = quotation.products || [];
-  const revProducts = revision.products || [];
+  const currentProducts = (quotation.products || []).map(computeLineItem);
+  const currentAggs = aggregateProducts(currentProducts);
+  const currentSubTotal = currentAggs.totalGross;
+  const currentDiscountAmount = currentAggs.totalDiscount;
+  const currentVatAmount = currentAggs.totalVat;
+  const currentTotal = currentAggs.totalAfterTax;
+  const currentDiscountRate = currentSubTotal > 0 ? Number(((currentDiscountAmount / currentSubTotal) * 100).toFixed(2)) : 0;
+  const currentVatRate = currentAggs.totalBeforeTax > 0 ? Math.round((currentVatAmount / currentAggs.totalBeforeTax) * 100) : 0;
 
-  const currentSubTotal = calculateSubTotal(currentProducts);
-  const currentDiscountRate = Number(quotation.discountRate) || 0;
-  const currentDiscountAmount = calculateDiscountAmount(currentSubTotal, currentDiscountRate);
-  const currentVatRate = Number(quotation.vatRate) || 0;
-  const currentVatAmount = calculateVatAmount(currentSubTotal, currentDiscountAmount, currentVatRate);
-  const currentTotal = calculateTotalAmount(currentSubTotal, currentVatAmount, currentDiscountAmount);
-
-  const revSubTotal = calculateSubTotal(revProducts);
-  const revDiscountRate = Number(revision.discountRate) || 0;
-  const revDiscountAmount = calculateDiscountAmount(revSubTotal, revDiscountRate);
-  const revVatRate = Number(revision.vatRate) || 0;
-  const revVatAmount = calculateVatAmount(revSubTotal, revDiscountAmount, revVatRate);
-  const revTotal = calculateTotalAmount(revSubTotal, revVatAmount, revDiscountAmount);
+  const revProducts = (revision.products || []).map(computeLineItem);
+  const revAggs = aggregateProducts(revProducts);
+  const revSubTotal = revAggs.totalGross;
+  const revDiscountAmount = revAggs.totalDiscount;
+  const revVatAmount = revAggs.totalVat;
+  const revTotal = revAggs.totalAfterTax;
+  const revDiscountRate = revSubTotal > 0 ? Number(((revDiscountAmount / revSubTotal) * 100).toFixed(2)) : 0;
+  const revVatRate = revAggs.totalBeforeTax > 0 ? Math.round((revVatAmount / revAggs.totalBeforeTax) * 100) : 0;
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>

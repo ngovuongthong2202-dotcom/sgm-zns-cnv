@@ -34,4 +34,50 @@ describe('QuotationFormHelpers', () => {
     expect(result.tinhTrangBaoGia).toBe('MỚI');
     expect((result as any).hiddenFieldTest).toBe('preserved');
   });
+
+  it('should auto-heal financial calculations and VAT from products', () => {
+    const rawData: any = {
+      soPhieuBaoGia: 'BG-001',
+      products: [
+        {
+          productId: 'M-1',
+          productName: 'Máy 1',
+          quantity: 1,
+          price: 1010000000,
+          vatPct: 8,
+          subtotalBeforeTax: 0, // stale 0
+          taxAmount: 0,         // stale 0
+          subtotalAfterTax: 0   // stale 0
+        },
+        {
+          productId: 'M-2',
+          productName: 'Máy 2',
+          quantity: 1,
+          price: 1040000000,
+          vatPct: 8
+        },
+        {
+          productId: 'M-3',
+          productName: 'Máy 3',
+          quantity: 1,
+          price: 1110000000,
+          vatPct: 8
+        }
+      ]
+    };
+
+    const result = normalizeQuotationFormValues(rawData);
+
+    // Long Phat Scenario
+    expect(result.subTotal).toBe(3160000000);
+    expect(result.vatAmount).toBe(252800000);
+    expect(result.totalAmount).toBe(3412800000);
+    expect(result.vatRate).toBe(8);
+    expect(result.slMay).toBe(3);
+
+    // Row-level healed assertions
+    expect(result.products![0].subtotalBeforeTax).toBe(1010000000);
+    expect(result.products![0].taxAmount).toBe(80800000);
+    expect(result.products![0].subtotalAfterTax).toBe(1090800000);
+  });
 });

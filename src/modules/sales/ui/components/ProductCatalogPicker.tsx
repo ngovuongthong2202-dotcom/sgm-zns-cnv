@@ -100,6 +100,7 @@ export function ProductCatalogPicker({ onSelect }: ProductCatalogPickerProps) {
       unit: p.display_unit || 'Cái',
       quantity: 1,
       price: 0,
+      vatPct: 8,
       total: 0
     });
     setIsOpen(false);

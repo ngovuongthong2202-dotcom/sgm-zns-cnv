@@ -11,7 +11,7 @@ import { checkA5Policy } from '@/src/modules/iam';
 import { useErpLookup } from './useErpLookup';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { EntityZnsStatus } from '@/src/domain/enums/zns-status';
-import { aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
+import { aggregateProducts, computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 import { formatUserOfficer } from '@/src/shared/utils/userProfile';
 
 interface UseQuotationFormProps {
@@ -69,16 +69,23 @@ export function useQuotationForm({
     }
   }, [defaultOfficer, setValue, getValues]);
 
+  // Auto-Healing: Khử sạch stale zero lock khi nạp dữ liệu từ Firestore hoặc draft
   useEffect(() => {
     if (quotation) {
+      const healedProducts = (quotation.products || []).map(p => computeLineItem(p));
+      const healedAggs = aggregateProducts(healedProducts);
       reset({
         ...quotation,
-        products: quotation.products || [],
+        products: healedProducts,
         noiDungGhiChu: quotation.noiDungGhiChu || '',
         hieuLuc: quotation.hieuLuc ?? 7,
         ngayBaoGia: quotation.ngayBaoGia || new Date().toISOString().split('T')[0],
         nguoiPhuTrach: defaultOfficer,
-        loai: quotation.loai || QUOTATION_LOAI.MAY
+        loai: quotation.loai || QUOTATION_LOAI.MAY,
+        subTotal: healedAggs.totalGross,
+        vatAmount: healedAggs.totalVat,
+        discountAmount: healedAggs.totalDiscount,
+        totalAmount: healedAggs.totalAfterTax
       });
     }
   }, [quotation, reset, defaultOfficer]);

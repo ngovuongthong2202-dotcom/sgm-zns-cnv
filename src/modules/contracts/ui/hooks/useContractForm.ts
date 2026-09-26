@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useDraft } from '@/src/hooks/useDraft';
 import { Contract } from '@/src/domain/schema/contract.schema';
-import { aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
+import { aggregateProducts, computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 import {
   FormSchema,
   FormValues,
@@ -112,7 +112,7 @@ export function useContractForm(
     }
   }, [products, setValue, getValues]);
 
-  const aggs = useMemo(() => aggregateProducts(products), [products]);
+  const aggs = useMemo(() => aggregateProducts((products || []).map(computeLineItem)), [products]);
   const { totalGross: subTotal, totalDiscount: discountAmount, totalVat: vatAmount, totalAfterTax: totalAmount, totalBeforeTax } = aggs;
 
   useEffect(() => {

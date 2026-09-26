@@ -4,6 +4,7 @@ import { Button } from '@/src/design-system';
 import { ProductItem } from '@/src/domain/schema/product.schema';
 import { ProductBaoHanhFields } from './ProductBaoHanhFields';
 import { FinancialEngine } from '@/src/shared/utils/financialEngine';
+import { computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 
 interface ProductFinanceCardProps {
   key?: React.Key;
@@ -31,6 +32,10 @@ export function ProductFinanceCard({
   onUpdate,
   onRemove
 }: ProductFinanceCardProps) {
+  // Proactive Reactive Projection: Đảm bảo hiển thị tức thì, không bị kẹt số 0
+  const computed = React.useMemo(() => computeLineItem(p), [p]);
+  const isPromo = computed.price === 0 && Boolean(computed.productName || computed.productId);
+
   return (
     <div className="group relative bg-white border border-slate-200 rounded-xl mb-3 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] overflow-hidden lg:hidden">
       {!readOnly && !hideAddRemove && !disabled && (
@@ -58,13 +63,20 @@ export function ProductFinanceCard({
             readOnly={(readOnly && !allowEditProductId) || disabled}
             className="w-1/3 text-xs font-mono font-bold text-blue-600 bg-white border border-slate-200 rounded p-1.5 outline-none focus:border-blue-400"
           />
-          <input type="text"
-            placeholder="Tên sản phẩm"
-            value={p.productName}
-            onChange={(e) => onUpdate(idx, 'productName', e.target.value)}
-            readOnly={readOnly || disabled}
-            className="w-2/3 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded p-1.5 outline-none focus:border-blue-400"
-          />
+          <div className="w-2/3 flex items-center gap-1.5">
+            <input type="text"
+              placeholder="Tên sản phẩm"
+              value={p.productName}
+              onChange={(e) => onUpdate(idx, 'productName', e.target.value)}
+              readOnly={readOnly || disabled}
+              className="w-full text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded p-1.5 outline-none focus:border-blue-400"
+            />
+            {isPromo && (
+              <span className="shrink-0 px-1 py-0.5 bg-emerald-50 text-emerald-700 text-3xs font-bold rounded border border-emerald-200 uppercase tracking-wider">
+                Tặng
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex gap-2 mt-2">
           <input type="number"
@@ -83,7 +95,7 @@ export function ProductFinanceCard({
           />
           <input type="text"
             placeholder="Đơn giá"
-            value={p.price ? FinancialEngine.formatVND(p.price) : ''}
+            value={p.price ? FinancialEngine.formatVND(p.price) : (p.price === 0 ? '0' : '')}
             onChange={(e) => {
               const newPrice = FinancialEngine.toInteger(e.target.value);
               onUpdate(idx, 'price', newPrice);
@@ -94,7 +106,7 @@ export function ProductFinanceCard({
         </div>
         <div className="mt-2 text-2xs font-mono font-semibold text-slate-500 flex justify-between bg-white p-1.5 rounded border border-slate-100">
            <span>TRƯỚC THUẾ:</span>
-           <span className="text-slate-800">{p.subtotalBeforeTax ? FinancialEngine.formatVND(p.subtotalBeforeTax) : '0'}</span>
+           <span className="text-slate-800">{FinancialEngine.formatVND(computed.subtotalBeforeTax)} ₫</span>
         </div>
       </div>
 
@@ -137,7 +149,7 @@ export function ProductFinanceCard({
                 />
                </div>
                <div className="text-2xs font-mono font-medium text-right text-slate-500 mt-0.5">
-                 + {p.taxAmount ? new Intl.NumberFormat('vi-VN').format(p.taxAmount) : '0'} đ
+                 +{new Intl.NumberFormat('vi-VN').format(computed.taxAmount || 0)} đ
                </div>
             </div>
          </div>
@@ -147,7 +159,7 @@ export function ProductFinanceCard({
         <div className="bg-blue-50 border border-blue-100 rounded-lg p-2.5 flex justify-between items-center shadow-sm">
            <span className="text-2xs font-bold text-blue-800 uppercase tracking-tight">Thu (Sau Thuế)</span>
            <span className="text-sm font-black text-blue-700">
-             {p.subtotalAfterTax ? new Intl.NumberFormat('vi-VN').format(p.subtotalAfterTax) : '0'} ₫
+             {new Intl.NumberFormat('vi-VN').format(computed.subtotalAfterTax || 0)} ₫
            </span>
         </div>
         {maxQ !== undefined && (

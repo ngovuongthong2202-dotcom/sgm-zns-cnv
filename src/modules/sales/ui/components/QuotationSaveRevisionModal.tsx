@@ -3,10 +3,8 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/src/design-system/Button';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { 
-  calculateSubTotal, 
-  calculateDiscountAmount, 
-  calculateVatAmount, 
-  calculateTotalAmount, 
+  computeLineItem,
+  aggregateProducts, 
   formatVietnameseCurrency 
 } from '@/src/domain/pricing/quotation-pricing';
 import { X, Save } from 'lucide-react';
@@ -35,14 +33,14 @@ export function QuotationSaveRevisionModal({ isOpen, onClose, quotation, onSave 
     }
   };
 
-  const products = quotation.products || [];
-
-  const subTotal = calculateSubTotal(products);
-  const discountRate = Number(quotation.discountRate) || 0;
-  const discountAmount = calculateDiscountAmount(subTotal, discountRate);
-  const vatRate = Number(quotation.vatRate) || 0;
-  const vatAmount = calculateVatAmount(subTotal, discountAmount, vatRate);
-  const total = calculateTotalAmount(subTotal, vatAmount, discountAmount);
+  const products = (quotation.products || []).map(computeLineItem);
+  const aggs = aggregateProducts(products);
+  const subTotal = aggs.totalGross;
+  const discountAmount = aggs.totalDiscount;
+  const vatAmount = aggs.totalVat;
+  const total = aggs.totalAfterTax;
+  const discountRate = subTotal > 0 ? Number(((discountAmount / subTotal) * 100).toFixed(2)) : 0;
+  const vatRate = aggs.totalBeforeTax > 0 ? Math.round((vatAmount / aggs.totalBeforeTax) * 100) : 0;
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ProductItem } from '@/src/domain/schema/product.schema';
-import { aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
+import { aggregateProducts, computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 
 interface DeliveryQuantities {
   [key: string]: number;
@@ -29,17 +29,18 @@ export function DrawerProductList({
   accentColorClass = 'text-blue-700',
   hideTotals = false
 }: Props) {
-  const aggs = aggregateProducts(products || []);
+  const healedProducts = React.useMemo(() => (products || []).map(computeLineItem), [products]);
+  const aggs = React.useMemo(() => aggregateProducts(healedProducts), [healedProducts]);
   const calculatedSubTotal = aggs.totalGross || 0;
   const calculatedDiscount = aggs.totalDiscount || 0;
   const calculatedVat = aggs.totalVat || 0;
   const calculatedTotal = aggs.totalAfterTax || 0;
   
-  const totalQuantity = products?.reduce((acc, p) => acc + (p.quantity || 0), 0) || 0;
-  const totalProducts = products?.length || 0;
+  const totalQuantity = healedProducts.reduce((acc, p) => acc + (p.quantity || 0), 0);
+  const totalProducts = healedProducts.length;
 
   // Validate deliveries
-  const isOverDelivered = deliveredQuantities && products?.some((p, index) => {
+  const isOverDelivered = deliveredQuantities && healedProducts.some((p, index) => {
     const itemKey = getProductItemKey(p, index);
     const deliveredQ = deliveredQuantities[itemKey] || 0;
     return deliveredQ > p.quantity;
@@ -54,10 +55,10 @@ export function DrawerProductList({
         </div>
       )}
 
-      {products && products.length > 0 ? (
+      {healedProducts.length > 0 ? (
         <div className="flex flex-col gap-3">
-          {products.map((p, idx) => {
-            const itemTotal = (p as any).subtotalAfterTax ?? ((p.price || 0) * (p.quantity || 1));
+          {healedProducts.map((p, idx) => {
+            const itemTotal = p.subtotalAfterTax;
             const itemKey = getProductItemKey(p, idx);
             const deliveredQ = deliveredQuantities ? (deliveredQuantities[itemKey] || 0) : 0;
             const isFullyDelivered = deliveredQ >= (p.quantity || 1);
@@ -91,12 +92,12 @@ export function DrawerProductList({
                 </span>
               </>
             ) : null}
-            {((p as any).vatRate || p.vatPct) ? (
+            {p.vatPct ? (
               <>
                 <span className="text-slate-300">•</span>
                 <span className="text-sky-600 font-medium bg-sky-50 px-1.5 py-0.5 rounded border border-sky-100">
-                  VAT: {(p as any).vatRate || p.vatPct}%
-                  {(p as any).vatAmount ? ` (+${new Intl.NumberFormat('vi-VN').format((p as any).vatAmount)} ₫)` : ''}
+                  VAT: {p.vatPct}%
+                  {p.taxAmount ? ` (+${new Intl.NumberFormat('vi-VN').format(p.taxAmount)} ₫)` : ''}
                 </span>
               </>
             ) : null}
@@ -131,7 +132,7 @@ export function DrawerProductList({
                 <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t sm:border-t-0 sm:border-l border-slate-100 pt-3 sm:pt-0 sm:pl-4 mt-1 sm:mt-0">
                   <span className="text-2xs font-semibold uppercase tracking-wider text-slate-400 block sm:mb-1">Cộng</span>
                   <span className="font-mono font-black text-slate-800 text-base whitespace-nowrap">
-                    {new Intl.NumberFormat('vi-VN').format(itemTotal)} ₫
+                    {new Intl.NumberFormat('vi-VN').format(itemTotal ?? 0)} ₫
                   </span>
                 </div>
               </div>

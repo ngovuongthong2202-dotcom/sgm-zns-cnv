@@ -4,6 +4,7 @@ import { Button } from '@/src/design-system';
 import { ProductItem } from '@/src/domain/schema/product.schema';
 import { ProductBaoHanhFields } from './ProductBaoHanhFields';
 import { FinancialEngine } from '@/src/shared/utils/financialEngine';
+import { computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 
 interface ProductFinanceRowProps {
   key?: React.Key;
@@ -29,6 +30,10 @@ export function ProductFinanceRow({
   onUpdate,
   onRemove
 }: ProductFinanceRowProps) {
+  // Proactive Reactive Projection: Đảm bảo số liệu tài chính luôn được tính toán trực tiếp, không kẹt 0
+  const computed = React.useMemo(() => computeLineItem(p), [p]);
+  const isPromo = computed.price === 0 && Boolean(computed.productName || computed.productId);
+
   return (
     <React.Fragment>
       <tr className="group bg-white hover:bg-slate-50 transition-colors border-b border-slate-100">
@@ -40,11 +45,18 @@ export function ProductFinanceRow({
                 readOnly={readOnly || disabled}
                 className="w-full text-xs font-mono font-bold text-blue-600 bg-transparent outline-none placeholder:text-blue-300"
               />
-              <input type="text" placeholder="Tên sản phẩm"
-                value={p.productName} onChange={e => onUpdate(idx, 'productName', e.target.value)}
-                readOnly={readOnly || disabled}
-                className="w-full text-xs font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-400"
-              />
+              <div className="flex items-center gap-2">
+                <input type="text" placeholder="Tên sản phẩm"
+                  value={p.productName} onChange={e => onUpdate(idx, 'productName', e.target.value)}
+                  readOnly={readOnly || disabled}
+                  className="w-full text-xs font-bold text-slate-800 bg-transparent outline-none placeholder:text-slate-400"
+                />
+                {isPromo && (
+                  <span className="shrink-0 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 text-3xs font-bold rounded border border-emerald-200 uppercase tracking-wider">
+                    Tặng kèm
+                  </span>
+                )}
+              </div>
               <input type="text" placeholder="Ghi chú thêm..."
                 value={p.ghiChu || ''} onChange={e => onUpdate(idx, 'ghiChu', e.target.value)}
                 readOnly={readOnly || disabled}
@@ -77,7 +89,7 @@ export function ProductFinanceRow({
            <div className="flex flex-col gap-1.5">
               <div className="relative">
                 <input type="text" placeholder="Đơn giá"
-                  value={p.price ? FinancialEngine.formatVND(p.price) : ''}
+                  value={p.price ? FinancialEngine.formatVND(p.price) : (p.price === 0 ? '0' : '')}
                   onChange={(e) => {
                     const val = FinancialEngine.toInteger(e.target.value);
                     onUpdate(idx, 'price', val);
@@ -89,7 +101,7 @@ export function ProductFinanceRow({
               <div className="text-right bg-slate-50 border border-slate-100 rounded px-2 py-1 flex flex-col justify-center">
                  <span className="text-3xs font-bold text-slate-400 uppercase leading-none mb-1">Trị giá H.Hóa</span>
                  <span className="text-xs font-bold text-slate-700 leading-none">
-                   {p.subtotalBeforeTax ? FinancialEngine.formatVND(p.subtotalBeforeTax) : '0'} ₫
+                   {FinancialEngine.formatVND(computed.subtotalBeforeTax)} ₫
                  </span>
               </div>
            </div>
@@ -133,7 +145,7 @@ export function ProductFinanceRow({
               </div>
               <div className="text-right border border-sky-100 rounded bg-white px-2 py-1.5 flex flex-col justify-center">
                  <span className="text-2xs font-mono font-bold text-sky-700 leading-none">
-                   +{p.taxAmount ? new Intl.NumberFormat('vi-VN').format(p.taxAmount) : '0'}
+                   +{new Intl.NumberFormat('vi-VN').format(computed.taxAmount || 0)}
                  </span>
               </div>
            </div>
@@ -144,7 +156,7 @@ export function ProductFinanceRow({
            <div className="h-full min-h-[64px] bg-blue-50 border border-blue-100 rounded-lg flex flex-col justify-center items-end px-3 py-2">
               <span className="text-3xs font-bold text-blue-600/70 uppercase">Thu (Sau thuế)</span>
               <span className="text-sm font-black tracking-tight text-blue-700 mt-0.5">
-                {p.subtotalAfterTax ? new Intl.NumberFormat('vi-VN').format(p.subtotalAfterTax) : '0'} ₫
+                {new Intl.NumberFormat('vi-VN').format(computed.subtotalAfterTax || 0)} ₫
               </span>
            </div>
         </td>

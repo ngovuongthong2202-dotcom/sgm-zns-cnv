@@ -5,6 +5,7 @@ import { notify } from '@/src/shared/utils/notify';
 import { usePaymentZns } from './usePaymentZns';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { useEntityLifecycle } from '@/src/hooks/useEntityLifecycle';
+import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
 
 export function usePaymentsActions(
   deletePayment: (id: string) => Promise<void>,
@@ -68,6 +69,11 @@ export function usePaymentsActions(
 
   const handleCreatePrepaidFinalPayment = useCallback((delivery: Delivery | any) => {
     const code = `PT${Date.now().toString().slice(-6)}`;
+    const healedProducts = (delivery.products || []).map(computeLineItem);
+    const aggs = aggregateProducts(healedProducts);
+    const resolvedTotal = delivery.totalAmount || delivery.giaTriHopDong || aggs.totalAfterTax || 0;
+    const resolvedSubTotal = delivery.subTotal || aggs.totalGross || 0;
+
     const mockPayment: Partial<Payment> = {
       paymentId: code,
       customerId: delivery.customerId || '',
@@ -78,13 +84,14 @@ export function usePaymentsActions(
       soDonHang: delivery.soDonHang || '',
       contractId: delivery.contractId || '',
       quotationId: delivery.quotationId || '',
-      totalAmount: delivery.totalAmount || delivery.giaTriHopDong || 0,
-      soTien: delivery.totalAmount || delivery.giaTriHopDong || 0,
+      subTotal: resolvedSubTotal,
+      totalAmount: resolvedTotal,
+      soTien: resolvedTotal,
       loai: 'Dứt điểm',
       phuongThucThanhToan: 'Chuyển khoản',
       tinhTrangThanhToan: 'Tất toán',
-      products: delivery.products || [],
-      slMay: delivery.slMay || 0,
+      products: healedProducts,
+      slMay: Number(delivery.slMay) || healedProducts.reduce((sum: number, p: any) => sum + (Number(p.quantity) || 0), 0),
       ngayThanhToan: new Date().toISOString().substring(0, 10),
     };
     setEditingPayment(mockPayment as Payment);
