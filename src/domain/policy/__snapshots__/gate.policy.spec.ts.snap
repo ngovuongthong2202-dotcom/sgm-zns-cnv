@@ -1,12 +1,5 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Core Policy Gates Golden Master > canCreateContract > matches golden master for invalid quotation 1`] = `
-{
-  "allowed": false,
-  "reason": "Phải gửi ZNS Báo giá THÀNH CÔNG trước khi tạo Hợp đồng.",
-}
-`;
-
 exports[`Core Policy Gates Golden Master > canCreateContract > matches golden master for missing quotation 1`] = `
 {
   "allowed": false,
@@ -15,19 +8,6 @@ exports[`Core Policy Gates Golden Master > canCreateContract > matches golden ma
 `;
 
 exports[`Core Policy Gates Golden Master > canCreateContract > matches golden master for valid quotation 1`] = `
-{
-  "allowed": true,
-}
-`;
-
-exports[`Core Policy Gates Golden Master > canCreateDelivery > matches golden master for invalid payment 1`] = `
-{
-  "allowed": true,
-  "warning": "Thanh toán này chưa gửi tin ZNS thành công.",
-}
-`;
-
-exports[`Core Policy Gates Golden Master > canCreateDelivery > matches golden master for valid payment 1`] = `
 {
   "allowed": true,
 }

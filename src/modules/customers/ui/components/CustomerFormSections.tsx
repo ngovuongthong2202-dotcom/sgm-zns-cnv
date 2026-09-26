@@ -3,6 +3,8 @@ import { UseFormRegister, FieldErrors, UseFormWatch, UseFormSetValue } from 'rea
 import { Building2, Users, Lock, Check, AlertCircle, Sparkles, Loader2, X } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
+import { useAuth } from '@/src/modules/iam';
+import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 import { autoDetectBusinessName, STANDARDIZED_BUSINESS_TYPES } from './CustomerFormHelpers';
 
 interface ProfileSectionProps {
@@ -231,7 +233,21 @@ export function CustomerFormClassificationSection({
   handleRemoveTag,
   currentUserName
 }: ClassificationSectionProps) {
+  const { user, userData } = useAuth();
+  const isAdmin = isAdministratorRole(userData, user);
   const currentLoaiKh = watch ? watch('loaiKh') : undefined;
+
+  const effectiveNguoiPhuTrachList = React.useMemo(() => {
+    const list = [...(_nguoiPhuTrachList || [])];
+    if (currentUserName && !list.includes(currentUserName)) {
+      list.push(currentUserName);
+    }
+    const formVal = watch ? watch('nguoiPhuTrach') : undefined;
+    if (formVal && !list.includes(formVal)) {
+      list.push(formVal);
+    }
+    return list;
+  }, [_nguoiPhuTrachList, currentUserName, watch]);
 
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
@@ -245,21 +261,35 @@ export function CustomerFormClassificationSection({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
           <label className="text-2xs font-medium uppercase text-slate-500" htmlFor="nguoiPhuTrach">
-            Người phụ trách
+            Người phụ trách {isAdmin && <span className="text-blue-500 font-bold ml-1 text-[10px]">(Admin)</span>}
           </label>
-          <div className="relative">
-            <input
+          {isAdmin ? (
+            <select
               id="nguoiPhuTrach"
+              aria-label="Người phụ trách"
               {...register('nguoiPhuTrach')}
-              value={watch ? (watch('nguoiPhuTrach') || currentUserName || '') : (currentUserName || '')}
-              className="w-full font-medium bg-slate-50 border border-slate-200 text-slate-700 cursor-not-allowed h-8 rounded-lg pl-3 pr-8 text-sm select-none"
-              readOnly
-              title="Người phụ trách tự động lấy theo user đang tạo và không được phép thay đổi"
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-              <Lock size={12} />
+              className="w-full bg-blue-50/30 border border-blue-200 rounded-lg px-3 text-sm text-slate-800 font-medium h-8 focus:border-blue-500 outline-none cursor-pointer"
+            >
+              <option value="">-- Chọn người phụ trách --</option>
+              {effectiveNguoiPhuTrachList.map((pic: string) => (
+                <option key={pic} value={pic}>{pic}</option>
+              ))}
+            </select>
+          ) : (
+            <div className="relative">
+              <input
+                id="nguoiPhuTrach"
+                {...register('nguoiPhuTrach')}
+                value={watch ? (watch('nguoiPhuTrach') || currentUserName || '') : (currentUserName || '')}
+                className="w-full font-medium bg-slate-50 border border-slate-200 text-slate-700 cursor-not-allowed h-8 rounded-lg pl-3 pr-8 text-sm select-none"
+                readOnly
+                title="Người phụ trách tự động lấy theo user đang tạo và không được phép thay đổi"
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <Lock size={12} />
+              </div>
             </div>
-          </div>
+          )}
           {errors.nguoiPhuTrach && <p className="text-xs text-red-650 mt-1">{errors.nguoiPhuTrach.message as string}</p>}
         </div>
 

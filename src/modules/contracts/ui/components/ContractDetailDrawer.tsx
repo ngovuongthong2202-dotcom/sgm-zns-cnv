@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { ProductItem } from '@/src/domain/schema/product.schema';
-/* eslint-disable max-lines */
 import { formatDate } from '@/src/shared/utils/formatDate';
+import { extractAvatarBadge } from '@/src/shared/utils/userProfile';
 import React, { useState, useEffect } from 'react';
 import { notify } from '@/src/shared/utils/notify';
 import { Payment } from '@/src/domain/schema/payment.schema';
@@ -356,7 +356,7 @@ export function ContractDetailDrawer({
             <span className="text-2xs text-slate-600 block uppercase font-bold tracking-wider mb-1.5">Người Phụ Trách</span>
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-slate-950 text-white flex items-center justify-center font-bold text-2xs shadow-sm">
-                {drawerContract.nguoiPhuTrach ? drawerContract.nguoiPhuTrach.substring(0, 2).toUpperCase() : '?'}
+                {extractAvatarBadge(drawerContract.nguoiPhuTrach)}
               </div>
               <span className="font-bold text-slate-900 text-xs">{drawerContract.nguoiPhuTrach || 'Chưa nhận bàn giao'}</span>
             </div>

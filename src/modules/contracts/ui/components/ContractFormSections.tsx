@@ -3,6 +3,8 @@ import { Search, FileText, CreditCard, Calendar } from 'lucide-react';
 import { QuotationSmartSearch } from '@/src/widgets/QuotationSmartSearch';
 import { normalizeLegacyStatus, EntityZnsStatus } from '@/src/domain/enums/zns-status';
 import { formatDate } from '@/src/shared/utils/formatDate';
+import { useAuth } from '@/src/modules/iam';
+import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 
 export function ContractBasisSection({
   watch,
@@ -70,6 +72,8 @@ export function ContractBasisSection({
 }
 
 export function ContractDefinitionSection({ register, errors, estimatedCompletionDate, nguoiPhuTrachList, businessLock, watch }: any) {
+  const { user, userData } = useAuth();
+  const isAdmin = isAdministratorRole(userData, user);
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
       <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -117,16 +121,35 @@ export function ContractDefinitionSection({ register, errors, estimatedCompletio
         </div>
 
         <div className="space-y-1">
-          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Người phụ trách</label>
-          <input 
-            type="text"
-            disabled
-            readOnly
-            value={watch ? (watch('nguoiPhuTrach') || '') : ''}
-            {...register('nguoiPhuTrach')} 
-            className="premium-input w-full bg-slate-100 text-slate-700 font-semibold h-8 py-0 leading-normal rounded-lg border border-slate-200 px-3 text-sm cursor-not-allowed select-none outline-none"
-            placeholder="Người phụ trách theo tài khoản"
-          />
+          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">
+            Người phụ trách {isAdmin && <span className="text-blue-600 font-bold ml-1">(Admin có quyền đổi)</span>}
+          </label>
+          {isAdmin ? (
+            <select
+              id="nguoiPhuTrach"
+              {...register('nguoiPhuTrach')}
+              value={watch ? (watch('nguoiPhuTrach') || '') : ''}
+              className="premium-input w-full bg-white text-slate-800 font-semibold h-8 py-0 leading-normal rounded-lg border border-slate-200 px-3 text-sm focus:border-blue-600 outline-none cursor-pointer"
+            >
+              <option value="">-- Chọn người phụ trách --</option>
+              {(nguoiPhuTrachList || []).map((pic: string) => (
+                <option key={pic} value={pic}>{pic}</option>
+              ))}
+              {watch && watch('nguoiPhuTrach') && !(nguoiPhuTrachList || []).includes(watch('nguoiPhuTrach')) && (
+                <option value={watch('nguoiPhuTrach')}>{watch('nguoiPhuTrach')}</option>
+              )}
+            </select>
+          ) : (
+            <input 
+              type="text"
+              disabled
+              readOnly
+              value={watch ? (watch('nguoiPhuTrach') || '') : ''}
+              {...register('nguoiPhuTrach')} 
+              className="premium-input w-full bg-slate-100 text-slate-700 font-semibold h-8 py-0 leading-normal rounded-lg border border-slate-200 px-3 text-sm cursor-not-allowed select-none outline-none"
+              placeholder="Người phụ trách theo tài khoản"
+            />
+          )}
         </div>
       </div>
     </div>

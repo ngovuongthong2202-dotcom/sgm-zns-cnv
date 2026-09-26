@@ -8,6 +8,7 @@ import { checkContractLock } from '@/src/domain/policy/lock.policy';
 import { checkA5Policy } from '@/src/modules/iam';
 import { notify } from '@/src/shared/utils/notify';
 import { useAuth } from '@/src/modules/iam';
+import { useSharedFields } from '@/src/hooks/useSharedFields';
 import { Package, ScrollText } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import ProductListInput from '@/src/widgets/ProductListInput';
@@ -32,6 +33,8 @@ export function ContractFormModal({ contract, contracts, quotations, nguoiPhuTra
   prefillQuotation?: any;
 }) {
   const { user, userData } = useAuth();
+  const { nguoiPhuTrachList: sharedNguoiPhuTrachList } = useSharedFields();
+  const effectiveNguoiPhuTrachList = (nguoiPhuTrachList && nguoiPhuTrachList.length > 0) ? nguoiPhuTrachList : sharedNguoiPhuTrachList;
   
   const { canEdit, reason: lockReason } = checkA5Policy(user, userData, contract);
 
@@ -167,7 +170,7 @@ export function ContractFormModal({ contract, contracts, quotations, nguoiPhuTra
                 register={register}
                 errors={errors}
                 estimatedCompletionDate={estimatedCompletionDate}
-                nguoiPhuTrachList={nguoiPhuTrachList}
+                nguoiPhuTrachList={effectiveNguoiPhuTrachList}
                 businessLock={businessLock}
                 watch={watch}
               />

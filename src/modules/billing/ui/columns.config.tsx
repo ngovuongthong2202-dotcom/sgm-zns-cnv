@@ -14,6 +14,7 @@ import { normalizeBusinessName, normalizePersonName } from '@/src/shared/utils/t
 import { QUOTATION_LOAI } from '@/src/domain/enums/quotation-loai';
 import { resolvePaymentLoai } from '../domain/resolvePaymentLoai';
 import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
+import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
 
 function QuickEditAmount({ value, onSave }: { value: number, onSave: (v: number) => void }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -435,16 +436,9 @@ export const getPaymentColumns = (
     accessorKey: 'nguoiPhuTrach',
     header: 'Người Phụ Trách',
     size: 150,
-    cell: (info) => {
-      const name = String(info.getValue() || 'N/A');
-      const parts = name.trim().split(' ');
-      const shortName = parts[parts.length - 1];
-      return (
-        <span className="text-xs text-slate-600 font-semibold truncate block max-w-[120px]" title={name}>
-          {shortName}
-        </span>
-      );
-    }
+    cell: (info) => (
+      <PicCell fullName={info.getValue() as string} />
+    )
   },
   {
     accessorFn: (row) => normalizeLegacyStatus(row.trangThaiGuiTinThanhToan),

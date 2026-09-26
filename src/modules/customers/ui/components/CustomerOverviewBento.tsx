@@ -7,6 +7,7 @@ import { formatCurrency } from '@/src/shared/utils/formatCurrency';
 import { calculateHealthScore } from '@/src/modules/customers';
 import { useSWRConfig } from 'swr';
 import { t } from '@/src/i18n/vi';
+import { extractAvatarBadge } from '@/src/shared/utils/userProfile';
 
 interface Props {
   customer: Customer;
@@ -96,7 +97,7 @@ export function CustomerOverviewBento({ customer, onEdit: _onEdit, quotationCoun
             <span className="text-2xs font-bold text-slate-400 uppercase tracking-wider block">Người phụ trách</span>
             <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5 mt-1 truncate">
               <span className="w-5 h-5 rounded bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center font-bold text-3xs shrink-0 font-mono">
-                {customer.nguoiPhuTrach?.substring(0, 2).toUpperCase() || '?'}
+                {extractAvatarBadge(customer.nguoiPhuTrach)}
               </span>
               <span className="truncate">{customer.nguoiPhuTrach || 'Chưa phân công'}</span>
             </span>

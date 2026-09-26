@@ -65,10 +65,10 @@ function ContractHoverCardContent({ contract }: { contract: Contract }) {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-200 shrink-0 bg-white" onClick={(e) => e.stopPropagation()}>
-        <Button onClick={() => setActiveTab('customer')} className={cn("flex-1 py-2 text-2xs font-bold uppercase tracking-wider transition-colors", activeTab === 'customer' ? "text-teal-600 border-b-2 border-teal-600 bg-teal-50/30" : "text-slate-500 hover:bg-slate-50")}>Khách hàng</Button>
-        <Button onClick={() => setActiveTab('links')} className={cn("flex-1 py-2 text-2xs font-bold uppercase tracking-wider transition-colors", activeTab === 'links' ? "text-teal-600 border-b-2 border-teal-600 bg-teal-50/30" : "text-slate-500 hover:bg-slate-50")}>Liên kết</Button>
-        <Button onClick={() => setActiveTab('products')} className={cn("flex-1 py-2 text-2xs font-bold uppercase tracking-wider transition-colors", activeTab === 'products' ? "text-teal-600 border-b-2 border-teal-600 bg-teal-50/30" : "text-slate-500 hover:bg-slate-50")}>Sản phẩm ({contract.products?.length || 0})</Button>
+      <div className="flex border-b border-slate-200 shrink-0 bg-white" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+        <Button onMouseDown={(e: any) => e.stopPropagation()} onClick={(e: any) => { e.stopPropagation(); setActiveTab('customer'); }} className={cn("flex-1 py-2 text-2xs font-bold uppercase tracking-wider transition-colors", activeTab === 'customer' ? "text-teal-600 border-b-2 border-teal-600 bg-teal-50/30" : "text-slate-500 hover:bg-slate-50")}>Khách hàng</Button>
+        <Button onMouseDown={(e: any) => e.stopPropagation()} onClick={(e: any) => { e.stopPropagation(); setActiveTab('links'); }} className={cn("flex-1 py-2 text-2xs font-bold uppercase tracking-wider transition-colors", activeTab === 'links' ? "text-teal-600 border-b-2 border-teal-600 bg-teal-50/30" : "text-slate-500 hover:bg-slate-50")}>Liên kết</Button>
+        <Button onMouseDown={(e: any) => e.stopPropagation()} onClick={(e: any) => { e.stopPropagation(); setActiveTab('products'); }} className={cn("flex-1 py-2 text-2xs font-bold uppercase tracking-wider transition-colors", activeTab === 'products' ? "text-teal-600 border-b-2 border-teal-600 bg-teal-50/30" : "text-slate-500 hover:bg-slate-50")}>Sản phẩm ({contract.products?.length || 0})</Button>
       </div>
 
       {/* Tab Contents */}

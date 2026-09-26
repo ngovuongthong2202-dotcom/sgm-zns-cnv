@@ -6,12 +6,16 @@ import { CustomerHoverCard } from '@/src/modules/customers';
 import { formatVietnameseCurrency } from '@/src/domain/pricing/quotation-pricing';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { normalizeCode, normalizePersonName } from '@/src/shared/utils/textFormatter';
+import { useAuth } from '@/src/modules/iam';
+import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 
 // -- Các Component Con --
 
 export function QuotationBasicInfoSection({
   register, watch, setValue, getValues, errors, isLookingUp, isCreating, businessLock, lookupErp, loaiBaoGiaList, customers, ngayHetHan, nguoiPhuTrachList
 }: any) {
+  const { user, userData } = useAuth();
+  const isAdmin = isAdministratorRole(userData, user);
   const watchAll = watch();
   
   return (
@@ -268,18 +272,35 @@ export function QuotationBasicInfoSection({
 
         <div className="md:col-span-2">
           <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 mb-1 block">
-            Người phụ trách
+            Người phụ trách {isAdmin && <span className="text-blue-600 font-bold ml-1">(Admin có quyền đổi)</span>}
           </label>
-          <input 
-            id="nguoiPhuTrach"
-            type="text"
-            disabled
-            readOnly
-            value={watch('nguoiPhuTrach') || ''}
-            {...register('nguoiPhuTrach')} 
-            className="h-8 px-3 text-sm font-semibold border border-slate-200 rounded-lg w-full outline-none bg-slate-100 text-slate-700 cursor-not-allowed select-none" 
-            placeholder="Người phụ trách theo tài khoản"
-          />
+          {isAdmin ? (
+            <select
+              id="nguoiPhuTrach"
+              {...register('nguoiPhuTrach')}
+              value={watch('nguoiPhuTrach') || ''}
+              className="h-8 px-3 text-sm font-semibold border border-slate-200 rounded-lg w-full outline-none bg-white text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 cursor-pointer"
+            >
+              <option value="">-- Chọn người phụ trách --</option>
+              {(nguoiPhuTrachList || []).map((pic: string) => (
+                <option key={pic} value={pic}>{pic}</option>
+              ))}
+              {watch('nguoiPhuTrach') && !(nguoiPhuTrachList || []).includes(watch('nguoiPhuTrach')) && (
+                <option value={watch('nguoiPhuTrach')}>{watch('nguoiPhuTrach')}</option>
+              )}
+            </select>
+          ) : (
+            <input 
+              id="nguoiPhuTrach"
+              type="text"
+              disabled
+              readOnly
+              value={watch('nguoiPhuTrach') || ''}
+              {...register('nguoiPhuTrach')} 
+              className="h-8 px-3 text-sm font-semibold border border-slate-200 rounded-lg w-full outline-none bg-slate-100 text-slate-700 cursor-not-allowed select-none" 
+              placeholder="Người phụ trách theo tài khoản"
+            />
+          )}
         </div>
       </div>
     </div>

@@ -33,12 +33,8 @@ export class CreateContractUseCase {
         return Result.fail(`Cannot fetch quotation: ${quotationResult.error}`);
     }
     const quotation = quotationResult.getValue();
-    const isZnsSuccess = ZnsStatusVO.isSuccess(quotation.props.trangThaiGuiTinBaoGia as string) || 
-                         ZnsStatusVO.isSuccess(quotation.props.znsStatus as string);
-                         
-    if (!isZnsSuccess) {
-        return Result.fail('Phải gửi ZNS Báo giá THÀNH CÔNG trước khi tạo Hợp đồng.');
-    }
+    // ZNS là kênh thông báo, không chặn việc ký kết hợp đồng kinh tế
+    void quotation;
 
     // 3. Aggregate Creation
     const { id, ...props } = command;

@@ -32,7 +32,7 @@ export function useContractForm(
 
   const initialFormValues = useMemo(() => {
     const base = getInitialContractFormValues(contract, draft);
-    return { ...base, nguoiPhuTrach: defaultOfficer };
+    return { ...base, nguoiPhuTrach: contract?.nguoiPhuTrach || draft?.nguoiPhuTrach || defaultOfficer };
   }, [contract, draft, defaultOfficer]);
 
   const { register, handleSubmit, watch, setValue, getValues, reset, formState: { errors, isSubmitting, isDirty } } = useForm<FormValues>({
@@ -41,16 +41,10 @@ export function useContractForm(
   });
 
   useEffect(() => {
-    if (defaultOfficer && getValues('nguoiPhuTrach') !== defaultOfficer) {
-      setValue('nguoiPhuTrach', defaultOfficer, { shouldValidate: true });
-    }
-  }, [defaultOfficer, setValue, getValues]);
-
-  useEffect(() => {
     if (contract) {
       reset({
         ...getInitialContractFormValues(contract, null),
-        nguoiPhuTrach: defaultOfficer
+        nguoiPhuTrach: contract.nguoiPhuTrach || defaultOfficer
       });
     }
   }, [contract, reset, defaultOfficer]);

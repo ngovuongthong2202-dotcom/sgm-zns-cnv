@@ -193,8 +193,7 @@ export function useCustomerForm(
       Object.keys(draft).forEach((key) => {
         setValue(key as any, draft[key], { shouldDirty: true });
       });
-      // When creating a new customer, nguoiPhuTrach is strictly bound to the creating user
-      if (!customer?.id || !draft.nguoiPhuTrach) {
+      if (!draft.nguoiPhuTrach) {
         setValue('nguoiPhuTrach', customer?.nguoiPhuTrach || currentUserName, { shouldDirty: true });
       }
       setDraftStatus('Bản nháp đã khôi phục');

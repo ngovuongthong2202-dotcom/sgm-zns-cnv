@@ -34,8 +34,8 @@ export function canCreatePayment(
 
   if (isContractExplicit) {
     const c = source as Contract;
-    if (c.trangThaiGuiTinHopDong && !ZnsStatusVO.isSuccess(c.trangThaiGuiTinHopDong as string) && config?.paymentCreationGate === 'BLOCK') {
-      failReason = "Phải gửi ZNS Hợp đồng THÀNH CÔNG trước khi tạo Thanh toán.";
+    if (c.trangThaiGuiTinHopDong && !ZnsStatusVO.isSuccess(c.trangThaiGuiTinHopDong as string) && config?.paymentCreationGate === 'WARN') {
+      return { allowed: true, warning: "Hợp đồng này chưa được gửi ZNS thành công." };
     }
   } else if (isQuotationExplicit) {
     const loai = normalizeLoai((rec.loai || rec.phanLoai || rec.loaiBaoGia) as string);
@@ -43,7 +43,7 @@ export function canCreatePayment(
       failReason = "Báo giá Máy phải được khởi tạo Hợp đồng trước khi tạo Thanh toán.";
     } else {
       // BG Vật tư và BG Dịch vụ có thể đi thẳng đến thanh toán
-      if (rec.trangThaiGuiTinBaoGia && !ZnsStatusVO.isSuccess(rec.trangThaiGuiTinBaoGia as string) && config?.paymentCreationGate === 'BLOCK') {
+      if (rec.trangThaiGuiTinBaoGia && !ZnsStatusVO.isSuccess(rec.trangThaiGuiTinBaoGia as string) && config?.paymentCreationGate === 'WARN') {
         return { allowed: true, warning: "Báo giá này chưa được gửi ZNS thành công." };
       }
       return { allowed: true };
@@ -88,11 +88,8 @@ export function canCreateDelivery(
     return { allowed: false, reason: "Không được phép tạo phiếu giao hàng khi tình trạng thanh toán là 'Chưa TT'." };
   }
 
-  if (config?.deliveryCreationGate === 'BLOCK') {
-    if (!ZnsStatusVO.isSuccess(payment.trangThaiGuiTinThanhToan)) {
-      return { allowed: false, reason: "Phải gửi ZNS Thanh toán THÀNH CÔNG trước khi tạo Giao hàng." };
-    }
-  } else if (!ZnsStatusVO.isSuccess(payment.trangThaiGuiTinThanhToan)) {
+  // ZNS là kênh thông báo, không chặn tạo phiếu giao hàng
+  if (payment.trangThaiGuiTinThanhToan && !ZnsStatusVO.isSuccess(payment.trangThaiGuiTinThanhToan) && config?.deliveryCreationGate === 'WARN') {
     return { allowed: true, warning: "Thanh toán này chưa gửi tin ZNS thành công." };
   }
 
@@ -109,12 +106,11 @@ export function canCreateContract(
 
   if (!source) return { allowed: false, reason: "Không tìm thấy báo giá." };
 
-  if (!ZnsStatusVO.isSuccess(source.trangThaiGuiTinBaoGia)) {
-    const failReason = "Phải gửi ZNS Báo giá THÀNH CÔNG trước khi tạo Hợp đồng.";
+  // ZNS là kênh thông báo, không chặn việc ký kết hợp đồng kinh tế
+  if (source.trangThaiGuiTinBaoGia && !ZnsStatusVO.isSuccess(source.trangThaiGuiTinBaoGia)) {
     if (config?.contractCreationGate === 'WARN') {
-      return { allowed: true, warning: failReason };
+      return { allowed: true, warning: "Báo giá này chưa được gửi ZNS thành công." };
     }
-    return { allowed: false, reason: failReason };
   }
 
   return { allowed: true };

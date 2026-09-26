@@ -40,6 +40,18 @@ export function CustomerForm({
   const PROVINCES = tinhThanhList;
   const currentUserName = (userData?.displayName || user?.displayName || userData?.username || user?.username || '').trim() || 'Mạnh Hùng (Admin)';
 
+  const effectiveNguoiPhuTrachList = React.useMemo(() => {
+    const list = [...(nguoiPhuTrachList || [])];
+    if (currentUserName && !list.includes(currentUserName)) {
+      list.push(currentUserName);
+    }
+    const currentPic = customer?.nguoiPhuTrach;
+    if (currentPic && !list.includes(currentPic)) {
+      list.push(currentPic);
+    }
+    return list;
+  }, [nguoiPhuTrachList, currentUserName, customer?.nguoiPhuTrach]);
+
   const {
     register,
     handleSubmit,
@@ -106,7 +118,7 @@ export function CustomerForm({
               setTagInput('');
             }
             const normalized = normalizeCustomerFormValues(data);
-            if (!customer || !normalized.nguoiPhuTrach) {
+            if (!normalized.nguoiPhuTrach) {
               normalized.nguoiPhuTrach = customer?.nguoiPhuTrach || currentUserName;
             }
             
@@ -161,7 +173,7 @@ export function CustomerForm({
                 register={register}
                 errors={errors}
                 watch={watch}
-                nguoiPhuTrachList={nguoiPhuTrachList}
+                nguoiPhuTrachList={effectiveNguoiPhuTrachList}
                 loaiKhachHangList={loaiKhachHangList}
                 tags={tags}
                 tagInput={tagInput}

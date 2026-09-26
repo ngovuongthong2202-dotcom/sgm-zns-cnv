@@ -50,7 +50,7 @@ export function useQuotationForm({
   
   const form: UseFormReturn<Quotation> = useForm<Quotation>({
     resolver: zodResolver(QuotationSchema) as any,
-    defaultValues: quotation ? { ...quotation, nguoiPhuTrach: defaultOfficer } : draft ? { ...draft, nguoiPhuTrach: defaultOfficer } : { 
+    defaultValues: quotation ? { ...quotation, nguoiPhuTrach: quotation.nguoiPhuTrach || defaultOfficer } : draft ? { ...draft, nguoiPhuTrach: draft.nguoiPhuTrach || defaultOfficer } : { 
       tinhTrangBaoGia: 'MỚI',
       ngayBaoGia: new Date().toISOString().split('T')[0],
       hieuLuc: 7,
@@ -63,12 +63,6 @@ export function useQuotationForm({
 
   const { control, register, handleSubmit, watch, setValue, getValues, trigger, reset, formState: { errors, isSubmitting, isDirty } } = form;
 
-  useEffect(() => {
-    if (defaultOfficer && getValues('nguoiPhuTrach') !== defaultOfficer) {
-      setValue('nguoiPhuTrach', defaultOfficer, { shouldValidate: true });
-    }
-  }, [defaultOfficer, setValue, getValues]);
-
   // Auto-Healing: Khử sạch stale zero lock khi nạp dữ liệu từ Firestore hoặc draft
   useEffect(() => {
     if (quotation) {
@@ -80,7 +74,7 @@ export function useQuotationForm({
         noiDungGhiChu: quotation.noiDungGhiChu || '',
         hieuLuc: quotation.hieuLuc ?? 7,
         ngayBaoGia: quotation.ngayBaoGia || new Date().toISOString().split('T')[0],
-        nguoiPhuTrach: defaultOfficer,
+        nguoiPhuTrach: quotation.nguoiPhuTrach || defaultOfficer,
         loai: quotation.loai || QUOTATION_LOAI.MAY,
         subTotal: healedAggs.totalGross,
         vatAmount: healedAggs.totalVat,

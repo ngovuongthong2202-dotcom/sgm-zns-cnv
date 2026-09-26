@@ -6,9 +6,6 @@ import { EntityZnsStatus, normalizeLegacyStatus } from '@/src/domain/enums/zns-s
 
 export function canCreateContract(quotation: Quotation | undefined | null): { allowed: boolean; reason?: string } {
   if (!quotation) return { allowed: false, reason: "Không tìm thấy báo giá." };
-  if (normalizeLegacyStatus(quotation.trangThaiGuiTinBaoGia) !== EntityZnsStatus.THANH_CONG) {
-    return { allowed: false, reason: "Phải gửi ZNS Báo giá THÀNH CÔNG trước khi tạo Hợp đồng." };
-  }
   return { allowed: true };
 }
 

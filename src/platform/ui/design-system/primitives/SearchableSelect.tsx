@@ -25,7 +25,11 @@ export function SearchableSelect({ options, value, onChange, placeholder = 'Chá»
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-hovercard-boundary="true"]')) {
+        return;
+      }
+      if (wrapperRef.current && !wrapperRef.current.contains(target as Node)) {
         setIsOpen(false);
       }
     }

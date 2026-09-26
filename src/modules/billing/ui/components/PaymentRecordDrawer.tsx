@@ -81,7 +81,7 @@ export function PaymentRecordDrawer({
 
   const { register, handleSubmit, watch, setValue, control, reset, getValues, formState: { isSubmitting } } = useForm<Payment & { sourceValue: string }>({
     resolver: zodResolver(PaymentFormSchema) as any,
-    defaultValues: draft ? { ...draft, nguoiPhuTrach: defaultOfficer } : (payment ? { ...payment, nguoiPhuTrach: defaultOfficer, sourceValue: payment.contractId ? `CONTRACT:${payment.contractId}` : payment.quotationId ? `QUOTATION:${payment.quotationId}` : '' } : { 
+    defaultValues: draft ? { ...draft, nguoiPhuTrach: draft.nguoiPhuTrach || defaultOfficer } : (payment ? { ...payment, nguoiPhuTrach: payment.nguoiPhuTrach || defaultOfficer, sourceValue: payment.contractId ? `CONTRACT:${payment.contractId}` : payment.quotationId ? `QUOTATION:${payment.quotationId}` : '' } : { 
       paymentId: `PT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
       trangThaiGuiTinThanhToan: EntityZnsStatus.CHUA_GUI, 
       tinhTrangThanhToan: 'Chưa TT', 
@@ -91,11 +91,17 @@ export function PaymentRecordDrawer({
     } as any)
   });
 
-  useEffect(() => {
-    if (defaultOfficer && getValues('nguoiPhuTrach') !== defaultOfficer) {
-      setValue('nguoiPhuTrach', defaultOfficer, { shouldValidate: true });
+  const effectiveNguoiPhuTrachList = useMemo(() => {
+    const list = [...(_nguoiPhuTrachList || [])];
+    if (defaultOfficer && !list.includes(defaultOfficer)) {
+      list.push(defaultOfficer);
     }
-  }, [defaultOfficer, setValue, getValues]);
+    const currentOfficer = payment?.nguoiPhuTrach;
+    if (currentOfficer && !list.includes(currentOfficer)) {
+      list.push(currentOfficer);
+    }
+    return list;
+  }, [_nguoiPhuTrachList, defaultOfficer, payment?.nguoiPhuTrach]);
 
   const hasInitializedRef = React.useRef(false);
   useEffect(() => {
@@ -407,7 +413,7 @@ export function PaymentRecordDrawer({
             quotations={quotations}
             payments={payments}
             currentPaymentId={payment?.id || payment?.paymentId}
-            nguoiPhuTrachList={_nguoiPhuTrachList}
+            nguoiPhuTrachList={effectiveNguoiPhuTrachList}
             phuongThucThanhToanList={_phuongThucThanhToanList}
             tinhTrangThanhToanList={_tinhTrangThanhToanList}
           />

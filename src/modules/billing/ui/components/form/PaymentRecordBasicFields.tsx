@@ -1,6 +1,8 @@
 import React from 'react';
 import { Controller } from 'react-hook-form';
-import { FileText, Clock, DollarSign } from 'lucide-react';
+import { FileText, Clock, DollarSign, Lock } from 'lucide-react';
+import { useAuth } from '@/src/modules/iam';
+import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 import { format } from 'date-fns';
 import { AsyncSearchableSelect } from '@/src/design-system/primitives/AsyncSearchableSelect';
 import { MoneyInput } from '../PaymentRecordDrawerHelpers';
@@ -41,6 +43,8 @@ export function PaymentRecordBasicFields({
   phuongThucThanhToanList = ['Chuyển khoản', 'Tiền mặt'],
   tinhTrangThanhToanList = ['Tất toán', 'Công nợ', 'Chưa TT', 'Miễn phí']
 }: PaymentRecordBasicFieldsProps) {
+  const { user, userData } = useAuth();
+  const isAdmin = isAdministratorRole(userData, user);
   const watchAll = watch();
   const sourceVal = watchAll.sourceValue || '';
   const [selectedDoc, setSelectedDoc] = React.useState<any>(null);
@@ -469,16 +473,40 @@ export function PaymentRecordBasicFields({
                   </select>
               </div>
               <div className="space-y-1">
-                  <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block mb-1">Người phụ trách</label>
-                  <input 
-                    type="text"
-                    disabled
-                    readOnly
-                    value={watch('nguoiPhuTrach') || ''}
-                    {...register('nguoiPhuTrach')} 
-                    className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full bg-slate-100 font-semibold text-slate-700 cursor-not-allowed select-none" 
-                    placeholder="Người phụ trách theo tài khoản"
-                  />
+                  <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block mb-1">
+                    Người phụ trách {isAdmin && <span className="text-blue-500 font-bold ml-1 text-[10px]">(Admin)</span>}
+                  </label>
+                  {isAdmin ? (
+                    <select
+                      aria-label="Người phụ trách"
+                      disabled={disabled}
+                      {...register('nguoiPhuTrach')}
+                      className="h-8 rounded-lg border border-blue-200 px-3 text-sm focus:border-blue-500 outline-none w-full bg-blue-50/30 text-slate-800 font-medium cursor-pointer disabled:bg-slate-50/50 disabled:opacity-75"
+                    >
+                      <option value="">-- Chọn người phụ trách --</option>
+                      {nguoiPhuTrachList.map((pic: string) => (
+                        <option key={pic} value={pic}>{pic}</option>
+                      ))}
+                      {watch('nguoiPhuTrach') && !nguoiPhuTrachList.includes(watch('nguoiPhuTrach')) && (
+                        <option value={watch('nguoiPhuTrach')}>{watch('nguoiPhuTrach')}</option>
+                      )}
+                    </select>
+                  ) : (
+                    <div className="relative">
+                      <input 
+                        type="text"
+                        disabled
+                        readOnly
+                        value={watch('nguoiPhuTrach') || ''}
+                        {...register('nguoiPhuTrach')} 
+                        className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full bg-slate-100 font-semibold text-slate-700 cursor-not-allowed select-none pr-8" 
+                        placeholder="Người phụ trách theo tài khoản"
+                      />
+                      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                        <Lock className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                  )}
               </div>
 
               {/* Date Inputs */}

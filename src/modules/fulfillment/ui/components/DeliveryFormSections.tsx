@@ -1,7 +1,9 @@
 import React from 'react';
 import { UseFormRegister, FieldErrors, UseFormWatch, UseFormSetValue } from 'react-hook-form';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
-import { Truck, Package } from 'lucide-react';
+import { Truck, Package, Lock } from 'lucide-react';
+import { useAuth } from '@/src/modules/iam';
+import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 
 interface DeliverySourceCardProps {
   soHopDong?: string;
@@ -97,6 +99,8 @@ export function DeliveryInfoSection({
   watch,
   setValue
 }: DeliveryInfoSectionProps) {
+  const { user, userData } = useAuth();
+  const isAdmin = isAdministratorRole(userData, user);
   return (
     <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
       <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -166,16 +170,40 @@ export function DeliveryInfoSection({
         </div>
 
         <div className="space-y-1">
-          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="nguoiPhuTrach">Người phụ trách</label>
-          <input
-            id="nguoiPhuTrach"
-            type="text"
-            disabled
-            readOnly
-            {...register('nguoiPhuTrach')}
-            className="h-8 rounded-lg border border-slate-200 px-3 text-sm font-semibold w-full text-slate-700 bg-slate-100 cursor-not-allowed select-none outline-none"
-            placeholder="Người phụ trách theo tài khoản"
-          />
+          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="nguoiPhuTrach">
+            Người phụ trách {isAdmin && <span className="text-blue-500 font-bold ml-1 text-[10px]">(Admin)</span>}
+          </label>
+          {isAdmin ? (
+            <select
+              id="nguoiPhuTrach"
+              aria-label="Người phụ trách"
+              {...register('nguoiPhuTrach')}
+              className="h-8 rounded-lg border border-blue-200 px-3 text-sm focus:border-blue-500 outline-none w-full bg-blue-50/30 text-slate-800 font-medium cursor-pointer"
+            >
+              <option value="">-- Chọn người phụ trách --</option>
+              {(nguoiPhuTrachList || []).map((pic: string) => (
+                <option key={pic} value={pic}>{pic}</option>
+              ))}
+              {watch?.('nguoiPhuTrach') && !(nguoiPhuTrachList || []).includes(watch?.('nguoiPhuTrach') || '') && (
+                <option value={watch?.('nguoiPhuTrach')}>{watch?.('nguoiPhuTrach')}</option>
+              )}
+            </select>
+          ) : (
+            <div className="relative">
+              <input
+                id="nguoiPhuTrach"
+                type="text"
+                disabled
+                readOnly
+                {...register('nguoiPhuTrach')}
+                className="h-8 rounded-lg border border-slate-200 px-3 text-sm font-semibold w-full text-slate-700 bg-slate-100 cursor-not-allowed select-none outline-none pr-8"
+                placeholder="Người phụ trách theo tài khoản"
+              />
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                <Lock className="w-3.5 h-3.5" />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Gợi ý chọn nhanh đầu mối nhận hàng từ danh bạ khách hàng */}

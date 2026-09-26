@@ -13,6 +13,7 @@ import { t } from '@/src/i18n/vi';
 import { normalizeBusinessName, normalizePersonName, normalizeCode } from '@/src/shared/utils/textFormatter';
 import { ContractHoverCard } from './components/ContractHoverCard';
 import { CurrencyCell } from '@/src/design-system/dataview/cells/CurrencyCell';
+import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
 
 
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
@@ -393,18 +394,8 @@ export const getContractColumns = (
     id: 'nguoiPhuTrach',
     header: 'Người Phụ Trách',
     size: 150,
-    cell: (info) => {
-       const v = info.getValue() as string;
-       const shortName = v ? v.split(' ').pop() : t('common.unassigned');
-       
-       return (
-         <div className="flex items-center gap-2 group cursor-pointer" onClick={(e) => { e.stopPropagation(); }}>
-            <div className="w-6 h-6 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs ring-1 ring-slate-200">
-               {shortName ? shortName.substring(0, 2).toUpperCase() : '?'}
-            </div>
-            <span className="text-xs font-medium text-slate-700 truncate">{shortName}</span>
-         </div>
-       );
-    }
+    cell: (info) => (
+      <PicCell fullName={info.getValue() as string} />
+    )
   }
 ];

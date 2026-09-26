@@ -35,7 +35,8 @@ interface Props {
 
 export function QuotationFormModal({ quotation, quotations, customers = [], nguoiPhuTrachList, onClose, onSave, allContracts = [], allPayments = [], allDeliveries = [] }: Props) {
   const [isLockedByOther, setIsLockedByOther] = React.useState(false);
-  const { loaiBaoGiaList } = useSharedFields();
+  const { loaiBaoGiaList, nguoiPhuTrachList: sharedNguoiPhuTrachList } = useSharedFields();
+  const effectiveNguoiPhuTrachList = (nguoiPhuTrachList && nguoiPhuTrachList.length > 0) ? nguoiPhuTrachList : sharedNguoiPhuTrachList;
   const { confirm } = useConfirm();
   
   const {
@@ -184,7 +185,7 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
               loaiBaoGiaList={loaiBaoGiaList}
               customers={customers}
               ngayHetHan={ngayHetHan}
-              nguoiPhuTrachList={nguoiPhuTrachList}
+              nguoiPhuTrachList={effectiveNguoiPhuTrachList}
             />
 
             {/* 2. CHỌN SẢN PHẨM THIẾT BỊ */}

@@ -685,7 +685,7 @@ router.post('/check-gate', async (req, res) => {
          
          const checkResult = {
             allowed: isAllowed,
-            reason: paymentsSnap.empty ? `Không có phiếu thanh toán liên kết.` : `Phải có ít nhất 1 ZNS Thanh toán THÀNH CÔNG trước khi tạo Giao hàng.`
+            reason: paymentsSnap.empty ? `Không có phiếu thanh toán liên kết.` : `Phải có ít nhất 1 phiếu thanh toán hợp lệ trước khi tạo Giao hàng.`
          };
          
          if (checkResult.allowed) return res.json({ action: 'ALLOW' });

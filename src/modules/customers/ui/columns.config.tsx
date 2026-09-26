@@ -10,6 +10,7 @@ import { normalizeBusinessName, normalizeCode } from '@/src/shared/utils/textFor
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 
 import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
+import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
 
 export const getCustomerColumns = (
   quotations: Quotation[] = [],
@@ -185,19 +186,13 @@ export const getCustomerColumns = (
     accessorKey: 'nguoiPhuTrach',
     header: 'Người phụ trách',
     size: 150,
-    cell: (info) => {
-       const c = info.row.original;
-       const v = info.getValue() as string;
-       const firstName = v ? v.split(' ').pop() : '';
-       return (
-         <div className="flex items-center w-full min-w-0 gap-2 group cursor-pointer" onClick={(e) => { e.stopPropagation(); onEditCustomer?.(c); }}>
-            <div className="w-5 h-5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center font-bold text-2xs shrink-0 uppercase tracking-widest">
-               {firstName ? firstName.substring(0, 2) : '?'}
-            </div>
-            <span className="text-xs font-medium border-b border-transparent group-hover:border-blue-500/30 text-slate-700 truncate block" title={v || 'Chạm để phân công'}>{firstName || <span className="text-slate-500 italic font-normal">Chưa phân công</span>}</span>
-         </div>
-       );
-    }
+    cell: (info) => (
+      <PicCell 
+        fullName={info.getValue() as string} 
+        onClick={onEditCustomer ? () => onEditCustomer(info.row.original) : undefined}
+        emptyLabel="Chưa phân công"
+      />
+    )
   },
   {
     id: 'trangThaiGuiTinQuangCao',

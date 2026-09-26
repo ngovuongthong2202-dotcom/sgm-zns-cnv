@@ -14,7 +14,7 @@ export function HoverCardPortal({
   content, 
   cardWidth = 420,
   openDelay = 250,
-  closeDelay = 200
+  closeDelay = 350
 }: HoverCardPortalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const openTimeoutRef = useRef<any>(null);
@@ -152,8 +152,10 @@ export function HoverCardPortal({
       {isOpen && typeof document !== 'undefined' && createPortal(
         <div 
           ref={cardRef}
+          data-hovercard-boundary="true"
           onMouseEnter={handleContentMouseEnter}
           onMouseLeave={handleContentMouseLeave}
+          onMouseDown={(e) => e.stopPropagation()}
           style={{ 
             position: 'fixed', 
             top: `${adjustedPos.top}px`, 

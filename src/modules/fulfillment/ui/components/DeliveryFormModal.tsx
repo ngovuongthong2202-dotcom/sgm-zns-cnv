@@ -22,9 +22,23 @@ import { EntityLockWarning } from '@/src/widgets/EntityLockWarning';
 import { handleEnterToTab } from '@/src/shared/utils/formNavigation';
 import { normalizeDeliveryFormValues, validateDeliveryBusinessRules, isDeliverySourceFullyDelivered } from './DeliveryFormHelpers';
 import { useDeliveryForm } from '../hooks/useDeliveryForm';
+import { formatUserOfficer } from '@/src/shared/utils/userProfile';
 
-export function DeliveryFormModal({ delivery, payments, contracts, quotations, customers, deliveries, nguoiPhuTrachList, onClose, onSave }: any) {
+export function DeliveryFormModal({ delivery, payments, contracts, quotations, customers, deliveries, nguoiPhuTrachList: _nguoiPhuTrachList, onClose, onSave }: any) {
   const { user, userData } = useAuth();
+  const defaultOfficer = formatUserOfficer(userData, user);
+  const effectiveNguoiPhuTrachList = React.useMemo(() => {
+    const list = [...(_nguoiPhuTrachList || [])];
+    if (defaultOfficer && !list.includes(defaultOfficer)) {
+      list.push(defaultOfficer);
+    }
+    const currentOfficer = delivery?.nguoiPhuTrach;
+    if (currentOfficer && !list.includes(currentOfficer)) {
+      list.push(currentOfficer);
+    }
+    return list;
+  }, [_nguoiPhuTrachList, defaultOfficer, delivery?.nguoiPhuTrach]);
+
   const { canEdit, reason: lockReason } = checkA5Policy(user, userData, delivery);
 
   const {
@@ -341,7 +355,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                   <DeliveryInfoSection
                     register={register}
                     errors={errors}
-                    nguoiPhuTrachList={nguoiPhuTrachList}
+                    nguoiPhuTrachList={effectiveNguoiPhuTrachList}
                     onLookupExportSale={lookupExportSale}
                     isLookingUpExportSale={isLookingUpExportSale}
                     currentCustomer={currentCustomer}

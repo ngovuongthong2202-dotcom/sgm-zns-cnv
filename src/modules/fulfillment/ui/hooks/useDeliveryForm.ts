@@ -26,7 +26,7 @@ export function useDeliveryForm(
 
   const { register, handleSubmit, watch, setValue, getValues, reset, formState: { errors, isSubmitting } } = useForm<Delivery>({
     resolver: zodResolver(DeliverySchema) as any,
-    defaultValues: draft ? { ...draft, nguoiPhuTrach: defaultOfficer } : (delivery ? { ...delivery, nguoiPhuTrach: defaultOfficer } : { 
+    defaultValues: draft ? { ...draft, nguoiPhuTrach: draft.nguoiPhuTrach || defaultOfficer } : (delivery ? { ...delivery, nguoiPhuTrach: delivery.nguoiPhuTrach || defaultOfficer } : { 
       trangThaiGuiTinGiaoHang: EntityZnsStatus.CHUA_GUI,
       ngayLapPgh: new Date().toISOString().split('T')[0],
       ngayGiaoMay: new Date().toISOString().split('T')[0],
@@ -51,12 +51,6 @@ export function useDeliveryForm(
   });
 
   useEffect(() => {
-    if (defaultOfficer && getValues('nguoiPhuTrach') !== defaultOfficer) {
-      setValue('nguoiPhuTrach', defaultOfficer, { shouldValidate: true });
-    }
-  }, [defaultOfficer, setValue, getValues]);
-
-  useEffect(() => {
     if (delivery) {
       reset({
         ...delivery,
@@ -66,7 +60,7 @@ export function useDeliveryForm(
         donViVanChuyen: delivery.donViVanChuyen || '',
         soPhieuXuat: delivery.soPhieuXuat || '',
         slMay: delivery.slMay || 0,
-        nguoiPhuTrach: defaultOfficer,
+        nguoiPhuTrach: delivery.nguoiPhuTrach || defaultOfficer,
         nguoiLienHe: delivery.nguoiLienHe || '',
         sdtLienHe: delivery.sdtLienHe || '',
         diaChiGiaoHang: delivery.diaChiGiaoHang || '',

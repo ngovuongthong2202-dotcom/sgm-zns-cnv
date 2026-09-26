@@ -10,9 +10,9 @@ describe('Core Policy Gates Golden Master', () => {
       expect(canCreateContract(quotation)).toMatchSnapshot();
     });
 
-    it('matches golden master for invalid quotation', () => {
+    it('allows contract creation even when quotation ZNS is not successful', () => {
       const quotation = { trangThaiGuiTinBaoGia: EntityZnsStatus.THAT_BAI } as any;
-      expect(canCreateContract(quotation)).toMatchSnapshot();
+      expect(canCreateContract(quotation)).toEqual({ allowed: true });
     });
 
     it('matches golden master for missing quotation', () => {
@@ -50,14 +50,14 @@ describe('Core Policy Gates Golden Master', () => {
   });
 
   describe('canCreateDelivery', () => {
-    it('matches golden master for valid payment', () => {
+    it('allows delivery creation for valid payment', () => {
       const payment = { trangThaiGuiTinThanhToan: EntityZnsStatus.THANH_CONG } as any;
-      expect(canCreateDelivery(payment)).toMatchSnapshot();
+      expect(canCreateDelivery(payment)).toEqual({ allowed: true });
     });
 
-    it('matches golden master for invalid payment', () => {
+    it('allows delivery creation even when payment ZNS is not successful', () => {
       const payment = { trangThaiGuiTinThanhToan: EntityZnsStatus.THAT_BAI } as any;
-      expect(canCreateDelivery(payment)).toMatchSnapshot();
+      expect(canCreateDelivery(payment)).toEqual({ allowed: true });
     });
   });
 });

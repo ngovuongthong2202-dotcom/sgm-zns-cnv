@@ -8,6 +8,7 @@ import { DeliveryHoverCard } from './components/DeliveryHoverCard';
 import { normalizeBusinessName, normalizePersonName } from '@/src/shared/utils/textFormatter';
 import { t } from '@/src/i18n/vi';
 import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
+import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
 
 export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: any }>[] => [
   createSttColumn() as any,
@@ -42,15 +43,9 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
     id: 'nguoiPhuTrach',
     header: 'Người Phụ Trách',
     size: 150,
-    cell: (info) => {
-      const fullName = (info.getValue() as string) || '';
-      const lastName = fullName.trim().split(' ').pop() || '---';
-      return (
-        <div className="w-full min-w-0 flex items-center text-xs">
-          <span className="truncate block font-medium text-slate-700" title={fullName}>{lastName}</span>
-        </div>
-      );
-    },
+    cell: (info) => (
+      <PicCell fullName={info.getValue() as string} />
+    ),
   },
   {
     id: 'customerId',
