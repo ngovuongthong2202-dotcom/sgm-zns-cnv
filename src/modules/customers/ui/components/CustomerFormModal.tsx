@@ -268,7 +268,9 @@ export function CustomerForm({
                 disabled={isSubmitting || isLockedByOther || !canEdit}
                 onClick={handleSubmit(async (data: any) => {
                   const normalized = normalizeCustomerFormValues(data);
-                  normalized.nguoiPhuTrach = currentUserName;
+                  if (!normalized.nguoiPhuTrach) {
+                    normalized.nguoiPhuTrach = currentUserName;
+                  }
                   const hasDupes = await checkDuplicates(normalized);
                   if (hasDupes) return;
                   await clearDraft();
@@ -278,7 +280,7 @@ export function CustomerForm({
                   setValue('sdt', '');
                   setValue('diaChi', '');
                   setValue('nguoiDaiDien', '');
-                  setValue('nguoiPhuTrach', currentUserName);
+                  setValue('nguoiPhuTrach', data.nguoiPhuTrach || currentUserName);
                   setValue('contacts', [{ nguoiDaiDien: '', sdt: '', chiNhanh: '', chucVu: '' }]);
                   await generateNextMaKh();
                   setTimeout(() => nameInputRef?.current?.focus(), 100);

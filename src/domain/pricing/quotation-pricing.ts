@@ -1,4 +1,5 @@
 import { ProductItem } from '@/src/domain/schema/product.schema';
+import { sanitizeText, sanitizeCode } from '@/src/shared/utils/inputSanitizer';
 
 export interface TaxBreakdownTier {
   vatPct: number;
@@ -25,6 +26,12 @@ export interface FinancialSummary {
  * Triệt tiêu hoàn toàn stale zero lock và bảo toàn trọn vẹn hàng tặng kèm 0 đồng.
  */
 export function computeLineItem(item: ProductItem): ProductItem {
+  const productName = item.productName !== undefined ? sanitizeText(item.productName) : undefined;
+  const productId = item.productId !== undefined ? sanitizeCode(item.productId) : undefined;
+  const partNumber = item.partNumber !== undefined ? sanitizeCode(item.partNumber) : undefined;
+  const unit = item.unit !== undefined ? sanitizeText(item.unit) : undefined;
+  const ghiChu = item.ghiChu !== undefined ? sanitizeText(item.ghiChu) : undefined;
+
   const price = Math.max(0, Math.round(Number(item.price) || 0));
   const quantity = Math.max(0, Number(item.quantity) || 0);
   const gross = Math.round(price * quantity);
@@ -71,10 +78,15 @@ export function computeLineItem(item: ProductItem): ProductItem {
   const subtotalAfterTax = subtotalBeforeTax + taxAmount;
 
   // 5. Nhận diện hàng khuyến mãi/tặng kèm hợp lệ (0 đồng)
-  const isPromotional = price === 0 && Boolean(item.productName || item.productId);
+  const isPromotional = price === 0 && Boolean((productName || item.productName) || (productId || item.productId));
 
   return {
     ...item,
+    ...(productName !== undefined ? { productName } : {}),
+    ...(productId !== undefined ? { productId } : {}),
+    ...(partNumber !== undefined ? { partNumber } : {}),
+    ...(unit !== undefined ? { unit } : {}),
+    ...(ghiChu !== undefined ? { ghiChu } : {}),
     price,
     quantity,
     discountType: discountType || (discountAmount > 0 ? 'AMOUNT' : discountPct ? 'PERCENT' : undefined),

@@ -12,34 +12,51 @@ import { cn } from '@/src/shared/utils/textFormatter';
 import { t } from '@/src/i18n/vi';
 
 interface Props {
-  contract: Contract;
+  contract?: Contract;
+  contractId?: string;
   children: React.ReactNode;
 }
 
-function ContractHoverCardContent({ contract }: { contract: Contract }) {
+function ContractHoverCardContent({ contract, contractId }: { contract?: Contract; contractId?: string }) {
   const [activeTab, setActiveTab] = useState<'customer' | 'links' | 'products'>('customer');
+  const targetId = contractId || contract?.id;
+
+  const { data: fetchedContract } = useSWR<any>(
+    targetId ? `contracts:${targetId}` : null,
+    swrDocFetcher, { dedupingInterval: 60000 }
+  );
+
+  const activeContract = fetchedContract || contract;
 
   const { data: deliveries } = useSWR<any[]>(
-    activeTab === 'links' && contract.id ? `deliveries:500:contractId:${contract.id}` : null,
+    activeTab === 'links' && activeContract?.id ? `deliveries:500:contractId:${activeContract.id}` : null,
     swrColFetcher, { dedupingInterval: 60000 }
   );
   
   const { data: payments } = useSWR<any[]>(
-    activeTab === 'links' && contract.id ? `payments:500:contractId:${contract.id}` : null,
+    activeTab === 'links' && activeContract?.id ? `payments:500:contractId:${activeContract.id}` : null,
     swrColFetcher, { dedupingInterval: 60000 }
   );
 
   const { data: customer } = useSWR<any>(
-    contract?.customerId ? `customers:${contract.customerId}` : null,
+    activeContract?.customerId ? `customers:${activeContract.customerId}` : null,
     swrDocFetcher, { dedupingInterval: 60000 }
   );
 
   const { data: quotation } = useSWR<any>(
-    contract?.quotationId ? `quotations:${contract.quotationId}` : null,
+    activeContract?.quotationId ? `quotations:${activeContract.quotationId}` : null,
     swrDocFetcher, { dedupingInterval: 60000 }
   );
 
-  const totalValue = contract.products?.reduce((acc, p) => acc + ((p.price || 0) * (p.quantity || 1)), 0) || 0;
+  if (!activeContract) {
+    return (
+      <div className="flex flex-col h-full bg-slate-50 p-6 text-center text-xs text-slate-500 w-[420px] animate-pulse">
+        Đang tải thông tin hợp đồng...
+      </div>
+    );
+  }
+
+  const totalValue = activeContract.products?.reduce((acc: number, p: any) => acc + ((p.price || 0) * (p.quantity || 1)), 0) || 0;
 
   const content = (
     <div className="flex flex-col h-full bg-slate-50 max-h-[85vh] overflow-hidden w-[420px]" onClick={(e) => e.stopPropagation()}>
@@ -47,19 +64,19 @@ function ContractHoverCardContent({ contract }: { contract: Contract }) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileText size={16} className="text-teal-600 shrink-0" />
-            <span className="font-semibold text-sm text-slate-900 line-clamp-1">{contract.soHopDong || t('empty.noContractNum')}</span>
+            <span className="font-semibold text-sm text-slate-900 line-clamp-1">{activeContract.soHopDong || t('empty.noContractNum')}</span>
           </div>
           <span className="font-medium text-slate-600 bg-slate-200/50 px-1.5 py-0.5 rounded text-2xs uppercase tracking-wide flex items-center gap-1.5">
-             <CalendarClock size={10} /> {formatDate(contract.ngayKy) || '—'}
+             <CalendarClock size={10} /> {formatDate(activeContract.ngayKy) || '—'}
           </span>
         </div>
         <div className="text-xs text-slate-500 flex items-center justify-between mt-1">
           <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded">
              <UserCheck size={12} className="text-slate-500 shrink-0" />
-             <span className="font-medium text-slate-700 truncate max-w-[120px]">{contract.nguoiPhuTrach || 'Chưa phân công'}</span>
+             <span className="font-medium text-slate-700 truncate max-w-[120px]">{activeContract.nguoiPhuTrach || 'Chưa phân công'}</span>
           </div>
           <span className="font-bold text-slate-800 tabular-nums text-sm">
-            {new Intl.NumberFormat('vi-VN').format(contract.totalAmount || totalValue)} đ
+            {new Intl.NumberFormat('vi-VN').format(activeContract.totalAmount || totalValue)} đ
           </span>
         </div>
       </div>
@@ -68,7 +85,7 @@ function ContractHoverCardContent({ contract }: { contract: Contract }) {
       <div className="flex border-b border-slate-200 shrink-0 bg-white" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
         <button type="button" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setActiveTab('customer'); }} className={cn("flex-1 py-2 text-2xs font-bold uppercase tracking-wider transition-colors cursor-pointer bg-transparent border-0", activeTab === 'customer' ? "text-teal-600 border-b-2 border-teal-600 bg-teal-50/30" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900")}>Khách hàng</button>
         <button type="button" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setActiveTab('links'); }} className={cn("flex-1 py-2 text-2xs font-bold uppercase tracking-wider transition-colors cursor-pointer bg-transparent border-0", activeTab === 'links' ? "text-teal-600 border-b-2 border-teal-600 bg-teal-50/30" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900")}>Liên kết</button>
-        <button type="button" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setActiveTab('products'); }} className={cn("flex-1 py-2 text-2xs font-bold uppercase tracking-wider transition-colors cursor-pointer bg-transparent border-0", activeTab === 'products' ? "text-teal-600 border-b-2 border-teal-600 bg-teal-50/30" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900")}>Sản phẩm ({contract.products?.length || 0})</button>
+        <button type="button" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setActiveTab('products'); }} className={cn("flex-1 py-2 text-2xs font-bold uppercase tracking-wider transition-colors cursor-pointer bg-transparent border-0", activeTab === 'products' ? "text-teal-600 border-b-2 border-teal-600 bg-teal-50/30" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900")}>Sản phẩm ({activeContract.products?.length || 0})</button>
       </div>
 
       {/* Tab Contents */}
@@ -78,16 +95,16 @@ function ContractHoverCardContent({ contract }: { contract: Contract }) {
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
               <div className="col-span-2">
                 <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Tên khách hàng:</span>
-                <span className="font-bold text-slate-900 leading-tight block">{customer?.tenKhachHang || contract.tenKhachHang || '—'}</span>
+                <span className="font-bold text-slate-900 leading-tight block">{customer?.tenKhachHang || activeContract.tenKhachHang || '—'}</span>
               </div>
               <div>
                 <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Người đại diện:</span>
-                <span className="font-semibold text-slate-800 block">{customer?.nguoiDaiDien || contract.nguoiDaiDien || '—'}</span>
+                <span className="font-semibold text-slate-800 block">{customer?.nguoiDaiDien || activeContract.nguoiDaiDien || '—'}</span>
               </div>
               <div>
                 <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Số điện thoại:</span>
                 <span className="font-mono font-semibold text-slate-800 block flex items-center gap-1">
-                  <Phone size={10} className="text-slate-400" /> {customer?.sdt || contract.sdt || '—'}
+                  <Phone size={10} className="text-slate-400" /> {customer?.sdt || activeContract.sdt || '—'}
                 </span>
               </div>
               <div className="col-span-2 border-t border-slate-100 pt-3">
@@ -100,13 +117,13 @@ function ContractHoverCardContent({ contract }: { contract: Contract }) {
                  <div>
                     <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Số ngày hiện thực:</span>
                     <span className="font-medium text-slate-600 block leading-normal">
-                      {(contract as any).soNgayDuKienHoanThanh || '-'} ngày
+                      {(activeContract as any).soNgayDuKienHoanThanh || '-'} ngày
                     </span>
                  </div>
                  <div>
                     <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Ngày dự kiến hoàn thành:</span>
                     <span className="font-medium text-slate-600 block leading-normal">
-                      {formatDate((contract as any).ngayDuKienHoanThanh) || '-'}
+                      {formatDate((activeContract as any).ngayDuKienHoanThanh) || '-'}
                     </span>
                  </div>
               </div>
@@ -123,14 +140,14 @@ function ContractHoverCardContent({ contract }: { contract: Contract }) {
                   <Calculator size={12} className="text-blue-500" /> Báo Giá
                 </div>
               </div>
-              {contract.quotationId || contract.soPhieuBaoGia ? (
-                <div className="text-2xs bg-slate-50 p-2.5 rounded border border-slate-150 cursor-pointer hover:bg-slate-100 hover:border-blue-200 transition-colors group" onClick={(e) => { e.stopPropagation(); window.location.href = `/quotations?quotationId=${contract.quotationId}`; }}>
+              {activeContract.quotationId || activeContract.soPhieuBaoGia ? (
+                <div className="text-2xs bg-slate-50 p-2.5 rounded border border-slate-150 cursor-pointer hover:bg-slate-100 hover:border-blue-200 transition-colors group" onClick={(e) => { e.stopPropagation(); window.location.href = `/quotations?quotationId=${activeContract.quotationId}`; }}>
                    <div className="flex justify-between items-center mb-1">
-                     <span className="font-bold text-slate-800 line-clamp-1 group-hover:text-blue-700 transition-colors">{contract.soPhieuBaoGia}</span>
-                     <span className="font-mono text-blue-700 font-bold">{new Intl.NumberFormat('vi-VN').format(quotation?.totalAmount || contract?.totalAmount || 0)} ₫</span>
+                     <span className="font-bold text-slate-800 line-clamp-1 group-hover:text-blue-700 transition-colors">{activeContract.soPhieuBaoGia}</span>
+                     <span className="font-mono text-blue-700 font-bold">{new Intl.NumberFormat('vi-VN').format(quotation?.totalAmount || activeContract?.totalAmount || 0)} ₫</span>
                    </div>
                    <div className="flex justify-between text-slate-500 text-2xs">
-                     <span>Ngày báo giá: {formatDate(contract.ngayBaoGia)}</span>
+                     <span>Ngày báo giá: {formatDate(activeContract.ngayBaoGia)}</span>
                    </div>
                 </div>
               ) : <div className="text-2xs text-slate-500 italic text-center py-2">Không liên kết báo giá</div>}
@@ -191,13 +208,13 @@ function ContractHoverCardContent({ contract }: { contract: Contract }) {
 
         {activeTab === 'products' && (
            <HoverCardProductsTab
-             products={contract.products || []}
-             subTotal={contract.subTotal || totalValue}
-             discountRate={contract.discountRate}
-             discountAmount={contract.discountAmount}
-             vatRate={contract.vatRate}
-             vatAmount={contract.vatAmount}
-             totalAmount={contract.totalAmount || totalValue}
+             products={activeContract.products || []}
+             subTotal={activeContract.subTotal || totalValue}
+             discountRate={activeContract.discountRate}
+             discountAmount={activeContract.discountAmount}
+             vatRate={activeContract.vatRate}
+             vatAmount={activeContract.vatAmount}
+             totalAmount={activeContract.totalAmount || totalValue}
              accentColorClass="text-teal-700"
            />
         )}
@@ -208,10 +225,10 @@ function ContractHoverCardContent({ contract }: { contract: Contract }) {
   return content;
 }
 
-export function ContractHoverCard({ contract, children }: Props) {
+export function ContractHoverCard({ contract, contractId, children }: Props) {
   return (
     <HoverCardPortal
-      content={<ContractHoverCardContent contract={contract} />}
+      content={<ContractHoverCardContent contract={contract} contractId={contractId} />}
       cardWidth={420}
     >
       {children}

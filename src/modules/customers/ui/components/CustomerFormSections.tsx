@@ -7,7 +7,7 @@ import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 import { autoDetectBusinessName, STANDARDIZED_BUSINESS_TYPES } from './CustomerFormHelpers';
 
-import { sanitizeTaxCode } from '@/src/shared/utils/inputSanitizer';
+import { sanitizeTaxCode, sanitizeText } from '@/src/shared/utils/inputSanitizer';
 
 interface ProfileSectionProps {
   register: UseFormRegister<any>;
@@ -272,9 +272,17 @@ export function CustomerFormProfileSection({
             id="diaChi"
             autoComplete="off"
             {...register('diaChi')}
+            onPaste={(e) => {
+              const text = e.clipboardData.getData('text');
+              if (text) {
+                e.preventDefault();
+                const clean = cleanProperVietnameseText(sanitizeText(text));
+                setValue('diaChi', clean, { shouldDirty: true, shouldValidate: true });
+              }
+            }}
             onBlur={(e) => {
               register('diaChi').onBlur(e);
-              setValue('diaChi', cleanProperVietnameseText(e.target.value), { shouldDirty: true });
+              setValue('diaChi', cleanProperVietnameseText(sanitizeText(e.target.value)), { shouldDirty: true });
             }}
             className="w-full h-8 border border-slate-200 rounded-lg px-3 text-sm placeholder:text-slate-300"
             placeholder="Số nhà, tên đường, khu công nghiệp..."

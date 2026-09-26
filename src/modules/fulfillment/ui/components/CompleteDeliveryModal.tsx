@@ -6,6 +6,7 @@ import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { motion } from 'motion/react';
 import { CheckCircle2, User, Calendar, FileText, Package, Check } from 'lucide-react';
 import { cleanProperVietnameseText, squeezeSpaces } from '@/src/shared/utils/textFormatter';
+import { sanitizeText } from '@/src/shared/utils/inputSanitizer';
 import * as Dialog from '@radix-ui/react-dialog';
 
 import { Button } from '@/src/design-system/Button';
@@ -46,8 +47,8 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
   });
 
   const onSubmit = async (data: CompleteFormValues) => {
-    let finalNote = squeezeSpaces(data.ghiChu || '');
-    const cleanKyNhan = cleanProperVietnameseText(data.kyNhan);
+    let finalNote = sanitizeText(data.ghiChu || '');
+    const cleanKyNhan = sanitizeText(cleanProperVietnameseText(data.kyNhan));
     
     if (delivery.ghiChu && finalNote && !finalNote.includes(delivery.ghiChu)) {
       finalNote = `${delivery.ghiChu}\n--- Cập nhật lúc giao ---\n${finalNote}`;

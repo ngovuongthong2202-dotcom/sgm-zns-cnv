@@ -14,6 +14,7 @@ import { Button } from '@/src/design-system/Button';
 import { useDraft } from '@/src/hooks/useDraft';
 import { squeezeSpaces, normalizeCode, cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
 import { normalizePhoneVN } from '@/src/shared/utils/phone';
+import { sanitizeText, sanitizeCode, sanitizePhoneVN } from '@/src/shared/utils/inputSanitizer';
 import { notify } from '@/src/shared/utils/notify';
 
 import { checkPaymentLock } from '@/src/domain/policy/lock.policy';
@@ -291,16 +292,23 @@ export function PaymentRecordDrawer({
   }, [calculatedSubTotal, finalSubTotal, vatAmount, discountAmount, totalAmount, setValue, getValues]);
  
   const onSubmit = async (data: any) => {
-    // Normalization
-    data.ghiChu = squeezeSpaces(data.ghiChu);
-    data.maKh = data.maKh ? normalizeCode(data.maKh) : '';
-    data.tenKhachHang = data.tenKhachHang ? cleanProperVietnameseText(data.tenKhachHang) : '';
-    data.paymentId = normalizeCode(data.paymentId);
+    // Normalization & Enterprise 5-Tier Sanitization
+    data.ghiChu = sanitizeText(data.ghiChu);
+    data.maKh = data.maKh ? sanitizeCode(data.maKh) : '';
+    data.tenKhachHang = data.tenKhachHang ? sanitizeText(cleanProperVietnameseText(data.tenKhachHang)) : '';
+    data.paymentId = sanitizeCode(data.paymentId);
     if (!data.paymentId || data.paymentId === '---') {
       data.paymentId = `PT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
+    if (data.soHopDong) data.soHopDong = sanitizeCode(data.soHopDong);
+    if (data.soDonHang) data.soDonHang = sanitizeCode(data.soDonHang);
+    if (data.soBaoGia) data.soBaoGia = sanitizeCode(data.soBaoGia);
+    if (data.soChungTuThamChieu) data.soChungTuThamChieu = sanitizeCode(data.soChungTuThamChieu);
+    if (data.tenNguoiNop) data.tenNguoiNop = sanitizeText(data.tenNguoiNop);
+    if (data.soTaiKhoan) data.soTaiKhoan = sanitizeCode(data.soTaiKhoan);
+    if (data.nganHang) data.nganHang = sanitizeText(data.nganHang);
     if (data.sdt) {
-      data.sdt = normalizePhoneVN(data.sdt) || data.sdt;
+      data.sdt = sanitizePhoneVN(data.sdt) || normalizePhoneVN(data.sdt) || data.sdt;
     }
     
     // Remove transient field used only for form linking

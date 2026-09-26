@@ -12,6 +12,8 @@ export const QuotationSchema = z.object({
   tenKhachHang: z.string().optional().or(z.literal('')),
   nguoiDaiDien: z.string().optional(),
   sdt: z.string().optional().or(z.literal('')),
+  diaChi: z.string().optional(),
+  ghiChu: z.string().optional(),
   
   // Quotation specific
   ngayBaoGia: z.string().optional(),

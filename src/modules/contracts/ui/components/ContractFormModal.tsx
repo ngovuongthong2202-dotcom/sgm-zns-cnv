@@ -14,6 +14,7 @@ import { Button } from '@/src/design-system/Button';
 import ProductListInput from '@/src/widgets/ProductListInput';
 import { normalizeCode, normalizePersonName } from '@/src/shared/utils/textFormatter';
 import { normalizePhoneVN } from '@/src/shared/utils/phone';
+import { sanitizeText, sanitizeCode, sanitizePhoneVN } from '@/src/shared/utils/inputSanitizer';
 import { MachineCodeChipInput } from './MachineCodeChipInput';
 import { handleEnterToTab } from '@/src/shared/utils/formNavigation';
 import { ContractHiddenInputs } from './ContractFormHelpers';
@@ -71,14 +72,18 @@ export function ContractFormModal({ contract, contracts, quotations, nguoiPhuTra
   const onSubmitForm = async (data: any) => {
     try {
       // Normalize before validating
-      data.soHopDong = normalizeCode(data.soHopDong);
-      data.soDonHang = normalizeCode(data.soDonHang);
-      data.nguoiDaiDien = normalizePersonName(data.nguoiDaiDien);
+      data.soHopDong = sanitizeCode(data.soHopDong);
+      data.soDonHang = sanitizeCode(data.soDonHang);
+      if (data.maKh) data.maKh = sanitizeCode(data.maKh);
+      if (data.tenKhachHang) data.tenKhachHang = sanitizeText(data.tenKhachHang);
+      if (data.diaChi) data.diaChi = sanitizeText(data.diaChi);
+      if (data.ghiChu) data.ghiChu = sanitizeText(data.ghiChu);
+      data.nguoiDaiDien = sanitizeText(normalizePersonName(data.nguoiDaiDien));
       if (data.sdt) {
-        data.sdt = normalizePhoneVN(data.sdt) || data.sdt;
+        data.sdt = sanitizePhoneVN(data.sdt) || normalizePhoneVN(data.sdt) || data.sdt;
       }
       if (data.logTomTat) {
-         data.logTomTat = data.logTomTat.trim().replace(/\s+/g, ' ');
+         data.logTomTat = sanitizeText(data.logTomTat);
       }
       
       const isValid = await validateContractSubmit({

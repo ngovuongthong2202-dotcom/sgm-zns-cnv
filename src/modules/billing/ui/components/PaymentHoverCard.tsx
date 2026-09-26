@@ -13,61 +13,94 @@ import { cn } from '@/src/shared/utils/textFormatter';
 import { t } from '@/src/i18n/vi';
 
 interface Props {
-  payment: Payment;
-  contracts: Contract[];
-  quotations: Quotation[];
-  deliveries: Delivery[];
+  payment?: Payment;
+  paymentId?: string;
+  contracts?: Contract[];
+  quotations?: Quotation[];
+  deliveries?: Delivery[];
   children: React.ReactNode;
 }
 
-function PaymentHoverCardContent({ payment, contracts, quotations, deliveries }: { payment: Payment; contracts: Contract[]; quotations: Quotation[]; deliveries: Delivery[] }) {
+function PaymentHoverCardContent({
+  payment,
+  paymentId,
+  contracts = [],
+  quotations = [],
+  deliveries = []
+}: {
+  payment?: Payment;
+  paymentId?: string;
+  contracts?: Contract[];
+  quotations?: Quotation[];
+  deliveries?: Delivery[];
+}) {
   const [activeTab, setActiveTab] = useState<'customer' | 'links' | 'products'>('customer');
+  const targetId = paymentId || payment?.id;
 
-  const { data: customer } = useSWR<any>(
-    payment.customerId ? `customers:${payment.customerId}` : null,
+  const { data: fetchedPayment } = useSWR<any>(
+    targetId ? `payments:${targetId}` : null,
     swrDocFetcher, { dedupingInterval: 60000 }
   );
 
-  let contract = contracts.find(c => 
-    (payment.contractId && c.id === payment.contractId) || 
-    ((payment as any).soHopDong && c.soHopDong === (payment as any).soHopDong)
+  const activePayment = fetchedPayment || payment;
+
+  const { data: customer } = useSWR<any>(
+    activePayment?.customerId ? `customers:${activePayment.customerId}` : null,
+    swrDocFetcher, { dedupingInterval: 60000 }
   );
-  if (!contract && (payment as any).soHopDong) {
+
+  if (!activePayment) {
+    return (
+      <div className="flex flex-col h-full bg-slate-50 p-6 text-center text-xs text-slate-500 w-[420px] animate-pulse">
+        Đang tải thông tin thanh toán...
+      </div>
+    );
+  }
+
+  const safeContracts = contracts || [];
+  const safeQuotations = quotations || [];
+  const safeDeliveries = deliveries || [];
+
+  let contract = safeContracts.find(c => 
+    (activePayment.contractId && c.id === activePayment.contractId) || 
+    ((activePayment as any).soHopDong && c.soHopDong === (activePayment as any).soHopDong)
+  );
+  if (!contract && (activePayment as any).soHopDong) {
     contract = {
-      soHopDong: (payment as any).soHopDong,
-      ngayKy: (payment as any).ngayKy || '',
-      customerId: payment.customerId,
-      tenKhachHang: payment.tenKhachHang,
+      soHopDong: (activePayment as any).soHopDong,
+      ngayKy: (activePayment as any).ngayKy || '',
+      customerId: activePayment.customerId,
+      tenKhachHang: activePayment.tenKhachHang,
     } as any;
   }
 
-  let quotation = quotations.find(q => 
-    (payment.quotationId && q.id === payment.quotationId) || 
-    ((payment as any).soPhieuBaoGia && q.soPhieuBaoGia === (payment as any).soPhieuBaoGia) ||
+  let quotation = safeQuotations.find(q => 
+    (activePayment.quotationId && q.id === activePayment.quotationId) || 
+    ((activePayment as any).soPhieuBaoGia && q.soPhieuBaoGia === (activePayment as any).soPhieuBaoGia) ||
     (contract && contract.quotationId && q.id === contract.quotationId) ||
     (contract && contract.soPhieuBaoGia && q.soPhieuBaoGia === contract.soPhieuBaoGia)
   );
-  if (!quotation && (payment as any).soPhieuBaoGia) {
+  if (!quotation && (activePayment as any).soPhieuBaoGia) {
     quotation = {
-      soPhieuBaoGia: (payment as any).soPhieuBaoGia,
-      ngayBaoGia: (payment as any).ngayBaoGia || '',
-      customerId: payment.customerId,
-      tenKhachHang: payment.tenKhachHang,
+      soPhieuBaoGia: (activePayment as any).soPhieuBaoGia,
+      ngayBaoGia: (activePayment as any).ngayBaoGia || '',
+      customerId: activePayment.customerId,
+      tenKhachHang: activePayment.tenKhachHang,
     } as any;
   }
 
-  const pbDeliveries = deliveries.filter(d => {
-    if (payment.id && d.paymentId === payment.id) return true;
-    if (payment.contractId && d.contractId === payment.contractId) return true;
+  const pbDeliveries = safeDeliveries.filter(d => {
+    if (activePayment.id && d.paymentId === activePayment.id) return true;
+    if (activePayment.contractId && d.contractId === activePayment.contractId) return true;
     if (contract?.id && d.contractId === contract.id) return true;
-    if ((payment as any).soHopDong && d.soHopDong === (payment as any).soHopDong) return true;
+    if ((activePayment as any).soHopDong && d.soHopDong === (activePayment as any).soHopDong) return true;
     if (contract?.soHopDong && d.soHopDong === contract.soHopDong) return true;
-    if (payment.quotationId && d.quotationId === payment.quotationId) return true;
+    if (activePayment.quotationId && d.quotationId === activePayment.quotationId) return true;
     if (quotation?.id && d.quotationId === quotation.id) return true;
     return false;
   });
 
-  const products = payment.products || contract?.products || quotation?.products || [];
+  const products = activePayment.products || contract?.products || quotation?.products || [];
 
   const content = (
     <div className="flex flex-col h-full bg-slate-50 max-h-[85vh] overflow-hidden w-[420px]" onClick={(e) => e.stopPropagation()}>
@@ -76,16 +109,16 @@ function PaymentHoverCardContent({ payment, contracts, quotations, deliveries }:
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Receipt size={16} className="text-amber-600 shrink-0" />
-              <span className="font-semibold text-sm text-slate-900 line-clamp-1">{payment.paymentId}</span>
+              <span className="font-semibold text-sm text-slate-900 line-clamp-1">{activePayment.paymentId}</span>
             </div>
-            <span className={cn("px-1.5 py-0.5 rounded text-2xs uppercase font-bold tracking-wide", payment.tinhTrangThanhToan === 'Tất toán' ? 'bg-emerald-100 text-emerald-700' : payment.tinhTrangThanhToan === 'Công nợ' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600')}>{payment.tinhTrangThanhToan}</span>
+            <span className={cn("px-1.5 py-0.5 rounded text-2xs uppercase font-bold tracking-wide", activePayment.tinhTrangThanhToan === 'Tất toán' ? 'bg-emerald-100 text-emerald-700' : activePayment.tinhTrangThanhToan === 'Công nợ' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600')}>{activePayment.tinhTrangThanhToan}</span>
           </div>
           <div className="text-xs text-slate-500 flex items-center justify-between mt-1">
             <span className="font-medium text-slate-600 bg-slate-50 px-2 flex items-center gap-1.5 py-1 rounded">
-               <CalendarClock size={12} /> {formatDate((payment as any).ngayThanhToan || payment.createdAt)}
+               <CalendarClock size={12} /> {formatDate((activePayment as any).ngayThanhToan || activePayment.createdAt)}
             </span>
             <span className="font-bold text-slate-800 tabular-nums text-sm">
-              {new Intl.NumberFormat('vi-VN').format(payment.soTien || payment.totalAmount || 0)} ₫
+              {new Intl.NumberFormat('vi-VN').format(activePayment.soTien || activePayment.totalAmount || 0)} ₫
             </span>
           </div>
       </div>
@@ -104,7 +137,7 @@ function PaymentHoverCardContent({ payment, contracts, quotations, deliveries }:
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
               <div className="col-span-2">
                 <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Tên khách hàng:</span>
-                <span className="font-bold text-slate-900 leading-tight block">{customer?.tenKhachHang || payment.tenKhachHang || '—'}</span>
+                <span className="font-bold text-slate-900 leading-tight block">{customer?.tenKhachHang || activePayment.tenKhachHang || '—'}</span>
               </div>
               <div>
                 <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Người đại diện:</span>
@@ -113,7 +146,7 @@ function PaymentHoverCardContent({ payment, contracts, quotations, deliveries }:
               <div>
                 <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Số điện thoại:</span>
                 <span className="font-mono font-semibold text-slate-800 block flex items-center gap-1">
-                  <Phone size={10} className="text-slate-400" /> {customer?.sdt || payment.sdt || '—'}
+                  <Phone size={10} className="text-slate-400" /> {customer?.sdt || activePayment.sdt || '—'}
                 </span>
               </div>
               <div className="col-span-2 border-t border-slate-100 pt-3">
@@ -216,10 +249,10 @@ function PaymentHoverCardContent({ payment, contracts, quotations, deliveries }:
   return content;
 }
 
-export function PaymentHoverCard({ payment, contracts, quotations, deliveries, children }: Props) {
+export function PaymentHoverCard({ payment, paymentId, contracts = [], quotations = [], deliveries = [], children }: Props) {
   return (
     <HoverCardPortal
-      content={<PaymentHoverCardContent payment={payment} contracts={contracts} quotations={quotations} deliveries={deliveries} />}
+      content={<PaymentHoverCardContent payment={payment} paymentId={paymentId} contracts={contracts} quotations={quotations} deliveries={deliveries} />}
       cardWidth={420}
     >
       {children}

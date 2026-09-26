@@ -13,6 +13,7 @@ export const ProductItemSchema = z.object({
   ngayHetHanBaoHanh: z.string().optional(),
   danhSachMaMay: z.array(z.string()).optional(),
   // D1: Line-item finance fields
+  partNumber: z.string().optional(),
   ghiChu: z.string().optional(),
   note: z.string().optional().nullable(),
   item_code: z.string().optional(),

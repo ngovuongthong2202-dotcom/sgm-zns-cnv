@@ -3,7 +3,8 @@ import { useFieldArray, Control, UseFormRegister, FieldErrors, UseFormSetValue }
 import { Customer } from "@/src/domain/schema/customer.schema";
 import { Button } from "@/src/design-system/Button";
 import { Plus, Trash, Contact } from "lucide-react";
-import { cleanProperVietnameseText, normalizePhoneNumber } from "@/src/shared/utils/textFormatter";
+import { cleanProperVietnameseText } from "@/src/shared/utils/textFormatter";
+import { sanitizePhoneVN, sanitizeText } from "@/src/shared/utils/inputSanitizer";
 
 interface CustomerContactsArrayProps {
   control: Control<Customer>;
@@ -56,7 +57,7 @@ export function CustomerContactsArray({ control, register, errors, setValue }: C
                   }
                 })}
                 onBlur={(e) => {
-                  const formatted = cleanProperVietnameseText(e.target.value);
+                  const formatted = cleanProperVietnameseText(sanitizeText(e.target.value));
                   setValue("contacts." + index + ".nguoiDaiDien" as any, formatted, { shouldDirty: true });
                   if (index === 0) {
                     setValue("nguoiDaiDien", formatted, { shouldDirty: true, shouldValidate: true });
@@ -83,8 +84,19 @@ export function CustomerContactsArray({ control, register, errors, setValue }: C
                     }
                   }
                 })}
+                onPaste={(e) => {
+                  const text = e.clipboardData.getData('text');
+                  if (text) {
+                    e.preventDefault();
+                    const clean = sanitizePhoneVN(text);
+                    setValue("contacts." + index + ".sdt" as any, clean, { shouldDirty: true });
+                    if (index === 0) {
+                      setValue("sdt", clean, { shouldDirty: true, shouldValidate: true });
+                    }
+                  }
+                }}
                 onBlur={(e) => {
-                  const cleaned = normalizePhoneNumber(e.target.value);
+                  const cleaned = sanitizePhoneVN(e.target.value);
                   setValue("contacts." + index + ".sdt" as any, cleaned, { shouldDirty: true });
                   if (index === 0) {
                     setValue("sdt", cleaned, { shouldDirty: true, shouldValidate: true });

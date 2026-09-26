@@ -2,18 +2,28 @@ import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { normalizeBusinessName, normalizePersonName, normalizeCode } from '@/src/shared/utils/textFormatter';
 import { normalizePhoneVN } from '@/src/shared/utils/phone';
 import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
+import { sanitizeText, sanitizeCode } from '@/src/shared/utils/inputSanitizer';
 
 export function normalizeQuotationFormValues(data: Quotation): Quotation {
   const normalized: Partial<Quotation> = { ...data };
 
   if (normalized.soPhieuBaoGia) {
-      normalized.soPhieuBaoGia = normalizeCode(normalized.soPhieuBaoGia);
+    normalized.soPhieuBaoGia = normalizeCode(normalized.soPhieuBaoGia);
+  }
+  if (normalized.maKh) {
+    normalized.maKh = sanitizeCode(normalized.maKh);
   }
   if (normalized.nguoiDaiDien) {
     normalized.nguoiDaiDien = normalizePersonName(normalized.nguoiDaiDien);
   }
   if (normalized.tenKhachHang) {
     normalized.tenKhachHang = normalizeBusinessName(normalized.tenKhachHang);
+  }
+  if (normalized.diaChi) {
+    normalized.diaChi = sanitizeText(normalized.diaChi);
+  }
+  if (normalized.ghiChu) {
+    normalized.ghiChu = sanitizeText(normalized.ghiChu);
   }
   if (normalized.sdt) {
     normalized.sdt = normalizePhoneVN(normalized.sdt) || normalized.sdt;
