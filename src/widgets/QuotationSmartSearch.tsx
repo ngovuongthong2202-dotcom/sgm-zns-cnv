@@ -19,12 +19,14 @@ export function QuotationSmartSearch({
   error,
   disabled,
   excludeQuoIds = [],
+  quotations,
   filterOption,
   isOptionDisabled
 }: QuotationSmartSearchProps) {
   return (
     <AsyncSearchableSelect
       collection="quotations"
+      options={quotations}
       value={value}
       onChange={onChange}
       disabled={disabled}

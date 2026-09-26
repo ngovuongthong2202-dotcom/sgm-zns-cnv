@@ -101,10 +101,10 @@ export function AsyncSearchableSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const hasStaticOptions = Array.isArray(options) && options.length > 0;
+  const isControlledMode = options !== undefined;
 
   const { data: rawOptionsData, isLoading, isValidating } = useSWR<Record<string, unknown>[]>(
-    (isOpen && !hasStaticOptions) ? `/api/search/${collection}?q=${encodeURIComponent(debouncedSearch)}` : null,
+    (isOpen && !isControlledMode) ? `/api/search/${collection}?q=${encodeURIComponent(debouncedSearch)}` : null,
     fetcher,
     { 
       keepPreviousData: false,
@@ -116,9 +116,9 @@ export function AsyncSearchableSelect({
   
   // Tính toán danh sách options: Ưu tiên options truyền vào từ store realtime
   const optionsData = React.useMemo(() => {
-    if (hasStaticOptions) {
+    if (isControlledMode) {
       const term = search.toLowerCase().trim();
-      let list = options;
+      let list = options || [];
       if (filterOption) {
         list = list.filter(filterOption);
       }
@@ -141,7 +141,7 @@ export function AsyncSearchableSelect({
 
     if (!rawOptionsData) return undefined;
     return filterOption ? rawOptionsData.filter(filterOption) : rawOptionsData;
-  }, [hasStaticOptions, options, search, filterOption, renderOption, rawOptionsData]);
+  }, [isControlledMode, options, search, filterOption, renderOption, rawOptionsData]);
 
   // Helper function to match raw ID with prefixed values like CONTRACT:id or QUOTATION:id
   const matchesValue = (id: unknown, val: unknown): boolean => {
@@ -160,12 +160,12 @@ export function AsyncSearchableSelect({
 
   // Load the selected item details if value exists but we don't have it in optionsData
   const { data: selectedDocData } = useSWR<Record<string, unknown>[]>(
-    (cleanQuery && !isOpen && !hasStaticOptions) ? `/api/search/${collection}?q=${encodeURIComponent(cleanQuery)}` : null,
+    (cleanQuery && !isOpen && !isControlledMode) ? `/api/search/${collection}?q=${encodeURIComponent(cleanQuery)}` : null,
     fetcher
   );
 
   const selectedDoc = (optionsData || []).find(o => matchesValue(o.id, value)) || 
-                      (hasStaticOptions ? options.find(o => matchesValue(o.id, value)) : undefined) ||
+                      (isControlledMode && options ? options.find(o => matchesValue(o.id, value)) : undefined) ||
                       (selectedDocData || []).find(o => matchesValue(o.id, value));
   const selectedOption = selectedDoc ? renderOption(selectedDoc) : null;
 
@@ -216,7 +216,9 @@ export function AsyncSearchableSelect({
                  <div className="h-3 bg-slate-100 rounded w-1/2"></div>
               </div>
             ) : optionsData && optionsData.length === 0 ? (
-              <div className="p-4 text-center text-sm font-medium text-slate-600 bg-slate-50 rounded-lg italic">Không tìm thấy kết quả phù hợp</div>
+              <div className="p-4 text-center text-sm font-medium text-slate-600 bg-slate-50 rounded-lg italic">
+                {search ? 'Không tìm thấy kết quả phù hợp' : 'Không có chứng từ đủ điều kiện'}
+              </div>
             ) : (
               (optionsData || []).map(option => {
                 const rendered = renderOption(option);

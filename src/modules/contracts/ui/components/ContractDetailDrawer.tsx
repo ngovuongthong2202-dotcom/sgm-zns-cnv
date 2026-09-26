@@ -22,6 +22,7 @@ import { TabLienKet } from "@/src/widgets/TabLienKet";
 import { checkContractLock } from '@/src/domain/policy/lock.policy';
 import { EntityBusinessLockWarning } from '@/src/widgets/EntityBusinessLockWarning';
 import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
+import { reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
 
 import { sendZnsAndToast, nextAttempt } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
@@ -106,14 +107,10 @@ export function ContractDetailDrawer({
     : lazyDeliveries;
 
   // Math totals
-  const totalContractAmount = drawerContract.totalAmount || drawerContract.products?.reduce((sum, p) => sum + (p.total || 0), 0) || 1;
-  const totalPaid = pays
-    .filter((p: Payment) => !['Chưa TT', 'Hủy', 'HỦY'].includes(p.tinhTrangThanhToan || ''))
-    .reduce((sum, p) => sum + (p.soTien || 0), 0);
-  const hasTatToan = pays.some((p: Payment) => ['Tất toán', 'TẤT TOÁN', 'Đã thanh toán', 'ĐÃ THANH TOÁN', 'Miễn phí'].includes(p.tinhTrangThanhToan || ''));
-  const pPct = hasTatToan || (totalContractAmount > 0 && totalPaid >= totalContractAmount)
-    ? 100
-    : (totalContractAmount > 0 ? Math.min(100, Math.round((totalPaid / totalContractAmount) * 100)) : 0);
+  const contractProg = reconcileContractFinancials(drawerContract, pays);
+  const totalContractAmount = contractProg.totalContractAmount;
+  const totalPaid = contractProg.totalPaid;
+  const pPct = contractProg.paymentPercentage;
 
   const totalContractQty = drawerContract.products?.reduce((sum, p) => sum + (p.quantity || 0), 0) || drawerContract.slMay || 1;
   const totalDeliveredQty = dels

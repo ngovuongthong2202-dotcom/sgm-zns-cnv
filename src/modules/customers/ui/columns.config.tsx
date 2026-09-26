@@ -211,9 +211,17 @@ export const getCustomerColumns = (
   {
     id: 'soBaoGia',
     accessorFn: (row) => {
-      const fromParam = quotations.filter(q => q.customerId === row.id).length;
+      const matchFn = (q: any) => {
+        if (!q || q.deletedAt || q.deleted_at || q.isDeleted) return false;
+        return Boolean(
+          q.customerId === row.id ||
+          q.customerId === row.maKh ||
+          (row.maKh && q.maKh === row.maKh)
+        );
+      };
+      const fromParam = quotations.filter(matchFn).length;
       if (fromParam > 0) return fromParam;
-      return entityCachePool.filter('quotations', (q: any) => q.customerId === row.id).length;
+      return entityCachePool.filter('quotations', matchFn).length;
     },
     header: 'Số BG',
     size: 80,

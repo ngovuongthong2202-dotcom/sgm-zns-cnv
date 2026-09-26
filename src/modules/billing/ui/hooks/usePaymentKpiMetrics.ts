@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { format, startOfWeek, startOfMonth } from 'date-fns';
 import { Payment } from '@/src/domain/schema/payment.schema';
+import { getPaymentRemainingBalance } from '@/src/domain/services/financial-reconciler';
+import { hasActualCashCollected } from '@/src/domain/enums/payment-status';
 
 import { resolvePaymentLoai } from '../../domain/resolvePaymentLoai';
 
@@ -65,27 +67,24 @@ export function usePaymentKpiMetrics(payments: Payment[]) {
          if (p.customerId) statsByStatus[statusKey as keyof typeof statsByStatus].customers.add(p.customerId);
       }
 
-      const isPaid = statusKey === 'Tất toán' || statusKey === 'Miễn phí';
-      const isPending = statusKey === 'Chưa TT' || statusKey === 'Công nợ';
+      totalDebt += getPaymentRemainingBalance(p);
 
-      if (isPending) {
-         totalDebt += amt;
-      }
-
-      if (isPaid && p.ngayThanhToan) {
+      if (amt > 0 && hasActualCashCollected(p.tinhTrangThanhToan) && p.ngayThanhToan) {
         try {
           const d = new Date(p.ngayThanhToan);
-          if (format(d, 'yyyy-MM-dd') === todayStr) {
-             collectedToday += amt;
-          }
-          if (d >= startOfWeekVal) {
-             collectedThisWeek += amt;
-          }
-          if (d >= startOfMonthVal) {
-             collectedThisMonth += amt;
-          }
-          if (d >= startOfYearVal) {
-             collectedThisYear += amt;
+          if (!isNaN(d.getTime())) {
+            if (format(d, 'yyyy-MM-dd') === todayStr) {
+               collectedToday += amt;
+            }
+            if (d >= startOfWeekVal) {
+               collectedThisWeek += amt;
+            }
+            if (d >= startOfMonthVal) {
+               collectedThisMonth += amt;
+            }
+            if (d >= startOfYearVal) {
+               collectedThisYear += amt;
+            }
           }
         } catch {
           // ignore

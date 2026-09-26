@@ -2,6 +2,8 @@ import React, { useMemo, useCallback, useState } from 'react';
 
 
 import { getCustomerColumns } from './columns.config';
+import { useRealtimeCollection } from '@/src/data/realtime-store';
+import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { useCustomersPage } from './hooks/useCustomersPage';
 import { CustomerFilterBar } from './components/CustomerFilterBar';
@@ -63,6 +65,7 @@ export default function CustomersFeature() {
     refresh
   } = useCustomersPage();
 
+  const { data: quotations = [] } = useRealtimeCollection<Quotation>('quotations');
   const [printingCustomer, setPrintingCustomer] = useState<Customer | null>(null);
 
   // Sequential drawer navigation logic
@@ -99,7 +102,7 @@ export default function CustomersFeature() {
     const canSendZns = can('send_zns', 'customer', userData?.role);
 
     return getCustomerColumns(
-      [],
+      quotations,
       can('update', 'customer', userData?.role) ? (c) => setDrawerState({ mode: 'edit', customer: c }) : undefined,
       canDelete ? handleDeleteCustomer : undefined,
       canSendZns ? handleSendZns : undefined,
@@ -107,7 +110,7 @@ export default function CustomersFeature() {
       sendingZnsIds,
       (c) => setDrawerState({ mode: 'view', customer: c, initialTab: 'quotes' })
     );
-  }, [handleDeleteCustomer, handleSendZns, sendingZnsIds, setDrawerState, userData?.role]);
+  }, [handleDeleteCustomer, handleSendZns, sendingZnsIds, setDrawerState, userData?.role, quotations]);
 
   const customersWithStt = useMemo(() => enrichWithStt(filteredCustomers), [filteredCustomers]);
 

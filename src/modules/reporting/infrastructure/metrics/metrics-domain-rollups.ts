@@ -1,6 +1,7 @@
 import { Customer, Quotation, Contract, Payment, Delivery, ActionItem } from './metrics-interfaces';
 import { parseCurrencyToNumber } from '../../../../shared/utils/textFormatter';
 import { QUOTATION_LOAI, normalizeLoai } from '../../../../domain/enums/quotation-loai';
+import { isPaymentFullyPaid, isPaymentPartial } from '../../../../domain/enums/payment-status';
 
 export interface RollupContext {
   todayString: string;
@@ -112,8 +113,9 @@ export function rollupPayments(payments: Payment[], ctx: RollupContext) {
     byTrangThai[l] = (byTrangThai[l] || 0) + 1;
     totalRevenue += p.soTien || 0;
 
-    if (ctx.hasZnsStatus(p as unknown as Record<string, unknown>, 'trangThaiGuiTinThanhToan') || p.tinhTrangThanhToan === 'Tất toán' || p.tinhTrangThanhToan === 'ĐÃ THANH TOÁN') {
-      const valSource = p.totalAmount !== undefined && p.totalAmount !== null ? p.totalAmount : (p.soTien !== undefined && p.soTien !== null ? p.soTien : p.tongTienThanhToan);
+    const isCollected = isPaymentFullyPaid(p.tinhTrangThanhToan) || isPaymentPartial(p.tinhTrangThanhToan) || ctx.hasZnsStatus(p as unknown as Record<string, unknown>, 'trangThaiGuiTinThanhToan');
+    if (isCollected) {
+      const valSource = p.soTien !== undefined && p.soTien !== null ? p.soTien : (p.totalAmount !== undefined && p.totalAmount !== null ? p.totalAmount : p.tongTienThanhToan);
       const num = parseCurrencyToNumber(valSource);
       doanhThuThang += num;
     }

@@ -42,14 +42,19 @@ router.get('/:collection', async (req, res) => {
       }
       
       const snap = await queryRef.get();
-      // Loại trừ các bản ghi đã bị xóa (deletedAt / deleted_at)
+      // Loại trừ các bản ghi đã bị xóa (deletedAt / deleted_at / isDeleted / status === 'DELETED')
       let collResults: SearchItem[] = snap.docs
         .map((doc: any) => ({ 
           id: doc.id, 
           ...doc.data(),
           _collectionType: coll
         }))
-        .filter((r: any) => !r.deletedAt && !r.deleted_at && !r.data?.deletedAt && !r.data?.deleted_at);
+        .filter((r: any) => {
+          if (r.deletedAt || r.deleted_at || r.data?.deletedAt || r.data?.deleted_at || r.isDeleted || r.status === 'DELETED') {
+            return false;
+          }
+          return true;
+        });
       
       if (q) {
         const searchStr = String(q).toLowerCase().trim();

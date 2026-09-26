@@ -3,6 +3,7 @@ import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { useState, useEffect, useMemo } from 'react';
 import { Contract } from '@/src/domain/schema/contract.schema';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
+import { reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
 
 const STATE_KEY = 'dataview:contracts:state';
 
@@ -94,16 +95,10 @@ export function useContractsFilters(
     }
     if (selectedTienDoTT) {
       res = res.filter(c => {
-        const pays = realtimePayments.filter((p: Payment) => p.contractId === c.id);
-        const totalContractAmount = c.totalAmount || c.products?.reduce((sum: number, p: import('@/src/domain/schema/product.schema').ProductItem) => sum + (p.total || 0), 0) || 1;
-        const totalPaid = pays
-          .filter((p: Payment) => ['ĐÃ THANH TOÁN', 'Đã thanh toán', 'Đã TT', 'Tất toán'].includes(p.tinhTrangThanhToan || ''))
-          .reduce((sum: number, p: Payment) => sum + (p.soTien || 0), 0);
-        const pct = Math.min(100, Math.round((totalPaid / totalContractAmount) * 100));
-
-        if (selectedTienDoTT === 'CHUA_TT') return pct === 0;
-        if (selectedTienDoTT === 'DANG_TT') return pct > 0 && pct < 100;
-        if (selectedTienDoTT === 'DA_TT') return pct === 100;
+        const prog = reconcileContractFinancials(c, realtimePayments);
+        if (selectedTienDoTT === 'CHUA_TT') return prog.paymentPercentage === 0;
+        if (selectedTienDoTT === 'DANG_TT') return prog.isPartiallyPaid;
+        if (selectedTienDoTT === 'DA_TT') return prog.isFullyPaid;
         return true;
       });
     }
@@ -143,17 +138,13 @@ export function useContractsFilters(
     
     if (activeKpiFilter === 'UNPAID') {
        res = res.filter(c => {
-         const pays = realtimePayments.filter((p: Payment) => p.contractId === c.id);
-         const paid = pays.filter((p: Payment) => ['ĐÃ THANH TOÁN', 'Đã thanh toán', 'Đã TT', 'Tất toán'].includes(p.tinhTrangThanhToan || '')).reduce((s: number, p: Payment) => s + (p.soTien || 0), 0);
-         const total = c.totalAmount || c.products?.reduce((sum: number, p: import('@/src/domain/schema/product.schema').ProductItem) => sum + (p.total || 0), 0) || 0;
-         return paid < total;
+         const prog = reconcileContractFinancials(c, realtimePayments);
+         return !prog.isFullyPaid && (prog.remainingDebt > 0 || prog.totalPaid === 0);
        });
     } else if (activeKpiFilter === 'PAID') {
        res = res.filter(c => {
-         const pays = realtimePayments.filter((p: Payment) => p.contractId === c.id);
-         const paid = pays.filter((p: Payment) => ['ĐÃ THANH TOÁN', 'Đã thanh toán', 'Đã TT', 'Tất toán'].includes(p.tinhTrangThanhToan || '')).reduce((s: number, p: Payment) => s + (p.soTien || 0), 0);
-         const total = c.totalAmount || c.products?.reduce((sum: number, p: import('@/src/domain/schema/product.schema').ProductItem) => sum + (p.total || 0), 0) || 0;
-         return total > 0 && paid >= total;
+         const prog = reconcileContractFinancials(c, realtimePayments);
+         return prog.totalPaid > 0 || prog.isFullyPaid;
        });
     } else if (activeKpiFilter === 'UNDELIVERED') {
        res = res.filter(c => {

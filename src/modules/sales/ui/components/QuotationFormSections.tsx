@@ -118,6 +118,7 @@ export function QuotationBasicInfoSection({
             </label>
             <AsyncSearchableSelect
                collection="customers"
+               options={customers}
                value={watch('customerId') || ''}
                disabled={businessLock?.locked}
                onChange={(val, doc?: Record<string, unknown>) => {

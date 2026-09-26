@@ -52,7 +52,7 @@ export function useDeliveriesKpis(deliveries: Delivery[], customers: import('@/s
      });
      
      return { 
-       inTransit: { d: pending + inTransit, c: pendingC.size + inTransitC.size, p: inTransitP.size },
+       inTransit: { d: pending + inTransit, c: new Set([...pendingC, ...inTransitC]).size, p: inTransitP.size },
        completed: { d: completed, c: completedC.size, p: completedP.size },
        late: { d: late, c: lateC.size },
        onTime: { d: onTime, c: onTimeC.size },

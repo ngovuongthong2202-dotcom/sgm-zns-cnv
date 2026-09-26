@@ -2,6 +2,7 @@ import { Customer } from '@/src/domain/schema/customer.schema';
 import { Contract } from '@/src/domain/schema/contract.schema';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { Payment } from '@/src/domain/schema/payment.schema';
+import { isPaymentFullyPaid } from '@/src/domain/enums/payment-status';
 
 export interface HealthScore {
   score: number; // 0 - 100
@@ -48,7 +49,7 @@ export function calculateHealthScore(
 
   // 2. Tuổi nợ (Overdue Payments) - Weight: 40%
   const overduePayments = cusPayments.filter(p => {
-    if (p.tinhTrangThanhToan === 'ĐÃ THANH TOÁN') return false;
+    if (isPaymentFullyPaid(p.tinhTrangThanhToan)) return false;
     if (!p.ngayDenHan) return false;
     return new Date(p.ngayDenHan).getTime() < Date.now();
   });

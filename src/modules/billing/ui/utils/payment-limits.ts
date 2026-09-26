@@ -1,4 +1,5 @@
 import { Payment } from '@/src/domain/schema/payment.schema';
+import { calculateOtherPaidMultiMilestone } from '@/src/domain/services/financial-reconciler';
 
 export function calculateTotals(
   products: any[],
@@ -30,15 +31,7 @@ export function calculateOtherPaid(
   payments: Payment[],
   sourceValue: string
 ): number {
-  if (!sourceValue) return 0;
-  const [type, id] = sourceValue.split(':');
-  const otherPayments = payments.filter(
-    (p) =>
-      p.id !== paymentId &&
-      (type === 'CONTRACT' ? p.contractId === id : p.quotationId === id) &&
-      (p.tinhTrangThanhToan === 'Tất toán' || p.tinhTrangThanhToan === 'ĐÃ THANH TOÁN')
-  );
-  return otherPayments.reduce((acc, curr) => acc + (curr.soTien || 0), 0);
+  return calculateOtherPaidMultiMilestone(paymentId, payments, sourceValue);
 }
 
 export function determinePaymentStatus(

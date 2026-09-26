@@ -14,6 +14,7 @@ import { normalizeBusinessName, normalizePersonName, normalizeCode } from '@/src
 import { ContractHoverCard } from './components/ContractHoverCard';
 import { CurrencyCell } from '@/src/design-system/dataview/cells/CurrencyCell';
 import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
+import { reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
 
 
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
@@ -233,14 +234,8 @@ export const getContractColumns = (
       const dels = deliveries.filter(d => d.contractId === c.id || d.contractId === c.soHopDong || (d as any).contractCode === c.soHopDong || d.soHopDong === c.soHopDong);
       
       const cProdList = Array.isArray(c.products) ? c.products : [];
-      const totalContractAmount = c.totalAmount || cProdList.reduce((sum, p) => sum + (p.total || 0), 0) || 0;
-      const totalPaid = pays
-        .filter((p: Payment) => !['Chưa TT', 'Hủy', 'HỦY'].includes(p.tinhTrangThanhToan || ''))
-        .reduce((sum, p) => sum + (p.soTien || 0), 0);
-      const hasTatToan = pays.some((p: Payment) => ['Tất toán', 'TẤT TOÁN', 'Đã thanh toán', 'ĐÃ THANH TOÁN', 'Miễn phí'].includes(p.tinhTrangThanhToan || ''));
-      const pctPayment = hasTatToan || (totalContractAmount > 0 && totalPaid >= totalContractAmount)
-        ? 100
-        : (totalContractAmount > 0 ? Math.min(100, Math.round((totalPaid / totalContractAmount) * 100)) : 0);
+      const prog = reconcileContractFinancials(c, payments);
+      const pctPayment = prog.paymentPercentage;
       
       const totalContractQty = cProdList.reduce((sum, p) => sum + (p.quantity || 0), 0) || c.slMay || 0;
       const totalDeliveredQty = dels
@@ -289,17 +284,9 @@ export const getContractColumns = (
     size: 160,
     cell: (info) => {
       const c = info.row.original;
-      const pays = payments.filter(p => p.contractId === c.id || p.contractId === c.soHopDong || (p as any).contractCode === c.soHopDong || p.soHopDong === c.soHopDong);
-      
-      const totalContractAmount = c.totalAmount || c.products?.reduce((sum, p) => sum + (p.total || 0), 0) || 0;
-      const totalPaid = pays
-        .filter((p: Payment) => !['Chưa TT', 'Hủy', 'HỦY'].includes(p.tinhTrangThanhToan || ''))
-        .reduce((sum, p) => sum + (p.soTien || 0), 0);
-      const hasTatToan = pays.some((p: Payment) => ['Tất toán', 'TẤT TOÁN', 'Đã thanh toán', 'ĐÃ THANH TOÁN', 'Miễn phí'].includes(p.tinhTrangThanhToan || ''));
-      const pct = hasTatToan || (totalContractAmount > 0 && totalPaid >= totalContractAmount)
-        ? 100
-        : (totalContractAmount > 0 ? Math.min(100, Math.round((totalPaid / totalContractAmount) * 100)) : 0);
-      const remaining = pct === 100 ? 0 : Math.max(0, totalContractAmount - totalPaid);
+      const prog = reconcileContractFinancials(c, payments);
+      const pct = prog.paymentPercentage;
+      const remaining = prog.remainingDebt;
 
       let colorClass = 'bg-slate-200';
       if (pct === 100) colorClass = 'bg-emerald-500';

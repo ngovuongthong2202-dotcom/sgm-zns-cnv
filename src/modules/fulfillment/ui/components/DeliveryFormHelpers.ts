@@ -3,6 +3,7 @@ import { normalizePhoneVN } from '@/src/shared/utils/phone';
 import { sanitizeCode, sanitizeText, sanitizePhoneVN } from '@/src/shared/utils/inputSanitizer';
 import { getProductItemKey } from '@/src/shared/utils/product-key';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
+import { isPaymentUnpaid } from '@/src/domain/enums/payment-status';
 
 import { isSourceDocumentFullyDelivered } from '@/src/domain/services/delivery-reconciler';
 
@@ -40,7 +41,7 @@ export function normalizeDeliveryFormValues(data: any) {
 export function validateDeliveryBusinessRules(data: any, payments: any[], maxQuantities: Record<string, number>, _delivery: any): { valid: boolean; error?: string } {
   if (data.paymentId) {
     const selectedPayment = payments.find((p: any) => p.id === data.paymentId);
-    if (selectedPayment && selectedPayment.tinhTrangThanhToan === 'Chưa TT') {
+    if (selectedPayment && isPaymentUnpaid(selectedPayment.tinhTrangThanhToan)) {
       return { valid: false, error: 'Không được tạo phiếu giao hàng đối với Giao dịch Chưa thanh toán' };
     }
   }

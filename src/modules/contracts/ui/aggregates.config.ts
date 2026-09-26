@@ -1,6 +1,7 @@
 import { Contract } from '@/src/domain/schema/contract.schema';
 import { Payment } from '@/src/domain/schema/payment.schema';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
+import { reconcileContractStats, reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
 
 export const contractAggregates = {
   totalCustomersWithContracts: (contracts: Contract[]) => {
@@ -18,28 +19,13 @@ export const contractAggregates = {
   },
 
   paymentStats: (contracts: Contract[], payments: Payment[]) => {
-    let paidCount = 0;
-    let unpaidCount = 0;
-    let totalPaidValue = 0;
-    let totalUnpaidValue = 0;
-
-    contracts.forEach(c => {
-      const prodList = Array.isArray(c.products) ? c.products : [];
-      const contractValue = c.totalAmount || prodList.reduce((s, p) => s + (p.total || 0), 0) || 0;
-      const pays = payments.filter(p => p.contractId === c.id && ['ĐÃ THANH TOÁN', 'Đã thanh toán', 'Đã TT', 'Tất toán'].includes(String(p.tinhTrangThanhToan)));
-      const paid = pays.reduce((sum, p) => sum + (p.soTien || 0), 0);
-      
-      totalPaidValue += paid;
-      totalUnpaidValue += Math.max(0, contractValue - paid);
-
-      if (contractValue > 0 && paid >= contractValue) {
-         paidCount++;
-      } else {
-         unpaidCount++;
-      }
-    });
-
-    return { paidCount, unpaidCount, totalPaidValue, totalUnpaidValue };
+    const res = reconcileContractStats(contracts, payments);
+    return {
+      paidCount: res.paidCount,
+      unpaidCount: res.unpaidCount,
+      totalPaidValue: res.totalPaidValue,
+      totalUnpaidValue: res.totalUnpaidValue
+    };
   },
 
   deliveryStats: (contracts: Contract[], deliveries: Delivery[]) => {
@@ -73,19 +59,7 @@ export const contractAggregates = {
   },
   
   contractsPendingPayment: (contracts: Contract[], payments: Payment[]) => {
-    let unpaidCount = 0;
-    contracts.forEach(c => {
-       const prodList = Array.isArray(c.products) ? c.products : [];
-       const contractValue = c.totalAmount || prodList.reduce((s, p) => s + (p.total || 0), 0) || 0;
-       const pays = payments.filter(p => p.contractId === c.id && ['ĐÃ THANH TOÁN', 'Đã thanh toán', 'Đã TT', 'Tất toán'].includes(String(p.tinhTrangThanhToan)));
-       const paid = pays.reduce((sum, p) => sum + (p.soTien || 0), 0);
-       if (contractValue > 0 && paid < contractValue) {
-          unpaidCount++;
-       } else if (contractValue === 0 && pays.length === 0) {
-          unpaidCount++;
-       }
-    });
-    return unpaidCount;
+    return reconcileContractStats(contracts, payments).unpaidCount;
   },
   
   contractsPendingDelivery: (contracts: Contract[], deliveries: Delivery[]) => {
