@@ -53,6 +53,7 @@ export function useContractForm(
   const products = watch('products') || [];
   const ngayKy = watch('ngayKy');
   const soNgayDuKienHoanThanh = watch('soNgayDuKienHoanThanh') || 0;
+  const soNgayGiaHan = watch('soNgayGiaHan') || 0;
   const watchAll = watch();
 
   useEffect(() => {
@@ -130,7 +131,7 @@ export function useContractForm(
     return () => clearInterval(interval);
   }, [isDirty, saveDraft, getValues]);
 
-  const estimatedCompletionDate = useMemo(() => computeEstimatedCompletionDate(ngayKy, soNgayDuKienHoanThanh), [ngayKy, soNgayDuKienHoanThanh]);
+  const estimatedCompletionDate = useMemo(() => computeEstimatedCompletionDate(ngayKy, soNgayDuKienHoanThanh, soNgayGiaHan), [ngayKy, soNgayDuKienHoanThanh, soNgayGiaHan]);
 
   const existingContractsForQuo = useMemo(() => filterExistingContractsForQuo(selectedQuoId, contracts, contract?.id), [selectedQuoId, contracts, contract?.id]);
 

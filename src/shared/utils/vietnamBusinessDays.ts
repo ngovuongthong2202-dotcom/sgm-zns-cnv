@@ -56,6 +56,18 @@ export const VIETNAM_PUBLIC_HOLIDAYS_SET = new Set<string>([
 ]);
 
 /**
+ * Danh sách các ngày Thứ Bảy đi làm bù cho các ngày nghỉ lễ hoán đổi theo quyết định của Chính phủ (YYYY-MM-DD).
+ * Khi rơi vào các ngày này, hệ thống luôn coi là ngày làm việc kể cả khi cấu hình nghỉ Thứ Bảy.
+ */
+export const VIETNAM_COMPENSATORY_WORKDAYS_SET = new Set<string>([
+  '2024-05-04', // Đi làm bù Thứ Bảy cho ngày 29/04/2024 dịp lễ 30/4 - 1/5
+  '2025-01-18', // Đi làm bù Thứ Bảy trước Tết Ất Tỵ
+  '2025-02-08', // Đi làm bù Thứ Bảy sau Tết
+  '2026-04-18', // Đi làm bù Thứ Bảy trước dịp 30/4
+  '2027-04-24', // Đi làm bù Thứ Bảy trước dịp 30/4
+]);
+
+/**
  * Chuyển đổi mọi định dạng ngày thành Date object an toàn tuyệt đối (tránh timezone drift).
  */
 export function parseSafeDate(input: any): Date | null {
@@ -144,6 +156,7 @@ export function isVietnamHoliday(date: Date): boolean {
  * Kiểm tra ngày làm việc hợp lệ theo luật và tập quán thương mại/cơ khí SGM tại Việt Nam:
  * - Trừ ngày Chủ Nhật (Sunday = Skip)
  * - Trừ các ngày Lễ/Tết Việt Nam (Public Holidays = Skip)
+ * - Nếu là ngày làm việc bù theo quyết định của Chính phủ (Compensatory Workday) -> Luôn là ngày làm việc!
  * - Thứ Bảy là ngày làm việc bình thường (includeSaturday = true, mặc định cho nhà máy SGM)
  */
 export function isVietnamWorkingDay(
@@ -151,6 +164,17 @@ export function isVietnamWorkingDay(
   options: { includeSaturday?: boolean } = { includeSaturday: true }
 ): boolean {
   if (isVietnamSunday(date)) return false;
+
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const dateKey = `${yyyy}-${mm}-${dd}`;
+
+  // Nếu là ngày làm bù chính thức do Nhà nước công bố -> Luôn là ngày làm việc
+  if (VIETNAM_COMPENSATORY_WORKDAYS_SET.has(dateKey)) {
+    return true;
+  }
+
   if (!options.includeSaturday && date.getDay() === 6) return false;
   if (isVietnamHoliday(date)) return false;
   return true;
@@ -267,6 +291,146 @@ export function getFirstInstallment(
   return candidates[0];
 }
 
+/**
+ * Kiểm tra Ngưỡng Cọc Kích hoạt Sản xuất (Production Trigger Threshold Engine):
+ * Trong ngành máy móc SGM, xưởng chỉ chính thức khởi động lệnh sản xuất và tính thời hạn khi:
+ * 1. Khách hàng đã nộp đủ đợt 1, hoặc
+ * 2. Tổng số tiền đã thanh toán >= Ngưỡng cọc quy định (mặc định 30% giá trị hợp đồng).
+ */
+export interface ProductionTriggerResult {
+  isTriggered: boolean;
+  triggerDate: string | null;
+  triggerType: 'FULL_INSTALLMENT_1' | 'PERCENT_THRESHOLD' | 'FIRST_PAYMENT' | 'CONTRACT_SIGNING';
+  totalPaid: number;
+  requiredThresholdAmount: number;
+  thresholdPercent: number;
+  statusLabel: string;
+  triggerInstallmentNumber?: number;
+}
+
+export function checkProductionTriggerThreshold(
+  payments?: any[],
+  contractAmount: number = 0,
+  thresholdPercent: number = 30
+): ProductionTriggerResult {
+  const reqAmount = contractAmount > 0 ? Math.round(contractAmount * (thresholdPercent / 100)) : 0;
+
+  if (!payments || !Array.isArray(payments) || payments.length === 0) {
+    return {
+      isTriggered: false,
+      triggerDate: null,
+      triggerType: 'CONTRACT_SIGNING',
+      totalPaid: 0,
+      requiredThresholdAmount: reqAmount,
+      thresholdPercent,
+      statusLabel: 'Chờ cọc khởi động',
+    };
+  }
+
+  interface PaymentEntry {
+    soTien: number;
+    ngayThu: string;
+    lanThu?: number;
+  }
+
+  const entries: PaymentEntry[] = [];
+  for (const p of payments) {
+    if (!p) continue;
+    if (p.cacDotThu && Array.isArray(p.cacDotThu) && p.cacDotThu.length > 0) {
+      for (const dot of p.cacDotThu) {
+        if (dot && dot.ngayThu && (dot.soTien == null || Number(dot.soTien) > 0)) {
+          entries.push({
+            soTien: Number(dot.soTien) || 0,
+            ngayThu: String(dot.ngayThu),
+            lanThu: Number(dot.lanThu) || 1,
+          });
+        }
+      }
+    } else if (p.soTien != null && Number(p.soTien) > 0 && p.ngayThanhToan) {
+      entries.push({
+        soTien: Number(p.soTien) || 0,
+        ngayThu: String(p.ngayThanhToan),
+        lanThu: 1,
+      });
+    }
+  }
+
+  // Sắp xếp theo ngày thu tăng dần
+  entries.sort((a, b) => {
+    const da = parseSafeDate(a.ngayThu)?.getTime() || 0;
+    const db = parseSafeDate(b.ngayThu)?.getTime() || 0;
+    return da - db;
+  });
+
+  let runningSum = 0;
+  let triggerDate: string | null = null;
+  let triggerInstNumber = 1;
+
+  for (const entry of entries) {
+    runningSum += entry.soTien;
+    if (!triggerDate) {
+      if (reqAmount > 0 && runningSum >= reqAmount) {
+        triggerDate = entry.ngayThu;
+        triggerInstNumber = entry.lanThu || 1;
+      } else if (reqAmount === 0 && runningSum > 0) {
+        triggerDate = entry.ngayThu;
+        triggerInstNumber = entry.lanThu || 1;
+      }
+    }
+  }
+
+  const isTriggered = reqAmount > 0 ? runningSum >= reqAmount : runningSum > 0;
+
+  return {
+    isTriggered,
+    triggerDate: isTriggered ? triggerDate : (entries[0]?.ngayThu || null),
+    triggerType: isTriggered
+      ? (triggerInstNumber === 1 ? 'FULL_INSTALLMENT_1' : 'PERCENT_THRESHOLD')
+      : (runningSum > 0 ? 'FIRST_PAYMENT' : 'CONTRACT_SIGNING'),
+    totalPaid: runningSum,
+    requiredThresholdAmount: reqAmount,
+    thresholdPercent,
+    statusLabel: isTriggered ? 'Đã kích hoạt sản xuất' : 'Chờ đủ cọc khởi động',
+    triggerInstallmentNumber: triggerInstNumber,
+  };
+}
+
+/**
+ * Kiểm tra nguy cơ giao hàng cuối tuần (Thứ Bảy / Chủ Nhật):
+ * Cảnh báo điều phối nếu ngày hẹn giao hoặc ngày hoàn thành rơi vào cuối tuần
+ * do khách hàng thường nghỉ làm việc, không có cẩu hạ máy.
+ */
+export function checkWeekendDeliveryRisk(targetDate: Date | null): {
+  isRisk: boolean;
+  dayOfWeek: number;
+  notice?: string;
+} {
+  if (!targetDate) return { isRisk: false, dayOfWeek: -1 };
+  const dow = targetDate.getDay();
+  if (dow === 6) {
+    return {
+      isRisk: true,
+      dayOfWeek: 6,
+      notice: 'Hạn rơi vào Thứ 7: Cần xác nhận trước lịch cẩu hạ máy với khách hàng',
+    };
+  }
+  if (dow === 0) {
+    return {
+      isRisk: true,
+      dayOfWeek: 0,
+      notice: 'Hạn rơi vào Chủ Nhật: Cần xác nhận trước lịch tiếp nhận với khách hàng',
+    };
+  }
+  return { isRisk: false, dayOfWeek: dow };
+}
+
+export type ContractExecutionStage =
+  | 'CHO_COC_KHOI_DONG'
+  | 'DANG_CHE_TAO'
+  | 'CHO_NGHIEM_THU_XUONG'
+  | 'DANG_GIAO_LAP_DAT'
+  | 'DA_NGHIEM_THU_BAN_GIAO';
+
 export interface ContractCompletionTimeline {
   completionDate: Date | null;
   completionDateFormatted: string; // '29/10/2026' hoặc '---'
@@ -274,7 +438,7 @@ export interface ContractCompletionTimeline {
   baseDateFormatted: string; // '24/09/2026'
   baseDateType: 'DOT_1' | 'NGAY_KY' | 'CHUA_XAC_DINH';
   baseDateLabel: string; // 'Từ Ngày thu Đợt 1 (24/09/2026)' hoặc 'Từ Ngày ký HĐ (18/09/2026)'
-  workingDaysTotal: number; // 30
+  workingDaysTotal: number; // 30 (Hạn ban đầu)
   workingDaysElapsed: number; // 2
   workingDaysRemaining: number; // 28
   isDelayed: boolean;
@@ -282,13 +446,28 @@ export interface ContractCompletionTimeline {
   timeProgressPercent: number; // 7 (%)
   statusText: string;
   statusColor: string;
+  // === MỞ RỘNG APEX SOVEREIGN (PHƯƠNG ÁN 10) ===
+  productionTrigger?: ProductionTriggerResult;
+  hasAddendumExtension?: boolean;
+  extendedWorkingDays?: number;
+  effectiveWorkingDays?: number;
+  addendumReason?: string;
+  originalCompletionDateFormatted?: string;
+  originalCompletionDate?: Date | null;
+  isWeekendDeliveryRisk?: boolean;
+  weekendDeliveryWarning?: string;
+  executionStage?: ContractExecutionStage;
+  executionStageLabel?: string;
+  executionStageColor?: string;
 }
 
 /**
- * Động cơ Tính toán Toàn diện Tiến độ Hoàn thành Hợp đồng (Omni-Nexus Timeline Engine):
- * - Xác định mốc tính Base Date: Ngày thu Đợt 1 > Ngày ký HĐ.
- * - Cộng số ngày làm việc (trừ CN và Lễ/Tết).
- * - Tính toán ngày còn lại, ngày trễ, tiến độ % đối chiếu với ngày hiện tại (currentDate).
+ * Động cơ Tính toán Toàn diện Tiến độ Hoàn thành Hợp đồng (SGM Apex Sovereign Engine):
+ * 1. Phân tích Ngưỡng Cọc Kích hoạt Sản xuất (Production Trigger Threshold).
+ * 2. Xác định mốc tính Base Date thông minh: Ngày đạt cọc Đợt 1 > Ngày ký HĐ.
+ * 3. Hỗ trợ Phụ lục Gia hạn tiến độ (Contract Addendum Extension) không bị phạt quá hạn oan.
+ * 4. Tự động kiểm tra nguy cơ giao hàng cuối tuần (Thứ 7 / CN).
+ * 5. Phân tầng 5 Chặng Thực thi Vật lý (Execution State Machine).
  */
 export function computeContractCompletionTimeline(
   contract: any,
@@ -311,18 +490,45 @@ export function computeContractCompletionTimeline(
     timeProgressPercent: 0,
     statusText: 'Chưa xác định',
     statusColor: 'text-slate-500 bg-slate-50 border-slate-200',
+    hasAddendumExtension: false,
+    extendedWorkingDays: 0,
+    effectiveWorkingDays: 0,
+    isWeekendDeliveryRisk: false,
+    executionStage: 'CHO_COC_KHOI_DONG',
+    executionStageLabel: 'Chưa xác định',
+    executionStageColor: 'text-slate-600 bg-slate-50 border-slate-200',
   };
 
   if (!contract) return defaultEmpty;
 
-  const workingDaysTotal = Number(contract.soNgayDuKienHoanThanh || contract.soNgayThucHien || 30);
+  const originalWorkingDays = Number(contract.soNgayDuKienHoanThanh || contract.soNgayThucHien || 30);
+  const extendedWorkingDays = Math.max(0, Number(contract.soNgayGiaHan) || 0);
+  const effectiveWorkingDays = originalWorkingDays + extendedWorkingDays;
+  const hasAddendumExtension = extendedWorkingDays > 0;
+  const addendumReason = contract.lyDoGiaHan || '';
+
+  const contractAmount = Number(
+    contract.giaTriSauThue || contract.tongTien || contract.giaTriHopDong || contract.giaTriSauVat || 0
+  );
+  const thresholdPercent = Number(contract.thresholdPercent) || 30;
+
+  // Kiểm tra ngưỡng cọc sản xuất
+  const productionTrigger = checkProductionTriggerThreshold(payments, contractAmount, thresholdPercent);
   const dot1 = getFirstInstallment(payments);
 
   let baseDate: Date | null = null;
   let baseDateType: 'DOT_1' | 'NGAY_KY' | 'CHUA_XAC_DINH' = 'CHUA_XAC_DINH';
   let baseDateLabel = 'Chưa xác định mốc tính';
 
-  if (dot1 && dot1.ngayThu) {
+  // Nếu đã đạt ngưỡng cọc sản xuất -> Mốc tính là ngày đạt ngưỡng
+  if (productionTrigger.isTriggered && productionTrigger.triggerDate) {
+    baseDate = parseSafeDate(productionTrigger.triggerDate);
+    if (baseDate) {
+      baseDateType = 'DOT_1';
+      baseDateLabel = `Từ Ngày thu Đợt 1 (${formatDate(productionTrigger.triggerDate)})`;
+    }
+  } else if (dot1 && dot1.ngayThu) {
+    // Nếu có bản ghi đợt 1
     baseDate = parseSafeDate(dot1.ngayThu);
     if (baseDate) {
       baseDateType = 'DOT_1';
@@ -330,6 +536,7 @@ export function computeContractCompletionTimeline(
     }
   }
 
+  // Fallback về ngày ký hợp đồng nếu chưa thu đợt 1
   if (!baseDate && contract.ngayKy) {
     baseDate = parseSafeDate(contract.ngayKy);
     if (baseDate) {
@@ -341,15 +548,22 @@ export function computeContractCompletionTimeline(
   if (!baseDate) {
     return {
       ...defaultEmpty,
-      workingDaysTotal,
+      workingDaysTotal: originalWorkingDays,
       statusText: 'Chưa ký HĐ',
+      productionTrigger,
     };
   }
 
-  // Tính Ngày dự kiến hoàn thành
-  const completionDate = addVietnamWorkingDays(baseDate, workingDaysTotal, options);
+  // Tính Ngày hoàn thành gốc (chưa gia hạn) và Ngày hoàn thành thực tế (đã tính gia hạn)
+  const originalTargetDate = addVietnamWorkingDays(baseDate, originalWorkingDays, options);
+  const originalCompletionDateFormatted = originalTargetDate ? formatDate(originalTargetDate) : '---';
+
+  const completionDate = addVietnamWorkingDays(baseDate, effectiveWorkingDays, options);
   const completionDateFormatted = completionDate ? formatDate(completionDate) : '---';
   const baseDateFormatted = formatDate(baseDate);
+
+  // Kiểm tra nguy cơ giao hàng cuối tuần
+  const weekendRisk = checkWeekendDeliveryRisk(completionDate);
 
   // Tính toán thời gian thực tế đã qua và còn lại so với ngày hiện tại
   const now = currentDateInput ? (parseSafeDate(currentDateInput) || new Date()) : new Date();
@@ -362,13 +576,13 @@ export function computeContractCompletionTimeline(
 
   if (todayOnly.getTime() <= baseDate.getTime()) {
     workingDaysElapsed = 0;
-    workingDaysRemaining = workingDaysTotal;
+    workingDaysRemaining = effectiveWorkingDays;
   } else if (completionDate) {
     if (todayOnly.getTime() <= completionDate.getTime()) {
       workingDaysElapsed = countVietnamWorkingDays(baseDate, todayOnly, options);
       workingDaysRemaining = Math.max(0, countVietnamWorkingDays(todayOnly, completionDate, options));
     } else {
-      workingDaysElapsed = workingDaysTotal;
+      workingDaysElapsed = effectiveWorkingDays;
       workingDaysRemaining = 0;
       isDelayed = true;
       delayedWorkingDays = countVietnamWorkingDays(completionDate, todayOnly, options);
@@ -376,7 +590,7 @@ export function computeContractCompletionTimeline(
   }
 
   const timeProgressPercent =
-    workingDaysTotal > 0 ? Math.min(100, Math.round((workingDaysElapsed / workingDaysTotal) * 100)) : 0;
+    effectiveWorkingDays > 0 ? Math.min(100, Math.round((workingDaysElapsed / effectiveWorkingDays) * 100)) : 0;
 
   const dPct = options.deliveryPercentage ?? 0;
   let statusText = 'Đang triển khai';
@@ -388,6 +602,36 @@ export function computeContractCompletionTimeline(
   } else if (isDelayed) {
     statusText = `Trễ tiến độ (${delayedWorkingDays} ngày)`;
     statusColor = 'text-rose-700 bg-rose-50 border-rose-200';
+  } else if (hasAddendumExtension) {
+    statusText = `Gia hạn +${extendedWorkingDays} ngày`;
+    statusColor = 'text-indigo-700 bg-indigo-50 border-indigo-200';
+  }
+
+  // Xác định 5 Chặng Thực thi Vật lý (Execution Stage Machine)
+  let executionStage: ContractExecutionStage = 'CHO_COC_KHOI_DONG';
+  let executionStageLabel = 'Chờ cọc khởi động';
+  let executionStageColor = 'text-purple-700 bg-purple-50 border-purple-200';
+
+  if (contract.status === 'COMPLETED' || dPct >= 100) {
+    executionStage = 'DA_NGHIEM_THU_BAN_GIAO';
+    executionStageLabel = 'Đã nghiệm thu bàn giao';
+    executionStageColor = 'text-emerald-700 bg-emerald-50 border-emerald-200';
+  } else if (dPct > 0) {
+    executionStage = 'DANG_GIAO_LAP_DAT';
+    executionStageLabel = 'Đang giao & lắp đặt';
+    executionStageColor = 'text-cyan-700 bg-cyan-50 border-cyan-200';
+  } else if (timeProgressPercent >= 90) {
+    executionStage = 'CHO_NGHIEM_THU_XUONG';
+    executionStageLabel = 'Chờ nghiệm thu xưởng';
+    executionStageColor = 'text-amber-700 bg-amber-50 border-amber-200';
+  } else if (productionTrigger.isTriggered) {
+    executionStage = 'DANG_CHE_TAO';
+    executionStageLabel = 'Đang chế tạo máy';
+    executionStageColor = 'text-blue-700 bg-blue-50 border-blue-200';
+  } else {
+    executionStage = 'CHO_COC_KHOI_DONG';
+    executionStageLabel = 'Chờ cọc khởi động';
+    executionStageColor = 'text-purple-700 bg-purple-50 border-purple-200';
   }
 
   return {
@@ -397,7 +641,7 @@ export function computeContractCompletionTimeline(
     baseDateFormatted,
     baseDateType,
     baseDateLabel,
-    workingDaysTotal,
+    workingDaysTotal: originalWorkingDays,
     workingDaysElapsed,
     workingDaysRemaining,
     isDelayed,
@@ -405,5 +649,18 @@ export function computeContractCompletionTimeline(
     timeProgressPercent,
     statusText,
     statusColor,
+    // Apex Sovereign extensions
+    productionTrigger,
+    hasAddendumExtension,
+    extendedWorkingDays,
+    effectiveWorkingDays,
+    addendumReason,
+    originalCompletionDate: originalTargetDate,
+    originalCompletionDateFormatted,
+    isWeekendDeliveryRisk: weekendRisk.isRisk,
+    weekendDeliveryWarning: weekendRisk.notice,
+    executionStage,
+    executionStageLabel,
+    executionStageColor,
   };
 }

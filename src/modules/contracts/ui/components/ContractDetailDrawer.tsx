@@ -201,9 +201,16 @@ export function ContractDetailDrawer({
                   TIẾN ĐỘ THỰC THI HỢP ĐỒNG (DUAL-TRACK COCKPIT)
                 </h3>
               </div>
-              <span className={`text-2xs uppercase font-bold px-2 py-0.5 rounded-md border ${completionTimeline.statusColor}`}>
-                {completionTimeline.statusText}
-              </span>
+              <div className="flex items-center gap-2">
+                {completionTimeline.executionStageLabel && (
+                  <span className={`text-3xs uppercase font-black px-2 py-0.5 rounded-full border shadow-2xs ${completionTimeline.executionStageColor || 'text-purple-700 bg-purple-50 border-purple-200'}`}>
+                    {completionTimeline.executionStageLabel}
+                  </span>
+                )}
+                <span className={`text-2xs uppercase font-bold px-2 py-0.5 rounded-md border ${completionTimeline.statusColor}`}>
+                  {completionTimeline.statusText}
+                </span>
+              </div>
             </div>
 
             {/* Tiến độ thời gian thực hiện (Chuẩn theo ngày làm việc Việt Nam - trừ CN & Lễ Tết) */}
@@ -211,6 +218,11 @@ export function ContractDetailDrawer({
               <div className="flex justify-between items-center mb-1.5 text-xs">
                 <span className="font-bold text-slate-800 flex items-center gap-1.5">
                   Thời gian hợp đồng: {completionTimeline.workingDaysTotal > 0 ? `${completionTimeline.workingDaysTotal} ngày làm việc` : 'Chưa xác định hạn'}
+                  {completionTimeline.hasAddendumExtension && (
+                    <span className="px-1.5 py-0.2 rounded text-3xs font-black bg-indigo-100 text-indigo-700 border border-indigo-200">
+                      +{completionTimeline.extendedWorkingDays} ngày (Phụ lục)
+                    </span>
+                  )}
                 </span>
                 <span className="font-mono text-2xs font-bold text-slate-800 flex items-center gap-1.5">
                   <span className="text-slate-500 font-normal">Hạn hoàn thành:</span>
@@ -236,12 +248,46 @@ export function ContractDetailDrawer({
                 <span className="font-semibold text-slate-600 flex items-center gap-1">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-600" />
                   Mốc tính: <strong className="text-slate-800 font-bold">{completionTimeline.baseDateLabel}</strong>
-                  <span className="text-slate-400 font-normal ml-0.5">(Trừ Chủ Nhật & Lễ/Tết VN)</span>
+                  <span className="text-slate-400 font-normal ml-0.5">(Trừ CN & Lễ/Tết VN)</span>
                 </span>
                 <span className="font-bold text-slate-700">
-                  Tiến độ: {completionTimeline.timeProgressPercent}% (Đã qua {completionTimeline.workingDaysElapsed}/{completionTimeline.workingDaysTotal} ngày)
+                  Tiến độ: {completionTimeline.timeProgressPercent}% (Đã qua {completionTimeline.workingDaysElapsed}/{completionTimeline.effectiveWorkingDays || completionTimeline.workingDaysTotal} ngày)
                 </span>
               </div>
+
+              {/* Ngưỡng cọc kích hoạt sản xuất */}
+              {completionTimeline.productionTrigger && (
+                <div className={`mt-2.5 px-3 py-1.5 rounded-md text-3xs flex items-center justify-between border ${completionTimeline.productionTrigger.isTriggered ? 'bg-emerald-50/80 border-emerald-200 text-emerald-800' : 'bg-amber-50/80 border-amber-200 text-amber-800'}`}>
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <span>{completionTimeline.productionTrigger.isTriggered ? '✓' : '⚠️'}</span>
+                    <span>Lệnh sản xuất:</span>
+                    <span className="font-black uppercase tracking-wider">{completionTimeline.productionTrigger.statusLabel}</span>
+                  </div>
+                  <span className="font-mono">
+                    Đã thu: <strong>{new Intl.NumberFormat('vi-VN').format(completionTimeline.productionTrigger.totalPaid)} ₫</strong>
+                    {completionTimeline.productionTrigger.requiredThresholdAmount > 0 && ` / Cần: ${new Intl.NumberFormat('vi-VN').format(completionTimeline.productionTrigger.requiredThresholdAmount)} ₫ (ngưỡng ${completionTimeline.productionTrigger.thresholdPercent}%)`}
+                  </span>
+                </div>
+              )}
+
+              {/* Thông tin Phụ lục Gia hạn (nếu có) */}
+              {completionTimeline.hasAddendumExtension && (
+                <div className="mt-1.5 px-3 py-1.5 rounded-md text-3xs bg-indigo-50/70 border border-indigo-200 text-indigo-900 flex items-center justify-between">
+                  <span className="font-medium flex items-center gap-1">
+                    <span>📜 <strong>Phụ lục gia hạn:</strong> +{completionTimeline.extendedWorkingDays} ngày làm việc</span>
+                    {completionTimeline.addendumReason && <span className="text-indigo-600">({completionTimeline.addendumReason})</span>}
+                  </span>
+                  <span className="font-mono text-indigo-500">Hạn gốc ban đầu: {completionTimeline.originalCompletionDateFormatted}</span>
+                </div>
+              )}
+
+              {/* Cảnh báo giao hàng cuối tuần (nếu rơi vào Thứ 7 hoặc CN) */}
+              {completionTimeline.isWeekendDeliveryRisk && (
+                <div className="mt-1.5 px-3 py-1.5 rounded-md text-3xs bg-amber-50 border border-amber-200 text-amber-900 flex items-center gap-1.5 font-medium">
+                  <span>⚠️</span>
+                  <span>{completionTimeline.weekendDeliveryWarning}</span>
+                </div>
+              )}
             </div>
 
             {/* 2 Trục xương sống: Tài chính & Vận chuyển */}

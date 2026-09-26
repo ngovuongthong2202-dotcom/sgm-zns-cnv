@@ -136,7 +136,17 @@ function ContractHoverCardContent({ contract, contractId }: { contract?: Contrac
                     <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Số ngày hiện thực:</span>
                     <span className="font-semibold text-slate-800 block leading-normal text-xs">
                       {completionTimeline.workingDaysTotal > 0 ? `${completionTimeline.workingDaysTotal} ngày (làm việc)` : '-'}
+                      {completionTimeline.hasAddendumExtension && (
+                        <span className="ml-1 text-3xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1 py-0.2 rounded">
+                          +{completionTimeline.extendedWorkingDays}d
+                        </span>
+                      )}
                     </span>
+                    {completionTimeline.executionStageLabel && (
+                      <span className={`inline-block mt-1 text-3xs font-extrabold uppercase px-1.5 py-0.5 rounded border ${completionTimeline.executionStageColor || 'text-purple-700 bg-purple-50 border-purple-200'}`}>
+                        {completionTimeline.executionStageLabel}
+                      </span>
+                    )}
                  </div>
                  <div className="text-right">
                     <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Ngày dự kiến hoàn thành:</span>
@@ -146,7 +156,12 @@ function ContractHoverCardContent({ contract, contractId }: { contract?: Contrac
                       </span>
                       {completionTimeline.completionDate && (
                         <span className="text-3xs font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                          {completionTimeline.baseDateType === 'DOT_1' ? `(Từ Thu Đợt 1: ${completionTimeline.baseDateFormatted})` : `(Từ Ngày ký: ${completionTimeline.baseDateFormatted})`}
+                          {completionTimeline.baseDateType === 'DOT_1' ? `(Thu Đợt 1: ${completionTimeline.baseDateFormatted})` : `(Ngày ký: ${completionTimeline.baseDateFormatted})`}
+                        </span>
+                      )}
+                      {completionTimeline.isWeekendDeliveryRisk && (
+                        <span className="text-3xs font-bold text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200">
+                          ⚠️ Hạn Thứ 7
                         </span>
                       )}
                     </div>

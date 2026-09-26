@@ -340,6 +340,47 @@ exports[`Component Snapshots (Baseline) > renders ContractFormModal 1`] = `
                   <label
                     class="text-2xs font-medium uppercase tracking-wide text-slate-500"
                   >
+                    Số ngày gia hạn (Phụ lục HĐ)
+                  </label>
+                  <div
+                    class="relative"
+                  >
+                    <input
+                      aria-label="Số ngày gia hạn"
+                      class="premium-input w-full font-bold h-8 rounded-lg pr-12 font-mono border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white"
+                      min="0"
+                      name="soNgayGiaHan"
+                      placeholder="0"
+                      type="number"
+                    />
+                    <span
+                      class="absolute right-3.5 top-1/2 -translate-y-1/2 text-2xs text-indigo-600 font-extrabold font-mono"
+                    >
+                      DAYS
+                    </span>
+                  </div>
+                </div>
+                <div
+                  class="space-y-1"
+                >
+                  <label
+                    class="text-2xs font-medium uppercase tracking-wide text-slate-500"
+                  >
+                    Lý do gia hạn tiến độ
+                  </label>
+                  <input
+                    aria-label="Lý do gia hạn"
+                    class="premium-input w-full h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white"
+                    name="lyDoGiaHan"
+                    placeholder="Khách sửa khuôn máy, trễ móng xưởng..."
+                  />
+                </div>
+                <div
+                  class="space-y-1"
+                >
+                  <label
+                    class="text-2xs font-medium uppercase tracking-wide text-slate-500"
+                  >
                     Người Đại Diện Ký Hợp Đồng
                   </label>
                   <input

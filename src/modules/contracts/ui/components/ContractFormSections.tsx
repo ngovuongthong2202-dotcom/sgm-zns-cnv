@@ -130,6 +130,19 @@ export function ContractDefinitionSection({ register, errors, estimatedCompletio
         </div>
 
         <div className="space-y-1">
+          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Số ngày gia hạn (Phụ lục HĐ)</label>
+          <div className="relative">
+            <input aria-label="Số ngày gia hạn" type="number" min="0" {...register('soNgayGiaHan', { valueAsNumber: true })} className="premium-input w-full font-bold h-8 rounded-lg pr-12 font-mono border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white" placeholder="0" />
+            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-2xs text-indigo-600 font-extrabold font-mono">DAYS</span>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Lý do gia hạn tiến độ</label>
+          <input aria-label="Lý do gia hạn" {...register('lyDoGiaHan')} className="premium-input w-full h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white" placeholder="Khách sửa khuôn máy, trễ móng xưởng..." />
+        </div>
+
+        <div className="space-y-1">
           <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Người Đại Diện Ký Hợp Đồng</label>
           <input aria-label="Người Đại Diện Ký" {...register('nguoiDaiDien')} className="premium-input w-full h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white" placeholder="Họ tên đại diện ký..." />
         </div>

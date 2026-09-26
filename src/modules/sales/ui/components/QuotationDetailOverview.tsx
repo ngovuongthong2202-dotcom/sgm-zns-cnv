@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDate } from '@/src/shared/utils/formatDate';
+import { computeContractCompletionTimeline } from '@/src/shared/utils/vietnamBusinessDays';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { Customer } from '@/src/domain/schema/customer.schema';
 import { CustomerHoverCard } from '@/src/modules/customers';
@@ -58,7 +59,12 @@ export function QuotationDetailOverview({
       return { dealHealthClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', dealHealthLabel: 'Đã tất toán giao dịch' };
     }
     if (matchingContracts.length > 0) {
-      return { dealHealthClass: 'bg-blue-50 text-blue-700 border-blue-200', dealHealthLabel: 'Đã ký kết hợp đồng' };
+      const primaryContract = matchingContracts[0];
+      const timeline = computeContractCompletionTimeline(primaryContract, matchingPayments);
+      return { 
+        dealHealthClass: timeline.isDelayed ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-blue-50 text-blue-700 border-blue-200', 
+        dealHealthLabel: timeline.executionStageLabel ? `HĐ: ${timeline.executionStageLabel} (${timeline.completionDateFormatted})` : 'Đã ký kết hợp đồng' 
+      };
     }
     if (daysSinceCreation <= 3) {
       return { dealHealthClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', dealHealthLabel: 'Khách hàng mới (Nóng)' };

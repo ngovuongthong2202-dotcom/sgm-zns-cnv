@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Contract } from '@/src/domain/schema/contract.schema';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 import { reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
-import { addVietnamWorkingDays, getFirstInstallment } from '@/src/shared/utils/vietnamBusinessDays';
+import { computeContractCompletionTimeline } from '@/src/shared/utils/vietnamBusinessDays';
 
 const STATE_KEY = 'dataview:contracts:state';
 
@@ -78,17 +78,15 @@ export function useContractsFilters(
       
       res = res.filter(c => {
          const matchingPays = realtimePayments.filter(p => p.contractId === c.id || p.contractId === c.soHopDong || p.soHopDong === c.soHopDong);
-         const dot1 = getFirstInstallment(matchingPays);
-         const baseDate = dot1?.ngayThu || (c as any).ngayThuDot1 || c.ngayKy;
-         if (!baseDate || !c.soNgayDuKienHoanThanh) return false;
-         const dt = addVietnamWorkingDays(baseDate, c.soNgayDuKienHoanThanh);
-         if (!dt) return false;
+         const timeline = computeContractCompletionTimeline(c, matchingPays);
+         if (!timeline.completionDate) return false;
+         const dt = timeline.completionDate;
          dt.setHours(0,0,0,0);
          
          if (selectedDkHoanThanh === 'TODAY') {
              return dt.getTime() === today.getTime();
          } else if (selectedDkHoanThanh === 'OVERDUE') {
-             return dt.getTime() < today.getTime();
+             return timeline.isDelayed;
          } else if (selectedDkHoanThanh === 'UPCOMING') {
              const in3Days = new Date(today);
              in3Days.setDate(in3Days.getDate() + 3);
@@ -160,13 +158,11 @@ export function useContractsFilters(
     } else if (activeKpiFilter === 'OVERDUE' || activeKpiFilter === 'UPCOMING') {
        res = res.filter(c => {
          const matchingPays = realtimePayments.filter(p => p.contractId === c.id || p.contractId === c.soHopDong || p.soHopDong === c.soHopDong);
-         const dot1 = getFirstInstallment(matchingPays);
-         const baseDate = dot1?.ngayThu || (c as any).ngayThuDot1 || c.ngayKy;
-         if (!baseDate || !c.soNgayDuKienHoanThanh) return false;
-         const dt = addVietnamWorkingDays(baseDate, c.soNgayDuKienHoanThanh);
-         if (!dt) return false;
+         const timeline = computeContractCompletionTimeline(c, matchingPays);
+         if (!timeline.completionDate) return false;
+         const dt = timeline.completionDate;
          dt.setHours(0,0,0,0);
-         if (activeKpiFilter === 'OVERDUE') return dt.getTime() < today.getTime();
+         if (activeKpiFilter === 'OVERDUE') return timeline.isDelayed;
          
          const in3Days = new Date(today);
          in3Days.setDate(in3Days.getDate() + 3);

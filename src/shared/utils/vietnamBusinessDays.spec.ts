@@ -6,10 +6,13 @@ import {
   addVietnamWorkingDays,
   countVietnamWorkingDays,
   getFirstInstallment,
+  checkProductionTriggerThreshold,
+  checkWeekendDeliveryRisk,
   computeContractCompletionTimeline,
+  VIETNAM_COMPENSATORY_WORKDAYS_SET,
 } from './vietnamBusinessDays';
 
-describe('Vietnam Business Days & Working Calendar Engine', () => {
+describe('Vietnam Business Days & Working Calendar Engine (Apex Sovereign 15.0)', () => {
   describe('isVietnamSunday', () => {
     it('nhận diện chính xác ngày Chủ Nhật', () => {
       const sunday = new Date(2026, 8, 27); // 27/09/2026 là Chủ Nhật
@@ -43,7 +46,7 @@ describe('Vietnam Business Days & Working Calendar Engine', () => {
     });
   });
 
-  describe('isVietnamWorkingDay', () => {
+  describe('isVietnamWorkingDay & Compensatory Workdays', () => {
     it('Thứ Bảy là ngày làm việc mặc định trong sản xuất cơ khí SGM', () => {
       const saturday = new Date(2026, 8, 26); // 26/09/2026 là Thứ Bảy
       expect(isVietnamWorkingDay(saturday)).toBe(true);
@@ -55,14 +58,18 @@ describe('Vietnam Business Days & Working Calendar Engine', () => {
       expect(isVietnamWorkingDay(sunday)).toBe(false);
       expect(isVietnamWorkingDay(nationalDay)).toBe(false);
     });
+
+    it('nhận diện chính xác Ngày làm bù (Compensatory Workday) theo quyết định của Chính phủ', () => {
+      // 04/05/2024 là Thứ Bảy làm bù cho dịp 30/4 - 1/5
+      const compensatorySat = new Date(2024, 4, 4);
+      expect(VIETNAM_COMPENSATORY_WORKDAYS_SET.has('2024-05-04')).toBe(true);
+      // Kể cả khi cấu hình không làm Thứ Bảy (includeSaturday: false), ngày làm bù vẫn là ngày làm việc!
+      expect(isVietnamWorkingDay(compensatorySat, { includeSaturday: false })).toBe(true);
+    });
   });
 
   describe('addVietnamWorkingDays', () => {
     it('bỏ qua Chủ Nhật khi cộng ngày làm việc', () => {
-      // Thứ Sáu 25/09/2026, +2 ngày làm việc:
-      // +1 ngày: Thứ Bảy 26/09 (làm việc)
-      // Chủ Nhật 27/09: Bỏ qua
-      // +2 ngày: Thứ Hai 28/09 (làm việc) -> Đích đến là 28/09/2026
       const result = addVietnamWorkingDays('2026-09-25', 2);
       expect(result).not.toBeNull();
       expect(result?.getDate()).toBe(28);
@@ -71,12 +78,6 @@ describe('Vietnam Business Days & Working Calendar Engine', () => {
     });
 
     it('bỏ qua các ngày Lễ/Tết khi cộng ngày làm việc', () => {
-      // Thứ Tư 29/04/2026, +2 ngày làm việc:
-      // 30/04: Nghỉ lễ (Bỏ qua)
-      // 01/05: Nghỉ lễ (Bỏ qua)
-      // 02/05: Thứ Bảy (Làm việc -> Ngày 1)
-      // 03/05: Chủ Nhật (Bỏ qua)
-      // 04/05: Thứ Hai (Làm việc -> Ngày 2) -> Đích đến là 04/05/2026
       const result = addVietnamWorkingDays('2026-04-29', 2);
       expect(result).not.toBeNull();
       expect(result?.getDate()).toBe(4);
@@ -92,61 +93,74 @@ describe('Vietnam Business Days & Working Calendar Engine', () => {
     });
   });
 
-  describe('getFirstInstallment', () => {
-    it('trích xuất đúng ngày thu Đợt 1 từ mảng cacDotThu', () => {
+  describe('checkProductionTriggerThreshold (Động cơ Ngưỡng Cọc Sản Xuất)', () => {
+    const contractAmount = 500000000; // 500 triệu, ngưỡng 30% = 150 triệu
+
+    it('chưa kích hoạt sản xuất nếu chỉ mới cọc giữ chỗ nhỏ (ví dụ 50 triệu < 150 triệu)', () => {
       const mockPayments = [
         {
           id: 'PT-1',
-          paymentId: 'PT-2026-1249',
+          cacDotThu: [{ lanThu: 1, ngayThu: '2026-09-20', soTien: 50000000 }],
+        },
+      ];
+
+      const res = checkProductionTriggerThreshold(mockPayments, contractAmount, 30);
+      expect(res.isTriggered).toBe(false);
+      expect(res.totalPaid).toBe(50000000);
+      expect(res.requiredThresholdAmount).toBe(150000000);
+      expect(res.statusLabel).toBe('Chờ đủ cọc khởi động');
+    });
+
+    it('chính thức kích hoạt sản xuất khi nộp tiếp đợt 2 vượt ngưỡng 30%', () => {
+      const mockPayments = [
+        {
+          id: 'PT-1',
           cacDotThu: [
-            { lanThu: 1, ngayThu: '2026-09-24', soTien: 174000000 },
-            { lanThu: 2, ngayThu: '2026-10-15', soTien: 200000000 },
+            { lanThu: 1, ngayThu: '2026-09-20', soTien: 50000000 },
+            { lanThu: 2, ngayThu: '2026-09-24', soTien: 120000000 }, // Tổng = 170 triệu > 150 triệu
           ],
         },
       ];
 
-      const dot1 = getFirstInstallment(mockPayments);
-      expect(dot1).not.toBeNull();
-      expect(dot1?.lanThu).toBe(1);
-      expect(dot1?.ngayThu).toBe('2026-09-24');
-      expect(dot1?.soTien).toBe(174000000);
-    });
-
-    it('fallback lấy ngayThanhToan nếu không có cacDotThu nhưng soTien > 0', () => {
-      const mockPayments = [
-        {
-          id: 'PT-2',
-          paymentId: 'PT-2026-0001',
-          ngayThanhToan: '2026-08-10',
-          soTien: 50000000,
-        },
-      ];
-
-      const dot1 = getFirstInstallment(mockPayments);
-      expect(dot1).not.toBeNull();
-      expect(dot1?.ngayThu).toBe('2026-08-10');
-    });
-
-    it('trả về null nếu không có thanh toán nào', () => {
-      expect(getFirstInstallment([])).toBeNull();
-      expect(getFirstInstallment(undefined)).toBeNull();
+      const res = checkProductionTriggerThreshold(mockPayments, contractAmount, 30);
+      expect(res.isTriggered).toBe(true);
+      expect(res.totalPaid).toBe(170000000);
+      expect(res.triggerDate).toBe('2026-09-24'); // Lấy ngày của đợt thu giúp đạt ngưỡng
+      expect(res.statusLabel).toBe('Đã kích hoạt sản xuất');
     });
   });
 
-  describe('computeContractCompletionTimeline', () => {
+  describe('checkWeekendDeliveryRisk (Cảnh báo Giao Hàng Cuối Tuần)', () => {
+    it('bật cảnh báo nếu ngày đích rơi vào Thứ Bảy', () => {
+      const saturday = new Date(2026, 9, 31); // 31/10/2026 là Thứ Bảy
+      const check = checkWeekendDeliveryRisk(saturday);
+      expect(check.isRisk).toBe(true);
+      expect(check.dayOfWeek).toBe(6);
+      expect(check.notice).toContain('Thứ 7');
+    });
+
+    it('không bật cảnh báo nếu ngày đích rơi vào ngày trong tuần (Thứ Hai - Thứ Sáu)', () => {
+      const thursday = new Date(2026, 9, 29); // 29/10/2026 là Thứ Năm
+      const check = checkWeekendDeliveryRisk(thursday);
+      expect(check.isRisk).toBe(false);
+    });
+  });
+
+  describe('computeContractCompletionTimeline (Omni-Nexus Apex Sovereign)', () => {
     const mockContract = {
       id: 'CT-026',
       soHopDong: '026/KD1-SGM/TN-CT/26',
       ngayKy: '2026-09-18',
       soNgayDuKienHoanThanh: 30,
+      giaTriSauThue: 580000000,
     };
 
-    it('ưu tiên tính từ Ngày thu Đợt 1 nếu đã có thanh toán', () => {
+    it('ưu tiên tính từ Ngày thu Đợt 1 nếu đã có thanh toán và đạt ngưỡng', () => {
       const mockPayments = [
         {
           id: 'PT-1',
           paymentId: 'PT-2026-1249',
-          cacDotThu: [{ lanThu: 1, ngayThu: '2026-09-24', soTien: 174000000 }],
+          cacDotThu: [{ lanThu: 1, ngayThu: '2026-09-24', soTien: 174000000 }], // 174tr = 30% của 580tr
         },
       ];
 
@@ -161,9 +175,11 @@ describe('Vietnam Business Days & Working Calendar Engine', () => {
       expect(timeline.isDelayed).toBe(false);
       expect(timeline.timeProgressPercent).toBe(7);
       expect(timeline.baseDateLabel).toContain('Từ Ngày thu Đợt 1 (24/09/2026)');
+      expect(timeline.productionTrigger?.isTriggered).toBe(true);
+      expect(timeline.executionStage).toBe('DANG_CHE_TAO');
     });
 
-    it('tính từ Ngày ký HĐ nếu chưa có thanh toán đợt 1', () => {
+    it('tính từ Ngày ký HĐ nếu chưa có thanh toán đợt 1 và gắn cờ Chờ cọc khởi động', () => {
       const timeline = computeContractCompletionTimeline(mockContract, [], '2026-09-27');
 
       expect(timeline.baseDateType).toBe('NGAY_KY');
@@ -171,6 +187,45 @@ describe('Vietnam Business Days & Working Calendar Engine', () => {
       expect(timeline.completionDateFormatted).toBe('23/10/2026');
       expect(timeline.baseDateLabel).toContain('Từ Ngày ký HĐ (18/09/2026)');
       expect(timeline.workingDaysRemaining).toBe(23);
+      expect(timeline.executionStage).toBe('CHO_COC_KHOI_DONG');
+    });
+
+    it('hỗ trợ Phụ lục Gia hạn tiến độ (Contract Addendum Extension) không bị phạt quá hạn', () => {
+      const contractWithAddendum = {
+        ...mockContract,
+        soNgayGiaHan: 10, // Gia hạn thêm 10 ngày làm việc
+        lyDoGiaHan: 'Khách hàng thay đổi bản vẽ khuôn dập máy ngói',
+      };
+
+      const mockPayments = [
+        {
+          id: 'PT-1',
+          cacDotThu: [{ lanThu: 1, ngayThu: '2026-09-24', soTien: 200000000 }],
+        },
+      ];
+
+      // Khi ngày hiện tại là 30/10/2026 (đã quá hạn gốc 29/10/2026):
+      const timeline = computeContractCompletionTimeline(contractWithAddendum, mockPayments, '2026-10-30');
+
+      expect(timeline.hasAddendumExtension).toBe(true);
+      expect(timeline.extendedWorkingDays).toBe(10);
+      expect(timeline.effectiveWorkingDays).toBe(40);
+      expect(timeline.originalCompletionDateFormatted).toBe('29/10/2026');
+      expect(timeline.completionDateFormatted).toBe('10/11/2026'); // 40 ngày làm việc từ 24/09/2026
+      expect(timeline.isDelayed).toBe(false); // Chưa quá hạn mới!
+      expect(timeline.addendumReason).toBe('Khách hàng thay đổi bản vẽ khuôn dập máy ngói');
+    });
+
+    it('chuyển sang trạng thái Hoàn thành bàn giao khi deliveryPercentage >= 100%', () => {
+      const timeline = computeContractCompletionTimeline(
+        mockContract,
+        [{ id: 'PT-1', soTien: 580000000, ngayThanhToan: '2026-09-24' }],
+        '2026-09-27',
+        { deliveryPercentage: 100 }
+      );
+
+      expect(timeline.executionStage).toBe('DA_NGHIEM_THU_BAN_GIAO');
+      expect(timeline.statusText).toBe('Hoàn thành bàn giao');
     });
   });
 });

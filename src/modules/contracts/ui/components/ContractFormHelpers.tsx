@@ -11,6 +11,8 @@ import { addVietnamWorkingDays } from '@/src/shared/utils/vietnamBusinessDays';
 export const FormSchema = ContractSchema.extend({
   ngayKy: z.string().min(1, 'Ngày ký hợp đồng là bắt buộc'),
   soNgayDuKienHoanThanh: z.number().int().min(1, 'Kỳ hạn hoàn thành tối thiểu phải là 1 ngày').default(30).catch(30),
+  soNgayGiaHan: z.number().int().min(0).optional().default(0).catch(0),
+  lyDoGiaHan: z.string().optional(),
 });
 
 export type FormValues = z.input<typeof FormSchema>;
@@ -39,7 +41,9 @@ export function getInitialContractFormValues(contract: any, draft: any): any {
       vatAmount,
       vatRate,
       totalAmount,
-      slMay: Number(source.slMay) || products.reduce((sum: number, p: any) => sum + (Number(p.quantity) || 0), 0) || 1
+      slMay: Number(source.slMay) || products.reduce((sum: number, p: any) => sum + (Number(p.quantity) || 0), 0) || 1,
+      soNgayGiaHan: Number(source.soNgayGiaHan) || 0,
+      lyDoGiaHan: source.lyDoGiaHan || '',
     };
   }
 
@@ -48,6 +52,8 @@ export function getInitialContractFormValues(contract: any, draft: any): any {
     ngayKy: new Date().toISOString().split('T')[0],
     soHopDong: `HD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
     soNgayDuKienHoanThanh: 30,
+    soNgayGiaHan: 0,
+    lyDoGiaHan: '',
     danhSachMaMay: [],
     soDonHang: '',
     dvt: 'Máy',
@@ -101,9 +107,14 @@ export function applyQuotationToContractForm(setValue: UseFormSetValue<FormValue
   }
 }
 
-export function computeEstimatedCompletionDate(ngayKy: string, soNgayDuKienHoanThanh: number): string {
+export function computeEstimatedCompletionDate(
+  ngayKy: string,
+  soNgayDuKienHoanThanh: number,
+  soNgayGiaHan: number = 0
+): string {
   if (!ngayKy || !soNgayDuKienHoanThanh) return '';
-  const target = addVietnamWorkingDays(ngayKy, soNgayDuKienHoanThanh);
+  const totalDays = Number(soNgayDuKienHoanThanh) + Math.max(0, Number(soNgayGiaHan) || 0);
+  const target = addVietnamWorkingDays(ngayKy, totalDays);
   return target ? formatDate(target) : '';
 }
 

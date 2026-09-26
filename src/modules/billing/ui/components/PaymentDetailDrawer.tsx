@@ -20,6 +20,7 @@ import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
 import { RecordInstallmentModal } from './RecordInstallmentModal';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { notify } from '@/src/shared/utils/notify';
+import { checkProductionTriggerThreshold } from '@/src/shared/utils/vietnamBusinessDays';
 
 import { Button } from '@/src/design-system/Button';
 
@@ -132,6 +133,21 @@ export function PaymentDetailDrawer({
     }
     return [];
   }, [payment.cacDotThu, payment.soTien, payment.ngayThanhToan, payment.createdAt, payment.phuongThucThanhToan, payment.soChungTu, payment.ghiChu, payerName]);
+
+  // Đánh giá ngưỡng kích hoạt sản xuất theo Lịch & Ngân quỹ Apex Sovereign 15.0
+  const triggerThresholdInfo = useMemo(() => {
+    return checkProductionTriggerThreshold([payment], totalPayable, 30);
+  }, [payment, totalPayable]);
+
+  const triggerInstallmentIdx = useMemo(() => {
+    if (!triggerThresholdInfo.isTriggered || !triggerThresholdInfo.triggerInstallmentNumber) {
+      return -1;
+    }
+    const idx = effectiveInstallments.findIndex(
+      (inst, i) => (inst.lanThu || i + 1) === triggerThresholdInfo.triggerInstallmentNumber
+    );
+    return idx >= 0 ? idx : 0;
+  }, [triggerThresholdInfo, effectiveInstallments]);
 
   const handleSaveInstallment = async (
     newInstallment: PaymentInstallment,
@@ -285,12 +301,21 @@ export function PaymentDetailDrawer({
 
             {/* Sổ cái các đợt thu (Payment Installments Matrix) */}
             <div className="mt-4 pt-4 border-t border-slate-150 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <CreditCard size={14} className="text-emerald-700" />
                   <h4 className="text-2xs font-black uppercase tracking-wider text-slate-700">
                     Lịch sử các đợt thu ({effectiveInstallments.length} đợt)
                   </h4>
+                  {triggerThresholdInfo.isTriggered ? (
+                    <span className="text-3xs font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs">
+                      <span>🎯</span> Đã đạt cọc sản xuất ({Math.round(totalPayable > 0 ? (triggerThresholdInfo.totalPaid / totalPayable) * 100 : 100)}% ≥ {triggerThresholdInfo.thresholdPercent}%)
+                    </span>
+                  ) : (
+                    <span className="text-3xs font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-2xs">
+                      <span>⏳</span> Chưa đủ cọc SX (đạt {Math.round(totalPayable > 0 ? (triggerThresholdInfo.totalPaid / totalPayable) * 100 : 0)}%/{triggerThresholdInfo.thresholdPercent}% - thiếu {formatCurrency(Math.max(0, triggerThresholdInfo.requiredThresholdAmount - triggerThresholdInfo.totalPaid))})
+                    </span>
+                  )}
                 </div>
                 {remainingDebt > 0 && (
                   <button
@@ -308,7 +333,7 @@ export function PaymentDetailDrawer({
                   <table className="w-full text-left text-2xs">
                     <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 text-3xs uppercase tracking-wider">
                       <tr>
-                        <th className="p-2 px-3 text-center w-16">Lần thu</th>
+                        <th className="p-2 px-3 text-center w-24">Lần thu</th>
                         <th className="p-2 px-3 w-24">Ngày thu</th>
                         <th className="p-2 px-3 text-right w-36">Số tiền thực thu</th>
                         <th className="p-2 px-3">Hình thức & Số UNC</th>
@@ -320,9 +345,16 @@ export function PaymentDetailDrawer({
                       {effectiveInstallments.map((inst, idx) => (
                         <tr key={inst.id || idx} className="hover:bg-slate-50/60 transition-colors">
                           <td className="p-2 px-3 text-center font-bold text-slate-600">
-                            <span className="font-mono text-3xs bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">
-                              Đợt {inst.lanThu || idx + 1}
-                            </span>
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="font-mono text-3xs bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">
+                                Đợt {inst.lanThu || idx + 1}
+                              </span>
+                              {idx === triggerInstallmentIdx && (
+                                <span className="text-3xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-2xs">
+                                  🎯 Kích hoạt SX
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="p-2 px-3 font-currency text-slate-600">
                             {formatDate(inst.ngayThu)}

@@ -2,7 +2,7 @@ import { Contract } from '@/src/domain/schema/contract.schema';
 import { Payment } from '@/src/domain/schema/payment.schema';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { reconcileContractStats, reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
-import { addVietnamWorkingDays, getFirstInstallment } from '@/src/shared/utils/vietnamBusinessDays';
+import { computeContractCompletionTimeline } from '@/src/shared/utils/vietnamBusinessDays';
 
 export const contractAggregates = {
   totalCustomersWithContracts: (contracts: Contract[]) => {
@@ -92,9 +92,8 @@ export const contractAggregates = {
 
     contracts.forEach(c => {
       const matchingPays = (payments || []).filter(p => p.contractId === c.id || p.contractId === c.soHopDong || p.soHopDong === c.soHopDong);
-      const dot1 = getFirstInstallment(matchingPays);
-      const baseDate = dot1?.ngayThu || (c as any).ngayThuDot1 || c.ngayKy;
-      if (!baseDate || !c.soNgayDuKienHoanThanh) return;
+      const timeline = computeContractCompletionTimeline(c, matchingPays);
+      if (!timeline.completionDate) return;
       
       const prodList = Array.isArray(c.products) ? c.products : [];
       const contractQty = prodList.reduce((s, p) => s + (p.quantity || 0), 0) || c.slMay || 0;
@@ -108,14 +107,13 @@ export const contractAggregates = {
       // Ignore if already fully delivered
       if (contractQty > 0 && deliveredQty >= contractQty) return;
 
-      const dt = addVietnamWorkingDays(baseDate, c.soNgayDuKienHoanThanh);
-      if (!dt) return;
+      const dt = timeline.completionDate;
       dt.setHours(0, 0, 0, 0);
 
       const diffTime = dt.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      if (diffDays < 0) {
+      if (timeline.isDelayed || diffDays < 0) {
         overdueCount++;
       } else if (diffDays <= 14 && diffDays >= 0) {
         upcomingCount++;

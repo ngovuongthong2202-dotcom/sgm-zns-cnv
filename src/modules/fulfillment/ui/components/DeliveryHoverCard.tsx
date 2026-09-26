@@ -8,7 +8,7 @@ import { formatDate } from '@/src/shared/utils/formatDate';
 import { HoverCardPortal } from '@/src/design-system/HoverCardPortal';
 import { HoverCardProductsTab } from '@/src/widgets/HoverCardProductsTab';
 import { cn } from '@/src/shared/utils/textFormatter';
-import { addVietnamWorkingDays } from '@/src/shared/utils/vietnamBusinessDays';
+import { computeContractCompletionTimeline, parseSafeDate } from '@/src/shared/utils/vietnamBusinessDays';
 
 interface Props {
   delivery?: Delivery;
@@ -60,19 +60,25 @@ function DeliveryHoverCardContent({ delivery, deliveryId }: { delivery?: Deliver
 
   const totalValue = activeDelivery.products?.reduce((acc: number, p: any) => acc + ((p.price || 0) * (p.quantity || 1)), 0) || 0;
 
-  const contractDuration = Number(linkedContract?.soNgayDuKienHoanThanh || linkedContract?.soNgayThucHien || 0);
-  let contractBaseDate = linkedContract?.ngayKy;
-  if (linkedPayment) {
-    if (Array.isArray(linkedPayment.cacDotThu) && linkedPayment.cacDotThu.length > 0) {
-      const dot1 = linkedPayment.cacDotThu.find((d: any) => d.dot === 1 || d.tenDot?.includes('1')) || linkedPayment.cacDotThu[0];
-      if (dot1?.ngayThu) contractBaseDate = dot1.ngayThu;
-    } else if (linkedPayment.ngayThanhToan) {
-      contractBaseDate = linkedPayment.ngayThanhToan;
+  const contractTimeline = linkedContract ? computeContractCompletionTimeline(linkedContract, linkedPayment ? [linkedPayment] : []) : null;
+  const contractCompletionDate = contractTimeline?.completionDate || null;
+
+  const deliveryDateObj = parseSafeDate(activeDelivery.ngayGiaoMay || (activeDelivery as any).estimatedDeliveryDate);
+  const contractTargetDate = contractTimeline?.completionDate;
+  let slaAlignmentStatus: 'MATCH' | 'DELAY' | 'NONE' = 'NONE';
+  let slaNotice = '';
+
+  if (deliveryDateObj && contractTargetDate) {
+    const diffTime = deliveryDateObj.getTime() - contractTargetDate.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) {
+      slaAlignmentStatus = 'MATCH';
+      slaNotice = diffDays === 0 ? '✓ Đúng hạn HĐ' : `✓ Sớm ${Math.abs(diffDays)}d so với HĐ`;
+    } else {
+      slaAlignmentStatus = 'DELAY';
+      slaNotice = `⚠️ Trễ +${diffDays}d so với HĐ`;
     }
   }
-  const contractCompletionDate = contractBaseDate && contractDuration > 0
-    ? addVietnamWorkingDays(contractBaseDate, contractDuration)
-    : (linkedContract?.ngayDuKienHoanThanh ? new Date(linkedContract.ngayDuKienHoanThanh) : null);
 
   return (
     <div className="flex flex-col h-full bg-slate-50 max-h-[85vh] overflow-hidden w-[420px]" onClick={(e) => e.stopPropagation()}>
@@ -130,18 +136,28 @@ function DeliveryHoverCardContent({ delivery, deliveryId }: { delivery?: Deliver
                   <MapPin size={10} className="text-slate-400 mt-0.5 shrink-0" /> {customer?.diaChi || '—'}{customer?.tinhThanh ? ` - ${customer.tinhThanh}` : ''}
                 </span>
               </div>
-              <div className="col-span-2 border-t border-slate-100 pt-3 flex gap-4">
+              <div className="col-span-2 border-t border-slate-100 pt-3 flex items-start justify-between gap-4">
                  <div>
                     <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Ngày DP Cập nhật:</span>
-                    <span className="font-medium text-slate-600 block leading-normal">
-                      {formatDate(activeDelivery.ngayGiaoMay || (activeDelivery as any).estimatedDeliveryDate)}
+                    <span className="font-medium text-slate-700 block leading-normal font-mono">
+                      {formatDate(activeDelivery.ngayGiaoMay || (activeDelivery as any).estimatedDeliveryDate) || '—'}
                     </span>
+                    {slaAlignmentStatus !== 'NONE' && (
+                      <span className={`inline-block mt-1 text-3xs font-bold px-1.5 py-0.2 rounded border ${slaAlignmentStatus === 'MATCH' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-rose-700 bg-rose-50 border-rose-200'}`}>
+                        {slaNotice}
+                      </span>
+                    )}
                  </div>
-                 <div>
+                 <div className="text-right">
                     <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Ngày GH Thực tế:</span>
-                    <span className="font-medium text-slate-600 block leading-normal">
+                    <span className="font-medium text-slate-700 block leading-normal font-mono">
                       {formatDate(activeDelivery.ngayGiaoThucTe || (activeDelivery as any).actualDeliveryDate) || '—'}
                     </span>
+                    {contractTimeline?.completionDateFormatted && (
+                      <span className="text-3xs text-slate-400 block mt-1 font-mono">
+                        Hạn HĐ: <strong className="text-slate-700">{contractTimeline.completionDateFormatted}</strong>
+                      </span>
+                    )}
                  </div>
               </div>
             </div>
@@ -191,9 +207,9 @@ function DeliveryHoverCardContent({ delivery, deliveryId }: { delivery?: Deliver
                        <span className="font-semibold text-blue-700">
                          {contractCompletionDate ? formatDate(contractCompletionDate) : (formatDate(linkedContract?.ngayDuKienHoanThanh) || '-')}
                        </span>
-                       {contractBaseDate && (
+                       {contractTimeline?.baseDate && (
                          <span className="text-[10px] text-slate-400 ml-1">
-                           ({contractBaseDate === linkedContract?.ngayKy ? 'từ ngày ký' : 'từ thu đợt 1'})
+                           ({contractTimeline.productionTrigger?.triggerType === 'CONTRACT_SIGNING' ? 'từ ngày ký' : 'từ thu đợt 1'})
                          </span>
                        )}
                      </div>

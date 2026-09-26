@@ -1,6 +1,7 @@
 /* eslint-disable max-lines */
 import { getEntityDisplayLabel } from '@/src/domain/mapping/entity-label';
 import { formatDate } from '@/src/shared/utils/formatDate';
+import { computeContractCompletionTimeline, parseSafeDate } from '@/src/shared/utils/vietnamBusinessDays';
 import React, { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { swrDocFetcher } from '@/src/data/swr-fetchers';
@@ -194,6 +195,33 @@ export function DeliveryDetailDrawer({
     return { isRealMismatch: false, isPartialDelivery: true, totalDeliveredQty: totalD, totalContractQty: totalC };
   }, [mismatchDiffList, drawerDelivery, drawerContract]);
 
+  const contractTimeline = useMemo(() => {
+    if (!drawerContract) return null;
+    return computeContractCompletionTimeline(drawerContract, paymentDoc ? [paymentDoc] : []);
+  }, [drawerContract, paymentDoc]);
+
+  const deliverySla = useMemo(() => {
+    if (!contractTimeline?.completionDate || !drawerDelivery?.ngayGiaoMay) {
+      return { status: 'NONE' as const, notice: '', diffDays: 0 };
+    }
+    const dDate = parseSafeDate(drawerDelivery.ngayGiaoMay);
+    if (!dDate) return { status: 'NONE' as const, notice: '', diffDays: 0 };
+    const diffTime = dDate.getTime() - contractTimeline.completionDate.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) {
+      return {
+        status: 'MATCH' as const,
+        notice: diffDays === 0 ? '✓ Đúng hạn cam kết HĐ' : `✓ Giao sớm ${Math.abs(diffDays)} ngày so với HĐ`,
+        diffDays
+      };
+    }
+    return {
+      status: 'DELAY' as const,
+      notice: `⚠️ Lệch cam kết HĐ: Lịch giao muộn hơn hạn HĐ ${diffDays} ngày!`,
+      diffDays
+    };
+  }, [contractTimeline, drawerDelivery?.ngayGiaoMay]);
+
   if (!drawerDelivery) return null;
 
   // 1. TỔNG QUAN PANEL (OMNI-NEXUS COD 11.0: 70% Left Logistics Matrix / 30% Right Inspector)
@@ -352,7 +380,19 @@ export function DeliveryDetailDrawer({
                   <h4 className="font-bold text-amber-900 text-xs">Đang chờ giao hàng & Bàn giao thực tế</h4>
                   <p className="text-amber-800 text-2xs mt-0.5">
                     Hạn dự kiến giao: <strong className="font-mono text-amber-950 font-bold">{formatDate(drawerDelivery.ngayGiaoMay) || 'Chưa xác định'}</strong>
+                    {contractTimeline?.completionDateFormatted && (
+                      <span className="ml-2 text-slate-600 font-normal">
+                        (Hạn cam kết HĐ: <strong className="text-slate-800 font-bold">{contractTimeline.completionDateFormatted}</strong>)
+                      </span>
+                    )}
                   </p>
+                  {deliverySla.status !== 'NONE' && (
+                    <div className="mt-1">
+                      <span className={`inline-block text-3xs font-extrabold px-2 py-0.5 rounded-md border ${deliverySla.status === 'MATCH' ? 'text-emerald-800 bg-emerald-100 border-emerald-300' : 'text-rose-800 bg-rose-100 border-rose-300'}`}>
+                        {deliverySla.notice}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               <Button 
@@ -380,6 +420,11 @@ export function DeliveryDetailDrawer({
                   <p className="text-emerald-700 text-xs mt-0.5">
                     Ngày giao thực tế: <strong className="font-mono text-emerald-900">{formatDate(drawerDelivery.ngayGiaoThucTe)}</strong>
                     {drawerDelivery.kyNhan && <> • Người nhận: <strong className="text-emerald-900">{drawerDelivery.kyNhan}</strong></>}
+                    {contractTimeline?.completionDateFormatted && (
+                      <span className="ml-2 text-3xs text-emerald-800 bg-emerald-100/70 px-1.5 py-0.2 rounded border border-emerald-200 font-mono">
+                        Hạn HĐ: {contractTimeline.completionDateFormatted}
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
