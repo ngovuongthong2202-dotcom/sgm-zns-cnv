@@ -176,14 +176,14 @@ export default function DeliveriesFeature() {
       const cust = customers.length > 0 ? customers.find((c) => c.id === d.customerId) : undefined;
       const contract = contracts.length > 0 ? contracts.find((c) => (d.contractId && c.id === d.contractId) || (d.soHopDong && c.soHopDong === d.soHopDong)) : undefined;
       const resolvedQuotationId = d.quotationId || contract?.quotationId;
-      const resolvedSoBaoGia = (d as any).soPhieuBaoGia || (d as any).soBaoGia || contract?.soPhieuBaoGia || contract?.soBaoGia;
+      const resolvedSoBaoGia = (d as any).soPhieuBaoGia || (d as any).soBaoGia || contract?.soPhieuBaoGia || (contract as any)?.soBaoGia;
       
       const quot = quotations.length > 0 ? quotations.find((q) => 
         (resolvedQuotationId && q.id === resolvedQuotationId) ||
-        (resolvedSoBaoGia && (q.soPhieuBaoGia === resolvedSoBaoGia || q.soBaoGia === resolvedSoBaoGia || q.id === resolvedSoBaoGia))
+        (resolvedSoBaoGia && (q.soPhieuBaoGia === resolvedSoBaoGia || (q as any).soBaoGia === resolvedSoBaoGia || q.id === resolvedSoBaoGia))
       ) : undefined;
 
-      const finalSoPhieuBaoGia = quot?.soPhieuBaoGia || quot?.soBaoGia || resolvedSoBaoGia || (d as any).soPhieuBaoGia;
+      const finalSoPhieuBaoGia = quot?.soPhieuBaoGia || (quot as any)?.soBaoGia || resolvedSoBaoGia || (d as any).soPhieuBaoGia;
       const finalNgayBaoGia = quot?.ngayBaoGia || (d as any).ngayBaoGia;
 
       return {

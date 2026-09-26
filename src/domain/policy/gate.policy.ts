@@ -97,7 +97,18 @@ export function canCreateDelivery(
 
   // Quy tắc nghiệp vụ bắt buộc: Không cho phép giao hàng nếu Chưa TT
   const pStatus = ((payment as any).tinhTrangThanhToan || '').toLowerCase().trim();
-  if (pStatus === 'chưa tt' || pStatus === 'chua tt' || pStatus === 'chưa thanh toán') {
+  const isExplicitUnpaid = (
+    pStatus === 'chưa tt' || 
+    pStatus === 'chua tt' || 
+    pStatus === 'chưa thanh toán' || 
+    pStatus === 'chua thanh toan' || 
+    pStatus === 'chờ tt' || 
+    pStatus === 'cho tt' || 
+    pStatus === 'chờ thanh toán' || 
+    pStatus === 'cho thanh toan' || 
+    pStatus === 'unpaid'
+  );
+  if (isExplicitUnpaid) {
     return { allowed: false, reason: "Không được phép tạo phiếu giao hàng khi tình trạng thanh toán là 'Chưa TT'." };
   }
 

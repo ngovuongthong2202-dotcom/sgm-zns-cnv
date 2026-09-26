@@ -38,10 +38,18 @@ export const getContractColumns = (
     header: 'Tháng',
     size: 100,
     enableHiding: true,
-    accessorFn: (row) => row.ngayKy ? (() => {
-       const [yyyy, mm] = row.ngayKy.split('-');
-       return `${mm}/${yyyy}`;
-    })() : '---',
+    accessorFn: (row) => {
+      if (!row.ngayKy) return '---';
+      const clean = String(row.ngayKy).trim();
+      if (clean.includes('-')) {
+        const parts = clean.split('-');
+        if (parts.length >= 2) return `${parts[1]}/${parts[0]}`;
+      } else if (clean.includes('/')) {
+        const parts = clean.split('/');
+        if (parts.length >= 3) return `${parts[1]}/${parts[2]}`;
+      }
+      return '---';
+    },
   },
   {
     id: 'soHopDongKhach',

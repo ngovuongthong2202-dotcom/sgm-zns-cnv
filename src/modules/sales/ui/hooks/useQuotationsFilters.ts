@@ -95,12 +95,12 @@ export function useQuotationsFilters(
 
         const hasContract = isQuotationWithContract(q, combinedContracts);
         const hasPayment = combinedPayments.some((p: any) => 
-          (p.quotationId && (p.quotationId === q.id || p.quotationId === q.soBaoGia || p.quotationId === q.soPhieuBaoGia)) ||
-          (p.soPhieuBaoGia && (p.soPhieuBaoGia === q.soBaoGia || p.soPhieuBaoGia === q.soPhieuBaoGia || p.soPhieuBaoGia === q.id))
+          (p.quotationId && (p.quotationId === q.id || p.quotationId === (q as any).soBaoGia || p.quotationId === q.soPhieuBaoGia)) ||
+          (p.soPhieuBaoGia && (p.soPhieuBaoGia === (q as any).soBaoGia || p.soPhieuBaoGia === q.soPhieuBaoGia || p.soPhieuBaoGia === q.id))
         );
         const hasDelivery = combinedDeliveries.some((d: any) => 
-          (d.quotationId && (d.quotationId === q.id || d.quotationId === q.soBaoGia || d.quotationId === q.soPhieuBaoGia)) ||
-          (d.soPhieuBaoGia && (d.soPhieuBaoGia === q.soBaoGia || d.soPhieuBaoGia === q.soPhieuBaoGia || d.soPhieuBaoGia === q.id))
+          (d.quotationId && (d.quotationId === q.id || d.quotationId === (q as any).soBaoGia || d.quotationId === q.soPhieuBaoGia)) ||
+          (d.soPhieuBaoGia && (d.soPhieuBaoGia === (q as any).soBaoGia || d.soPhieuBaoGia === q.soPhieuBaoGia || d.soPhieuBaoGia === q.id))
         );
         
         if (selectedTienDo === 'CO_HOP_DONG') return hasContract;

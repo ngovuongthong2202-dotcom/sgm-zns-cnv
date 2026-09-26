@@ -57,6 +57,14 @@ export const DeliverySchema = z.object({
   loai: z.string().optional(),
   loaiBaoGia: z.string().optional(),
   
+  // Executive Pre-delivery Waiver (Đặc cách Ban Giám Đốc)
+  dacCachGiaoTruoc: z.boolean().optional().default(false),
+  lyDoDacCach: z.string().optional(),
+  nguoiPheDuyetDacCach: z.string().optional(),
+  soPhieuBaoGia: z.string().optional(),
+  soBaoGia: z.string().optional(),
+  ngayBaoGia: z.string().optional(),
+
   // ZNS & Workflow - not strictly validated
   trangThaiGuiTinThanhToan: z.string().optional().nullable(), // Fast-lane projection
   thongTinGuiZnsGiaoHang: z.record(z.string(), z.unknown()).optional(),

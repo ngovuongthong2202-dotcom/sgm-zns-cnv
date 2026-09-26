@@ -9,6 +9,7 @@ import { Button } from '@/src/design-system/Button';
 import { normalizeBusinessName, normalizeCode } from '@/src/shared/utils/textFormatter';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 
+import { formatDate } from '@/src/shared/utils/formatDate';
 import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
 import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
 
@@ -45,8 +46,8 @@ export const getCustomerColumns = (
       const dateVal = row.ngayTao || '';
       return (
         <div className="w-full min-w-0 flex items-center">
-          <span className="truncate block text-slate-600 font-medium text-xs" title={String(dateVal)}>
-            {dateVal ? new Date(String(dateVal)).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}
+          <span className="truncate block text-slate-600 font-medium text-xs font-mono" title={String(dateVal)}>
+            {formatDate(dateVal)}
           </span>
         </div>
       );
