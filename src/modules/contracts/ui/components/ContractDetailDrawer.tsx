@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { ProductItem } from '@/src/domain/schema/product.schema';
 import { formatDate } from '@/src/shared/utils/formatDate';
@@ -100,10 +99,10 @@ export function ContractDetailDrawer({
   if (!drawerContract) return null;
 
   const pays = (payments || []).length > 0
-    ? (payments || []).filter((p: Payment) => p.contractId === drawerContract.id || p.contractId === drawerContract.soHopDong || p.contractCode === drawerContract.soHopDong || p.soHopDong === drawerContract.soHopDong)
+    ? (payments || []).filter((p: Payment) => p.contractId === drawerContract.id || p.contractId === drawerContract.soHopDong || (p as any).contractCode === drawerContract.soHopDong || p.soHopDong === drawerContract.soHopDong)
     : lazyPayments;
   const dels = (deliveries || []).length > 0
-    ? (deliveries || []).filter((d: Delivery) => d.contractId === drawerContract.id || d.contractId === drawerContract.soHopDong || d.contractCode === drawerContract.soHopDong || d.soHopDong === drawerContract.soHopDong)
+    ? (deliveries || []).filter((d: Delivery) => d.contractId === drawerContract.id || d.contractId === drawerContract.soHopDong || (d as any).contractCode === drawerContract.soHopDong || d.soHopDong === drawerContract.soHopDong)
     : lazyDeliveries;
 
   // Math totals
@@ -439,14 +438,25 @@ export function ContractDetailDrawer({
                   <span className="font-mono font-bold text-slate-800 text-3xs">{pays.length} phiếu đã ghi nhận</span>
                 </div>
                 {onCreatePayment && (
-                  <Button 
-                    variant="subtle" 
-                    size="xs" 
-                    className="h-6 text-3xs font-bold" 
-                    onClick={() => onCreatePayment(drawerContract)}
-                  >
-                    + Thu tiền
-                  </Button>
+                  pays.length > 0 ? (
+                    <Button 
+                      variant="subtle" 
+                      size="xs" 
+                      className="h-6 text-3xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200" 
+                      onClick={() => setActiveTab('payments')}
+                    >
+                      Xem tình trạng TT ↗
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="subtle" 
+                      size="xs" 
+                      className="h-6 text-3xs font-bold" 
+                      onClick={() => onCreatePayment(drawerContract)}
+                    >
+                      + Thu tiền
+                    </Button>
+                  )
                 )}
               </div>
 
@@ -486,7 +496,7 @@ export function ContractDetailDrawer({
   );
 
   // 3. THANH TOÁN (PAYMENTS) PANEL
-  const paymentsPanel = <TabLichSuThanhToan matchingPayments={pays} showCreateButton={!!onCreatePayment} onNavigateNew={() => onCreatePayment?.(drawerContract)} />;
+  const paymentsPanel = <TabLichSuThanhToan matchingPayments={pays} showCreateButton={pays.length === 0 && !!onCreatePayment} onNavigateNew={() => onCreatePayment?.(drawerContract)} />;
 
   // 4. GIAO HÀNG (DELIVERIES) PANEL
   const deliveriesPanel = <TabLichSuGiaoHang matchingDeliveries={dels} showCreateButton={!!onCreateDelivery} onNavigateNew={() => onCreateDelivery?.(drawerContract)} />;
@@ -507,8 +517,8 @@ export function ContractDetailDrawer({
       creatorOrOfficer={drawerContract?.nguoiPhuTrach}
       statusLabel={drawerContract?.tinhTrangHopDong || 'Mới'}
       statusColor={drawerContract?.tinhTrangHopDong === 'Đã ký' ? 'text-emerald-700' : 'text-blue-700'}
-      createdAt={drawerContract?.createdAt || drawerContract?.ngayKy}
-      updatedAt={drawerContract?.updatedAt || drawerContract?.ngayCapNhat}
+      createdAt={(drawerContract as any)?.createdAt || drawerContract?.ngayKy}
+      updatedAt={(drawerContract as any)?.updatedAt || (drawerContract as any)?.ngayCapNhat}
       customerName={drawerContract?.tenKhachHang}
     />
   );
@@ -583,9 +593,22 @@ export function ContractDetailDrawer({
           )}
 
           {onCreatePayment && (
-            <Button id="btn-create-p" aria-label="Tạo phiếu thu" variant="subtle" size="sm" className="h-9 font-bold" onClick={() => onCreatePayment(drawerContract)}>
-              + Phiếu thu
-            </Button>
+            pays.length > 0 ? (
+              <Button 
+                id="btn-view-p" 
+                aria-label="Xem tình trạng thanh toán" 
+                variant="subtle" 
+                size="sm" 
+                className="h-9 font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200" 
+                onClick={() => setActiveTab('payments')}
+              >
+                Xem tình trạng thanh toán ↗
+              </Button>
+            ) : (
+              <Button id="btn-create-p" aria-label="Tạo phiếu thu" variant="subtle" size="sm" className="h-9 font-bold" onClick={() => onCreatePayment(drawerContract)}>
+                + Phiếu thu
+              </Button>
+            )
           )}
 
           {onCreateDelivery && (

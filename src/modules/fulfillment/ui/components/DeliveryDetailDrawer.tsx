@@ -7,7 +7,7 @@ import { swrDocFetcher } from '@/src/data/swr-fetchers';
 import { PaymentHoverCard } from '@/src/modules/billing/ui/components/PaymentHoverCard';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
-import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, ShieldCheck, Clock, RotateCcw } from 'lucide-react';
+import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, ShieldCheck, Clock, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
 import { TabLichSuHoatDong } from "@/src/widgets/TabLichSuHoatDong";
@@ -58,6 +58,7 @@ export function DeliveryDetailDrawer({
     swrDocFetcher
   );
   const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'links' | 'zns' | 'audit'>('overview');
+  const [showMismatchDetails, setShowMismatchDetails] = useState(false);
 
   const customTabsList = (
     <div className="flex items-center gap-6 border-b border-slate-100 pb-px -mb-[9px] select-none pl-1 overflow-x-auto scrollbar-hide">
@@ -144,6 +145,41 @@ export function DeliveryDetailDrawer({
     return false;
   }, [drawerDelivery, drawerContract]);
 
+  const mismatchDiffList = useMemo(() => {
+    if (!drawerDelivery || !drawerContract) return [];
+    const contractProducts = drawerContract.products || [];
+    const deliveryProducts = drawerDelivery.products || [];
+
+    const diffMap = new Map<string, { name: string; model?: string; contractQty: number; deliveryQty: number }>();
+
+    contractProducts.forEach((cp: any, idx: number) => {
+      const key = cp.productId || cp.productName || `c_${idx}`;
+      diffMap.set(key, {
+        name: cp.productName || 'Sản phẩm',
+        model: cp.productId || '',
+        contractQty: Number(cp.quantity) || 0,
+        deliveryQty: 0,
+      });
+    });
+
+    deliveryProducts.forEach((dp: any, idx: number) => {
+      const key = dp.productId || dp.productName || `d_${idx}`;
+      const existing = diffMap.get(key);
+      if (existing) {
+        existing.deliveryQty = Number(dp.quantity) || 0;
+      } else {
+        diffMap.set(key, {
+          name: dp.productName || 'Sản phẩm ngoài hợp đồng',
+          model: dp.productId || '',
+          contractQty: 0,
+          deliveryQty: Number(dp.quantity) || 0,
+        });
+      }
+    });
+
+    return Array.from(diffMap.values());
+  }, [drawerDelivery, drawerContract]);
+
   if (!drawerDelivery) return null;
 
   // 1. TỔNG QUAN PANEL (OMNI-NEXUS COD 11.0: 70% Left Logistics Matrix / 30% Right Inspector)
@@ -166,14 +202,93 @@ export function DeliveryDetailDrawer({
           
           {/* Cảnh báo cấu hình máy lệch nếu có */}
           {isMismatch && (
-            <div className="bg-amber-50 border border-amber-200/90 rounded-xl p-4 flex gap-3 shadow-xs">
-              <AlertTriangle className="text-amber-700 shrink-0 mt-0.5" size={20} />
-              <div>
-                <h4 className="font-bold text-amber-900 text-xs">Cảnh báo: Lệch máy cấu hình (Discrepancy Detected)</h4>
-                <p className="text-amber-800 text-2xs/normal mt-1 leading-relaxed">
-                  Danh sách sản phẩm hoặc khối lượng dòng máy trong Phiếu Giao này đang <strong>khác biệt</strong> so với Hợp đồng phụ lục vừa thay đổi mới nhất. Vui lòng rà soát lại thông tin cấu hình sản phẩm xuất xưởng!
-                </p>
+            <div className="bg-amber-50 border border-amber-200/90 rounded-xl p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <AlertTriangle className="text-amber-700 shrink-0" size={18} />
+                  <div>
+                    <h4 className="font-bold text-amber-900 text-xs">Cảnh báo</h4>
+                    <p className="text-amber-800 text-3xs mt-0.5">
+                      Phát hiện chênh lệch danh mục / số lượng sản phẩm so với hợp đồng ({drawerContract?.soHopDong || 'liên kết'})
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMismatchDetails(!showMismatchDetails)}
+                  className="text-3xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
+                >
+                  {showMismatchDetails ? (
+                    <>
+                      <span>Thu gọn</span>
+                      <ChevronUp size={13} />
+                    </>
+                  ) : (
+                    <>
+                      <span>Mở chi tiết cảnh báo</span>
+                      <ChevronDown size={13} />
+                    </>
+                  )}
+                </button>
               </div>
+
+              {showMismatchDetails && (
+                <div className="pt-2 border-t border-amber-200/80 space-y-2">
+                  <p className="text-amber-900 text-2xs leading-relaxed">
+                    Bảng đối chiếu cấu hình sản phẩm giữa Hợp đồng và Phiếu giao hàng:
+                  </p>
+                  <div className="border border-amber-200 rounded-lg overflow-hidden bg-white shadow-2xs">
+                    <table className="w-full text-left text-2xs">
+                      <thead className="bg-amber-100/70 text-amber-950 font-bold border-b border-amber-200 text-3xs uppercase tracking-wider">
+                        <tr>
+                          <th className="p-2 px-3">Sản phẩm / Model</th>
+                          <th className="p-2 px-3 text-center w-28">SL Hợp đồng</th>
+                          <th className="p-2 px-3 text-center w-28">SL Giao lần này</th>
+                          <th className="p-2 px-3 text-center w-36">Chênh lệch</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-amber-100">
+                        {mismatchDiffList.map((item, idx) => {
+                          const diff = item.deliveryQty - item.contractQty;
+                          return (
+                            <tr key={idx} className="hover:bg-amber-50/50">
+                              <td className="p-2 px-3 font-medium text-slate-800">
+                                <span>{item.name}</span>
+                                {item.model && <span className="font-mono text-slate-400 text-3xs block">{item.model}</span>}
+                              </td>
+                              <td className="p-2 px-3 text-center font-mono font-semibold text-slate-700">
+                                {item.contractQty}
+                              </td>
+                              <td className="p-2 px-3 text-center font-mono font-bold text-slate-900">
+                                {item.deliveryQty}
+                              </td>
+                              <td className="p-2 px-3 text-center">
+                                {diff === 0 ? (
+                                  <span className="text-3xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                    Khớp 100%
+                                  </span>
+                                ) : diff < 0 ? (
+                                  <span className="text-3xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                    Thiếu {Math.abs(diff)} cái
+                                  </span>
+                                ) : item.contractQty === 0 ? (
+                                  <span className="text-3xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                                    Ngoài HĐ (+{item.deliveryQty})
+                                  </span>
+                                ) : (
+                                  <span className="text-3xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                                    Vượt +{diff} cái
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

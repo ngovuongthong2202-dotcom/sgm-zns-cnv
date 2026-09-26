@@ -4,6 +4,7 @@ import useSWR from 'swr';
 import { Building2, FileText, Receipt, Truck, Calculator, CalendarClock, UserCheck, User, Phone, MapPin } from 'lucide-react';
 import { swrApiFetcher, swrColFetcher } from '@/src/data/swr-fetchers';
 import { HoverCardPortal } from '@/src/design-system';
+import { formatDate } from '@/src/shared/utils/formatDate';
 
 interface Props {
   customer: Customer;
@@ -159,7 +160,7 @@ function CustomerHoverCardContent({ customer }: { customer: Customer }) {
          </div>
          <div className="flex items-center gap-1.5 font-medium">
             <CalendarClock size={12} className="text-slate-400" />
-            <span>{customer.ngayTao ? new Date(customer.ngayTao).toLocaleDateString('vi-VN') : '—'}</span>
+            <span>{customer.ngayTao ? formatDate(customer.ngayTao) : '—'}</span>
          </div>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { ZnsMessage } from '../../../domain/schema/workflow.schema';
 import * as crypto from 'crypto';
 import { templateRendererService } from './template-renderer.service';
 import { z } from 'zod';
+import { formatDate } from '../../../shared/utils/formatDate';
 
 export const ZnsBasePayloadSchema = z.object({
   tinhTrangThanhToan: z.string().optional(),
@@ -187,10 +188,11 @@ export class ZnsPayloadBuilder {
       rendered.so_phieu_bao_gia = (p.soPhieuBaoGia as string) || (p.maBaoGia as string) || 'BG-AUTO';
     }
     if (requiredVarsSet.has('ngay_bao_gia') && isEmp(rendered.ngay_bao_gia)) {
-      rendered.ngay_bao_gia = (p.ngayBaoGia as string) || (p.createdAt as string)?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+      const raw = (p.ngayBaoGia as string) || (p.createdAt as string) || new Date().toISOString();
+      rendered.ngay_bao_gia = formatDate(raw);
     }
     if (requiredVarsSet.has('ngay_het_han') && isEmp(rendered.ngay_het_han)) {
-      rendered.ngay_het_han = (p.ngayHetHan as string) || 'Không có';
+      rendered.ngay_het_han = p.ngayHetHan ? formatDate(p.ngayHetHan) : 'Không có';
     }
     if (requiredVarsSet.has('sl_may') && isEmp(rendered.sl_may)) {
       rendered.sl_may = String(p.slMay || p.soLuong || '1');
@@ -202,7 +204,8 @@ export class ZnsPayloadBuilder {
       rendered.nhan_vien = (p.nguoiPhuTrach as string) || (p.nhanVien as string) || 'Bộ phận CSKH';
     }
     if (requiredVarsSet.has('ngay_ky') && isEmp(rendered.ngay_ky)) {
-      rendered.ngay_ky = (p.ngayKy as string) || (p.createdAt as string)?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+      const raw = (p.ngayKy as string) || (p.createdAt as string) || new Date().toISOString();
+      rendered.ngay_ky = formatDate(raw);
     }
     if (requiredVarsSet.has('so_ngay') && isEmp(rendered.so_ngay)) {
       rendered.so_ngay = String(p.soNgayDuKienHoanThanh || p.soNgay || '30');
@@ -211,7 +214,8 @@ export class ZnsPayloadBuilder {
       rendered.so_phieu = (p.soPhieuBaoGia as string) || (p.soHopDong as string) || 'Không có';
     }
     if (requiredVarsSet.has('ngay_thanh_toan') && isEmp(rendered.ngay_thanh_toan)) {
-      rendered.ngay_thanh_toan = (p.ngayThanhToan as string) || (p.time as string) || new Date().toISOString().slice(0, 10);
+      const raw = (p.ngayThanhToan as string) || (p.time as string) || new Date().toISOString();
+      rendered.ngay_thanh_toan = formatDate(raw);
     }
 
     // 4. Strict mode check: nếu thiếu biến required → throw

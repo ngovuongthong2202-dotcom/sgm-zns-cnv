@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useMemo, useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { notify } from '@/src/shared/utils/notify';
@@ -113,11 +112,11 @@ export default function QuotationsFeature() {
     if (drawerQuotation && enhancedQuotations?.length) {
       const updated = enhancedQuotations.find(q => q.id === drawerQuotation.id);
       // We do a shallow comparison of updatedAt or timeline length or similar if present to avoid infinite JSON.stringify loops
-      if (updated && (updated.updatedAt !== drawerQuotation?.updatedAt || updated.timeline?.length !== drawerQuotation?.timeline?.length || updated.tinhTrangBaoGia !== drawerQuotation?.tinhTrangBaoGia)) {
+      if (updated && ((updated as any).updatedAt !== (drawerQuotation as any)?.updatedAt || (updated as any).timeline?.length !== (drawerQuotation as any)?.timeline?.length || updated.tinhTrangBaoGia !== drawerQuotation?.tinhTrangBaoGia)) {
         setDrawerQuotation(updated);
       }
     }
-  }, [enhancedQuotations, drawerQuotation?.id, drawerQuotation?.updatedAt, drawerQuotation?.timeline?.length, drawerQuotation?.tinhTrangBaoGia]);
+  }, [enhancedQuotations, drawerQuotation?.id, (drawerQuotation as any)?.updatedAt, (drawerQuotation as any)?.timeline?.length, drawerQuotation?.tinhTrangBaoGia]);
 
 
   const {

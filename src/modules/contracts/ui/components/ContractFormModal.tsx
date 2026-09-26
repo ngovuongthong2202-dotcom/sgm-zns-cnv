@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useMemo } from 'react';
 import { Contract } from '@/src/domain/schema/contract.schema';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
@@ -226,7 +225,7 @@ export function ContractFormModal({ contract, contracts, quotations, nguoiPhuTra
                 showPrice={true}
                 showFinance={true}
                 showBaoHanh={true}
-                baseDateForBaoHanh={watchAll.ngayKyHopDong || watchAll.ngayTao || new Date().toISOString().split('T')[0]}
+                baseDateForBaoHanh={watchAll.ngayKy || (watchAll as any).ngayKyHopDong || (watchAll as any).ngayTao || new Date().toISOString().split('T')[0]}
                 showSerial={true}
                 allContracts={contracts}
               />

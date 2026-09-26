@@ -146,7 +146,7 @@ export function WorkflowTimeline({
                      >
                        + Tạo HĐ
                      </button>
-                   ) : step.id === 'payment' && onCreatePayment ? (
+                   ) : step.id === 'payment' && onCreatePayment && (!isMachine || relatedContracts.length > 0) ? (
                      <button
                        type="button"
                        onClick={onCreatePayment}
@@ -154,7 +154,7 @@ export function WorkflowTimeline({
                      >
                        + Phiếu thu
                      </button>
-                   ) : step.id === 'delivery' && onCreateDelivery ? (
+                   ) : step.id === 'delivery' && onCreateDelivery && (!isMachine || (relatedContracts.length > 0 && relatedPayments.length > 0)) ? (
                      <button
                        type="button"
                        onClick={onCreateDelivery}
@@ -163,7 +163,7 @@ export function WorkflowTimeline({
                        + Phiếu giao
                      </button>
                    ) : (
-                     <span className="text-2xs text-slate-400 mb-1">Chưa tạo</span>
+                     <span className="text-2xs text-slate-400 mb-1">{step.id === 'payment' && isMachine && relatedContracts.length === 0 ? 'Cần HĐ trước' : (step.id === 'delivery' && isMachine ? 'Cần TT trước' : 'Chưa tạo')}</span>
                    )
                 )}
 

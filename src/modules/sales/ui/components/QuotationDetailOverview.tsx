@@ -83,14 +83,14 @@ export function QuotationDetailOverview({
           onClose?.();
           navigate(`/contracts/new?fromQuotation=${quotation.id}`);
         }}
-        onCreatePayment={() => {
+        onCreatePayment={!isBgMay ? () => {
           onClose?.();
           navigate(`/payments/new?fromQuotation=${quotation.id}`);
-        }}
-        onCreateDelivery={() => {
+        } : undefined}
+        onCreateDelivery={!isBgMay ? () => {
           onClose?.();
           navigate(`/deliveries?fromQuotation=${quotation.id}`);
-        }}
+        } : undefined}
         className="shadow-xs border border-slate-200"
       />
 

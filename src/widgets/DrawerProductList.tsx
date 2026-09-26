@@ -2,6 +2,8 @@ import React from 'react';
 import { ProductItem } from '@/src/domain/schema/product.schema';
 import { aggregateProducts, computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
+import { formatDate } from '@/src/shared/utils/formatDate';
+import { AlertTriangle } from 'lucide-react';
 
 interface DeliveryQuantities {
   [key: string]: number;
@@ -28,6 +30,7 @@ function getProductItemKey(p: ProductItem, index: number) {
 
 export function DrawerProductList({
   products,
+  vatRate,
   deliveredQuantities,
   accentColorClass = 'text-blue-700',
   hideTotals = false,
@@ -40,6 +43,7 @@ export function DrawerProductList({
   const calculatedDiscount = aggs.totalDiscount || 0;
   const calculatedVat = aggs.totalVat || 0;
   const calculatedTotal = aggs.totalAfterTax || 0;
+  const effectiveVatRate = vatRate !== undefined ? Number(vatRate) : (aggs.totalBeforeTax > 0 ? Math.round((aggs.totalVat / aggs.totalBeforeTax) * 100) : 0);
   
   const totalQuantity = healedProducts.reduce((acc, p) => acc + (p.quantity || 0), 0);
   const totalProducts = healedProducts.length;
@@ -134,7 +138,7 @@ export function DrawerProductList({
                             <div className="flex items-center gap-1.5 text-3xs text-blue-700 font-medium mt-0.5">
                               <span className="bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded border border-blue-200/60 font-semibold uppercase">
                                 BH: {Number((p as any).soNgayBaoHanh) > 0 ? `${Number((p as any).soNgayBaoHanh)} ngày` : ''}
-                                {(p as any).ngayHetHanBaoHanh ? ` (Đến ${(p as any).ngayHetHanBaoHanh})` : ''}
+                                {(p as any).ngayHetHanBaoHanh ? ` (Đến ${formatDate((p as any).ngayHetHanBaoHanh)})` : ''}
                               </span>
                             </div>
                           )}
@@ -248,8 +252,8 @@ export function DrawerProductList({
                     </tr>
                   )}
 
-                  {/* 3. Tiền thuế VAT (nếu > 0) */}
-                  {calculatedVat > 0 && (
+                  {/* 3. Tiền thuế VAT (nếu > 0 hoặc = 0) */}
+                  {calculatedVat > 0 ? (
                     <tr className="hover:bg-sky-50/40 transition-colors bg-sky-50/20">
                       <td colSpan={3} className="p-2.5 px-3 text-2xs text-sky-700 italic align-middle">
                         Thuế giá trị gia tăng (GTGT / VAT)
@@ -262,7 +266,21 @@ export function DrawerProductList({
                       </td>
                       {deliveredQuantities && <td className="p-2.5"></td>}
                     </tr>
-                  )}
+                  ) : (effectiveVatRate === 0) ? (
+                    <tr className="hover:bg-amber-50/40 transition-colors bg-amber-50/20">
+                      <td colSpan={3} className="p-2.5 px-3 text-2xs text-amber-800 italic align-middle flex items-center gap-1.5">
+                        <AlertTriangle size={13} className="text-amber-600 shrink-0" />
+                        Thuế suất GTGT: <strong>0%</strong> (Áp dụng đối tượng miễn/xuất khẩu)
+                      </td>
+                      <td colSpan={3} className="p-2.5 px-3 text-right text-2xs font-bold uppercase tracking-wider text-amber-800 align-middle">
+                        Tiền thuế VAT (0%):
+                      </td>
+                      <td className="p-2.5 px-3 text-right font-mono font-bold text-amber-800 text-xs align-middle whitespace-nowrap">
+                        0 ₫
+                      </td>
+                      {deliveredQuantities && <td className="p-2.5"></td>}
+                    </tr>
+                  ) : null}
 
                   {/* 4. Tổng thanh toán */}
                   <tr className="bg-blue-50/70 border-t-2 border-slate-300 hover:bg-blue-50 transition-colors">
@@ -308,7 +326,7 @@ export function DrawerProductList({
                   {remainingDebt !== undefined && remainingDebt > 0 && (
                     <tr className="hover:bg-amber-50/40 transition-colors bg-amber-50/30">
                       <td colSpan={3} className="p-2 px-3 text-3xs text-amber-700 font-semibold align-middle">
-                        Nghĩa vụ công nợ còn lại
+                        Công nợ
                       </td>
                       <td colSpan={3} className="p-2 px-3 text-right text-2xs font-bold uppercase tracking-wider text-amber-800 align-middle">
                         Còn lại (Công nợ):
@@ -323,6 +341,19 @@ export function DrawerProductList({
               )}
             </table>
           </div>
+
+          {/* Cảnh báo tuân thủ pháp luật thuế VAT 0% */}
+          {(effectiveVatRate === 0) && (
+            <div className="mt-3 p-3 bg-amber-50/90 border border-amber-200 rounded-xl text-amber-900 text-2xs flex items-start gap-2.5 shadow-2xs">
+              <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                <strong className="font-bold text-amber-950 block text-xs">Cảnh báo tuân thủ xuất hóa đơn (Thuế suất VAT 0%):</strong>
+                <span className="text-amber-850 mt-0.5 block">
+                  Hợp đồng / Báo giá này đang áp dụng mức thuế suất <strong>VAT 0%</strong>. Theo quy định tại Nghị định 123/2020/NĐ-CP và Luật thuế GTGT, thuế suất 0% chỉ áp dụng đối với hàng hóa, dịch vụ xuất khẩu hoặc doanh nghiệp trong khu phi thuế quan (EPE). Vui lòng rà soát kỹ căn cứ pháp lý trước khi phát hành Hóa đơn điện tử.
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex items-center justify-center py-12 px-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50">

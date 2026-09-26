@@ -1,8 +1,8 @@
-// @ts-nocheck
 /* eslint-disable max-lines */
 import React, { useState, useEffect } from 'react';
 import { notify } from '@/src/shared/utils/notify';
 import { useNavigate } from 'react-router-dom';
+import { formatDate } from '@/src/shared/utils/formatDate';
 
 import useSWR from 'swr';
 import { swrColFetcher } from '@/src/data/swr-fetchers';
@@ -71,7 +71,7 @@ export function QuotationDetailDrawer({
   const navigate = useNavigate();
   const [isZnsLocked, setIsZnsLocked] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'contracts' | 'payments' | 'deliveries' | 'zns' | 'links' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'contracts' | 'payments' | 'deliveries' | 'zns' | 'links' | 'audit' | 'revisions'>('overview');
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
 
   const handleOwnerChange = async (newOwner: string) => {
@@ -151,7 +151,7 @@ export function QuotationDetailDrawer({
       id: quotation.customerId || '',
       tenKhachHang: quotation.tenKhachHang || 'Khách hàng',
       sdt: quotation.sdt || '',
-      diaChi: quotation.diaChiGiaoHang || '',
+      diaChi: (quotation as any).diaChiGiaoHang || '',
       tinhThanh: (quotation as any).tinhThanh || ''
     } as any);
   const { totalAfterTax: totalValue } = aggregateProducts(quotation.products || []);
@@ -285,10 +285,10 @@ export function QuotationDetailDrawer({
       documentCode={quotation.soPhieuBaoGia}
       documentTypeLabel="phiếu báo giá"
       creatorOrOfficer={quotation.nguoiPhuTrach}
-      statusLabel={quotation.trangThaiBaoGia || 'Mới'}
-      statusColor={quotation.trangThaiBaoGia === 'Đã duyệt' ? 'text-emerald-700' : 'text-blue-700'}
-      createdAt={quotation.createdAt || quotation.ngayBaoGia}
-      updatedAt={quotation.updatedAt || quotation.ngayCapNhat}
+      statusLabel={(quotation as any).trangThaiBaoGia || quotation.tinhTrangBaoGia || 'Mới'}
+      statusColor={(quotation as any).trangThaiBaoGia === 'Đã duyệt' ? 'text-emerald-700' : 'text-blue-700'}
+      createdAt={(quotation as any).createdAt || quotation.ngayBaoGia}
+      updatedAt={(quotation as any).updatedAt || (quotation as any).ngayCapNhat}
       customerName={quotation.tenKhachHang}
     />
   );

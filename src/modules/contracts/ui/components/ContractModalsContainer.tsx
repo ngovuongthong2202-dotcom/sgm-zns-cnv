@@ -76,6 +76,10 @@ export function ContractModalsContainer({
   getRemainingProducts,
 }: ContractModalsContainerProps) {
   const { user } = useAuth();
+  const [pendingDeliveryContract, setPendingDeliveryContract] = React.useState<Contract | null>(null);
+  const [prefillPaymentStatus, setPrefillPaymentStatus] = React.useState<string>('ĐÃ THANH TOÁN');
+  const [transitionPaymentInfo, setTransitionPaymentInfo] = React.useState<{ id?: string; code?: string; isDacCach?: boolean } | null>(null);
+
   return (
     <>
       <ContractDetailDrawer
@@ -86,8 +90,17 @@ export function ContractModalsContainer({
         onClose={() => setDrawerContract(null)}
         onEdit={(contract) => { setEditingContract(contract); setDrawerContract(null); setIsFormOpen(true); }}
         onCreatePayment={async (contract) => {
+          const existingPayment = (realtimePayments || []).find((p: any) => 
+            !p.deletedAt && !p.deleted_at && 
+            (p.contractId === contract.id || p.contractId === contract.soHopDong || p.contractCode === contract.soHopDong || p.soHopDong === contract.soHopDong)
+          );
+          if (existingPayment) {
+            notify.info(`Hợp đồng ${contract.soHopDong} đã có phiếu thanh toán (${existingPayment.paymentId}). Mỗi hợp đồng chỉ tạo 1 phiếu thu duy nhất!`);
+            return;
+          }
           const ok = await checkWorkflowGate('PAYMENT', contract.id as string, 'contracts', user?.email || undefined);
           if (!ok) return;
+          setPrefillPaymentStatus('ĐÃ THANH TOÁN');
           setPrefillPaymentContract(contract);
         }}
         onCreateDelivery={async (contract) => {
@@ -98,6 +111,23 @@ export function ContractModalsContainer({
           }
           const ok = await checkWorkflowGate('DELIVERY', contract.id as string, 'contracts', user?.email || undefined);
           if (!ok) return;
+
+          const linkedPayment = (realtimePayments || []).find((p: any) => 
+            !p.deletedAt && !p.deleted_at && 
+            (p.contractId === contract.id || p.contractId === contract.soHopDong || p.contractCode === contract.soHopDong || p.soHopDong === contract.soHopDong)
+          );
+
+          if (!linkedPayment) {
+            // Nghiệp vụ bảo toàn Workflow: HĐ máy phải qua Bước Thanh toán trước khi Giao hàng.
+            // Tự động khởi tạo phiếu thu với trạng thái "Chưa TT" (dacCachGiaoTruoc = true).
+            // Mở preview PaymentFormDrawer để kiểm tra/sửa, sau khi bấm Lưu sẽ tự động mở DeliveryFormModal.
+            notify.info("Hợp đồng chưa có phiếu thanh toán. Hệ thống tự động khởi tạo Phiếu Thu ('Chưa TT' - Đặc cách giao trước). Vui lòng kiểm tra và Lưu để chuyển tiếp sang Phiếu Giao!");
+            setPendingDeliveryContract(contract);
+            setPrefillPaymentStatus('Chưa TT');
+            setPrefillPaymentContract(contract);
+            return;
+          }
+
           setPrefillDeliveryContract(contract);
         }}
         onDelete={handleDeleteContract}
@@ -157,6 +187,7 @@ export function ContractModalsContainer({
         const effectiveDiscountRate = prefillPaymentContract.discountRate || (effectiveSubTotal > 0 ? Number(((contractAggs.totalDiscount / effectiveSubTotal) * 100).toFixed(2)) : 0);
         const effectiveSlMay = prefillPaymentContract.slMay || healedContractProducts.reduce((sum: number, p: any) => sum + (Number(p.quantity) || 0), 0);
 
+        const isChuaTT = prefillPaymentStatus === 'Chưa TT' || prefillPaymentStatus === 'CHƯA THANH TOÁN';
         return (
           <Suspense fallback={<ModalSkeleton />}>
             <PaymentFormDrawer
@@ -165,13 +196,31 @@ export function ContractModalsContainer({
               quotations={quotations}
               nguoiPhuTrachList={nguoiPhuTrachList}
               phuongThucThanhToanList={['Chuyển khoản', 'Tiền mặt']}
-              tinhTrangThanhToanList={['ĐÃ THANH TOÁN', 'CHƯA THANH TOÁN', 'Đã TT một phần', 'Tất toán']}
-              onClose={() => setPrefillPaymentContract(null)}
+              tinhTrangThanhToanList={['ĐÃ THANH TOÁN', 'CHƯA THANH TOÁN', 'Chưa TT', 'Đã TT một phần', 'Tất toán']}
+              onClose={() => {
+                setPrefillPaymentContract(null);
+                setPendingDeliveryContract(null);
+                setPrefillPaymentStatus('ĐÃ THANH TOÁN');
+              }}
               onSave={async (paymentData: any) => {
                 try {
-                  await apiCreateEntity('payment', paymentData);
+                  const createdPayment = await apiCreateEntity('payment', paymentData);
                   notify.success("Đã ghi nhận phiếu thu thành công!");
                   setPrefillPaymentContract(null);
+                  const isTransitioning = !!pendingDeliveryContract;
+                  const targetContract = pendingDeliveryContract;
+                  setPendingDeliveryContract(null);
+                  setPrefillPaymentStatus('ĐÃ THANH TOÁN');
+
+                  if (isTransitioning && targetContract) {
+                    setTransitionPaymentInfo({
+                      id: createdPayment?.id || paymentData?.id || paymentData?.paymentId,
+                      code: paymentData?.paymentId || createdPayment?.paymentId,
+                      isDacCach: true,
+                    });
+                    setPrefillDeliveryContract(targetContract);
+                    notify.success("Đã ghi nhận Phiếu thu! Đang chuyển tiếp sang lập Phiếu giao hàng...");
+                  }
                 } catch (e: any) {
                   notify.error("Lỗi khi ghi nhận phiếu thu: " + e.message);
                 }
@@ -194,9 +243,13 @@ export function ContractModalsContainer({
                 discountRate: effectiveDiscountRate,
                 subTotal: effectiveSubTotal,
                 trangThaiGuiTinThanhToan: EntityZnsStatus.CHUA_GUI,
-                tinhTrangThanhToan: 'ĐÃ THANH TOÁN', 
+                tinhTrangThanhToan: isChuaTT ? 'Chưa TT' : 'ĐÃ THANH TOÁN', 
                 phuongThucThanhToan: 'Chuyển khoản',
-                soTien: effectiveTotalAmount,
+                soTien: isChuaTT ? 0 : effectiveTotalAmount,
+                congNoConLai: isChuaTT ? effectiveTotalAmount : 0,
+                dacCachGiaoTruoc: isChuaTT,
+                lyDoDacCach: isChuaTT ? 'Đặc cách giao hàng trước theo phê duyệt ban giám đốc' : '',
+                ghiChu: isChuaTT ? 'Phiếu thu tự động khởi tạo theo quy trình Đặc cách giao hàng trước thanh toán.' : '',
                 ngayThanhToan: new Date().toISOString().split('T')[0]
               } as any}
             />
@@ -204,82 +257,107 @@ export function ContractModalsContainer({
         );
       })()}
 
-      {prefillDeliveryContract && (
-        <Suspense fallback={<ModalSkeleton />}>
-          <DeliveryFormModal
-            deliveries={realtimeDeliveries}
-            contracts={contracts}
-            quotations={quotations}
-            payments={realtimePayments}
-            nguoiPhuTrachList={nguoiPhuTrachList}
-            onClose={() => setPrefillDeliveryContract(null)}
-            onSave={async (deliveryData: any) => {
-              try {
-                const sourceId = deliveryData.contractId || deliveryData.quotationId;
-                const collectionName = deliveryData.contractId ? 'contracts' : 'quotations';
-                if (sourceId) {
-                  const sourceDoc = await repositoryFactory.get<any>(collectionName).getById(sourceId);
-                  if (sourceDoc) {
-                    const currentDelivered = sourceDoc.deliveredQuantities || {};
-                    const newDeliveredQuantities = { ...currentDelivered };
+      {prefillDeliveryContract && (() => {
+        const linkedPayment = (realtimePayments || []).find((p: any) => 
+          !p.deletedAt && !p.deleted_at && 
+          (p.contractId === prefillDeliveryContract.id || p.contractId === prefillDeliveryContract.soHopDong || p.contractCode === prefillDeliveryContract.soHopDong || p.soHopDong === prefillDeliveryContract.soHopDong)
+        );
+        const effectivePaymentId = transitionPaymentInfo?.id || linkedPayment?.id || linkedPayment?.paymentId || '';
+        const effectivePaymentCode = transitionPaymentInfo?.code || linkedPayment?.paymentId || '';
+        const isDacCach = Boolean(
+          transitionPaymentInfo?.isDacCach || 
+          linkedPayment?.dacCachGiaoTruoc || 
+          (linkedPayment?.tinhTrangThanhToan && String(linkedPayment.tinhTrangThanhToan).toLowerCase().includes('chưa'))
+        );
 
-                    const allItemKeys = new Set<string>();
-                    (deliveryData.products || []).forEach((p: any, idx: number) => allItemKeys.add(getProductItemKey(p, idx)));
+        return (
+          <Suspense fallback={<ModalSkeleton />}>
+            <DeliveryFormModal
+              deliveries={realtimeDeliveries}
+              contracts={contracts}
+              quotations={quotations}
+              payments={realtimePayments}
+              nguoiPhuTrachList={nguoiPhuTrachList}
+              onClose={() => {
+                setPrefillDeliveryContract(null);
+                setTransitionPaymentInfo(null);
+              }}
+              onSave={async (deliveryData: any) => {
+                try {
+                  const sourceId = deliveryData.contractId || deliveryData.quotationId;
+                  const collectionName = deliveryData.contractId ? 'contracts' : 'quotations';
+                  if (sourceId) {
+                    const sourceDoc = await repositoryFactory.get<any>(collectionName).getById(sourceId);
+                    if (sourceDoc) {
+                      const currentDelivered = sourceDoc.deliveredQuantities || {};
+                      const newDeliveredQuantities = { ...currentDelivered };
 
-                    for (const itemKey of Array.from(allItemKeys)) {
-                      let contracted = 0;
-                      if (sourceDoc.products) {
-                        contracted = sourceDoc.products.filter((cp: any, sourceIndex: number) => getProductItemKey(cp, sourceIndex) === itemKey)
-                          .reduce((acc: number, cp: any) => acc + (cp.quantity || 0), 0);
+                      const allItemKeys = new Set<string>();
+                      (deliveryData.products || []).forEach((p: any, idx: number) => allItemKeys.add(getProductItemKey(p, idx)));
+
+                      for (const itemKey of Array.from(allItemKeys)) {
+                        let contracted = 0;
+                        if (sourceDoc.products) {
+                          contracted = sourceDoc.products.filter((cp: any, sourceIndex: number) => getProductItemKey(cp, sourceIndex) === itemKey)
+                            .reduce((acc: number, cp: any) => acc + (cp.quantity || 0), 0);
+                        }
+
+                        const previousDelivered = currentDelivered[itemKey] || 0;
+                        
+                        const newShipmentQty = (deliveryData.products || []).filter((np: any, npIndex: number) => getProductItemKey(np, npIndex) === itemKey)
+                          .reduce((acc: number, np: any) => acc + (np.quantity || 0), 0);
+
+                        if (newShipmentQty > (contracted - previousDelivered)) {
+                          notify.error(`Sản phẩm ${itemKey} vượt quá số lượng còn lại (${contracted - previousDelivered})`);
+                          return;
+                        }
+                        newDeliveredQuantities[itemKey] = previousDelivered + newShipmentQty;
                       }
 
-                      const previousDelivered = currentDelivered[itemKey] || 0;
-                      
-                      const newShipmentQty = (deliveryData.products || []).filter((np: any, npIndex: number) => getProductItemKey(np, npIndex) === itemKey)
-                        .reduce((acc: number, np: any) => acc + (np.quantity || 0), 0);
-
-                      if (newShipmentQty > (contracted - previousDelivered)) {
-                        notify.error(`Sản phẩm ${itemKey} vượt quá số lượng còn lại (${contracted - previousDelivered})`);
-                        return;
-                      }
-                      newDeliveredQuantities[itemKey] = previousDelivered + newShipmentQty;
+                      await apiCreateEntity('delivery', deliveryData);
+                      await repositoryFactory.get(collectionName).update(sourceId, { deliveredQuantities: newDeliveredQuantities });
+                    } else {
+                      await apiCreateEntity('delivery', deliveryData);
                     }
-
-                    await apiCreateEntity('delivery', deliveryData);
-                    await repositoryFactory.get(collectionName).update(sourceId, { deliveredQuantities: newDeliveredQuantities });
                   } else {
                     await apiCreateEntity('delivery', deliveryData);
                   }
-                } else {
-                  await apiCreateEntity('delivery', deliveryData);
-                }
 
-                notify.success("Đã ghi nhận bàn giao máy thành công!");
-                setPrefillDeliveryContract(null);
-              } catch (e: any) {
-                notify.error("Lỗi khi ghi nhận bàn giao máy: " + e.message);
-              }
-            }}
-            delivery={{
-              contractId: prefillDeliveryContract.id,
-              customerId: prefillDeliveryContract.customerId || '',
-              maKh: prefillDeliveryContract.maKh || '',
-              tenKhachHang: prefillDeliveryContract.tenKhachHang || '',
-              sdt: prefillDeliveryContract.sdt || '',
-              soHopDong: prefillDeliveryContract.soHopDong || '',
-              soDonHang: prefillDeliveryContract.soDonHang || '',
-              ngayKy: prefillDeliveryContract.ngayKy || '',
-              loai: prefillDeliveryContract.loai || '',
-              dvt: prefillDeliveryContract.dvt || 'Máy',
-              products: getRemainingProducts(prefillDeliveryContract, realtimeDeliveries),
-              slMay: getRemainingProducts(prefillDeliveryContract, realtimeDeliveries).reduce((acc: number, p: any) => acc + (p.quantity || 0), 0),
-              nguoiPhuTrach: prefillDeliveryContract.nguoiPhuTrach || '',
-              trangThaiGuiTinGiaoHang: EntityZnsStatus.CHUA_GUI,
-              ngayGiaoMay: new Date().toISOString().split('T')[0]
-            }}
-          />
-        </Suspense>
-      )}
+                  notify.success("Đã ghi nhận bàn giao máy thành công!");
+                  setPrefillDeliveryContract(null);
+                } catch (e: any) {
+                  notify.error("Lỗi khi ghi nhận bàn giao máy: " + e.message);
+                }
+              }}
+              delivery={{
+                paymentId: effectivePaymentId,
+                soChungTuThamChieu: effectivePaymentCode,
+                contractId: prefillDeliveryContract.id,
+                customerId: prefillDeliveryContract.customerId || '',
+                maKh: prefillDeliveryContract.maKh || '',
+                tenKhachHang: prefillDeliveryContract.tenKhachHang || '',
+                sdt: prefillDeliveryContract.sdt || '',
+                soHopDong: prefillDeliveryContract.soHopDong || '',
+                soDonHang: prefillDeliveryContract.soDonHang || '',
+                ngayKy: prefillDeliveryContract.ngayKy || '',
+                loai: prefillDeliveryContract.loai || '',
+                dvt: prefillDeliveryContract.dvt || 'Máy',
+                products: getRemainingProducts(prefillDeliveryContract, realtimeDeliveries),
+                slMay: getRemainingProducts(prefillDeliveryContract, realtimeDeliveries).reduce((acc: number, p: any) => acc + (p.quantity || 0), 0),
+                nguoiPhuTrach: prefillDeliveryContract.nguoiPhuTrach || '',
+                diaChiGiaoHang: (prefillDeliveryContract as any).diaChiGiaoHang || (prefillDeliveryContract as any).diaChi || '',
+                nguoiLienHe: (prefillDeliveryContract as any).nguoiLienHe || (prefillDeliveryContract as any).nguoiDaiDien || '',
+                sdtLienHe: (prefillDeliveryContract as any).sdtLienHe || (prefillDeliveryContract as any).sdt || '',
+                dacCachGiaoTruoc: isDacCach,
+                lyDoDacCach: isDacCach ? 'Đặc cách giao hàng trước khi thanh toán' : '',
+                tinhTrangThanhToan: linkedPayment?.tinhTrangThanhToan || (isDacCach ? 'CHƯA THANH TOÁN' : 'ĐÃ THANH TOÁN'),
+                trangThaiGuiTinGiaoHang: EntityZnsStatus.CHUA_GUI,
+                ngayGiaoMay: new Date().toISOString().split('T')[0]
+              }}
+            />
+          </Suspense>
+        );
+      })()}
     </>
   );
 }

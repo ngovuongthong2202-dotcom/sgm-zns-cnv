@@ -141,7 +141,7 @@ export function PaymentDetailDrawer({
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-600" />
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-800">
-                  KHO BẠC & XÁC NHẬN THỰC THU (TREASURY CONSOLE)
+                  TÌNH TRẠNG THANH TOÁN
                 </h3>
               </div>
               <span className="text-2xs uppercase font-bold px-2 py-0.5 rounded-md border bg-blue-50 text-blue-700 border-blue-200">
@@ -187,7 +187,7 @@ export function PaymentDetailDrawer({
               </div>
 
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
-                <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Nghĩa vụ công nợ còn lại</span>
+                <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Công nợ</span>
                 <span className={`font-mono font-bold text-xs ${remainingDebt > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
                   {remainingDebt > 0 ? formatCurrency(remainingDebt) : '✓ Tất toán 100%'}
                 </span>
@@ -200,7 +200,7 @@ export function PaymentDetailDrawer({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
                 <Package size={14} className="text-blue-600" />
-                SẢN PHẨM & CẤU HÌNH ĐỐI CHIẾU
+                DANH SÁCH SẢN PHẨM
               </h3>
               <span className="font-mono text-3xs font-bold bg-blue-50 text-blue-800 px-2 py-0.5 rounded border border-blue-200">
                 {payment.products?.reduce((acc, p) => acc + (p.quantity || 0), 0) || payment.slMay || 0} sản phẩm
@@ -295,7 +295,7 @@ export function PaymentDetailDrawer({
           <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <span className="text-2xs font-black uppercase tracking-widest text-slate-500">
-                Chuyên viên thu nợ
+                NGƯỜI PHỤ TRÁCH
               </span>
               <StatusPill statusStr={payment.trangThaiGuiTinThanhToan as any} />
             </div>

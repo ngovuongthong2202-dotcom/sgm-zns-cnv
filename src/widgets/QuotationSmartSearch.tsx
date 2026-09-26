@@ -1,6 +1,7 @@
 import React from 'react';
 import { AsyncSearchableSelect } from '../design-system';
 import { QuotationHoverCard } from '@/src/modules/sales/ui/components/QuotationHoverCard';
+import { formatDate } from '@/src/shared/utils/formatDate';
 
 interface QuotationSmartSearchProps {
   value: string;
@@ -34,7 +35,7 @@ export function QuotationSmartSearch({
       error={error}
       renderOption={(q: any) => ({
         label: `⭐ ${q.soPhieuBaoGia} — ${q.tenKhachHang}`,
-        subLabel: `📅 ${q.ngayBaoGia ? new Date(q.ngayBaoGia as string).toLocaleDateString('vi-VN') : 'N/A'} • ${q.slMay || 0} máy • Phụ trách: ${q.nguoiPhuTrach || 'N/A'}`
+        subLabel: `📅 ${q.ngayBaoGia ? formatDate(q.ngayBaoGia) : 'N/A'} • ${q.slMay || 0} máy • Phụ trách: ${q.nguoiPhuTrach || 'N/A'}`
       })}
       filterOption={(q: any) => {
         if (excludeQuoIds.includes(q.id as string)) return false;
