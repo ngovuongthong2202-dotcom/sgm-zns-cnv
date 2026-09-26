@@ -136,9 +136,22 @@ export function useDeliveryForm(
     setValue('tenKhachHang', p.tenKhachHang || source?.tenKhachHang || '');
     setValue('sdt', p.sdt || source?.sdt || '');
     setValue('nguoiDaiDien', source?.nguoiDaiDien || p.nguoiDaiDien || '');
-    setValue('contractId', p.contractId || '');
-    setValue('quotationId', p.quotationId || '');
-    setValue('soDonHang', p.soDonHang || '');
+    // Snapshot quotation lineage from source/contract/payment/quotations
+    const resolvedQuot = (quotations || []).find((q: any) => 
+      (p.quotationId && (q.id === p.quotationId || q.soPhieuBaoGia === p.quotationId)) ||
+      (source?.quotationId && (q.id === source.quotationId || q.soPhieuBaoGia === source.quotationId)) ||
+      (source?.soPhieuBaoGia && (q.soPhieuBaoGia === source.soPhieuBaoGia || q.id === source.soPhieuBaoGia))
+    );
+    const finalQuotationId = p.quotationId || source?.quotationId || resolvedQuot?.id || '';
+    const finalSoPhieuBaoGia = (p as any).soPhieuBaoGia || source?.soPhieuBaoGia || (source as any)?.soBaoGia || resolvedQuot?.soPhieuBaoGia || (resolvedQuot as any)?.soBaoGia || '';
+    const finalNgayBaoGia = (p as any).ngayBaoGia || (source as any)?.ngayBaoGia || resolvedQuot?.ngayBaoGia || '';
+
+    setValue('contractId', p.contractId || source?.id || '');
+    setValue('quotationId', finalQuotationId);
+    setValue('soPhieuBaoGia', finalSoPhieuBaoGia);
+    setValue('soBaoGia', finalSoPhieuBaoGia);
+    setValue('ngayBaoGia', finalNgayBaoGia);
+    setValue('soDonHang', p.soDonHang || source?.soDonHang || '');
     setValue('loai', p.loai || source?.loai || '');
     setValue('dvt', p.dvt || source?.dvt || 'Máy');
     setValue('slMay', Number(p.slMay || source?.slMay) || 1);
@@ -147,6 +160,12 @@ export function useDeliveryForm(
     setValue('ngayKy', p.ngayKy || source?.ngayKy || '');
     setValue('tinhTrangThanhToan', p.tinhTrangThanhToan || '');
     setValue('nguoiPhuTrach', defaultOfficer);
+
+    if ((p as any).dacCachGiaoTruoc) {
+      setValue('dacCachGiaoTruoc', true);
+      setValue('lyDoDacCach', (p as any).lyDoDacCach || '');
+      setValue('nguoiPheDuyetDacCach', (p as any).nguoiPheDuyetDacCach || 'Ban Giám Đốc');
+    }
 
     // Tự động lấy tên người liên hệ, SĐT liên hệ, Địa chỉ giao hàng từ Khách hàng
     const targetCustId = p.customerId || source?.customerId;

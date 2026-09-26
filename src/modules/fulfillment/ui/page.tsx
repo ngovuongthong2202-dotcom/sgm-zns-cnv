@@ -175,6 +175,7 @@ export default function DeliveriesFeature() {
     return deliveries.map((d) => {
       const cust = customers.length > 0 ? customers.find((c) => c.id === d.customerId) : undefined;
       const contract = contracts.length > 0 ? contracts.find((c) => (d.contractId && c.id === d.contractId) || (d.soHopDong && c.soHopDong === d.soHopDong)) : undefined;
+      const payment = payments.length > 0 ? payments.find((p) => (d.paymentId && (p.id === d.paymentId || p.paymentId === d.paymentId))) : undefined;
       const resolvedQuotationId = d.quotationId || contract?.quotationId;
       const resolvedSoBaoGia = (d as any).soPhieuBaoGia || (d as any).soBaoGia || contract?.soPhieuBaoGia || (contract as any)?.soBaoGia;
       
@@ -185,11 +186,13 @@ export default function DeliveriesFeature() {
 
       const finalSoPhieuBaoGia = quot?.soPhieuBaoGia || (quot as any)?.soBaoGia || resolvedSoBaoGia || (d as any).soPhieuBaoGia;
       const finalNgayBaoGia = quot?.ngayBaoGia || (d as any).ngayBaoGia;
+      const finalTinhTrangThanhToan = payment?.tinhTrangThanhToan || d.tinhTrangThanhToan || '';
 
       return {
         ...d,
         __customerInfo: cust,
         __contractInfo: contract,
+        __paymentInfo: payment,
         __quotationInfo: quot ? {
           ...quot,
           soPhieuBaoGia: finalSoPhieuBaoGia,
@@ -197,10 +200,11 @@ export default function DeliveriesFeature() {
         } : (finalSoPhieuBaoGia ? { soPhieuBaoGia: finalSoPhieuBaoGia, ngayBaoGia: finalNgayBaoGia } : undefined),
         soPhieuBaoGia: finalSoPhieuBaoGia,
         ngayBaoGia: finalNgayBaoGia,
-        quotationId: resolvedQuotationId || quot?.id || d.quotationId
+        quotationId: resolvedQuotationId || quot?.id || d.quotationId,
+        tinhTrangThanhToan: finalTinhTrangThanhToan
       };
     });
-  }, [deliveries, customers, quotations, contracts]);
+  }, [deliveries, customers, quotations, contracts, payments]);
 
   const processedDeliveriesWithStt = useMemo(() => enrichWithStt(processedDeliveries), [processedDeliveries]);
 

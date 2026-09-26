@@ -2,7 +2,7 @@ import React from 'react';
 import { Customer } from '@/src/domain/schema/customer.schema';
 import useSWR from 'swr';
 import { Building2, FileText, Receipt, Truck, Calculator, CalendarClock, UserCheck, User, Phone, MapPin } from 'lucide-react';
-import { swrApiFetcher } from '@/src/data/swr-fetchers';
+import { swrApiFetcher, swrColFetcher } from '@/src/data/swr-fetchers';
 import { HoverCardPortal } from '@/src/design-system';
 
 interface Props {
@@ -15,6 +15,12 @@ function CustomerHoverCardContent({ customer }: { customer: Customer }) {
     customer.id ? `/api/metrics/customer-summary?customerId=${customer.id}` : null,
     swrApiFetcher, { dedupingInterval: 60000 }
   );
+
+  const { data: customerDeliveries } = useSWR<any[]>(
+    customer.id ? `deliveries:500:customerId:${customer.id}` : null,
+    swrColFetcher, { dedupingInterval: 60000 }
+  );
+  const waiverDelivery = (customerDeliveries || []).find((d: any) => d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU');
 
   const content = (
     <div className="flex flex-col h-full bg-white max-h-[85vh] overflow-y-auto scrollbar-thin">
@@ -34,6 +40,16 @@ function CustomerHoverCardContent({ customer }: { customer: Customer }) {
             </>
           )}
         </div>
+        {waiverDelivery && (
+          <div className="bg-amber-50 px-2.5 py-1.5 rounded-lg border border-amber-200 flex items-center justify-between text-2xs mt-1">
+            <span className="font-bold text-amber-800 flex items-center gap-1">
+              ⚡ Khách có đơn xuất kho đặc cách (Giao trước TT sau)
+            </span>
+            <span className="text-3xs font-mono font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+              {waiverDelivery.deliveryId}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Contact Details Panel */}

@@ -357,17 +357,46 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                         </label>
                       </div>
                       {Boolean(watch('dacCachGiaoTruoc')) && (
-                        <div className="flex flex-col gap-1.5 pt-1 border-t border-amber-200/60 animate-in fade-in duration-200">
-                          <div className="text-2xs text-amber-800 font-medium">
-                            Áp dụng cho đơn hàng được Sếp / Ban Giám Đốc chỉ định giao hàng trước. Hệ thống mở khóa xuất kho và tự động kích hoạt cảnh báo thu hồi công nợ sau giao hàng.
+                        <div className="flex flex-col gap-2 pt-2 border-t border-amber-200/80 animate-in fade-in duration-200">
+                          <div className="text-2xs text-amber-900 font-medium leading-relaxed bg-amber-100/60 p-2 rounded-lg border border-amber-200/70">
+                            🛡️ <strong>Chính sách Ban Giám Đốc:</strong> Áp dụng cho các đơn hàng ngoại lệ được Lãnh đạo chỉ định giao hàng trước. Hệ thống sẽ mở khóa xuất kho và tự động kích hoạt cảnh báo thu hồi công nợ bên Sổ Cái Kế Toán.
                           </div>
-                          <input 
-                            type="text" 
-                            placeholder="Nhập căn cứ / lý do phê duyệt của Sếp (ví dụ: Sếp Nam chỉ định giao trước cho khách VIP)..."
-                            value={watch('lyDoDacCach') || ''}
-                            onChange={(e) => setValue('lyDoDacCach', e.target.value, { shouldDirty: true })}
-                            className="text-xs p-2 bg-white border border-amber-300 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
-                          />
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-3xs uppercase font-bold text-amber-900 block mb-1">
+                                Lãnh đạo phê duyệt <span className="text-red-600">*</span>
+                              </label>
+                              <input 
+                                list="approverList"
+                                type="text" 
+                                placeholder="Chọn hoặc nhập Lãnh đạo..."
+                                value={watch('nguoiPheDuyetDacCach') || ''}
+                                onChange={(e) => setValue('nguoiPheDuyetDacCach', e.target.value, { shouldDirty: true })}
+                                className="w-full text-xs p-2 bg-white border border-amber-300 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-semibold"
+                              />
+                              <datalist id="approverList">
+                                <option value="Ban Giám Đốc" />
+                                <option value="Sếp Nam" />
+                                <option value="Sếp Thắng" />
+                                <option value="Sếp Tuấn" />
+                                <option value="Chủ tịch HĐQT" />
+                              </datalist>
+                            </div>
+
+                            <div>
+                              <label className="text-3xs uppercase font-bold text-amber-900 block mb-1">
+                                Căn cứ / Lý do phê duyệt <span className="text-red-600">*</span>
+                              </label>
+                              <input 
+                                type="text" 
+                                placeholder="Ví dụ: Chỉ đạo giao gấp theo BB bàn giao số..."
+                                value={watch('lyDoDacCach') || ''}
+                                onChange={(e) => setValue('lyDoDacCach', e.target.value, { shouldDirty: true })}
+                                className="w-full text-xs p-2 bg-white border border-amber-300 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                              />
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>

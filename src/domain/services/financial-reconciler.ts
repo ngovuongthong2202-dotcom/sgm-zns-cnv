@@ -32,12 +32,16 @@ export interface ContractStatsAggregation {
   unpaidCount: number;
 }
 
+import { isDeliveryCancelled } from './delivery-reconciler';
+
 export interface PaymentKpiReconciliation {
   collectedToday: number;
   collectedThisWeek: number;
   collectedThisMonth: number;
   collectedThisYear: number;
   totalDebt: number;
+  unsecuredWaiverDebt?: number;
+  waiverDeliveryCount?: number;
 }
 
 /**
@@ -311,4 +315,46 @@ export function calculateOtherPaidMultiMilestone(
       }
     })
     .reduce((sum, p) => sum + (Number(p.soTien) || 0), 0);
+}
+
+/**
+ * Tính toán công nợ phát sinh từ các đơn hàng xuất kho theo Đặc cách Ban Giám Đốc (Giao trước TT sau)
+ */
+export function calculateWaiverDeliveryUnpaidDebt(
+  payments: Payment[] = [],
+  deliveries: any[] = []
+): { unsecuredWaiverDebt: number; waiverDeliveryCount: number } {
+  if (!deliveries || !Array.isArray(deliveries)) {
+    return { unsecuredWaiverDebt: 0, waiverDeliveryCount: 0 };
+  }
+
+  const validDeliveries = deliveries.filter(d => 
+    !d.deletedAt && !d.deleted_at && !isDeliveryCancelled(d.tinhTrangGiaoHang) &&
+    (d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU')
+  );
+
+  let totalDebt = 0;
+  let count = 0;
+
+  for (const d of validDeliveries) {
+    const p = (payments || []).find(pay => 
+      pay.id === d.paymentId || pay.paymentId === d.paymentId ||
+      (d.contractId && pay.contractId === d.contractId) ||
+      (d.soHopDong && pay.soHopDong === d.soHopDong)
+    );
+
+    const isFullySettled = p && isPaymentFullyPaid(p.tinhTrangThanhToan);
+    if (!isFullySettled) {
+      count++;
+      const deliveryVal = Number(d.totalAmount || d.giaTriHopDong || p?.totalAmount || p?.giaTriHopDong || 0);
+      const paidVal = Number(p?.soTien || 0);
+      const remaining = Math.max(0, deliveryVal - paidVal);
+      totalDebt += remaining > 0 ? remaining : deliveryVal;
+    }
+  }
+
+  return {
+    unsecuredWaiverDebt: totalDebt,
+    waiverDeliveryCount: count
+  };
 }

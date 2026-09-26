@@ -321,7 +321,8 @@ export const getContractColumns = (
     size: 160,
     cell: (info) => {
       const c = info.row.original;
-      const dels = deliveries.filter(d => d.contractId === c.id);
+      const dels = deliveries.filter(d => d.contractId === c.id || d.contractId === c.soHopDong || (d as any).contractCode === c.soHopDong || d.soHopDong === c.soHopDong);
+      const hasWaiver = dels.some((d: any) => d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU');
 
       const cProdList = Array.isArray(c.products) ? c.products : [];
       const totalContractQty = cProdList.reduce((sum, p) => sum + (p.quantity || 0), 0) || c.slMay || 0;
@@ -362,6 +363,13 @@ export const getContractColumns = (
             <span className="text-3xs text-slate-400 font-medium uppercase tracking-wide truncate mt-0.5" title={formatDate(latestDelivery.ngayGiaoThucTe)}>
               Giao: {formatDate(latestDelivery.ngayGiaoThucTe)}
             </span>
+          )}
+          {hasWaiver && (
+            <div className="flex items-center gap-1 mt-0.5" title="Hợp đồng có đợt giao hàng theo Đặc cách Ban Giám Đốc (Giao trước TT sau)">
+              <span className="text-3xs font-bold text-amber-700 bg-amber-50 px-1 py-0.5 rounded border border-amber-200 uppercase tracking-wider flex items-center gap-0.5">
+                ⚡ Xuất kho đặc cách
+              </span>
+            </div>
           )}
         </div>
       );

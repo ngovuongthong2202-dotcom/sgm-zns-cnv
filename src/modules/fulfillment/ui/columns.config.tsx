@@ -9,6 +9,7 @@ import { normalizeBusinessName, normalizePersonName } from '@/src/shared/utils/t
 import { t } from '@/src/i18n/vi';
 import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
 import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
+import { isPaymentFullyPaid, isPaymentPartial } from '@/src/domain/enums/payment-status';
 
 export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: any }>[] => [
   createSttColumn() as any,
@@ -135,13 +136,38 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
               <span className="font-mono text-2xs text-slate-600 font-semibold truncate ml-1.5 group-hover/ref:text-slate-900 transition-colors" title={p.soDonHang}>#{p.soDonHang}</span>
             </div>
           )}
-          {((p as any).dacCachGiaoTruoc || (p as any).hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU') && (
-            <div className="flex items-center w-full mt-0.5" title={(p as any).lyDoDacCach ? `Đặc cách: ${(p as any).lyDoDacCach}` : 'Đặc cách Giao trước mới thanh toán sau (Ban Giám Đốc)'}>
-              <span className="text-3xs text-amber-700 font-bold bg-amber-50 px-1 py-0.5 rounded border border-amber-200/80 uppercase tracking-wider truncate flex items-center gap-0.5">
-                ⚡ Giao trước TT sau
-              </span>
-            </div>
-          )}
+          {((p as any).dacCachGiaoTruoc || (p as any).hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU') && (() => {
+            const rawStatus = (p as any).tinhTrangThanhToan || (p as any).__paymentInfo?.tinhTrangThanhToan || '';
+            const approver = (p as any).nguoiPheDuyetDacCach ? ` [Duyệt: ${(p as any).nguoiPheDuyetDacCach}]` : '';
+            const reason = (p as any).lyDoDacCach ? ` - ${(p as any).lyDoDacCach}` : '';
+            const tooltip = `Đặc cách Giao trước TT sau${approver}${reason}`;
+
+            if (isPaymentFullyPaid(rawStatus)) {
+              return (
+                <div className="flex items-center w-full mt-0.5" title={tooltip}>
+                  <span className="text-3xs text-emerald-700 font-bold bg-emerald-50 px-1 py-0.5 rounded border border-emerald-300 uppercase tracking-wider truncate flex items-center gap-0.5">
+                    ✓ Đã tất toán (Đặc cách xong)
+                  </span>
+                </div>
+              );
+            }
+            if (isPaymentPartial(rawStatus)) {
+              return (
+                <div className="flex items-center w-full mt-0.5" title={tooltip}>
+                  <span className="text-3xs text-amber-700 font-bold bg-amber-50 px-1 py-0.5 rounded border border-amber-300 uppercase tracking-wider truncate flex items-center gap-0.5">
+                    ⚡ Giao trước - Đã thu 1 phần
+                  </span>
+                </div>
+              );
+            }
+            return (
+              <div className="flex items-center w-full mt-0.5" title={tooltip}>
+                <span className="text-3xs text-rose-700 font-bold bg-rose-50 px-1 py-0.5 rounded border border-rose-300 uppercase tracking-wider truncate flex items-center gap-0.5 animate-pulse">
+                  ⚡ Giao trước - Chưa thanh toán
+                </span>
+              </div>
+            );
+          })()}
           {(!p.soHopDong && !p.soDonHang && !p.dacCachGiaoTruoc) && (
             <span className="text-2xs text-slate-500 italic leading-none block pt-1">---</span>
           )}

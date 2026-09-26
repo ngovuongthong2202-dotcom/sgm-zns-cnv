@@ -306,13 +306,18 @@ export const getPaymentColumns = (
 
       // Delivery info
       const relatedDeliveries = deliveries.filter(d => {
+         if (p.id && (d.paymentId === p.id || (d as any).paymentId === (p as any).paymentId)) return true;
          if (p.contractId && d.contractId === p.contractId) return true;
+         if (p.soHopDong && d.soHopDong === p.soHopDong) return true;
          if (p.quotationId && d.quotationId === p.quotationId) return true;
+         if ((p as any).soPhieuBaoGia && d.soPhieuBaoGia === (p as any).soPhieuBaoGia) return true;
          return false;
       });
       
       const isDelivered = relatedDeliveries.some(d => d.tinhTrangGiaoHang === 'Đã Giao' || !!d.ngayGiaoThucTe);
       const hasDeliveries = relatedDeliveries.length > 0;
+      const waiverDelivery = relatedDeliveries.find((d: any) => d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU');
+      const hasWaiverDelivery = Boolean(waiverDelivery);
       
       const inlineDeliveryNode = hasDeliveries ? (
          <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-200">
@@ -330,6 +335,25 @@ export const getPaymentColumns = (
          </div>
       ) : null;
 
+      const waiverBadgeNode = hasWaiverDelivery ? (
+        pct >= 100 ? (
+          <div className="flex items-center gap-1 mt-1">
+            <span className="text-3xs text-emerald-700 font-bold bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200 uppercase tracking-wider flex items-center gap-0.5" title="Đã thu đủ 100% công nợ đặc cách xuất trước">
+              ✓ Đã tất toán đặc cách
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 mt-1">
+            <span 
+              className="text-3xs text-rose-700 font-bold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-300 uppercase tracking-wider flex items-center gap-1 animate-pulse" 
+              title={`Sếp chỉ định xuất kho trước (Duyệt: ${(waiverDelivery as any)?.nguoiPheDuyetDacCach || 'Ban Giám Đốc'}). Lý do: ${(waiverDelivery as any)?.lyDoDacCach || 'Giao trước thanh toán sau'}. Kế toán cần đôn đốc thu nợ!`}
+            >
+              ⚡ Đã xuất kho đặc cách - Cần thu nợ!
+            </span>
+          </div>
+        )
+      ) : null;
+
       if (isFree) {
         return (
           <div className="w-full flex items-center min-w-0">
@@ -343,6 +367,7 @@ export const getPaymentColumns = (
                 <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                   <div className="h-full bg-slate-400 w-full rounded-full" />
                 </div>
+                {waiverBadgeNode}
              </div>
           </div>
         );
@@ -362,6 +387,7 @@ export const getPaymentColumns = (
                 <div className="h-1.5 w-full bg-emerald-100 rounded-full overflow-hidden">
                   <div className="h-full bg-emerald-500 w-full rounded-full" />
                 </div>
+                {waiverBadgeNode}
              </div>
           </div>
         );
@@ -381,6 +407,7 @@ export const getPaymentColumns = (
                 <div className="h-1.5 w-full rounded-full overflow-hidden bg-amber-100">
                   <div className="h-full rounded-full bg-amber-500" style={{ width: `${pct}%` }} />
                 </div>
+                {waiverBadgeNode}
              </div>
           </div>
         );
@@ -398,6 +425,7 @@ export const getPaymentColumns = (
               <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                 <div className="h-full bg-blue-500 w-0 rounded-full" />
               </div>
+              {waiverBadgeNode}
            </div>
         </div>
       );

@@ -95,6 +95,37 @@ export function PaymentDetailDrawer({
         />
       )}
 
+      {/* Executive Waiver Debt Reminder Banner */}
+      {(() => {
+        const waiverDelivery = (deliveries || []).find((d: any) => d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU');
+        if (!waiverDelivery) return null;
+        return (
+          <div className="p-4 bg-amber-50/90 border border-amber-300 rounded-xl flex items-start gap-3 shadow-sm animate-in fade-in duration-200">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-800 flex items-center justify-center shrink-0 mt-0.5 font-bold">
+              ⚡
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-amber-900 uppercase tracking-wide">
+                  Đặc cách Ban Giám Đốc: Đã xuất kho trước khi thanh toán
+                </span>
+                <span className="text-3xs font-mono font-bold bg-amber-200/80 text-amber-900 px-1.5 py-0.5 rounded">
+                  Phiếu GH: {waiverDelivery.deliveryId || '---'}
+                </span>
+              </div>
+              <p className="text-xs text-amber-800 mt-1 font-medium leading-relaxed">
+                Đơn hàng này đã được <strong>{waiverDelivery.nguoiPheDuyetDacCach || 'Ban Giám Đốc'}</strong> chỉ định giao hàng trước. Kế toán lưu ý theo dõi sát sao tiến độ thu tiền và nhắc nhở khách hàng tất toán đúng hạn.
+              </p>
+              {waiverDelivery.lyDoDacCach && (
+                <div className="mt-1.5 text-2xs text-amber-900 font-mono bg-white/70 p-2 rounded border border-amber-200/80">
+                  <strong>Căn cứ / Lý do:</strong> {waiverDelivery.lyDoDacCach}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Fin Info Bento */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col justify-center shadow-sm">

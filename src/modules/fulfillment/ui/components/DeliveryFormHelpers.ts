@@ -39,10 +39,16 @@ export function normalizeDeliveryFormValues(data: any) {
 }
 
 export function validateDeliveryBusinessRules(data: any, payments: any[], maxQuantities: Record<string, number>, _delivery: any): { valid: boolean; error?: string } {
-  if (data.paymentId) {
+  if (data.paymentId && !data.dacCachGiaoTruoc) {
     const selectedPayment = payments.find((p: any) => p.id === data.paymentId);
     if (selectedPayment && isPaymentUnpaid(selectedPayment.tinhTrangThanhToan)) {
       return { valid: false, error: 'Không được tạo phiếu giao hàng đối với Giao dịch Chưa thanh toán' };
+    }
+  }
+
+  if (data.dacCachGiaoTruoc) {
+    if (!data.lyDoDacCach || !String(data.lyDoDacCach).trim()) {
+      return { valid: false, error: 'Vui lòng nhập căn cứ / lý do phê duyệt của Sếp khi áp dụng Đặc cách Giao trước' };
     }
   }
 

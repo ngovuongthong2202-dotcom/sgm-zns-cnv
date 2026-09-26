@@ -58,6 +58,12 @@ function ContractHoverCardContent({ contract, contractId }: { contract?: Contrac
 
   const totalValue = activeContract.totalAmount || activeContract.products?.reduce((acc: number, p: any) => acc + (p.total != null ? Number(p.total) : ((Number(p.price) || 0) * (Number(p.quantity) || 1))), 0) || 0;
 
+  const { data: contractDeliveries } = useSWR<any[]>(
+    activeContract?.id ? `deliveries:500:contractId:${activeContract.id}` : null,
+    swrColFetcher, { dedupingInterval: 60000 }
+  );
+  const waiverDelivery = (contractDeliveries || []).find((d: any) => d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU');
+
   const content = (
     <div className="flex flex-col h-full bg-slate-50 max-h-[85vh] overflow-hidden w-[420px]" onClick={(e) => e.stopPropagation()}>
       <div className="bg-white border-b border-slate-200 p-3.5 flex flex-col gap-1.5 shrink-0">
@@ -70,6 +76,16 @@ function ContractHoverCardContent({ contract, contractId }: { contract?: Contrac
              <CalendarClock size={10} /> {formatDate(activeContract.ngayKy) || '—'}
           </span>
         </div>
+        {waiverDelivery && (
+          <div className="bg-amber-50 px-2 py-1 rounded border border-amber-200 flex items-center justify-between text-2xs mt-1">
+            <span className="font-bold text-amber-800 flex items-center gap-1">
+              ⚡ Hợp đồng có đợt xuất kho đặc cách (Giao trước TT sau)
+            </span>
+            <span className="text-3xs font-mono font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+              {waiverDelivery.deliveryId}
+            </span>
+          </div>
+        )}
         <div className="text-xs text-slate-500 flex items-center justify-between mt-1">
           <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded">
              <UserCheck size={12} className="text-slate-500 shrink-0" />
