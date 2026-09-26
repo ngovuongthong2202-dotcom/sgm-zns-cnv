@@ -46,7 +46,10 @@ export function useDeliveryForm(
       khoXuat: '',
       ngayTaoPhieuXuat: '',
       ghiChuNoiBo: '',
-      soPhieuXuat: ''
+      soPhieuXuat: '',
+      dacCachGiaoTruoc: false,
+      lyDoDacCach: '',
+      nguoiPheDuyetDacCach: ''
     })
   });
 
@@ -67,7 +70,10 @@ export function useDeliveryForm(
         keToanKho: delivery.keToanKho || '',
         khoXuat: delivery.khoXuat || '',
         ngayTaoPhieuXuat: delivery.ngayTaoPhieuXuat || '',
-        ghiChuNoiBo: delivery.ghiChuNoiBo || delivery.ghiChu || ''
+        ghiChuNoiBo: delivery.ghiChuNoiBo || delivery.ghiChu || '',
+        dacCachGiaoTruoc: Boolean((delivery as any).dacCachGiaoTruoc),
+        lyDoDacCach: (delivery as any).lyDoDacCach || '',
+        nguoiPheDuyetDacCach: (delivery as any).nguoiPheDuyetDacCach || ''
       });
     }
   }, [delivery, reset, defaultOfficer]);

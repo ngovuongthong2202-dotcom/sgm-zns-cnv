@@ -174,14 +174,33 @@ export default function DeliveriesFeature() {
     if (!deliveries || deliveries.length === 0) return EMPTY_PROCESSED_DELIVERIES;
     return deliveries.map((d) => {
       const cust = customers.length > 0 ? customers.find((c) => c.id === d.customerId) : undefined;
-      const quot = quotations.length > 0 ? quotations.find((q) => q.id === d.quotationId) : undefined;
+      const contract = contracts.length > 0 ? contracts.find((c) => (d.contractId && c.id === d.contractId) || (d.soHopDong && c.soHopDong === d.soHopDong)) : undefined;
+      const resolvedQuotationId = d.quotationId || contract?.quotationId;
+      const resolvedSoBaoGia = (d as any).soPhieuBaoGia || (d as any).soBaoGia || contract?.soPhieuBaoGia || contract?.soBaoGia;
+      
+      const quot = quotations.length > 0 ? quotations.find((q) => 
+        (resolvedQuotationId && q.id === resolvedQuotationId) ||
+        (resolvedSoBaoGia && (q.soPhieuBaoGia === resolvedSoBaoGia || q.soBaoGia === resolvedSoBaoGia || q.id === resolvedSoBaoGia))
+      ) : undefined;
+
+      const finalSoPhieuBaoGia = quot?.soPhieuBaoGia || quot?.soBaoGia || resolvedSoBaoGia || (d as any).soPhieuBaoGia;
+      const finalNgayBaoGia = quot?.ngayBaoGia || (d as any).ngayBaoGia;
+
       return {
         ...d,
         __customerInfo: cust,
-        __quotationInfo: quot
+        __contractInfo: contract,
+        __quotationInfo: quot ? {
+          ...quot,
+          soPhieuBaoGia: finalSoPhieuBaoGia,
+          ngayBaoGia: finalNgayBaoGia
+        } : (finalSoPhieuBaoGia ? { soPhieuBaoGia: finalSoPhieuBaoGia, ngayBaoGia: finalNgayBaoGia } : undefined),
+        soPhieuBaoGia: finalSoPhieuBaoGia,
+        ngayBaoGia: finalNgayBaoGia,
+        quotationId: resolvedQuotationId || quot?.id || d.quotationId
       };
     });
-  }, [deliveries, customers, quotations]);
+  }, [deliveries, customers, quotations, contracts]);
 
   const processedDeliveriesWithStt = useMemo(() => enrichWithStt(processedDeliveries), [processedDeliveries]);
 

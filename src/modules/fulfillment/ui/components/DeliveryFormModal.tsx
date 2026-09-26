@@ -306,7 +306,8 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                         return true;
                       }}
                       isOptionDisabled={(p: any) => {
-                         const gateResult = canCreateDelivery(p);
+                         const testDoc = Boolean(watch('dacCachGiaoTruoc')) ? { ...p, dacCachGiaoTruoc: true } : p;
+                         const gateResult = canCreateDelivery(testDoc);
                          if (!gateResult.allowed) return { disabled: true, reason: gateResult.reason };
                          if (p._isFullyDelivered || isDeliverySourceFullyDelivered(p, deliveries, contracts, quotations)) {
                            return { disabled: true, reason: 'Chứng từ đã giao đủ 100% số lượng (còn phải giao = 0)' };
@@ -330,6 +331,46 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                       placeholder="Tìm theo Mã KH, Tên, Số GD..."
                       error={errors.paymentId?.message as string | undefined}
                     />
+
+                    {/* Executive Pre-Delivery Waiver Toggle Card */}
+                    <div className="mt-3 p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                          <span className="text-xs font-bold text-amber-900 uppercase tracking-wide flex items-center gap-1">
+                            ⚡ Đặc cách Ban Giám Đốc (Giao trước - Thanh toán sau)
+                          </span>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={Boolean(watch('dacCachGiaoTruoc'))} 
+                            onChange={(e) => {
+                              setValue('dacCachGiaoTruoc', e.target.checked, { shouldDirty: true });
+                              if (e.target.checked && !watch('nguoiPheDuyetDacCach')) {
+                                setValue('nguoiPheDuyetDacCach', 'Ban Giám Đốc', { shouldDirty: true });
+                              }
+                            }} 
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                        </label>
+                      </div>
+                      {Boolean(watch('dacCachGiaoTruoc')) && (
+                        <div className="flex flex-col gap-1.5 pt-1 border-t border-amber-200/60 animate-in fade-in duration-200">
+                          <div className="text-2xs text-amber-800 font-medium">
+                            Áp dụng cho đơn hàng được Sếp / Ban Giám Đốc chỉ định giao hàng trước. Hệ thống mở khóa xuất kho và tự động kích hoạt cảnh báo thu hồi công nợ sau giao hàng.
+                          </div>
+                          <input 
+                            type="text" 
+                            placeholder="Nhập căn cứ / lý do phê duyệt của Sếp (ví dụ: Sếp Nam chỉ định giao trước cho khách VIP)..."
+                            value={watch('lyDoDacCach') || ''}
+                            onChange={(e) => setValue('lyDoDacCach', e.target.value, { shouldDirty: true })}
+                            className="text-xs p-2 bg-white border border-amber-300 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {selectedPaymentId && (

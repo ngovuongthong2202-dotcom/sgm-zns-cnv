@@ -380,6 +380,27 @@ export function DeliveryDetailDrawer({
             </div>
           </div>
         )}
+
+        {drawerDelivery.dacCachGiaoTruoc && (
+          <div className="col-span-1 sm:col-span-2 pt-3 border-t border-amber-200">
+            <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl flex items-start gap-2.5 shadow-xs">
+              <span className="text-base leading-none">⚡</span>
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="text-xs font-bold text-amber-900 uppercase tracking-wide">
+                  ĐẶC CÁCH BAN GIÁM ĐỐC: GIAO TRƯỚC THANH TOÁN SAU
+                </span>
+                <span className="text-2xs text-amber-800 font-medium">
+                  {drawerDelivery.lyDoDacCach || 'Đơn hàng được phê duyệt xuất kho trước và đôn đốc thanh toán sau khi bàn giao nghiệm thu.'}
+                </span>
+                {drawerDelivery.nguoiPheDuyetDacCach && (
+                  <span className="text-3xs text-amber-600 font-semibold uppercase mt-0.5">
+                    Phê duyệt bởi: {drawerDelivery.nguoiPheDuyetDacCach}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Thông tin xuất kho ERP */}

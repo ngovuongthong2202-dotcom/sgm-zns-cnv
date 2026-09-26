@@ -82,6 +82,19 @@ export function canCreateDelivery(
 
   if (!payment) return { allowed: false, reason: "Không tìm thấy thanh toán." };
 
+  // Cơ chế Đặc cách Ban Giám Đốc (Executive Waiver): Giao hàng trước mới thanh toán sau
+  const isDacCach = Boolean(
+    (payment as any)?.dacCachGiaoTruoc ||
+    (payment as any)?.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU' ||
+    (payment as any)?.choPhepGiaoTruoc
+  );
+  if (isDacCach) {
+    return { 
+      allowed: true, 
+      warning: "Đơn hàng được Đặc cách Giao trước mới Thanh toán sau theo phê duyệt của Ban Giám Đốc." 
+    };
+  }
+
   // Quy tắc nghiệp vụ bắt buộc: Không cho phép giao hàng nếu Chưa TT
   const pStatus = ((payment as any).tinhTrangThanhToan || '').toLowerCase().trim();
   if (pStatus === 'chưa tt' || pStatus === 'chua tt' || pStatus === 'chưa thanh toán') {

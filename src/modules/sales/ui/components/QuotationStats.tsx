@@ -13,7 +13,8 @@ interface Props {
 }
 
 export const isQuotationWithContract = (q: any, allContracts: any[] = []): boolean => {
-  return (allContracts || []).some((c: any) => 
+  if (!q || !Array.isArray(allContracts)) return false;
+  return allContracts.some((c: any) => 
     (c.quotationId && (c.quotationId === q.id || c.quotationId === q.soBaoGia || c.quotationId === q.soPhieuBaoGia)) ||
     (c.soBaoGia && (c.soBaoGia === q.soBaoGia || c.soBaoGia === q.soPhieuBaoGia || c.soBaoGia === q.id)) ||
     (c.soPhieuBaoGia && (c.soPhieuBaoGia === q.soBaoGia || c.soPhieuBaoGia === q.soPhieuBaoGia || c.soPhieuBaoGia === q.id))
@@ -45,7 +46,7 @@ export function QuotationStats({
       if (status.includes('CHỐT') || status.includes('ĐÃ KÝ') || status.includes('THÀNH CÔNG') || status.includes('HOÀN TẤT')) {
         return true;
       }
-      if (isQuotationWithContract(q)) return true;
+      if (isQuotationWithContract(q, allContracts)) return true;
 
       const hasPayment = (allPayments || []).some(p => 
         (p.quotationId && (p.quotationId === q.id || p.quotationId === q.soBaoGia || p.quotationId === q.soPhieuBaoGia)) ||
@@ -68,7 +69,7 @@ export function QuotationStats({
       const count = filtered.length;
       const totalValue = filtered.reduce((sum, q) => sum + getQuotationVal(q), 0);
       
-      const chotQuotations = filtered.filter(isQuotationChot);
+      const chotQuotations = filtered.filter(q => isQuotationChot(q));
       const dsChot = chotQuotations.reduce((sum, q) => sum + getQuotationVal(q), 0);
       
       const winRate = count > 0 ? (chotQuotations.length / count) * 100 : 0;
@@ -87,7 +88,7 @@ export function QuotationStats({
     const dichvu = calcStats('BG Dịch vụ');
 
     // Thống kê riêng cho Báo giá đã có Hợp đồng
-    const contractQuotes = quotations.filter(isQuotationWithContract);
+    const contractQuotes = quotations.filter(q => isQuotationWithContract(q, allContracts));
     const contractCount = contractQuotes.length;
     const contractTotalVal = contractQuotes.reduce((sum, q) => sum + getQuotationVal(q), 0);
     const contractRate = quotations.length > 0 ? (contractCount / quotations.length) * 100 : 0;

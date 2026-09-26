@@ -135,7 +135,14 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
               <span className="font-mono text-2xs text-slate-600 font-semibold truncate ml-1.5 group-hover/ref:text-slate-900 transition-colors" title={p.soDonHang}>#{p.soDonHang}</span>
             </div>
           )}
-          {(!p.soHopDong && !p.soDonHang) && (
+          {((p as any).dacCachGiaoTruoc || (p as any).hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU') && (
+            <div className="flex items-center w-full mt-0.5" title={(p as any).lyDoDacCach ? `Đặc cách: ${(p as any).lyDoDacCach}` : 'Đặc cách Giao trước mới thanh toán sau (Ban Giám Đốc)'}>
+              <span className="text-3xs text-amber-700 font-bold bg-amber-50 px-1 py-0.5 rounded border border-amber-200/80 uppercase tracking-wider truncate flex items-center gap-0.5">
+                ⚡ Giao trước TT sau
+              </span>
+            </div>
+          )}
+          {(!p.soHopDong && !p.soDonHang && !p.dacCachGiaoTruoc) && (
             <span className="text-2xs text-slate-500 italic leading-none block pt-1">---</span>
           )}
         </div>
@@ -148,7 +155,7 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
     size: 140,
     cell: (info) => {
       const p = info.row.original as any;
-      const soPhieuBaoGia = p.__quotationInfo?.soPhieuBaoGia || p.soPhieuBaoGia || (p.quotationId ? 'Có BG' : null);
+      const soPhieuBaoGia = p.__quotationInfo?.soPhieuBaoGia || p.__quotationInfo?.soBaoGia || p.soPhieuBaoGia || p.soBaoGia || (p.quotationId ? 'Có BG' : null);
       const ngayBaoGia = p.__quotationInfo?.ngayBaoGia ? formatDate(p.__quotationInfo.ngayBaoGia) : (p.ngayBaoGia ? formatDate(p.ngayBaoGia) : null);
       
       return (
