@@ -163,203 +163,312 @@ export function ContractDetailDrawer({
     </div>
   );
 
-  // 1. TỔNG QUAN TAB
-  const overviewPanel = (
-    <div className="space-y-6 pt-2">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="p-4 bg-white border border-slate-100 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.01)]">
-          <div className="text-2xs text-slate-600 mb-1 uppercase font-bold tracking-wider">Khách hàng pháp nhân</div>
-          <div className="font-semibold text-slate-900 text-sm">{drawerContract.tenKhachHang || 'N/A'}</div>
-        </div>
-        <div className="p-4 bg-white border border-slate-100 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.01)]">
-          <div className="text-2xs text-slate-600 mb-1 uppercase font-bold tracking-wider">Số HĐ / Số ĐH</div>
-          <div className="font-mono font-bold text-slate-900 text-sm">{drawerContract.soHopDong || 'N/A'} / {drawerContract.soDonHang || 'N/A'}</div>
-        </div>
-        <div className="p-4 bg-white border border-slate-100 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.01)]">
-          <div className="text-2xs text-slate-600 mb-1 uppercase font-bold tracking-wider">Ngày ký kết</div>
-          <div className="text-slate-900 font-bold text-sm">{formatDate(drawerContract.ngayKy)}</div>
-        </div>
-        <div className="p-4 bg-white border border-slate-100 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.01)]">
-          <div className="text-2xs text-slate-600 mb-1 uppercase font-bold tracking-wider">Số ngày thực hiện</div>
-          <div className="font-bold text-slate-900 text-xs">{drawerContract.soNgayDuKienHoanThanh ? `${drawerContract.soNgayDuKienHoanThanh} ngày` : '—'}</div>
-        </div>
-        {drawerContract.soPhieuBaoGia && (
-          <div className="col-span-2">
-            <QuotationHoverCard quotationId={drawerContract.quotationId}>
-              <div className="p-4 bg-white border border-slate-100 hover:border-blue-300 transition-colors rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.01)] group">
-                <div className="text-2xs text-slate-600 mb-1 uppercase font-bold tracking-wider flex items-center justify-between">
-                  <span>Báo giá căn cứ</span>
-                  <span className="text-3xs text-blue-600 lowercase font-medium group-hover:underline">Di chuột xem chi tiết báo giá</span>
-                </div>
-                <div className="font-mono font-extrabold text-blue-600 text-xs">{drawerContract.soPhieuBaoGia}</div>
-              </div>
-            </QuotationHoverCard>
-          </div>
-        )}
-      </div>
+  // 1. TỔNG QUAN TAB (OMNI-NEXUS COD 11.0)
+  const ngayKyObj = drawerContract.ngayKy ? new Date(drawerContract.ngayKy) : null;
+  const ngayHT = drawerContract.soNgayDuKienHoanThanh || 0;
+  let progressDays = 0;
+  let isDelayed = false;
+  let daysLeft = 0;
+  
+  if (ngayKyObj && ngayHT > 0) {
+    const now = new Date();
+    const elapsed = Math.max(0, Math.floor((now.getTime() - ngayKyObj.getTime()) / (1000 * 60 * 60 * 24)));
+    progressDays = elapsed;
+    if (elapsed > ngayHT && dPct < 100) {
+      isDelayed = true;
+      daysLeft = elapsed - ngayHT;
+    } else {
+      daysLeft = Math.max(0, ngayHT - elapsed);
+    }
+  }
+  const timeProgressPct = ngayHT > 0 ? Math.min(100, Math.round((progressDays / ngayHT) * 100)) : 0;
+  const statusText = dPct >= 100 ? 'Hoàn thành bàn giao' : isDelayed ? 'Trễ tiến độ giao' : 'Đang triển khai';
+  const statusColor = dPct >= 100 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : isDelayed ? 'text-rose-700 bg-rose-50 border-rose-200' : 'text-blue-700 bg-blue-50 border-blue-200';
 
-      {/* Contract Progress Display */}
+  const overviewPanel = (
+    <div className="space-y-5 pt-1 pb-6">
+      {/* 1. Active State Stream (WorkflowTimeline) */}
       {quotationDoc && (
         <WorkflowTimeline 
           quotation={quotationDoc}
           contracts={[drawerContract]}
           payments={pays}
           deliveries={dels}
-          className="mb-6 shadow-[0_1px_2px_rgba(15,23,42,0.02)]"
+          onCreatePayment={() => onCreatePayment?.(drawerContract)}
+          onCreateDelivery={() => onCreateDelivery?.(drawerContract)}
+          className="shadow-xs border border-slate-200"
         />
       )}
-      <EntityBusinessLockWarning {...lockResult} />
-      
-      <div className="bg-white p-5 border border-slate-200 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.02)]">
-        <h3 className="text-xs font-black text-slate-600 mb-4 uppercase tracking-widest flex items-center justify-between">
-          <span>Tiến độ hợp đồng</span>
-          <Button 
-            aria-label="Gửi thông báo ZNS" 
-            className="text-2xs font-black uppercase text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 h-7 rounded border border-blue-200/50 cursor-pointer shadow-sm" 
-            onClick={async () => {
-              const c = customers.find(x => x.id === drawerContract.customerId);
-              const phone = drawerContract.sdt || c?.sdt;
-              if (!phone) return notify.error("Khách hàng không có số điện thoại");
-              if (!await confirm({ title: 'Thông báo tiến độ', message: `Gửi thông báo tiến độ HĐ tới ${phone}?` })) return;
-              await sendZnsAndToast({
-                entityId: drawerContract.id!, entityType: 'CONTRACT', messageType: ZnsMessageType.HOPDONG_SIGN_ZNS,
-                phone: phone as string, payload: { ...drawerContract }, attemptBucket: nextAttempt(drawerContract.trangThaiGuiTinHopDong || undefined)
-              });
-            }}
-          >
-            Gửi thông báo ZNS
-          </Button>
-        </h3>
-        
-        {(() => {
-          const ngayKyObj = drawerContract.ngayKy ? new Date(drawerContract.ngayKy) : null;
-          const ngayHT = drawerContract.soNgayDuKienHoanThanh || 0;
-          let progressDays = 0;
-          let isDelayed = false;
-          let daysLeft = 0;
-          
-          if (ngayKyObj && ngayHT > 0) {
-            const now = new Date();
-            const elapsed = Math.max(0, Math.floor((now.getTime() - ngayKyObj.getTime()) / (1000 * 60 * 60 * 24)));
-            progressDays = elapsed;
-            if (elapsed > ngayHT && dPct < 100) {
-              isDelayed = true;
-              daysLeft = elapsed - ngayHT;
-            } else {
-              daysLeft = Math.max(0, ngayHT - elapsed);
-            }
-          }
-          const timeProgressPct = ngayHT > 0 ? Math.min(100, Math.round((progressDays / ngayHT) * 100)) : 0;
-          const statusText = dPct >= 100 ? 'Hoàn thành' : isDelayed ? 'Trễ tiến độ' : 'Đang thực hiện';
-          const statusColor = dPct >= 100 ? 'text-emerald-600 bg-emerald-50' : isDelayed ? 'text-red-600 bg-red-50' : 'text-blue-600 bg-blue-50';
 
-          return (
-            <div className="mb-6 p-4 rounded-lg bg-slate-50 border border-slate-100">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-2xs font-bold text-slate-700">Thời gian thực hiện ({ngayHT} ngày)</span>
-                <span className={`text-2xs uppercase font-bold px-2 py-0.5 rounded-full ${statusColor}`}>
-                  {statusText}
+      {/* 2. Business Lock Warning */}
+      <EntityBusinessLockWarning {...lockResult} />
+
+      {/* 3. Main Workspace: Asymmetric 70% Matrix / 30% Inspector */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        
+        {/* ===================== CỘT CHÍNH (70%): DUAL-TRACK COCKPIT & SẢN PHẨM ===================== */}
+        <div className="lg:col-span-8 space-y-5">
+          
+          {/* Khối 1: Dual-Track Execution Cockpit (Tiến độ kép) */}
+          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-800">
+                  TIẾN ĐỘ THỰC THI HỢP ĐỒNG (DUAL-TRACK COCKPIT)
+                </h3>
+              </div>
+              <span className={`text-2xs uppercase font-bold px-2 py-0.5 rounded-md border ${statusColor}`}>
+                {statusText}
+              </span>
+            </div>
+
+            {/* Tiến độ thời gian thực hiện */}
+            <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-150 mb-4">
+              <div className="flex justify-between items-center mb-1.5 text-xs">
+                <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                  Thời gian hợp đồng: {ngayHT > 0 ? `${ngayHT} ngày` : 'Chưa xác định hạn'}
                 </span>
-              </div>
-              <div className="h-2 bg-slate-200 rounded-full overflow-hidden mb-2">
-                <div 
-                  className={`h-full transition-all ${dPct >= 100 ? 'bg-emerald-500' : isDelayed ? 'bg-red-500' : 'bg-blue-500'}`} 
-                  style={{width: `${timeProgressPct}%`}} 
-                />
-              </div>
-              <div className="flex justify-between text-2xs text-slate-500 font-medium">
-                <span>{ngayKyObj ? formatDate(drawerContract.ngayKy) : 'Chưa ký'}</span>
-                <span>
+                <span className="font-mono text-2xs text-slate-600 font-semibold">
                   {dPct >= 100 
-                    ? 'Đã giao xong' 
+                    ? 'Đã giao xong toàn bộ' 
                     : isDelayed 
                       ? `Trễ ${daysLeft} ngày` 
                       : `Còn lại ${daysLeft} ngày`}
                 </span>
               </div>
+              <div className="h-2 bg-slate-200 rounded-full overflow-hidden mb-1.5">
+                <div 
+                  className={`h-full transition-all duration-500 ${dPct >= 100 ? 'bg-emerald-500' : isDelayed ? 'bg-rose-500' : 'bg-blue-500'}`} 
+                  style={{ width: `${timeProgressPct}%` }} 
+                />
+              </div>
+              <div className="flex justify-between text-3xs text-slate-400 font-mono">
+                <span>Ngày ký: {ngayKyObj ? formatDate(drawerContract.ngayKy) : 'Chưa ký'}</span>
+                <span>Tiến độ ngày: {timeProgressPct}%</span>
+              </div>
             </div>
-          );
-        })()}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-          <div className="flex flex-col justify-center">
-            <div className="flex justify-between items-end mb-2">
-              <span className="text-2xs text-slate-500 font-bold uppercase tracking-wider">Tài chính (Đã thu)</span>
-              <span className="text-2xs text-slate-700 font-bold font-mono tracking-wide">{new Intl.NumberFormat('vi-VN').format(totalPaid)} / {new Intl.NumberFormat('vi-VN').format(totalContractAmount)} đ <span className="text-blue-600 ml-1">({pPct}%)</span></span>
-            </div>
-            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div className={`h-full transition-all ${pPct === 100 ? 'bg-emerald-500' : pPct > 0 ? 'bg-blue-600' : 'bg-slate-200'}`} style={{width: `${pPct}%`}} />
-            </div>
-          </div>
-          <div className="flex flex-col justify-center">
-            <div className="flex justify-between items-end mb-2">
-              <span className="text-2xs text-slate-500 font-bold uppercase tracking-wider">Vận chuyển (Đã giao)</span>
-              <span className="text-2xs text-slate-700 font-bold font-mono tracking-wide">{totalDeliveredQty} / {totalContractQty} máy <span className="text-cyan-600 ml-1">({dPct}%)</span></span>
-            </div>
-            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div className={`h-full transition-all ${dPct === 100 ? 'bg-emerald-500' : dPct > 0 ? 'bg-cyan-600' : 'bg-slate-200'}`} style={{width: `${dPct}%`}} />
-            </div>
-          </div>
-        </div>
-
-        {/* Mã Máy Tracking */}
-        {drawerContract.danhSachMaMay && drawerContract.danhSachMaMay.length > 0 && (
-          <div className="pt-4 border-t border-slate-100">
-            <span className="text-2xs text-slate-500 font-bold uppercase tracking-wider block mb-3">Theo dõi Serial / Mã Máy</span>
-            <div className="flex flex-wrap gap-2">
-              {drawerContract.danhSachMaMay.map((serial, idx) => {
-                const isDelivered = dels.some((d: Delivery) => d.danhSachMaMay?.includes(serial));
-                return (
-                  <span 
-                    key={idx} 
-                    className={`inline-flex items-center px-2 py-1 rounded text-2xs font-mono font-bold border transition-colors ${
-                      isDelivered 
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
-                    }`}
-                  >
-                    {serial}
-                    {isDelivered && <span className="ml-1 opacity-70">✓</span>}
+            {/* 2 Trục xương sống: Tài chính & Vận chuyển */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Trục 1: Tài chính */}
+              <div className="p-3.5 bg-slate-50/70 border border-slate-150 rounded-lg">
+                <div className="flex justify-between items-end mb-2">
+                  <span className="text-3xs uppercase font-bold tracking-wider text-slate-500">Tài chính (Đã thu)</span>
+                  <span className="text-2xs font-mono font-bold text-slate-800">
+                    {new Intl.NumberFormat('vi-VN').format(totalPaid)} / {new Intl.NumberFormat('vi-VN').format(totalContractAmount)} ₫
+                    <span className="text-emerald-700 ml-1 font-bold">({pPct}%)</span>
                   </span>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+                </div>
+                <div className="h-2 bg-slate-200 rounded-full overflow-hidden mb-1">
+                  <div 
+                    className={`h-full transition-all duration-500 ${pPct === 100 ? 'bg-emerald-500' : pPct > 0 ? 'bg-blue-600' : 'bg-slate-300'}`} 
+                    style={{ width: `${pPct}%` }} 
+                  />
+                </div>
+                <span className="text-3xs text-slate-500 block text-right font-mono">
+                  {contractProg.remainingDebt > 0 ? `Còn nợ: ${new Intl.NumberFormat('vi-VN').format(contractProg.remainingDebt)} ₫` : '✓ Đã tất toán 100%'}
+                </span>
+              </div>
 
-      {/* Embedded Products & Logistics details */}
-      <div className="bg-white p-4 border border-slate-200 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.02)]">
-        <h3 className="text-xs font-black text-slate-650 mb-3 uppercase tracking-widest border-b border-slate-100 pb-2 flex items-center gap-1.5">
-          <Layers size={12} /> THIẾT BỊ SẢN PHẨM PHỤ LỤC
-        </h3>
-        <div>
-          <DrawerProductList 
-             products={drawerContract.products || []}
-             subTotal={drawerContract.subTotal}
-             discountRate={drawerContract.discountRate}
-             discountAmount={drawerContract.discountAmount}
-             vatRate={drawerContract.vatRate}
-             vatAmount={drawerContract.vatAmount}
-             totalAmount={drawerContract.totalAmount}
-             deliveredQuantities={normalizeLoai(drawerContract.loai) !== QUOTATION_LOAI.MAY ? drawerContract.deliveredQuantities : undefined}
-             accentColorClass="text-emerald-700"
-             paidAmount={contractProg.totalPaid}
-             remainingDebt={contractProg.remainingDebt}
-          />
+              {/* Trục 2: Vận chuyển */}
+              <div className="p-3.5 bg-slate-50/70 border border-slate-150 rounded-lg">
+                <div className="flex justify-between items-end mb-2">
+                  <span className="text-3xs uppercase font-bold tracking-wider text-slate-500">Vận chuyển (Đã giao)</span>
+                  <span className="text-2xs font-mono font-bold text-slate-800">
+                    {totalDeliveredQty} / {totalContractQty} máy
+                    <span className="text-cyan-700 ml-1 font-bold">({dPct}%)</span>
+                  </span>
+                </div>
+                <div className="h-2 bg-slate-200 rounded-full overflow-hidden mb-1">
+                  <div 
+                    className={`h-full transition-all duration-500 ${dPct === 100 ? 'bg-emerald-500' : dPct > 0 ? 'bg-cyan-600' : 'bg-slate-300'}`} 
+                    style={{ width: `${dPct}%` }} 
+                  />
+                </div>
+                <span className="text-3xs text-slate-500 block text-right font-mono">
+                  {totalContractQty - totalDeliveredQty > 0 ? `Còn thiếu: ${totalContractQty - totalDeliveredQty} máy` : '✓ Đã xuất xưởng đủ máy'}
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* Khối 2: Danh mục Sản phẩm & Serial Xuất xưởng */}
+          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                <Layers size={13} className="text-emerald-700" />
+                THIẾT BỊ SẢN PHẨM PHỤ LỤC HỢP ĐỒNG
+              </h3>
+              <span className="font-mono text-3xs font-bold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">
+                {drawerContract.products?.length || 0} hạng mục
+              </span>
+            </div>
+
+            <DrawerProductList 
+              products={drawerContract.products || []}
+              subTotal={drawerContract.subTotal}
+              discountRate={drawerContract.discountRate}
+              discountAmount={drawerContract.discountAmount}
+              vatRate={drawerContract.vatRate}
+              vatAmount={drawerContract.vatAmount}
+              totalAmount={drawerContract.totalAmount}
+              deliveredQuantities={normalizeLoai(drawerContract.loai) !== QUOTATION_LOAI.MAY ? drawerContract.deliveredQuantities : undefined}
+              accentColorClass="text-emerald-700"
+              paidAmount={contractProg.totalPaid}
+              remainingDebt={contractProg.remainingDebt}
+            />
+
+            {/* Mã Máy / Serial Chips */}
+            {drawerContract.danhSachMaMay && drawerContract.danhSachMaMay.length > 0 && (
+              <div className="pt-4 border-t border-slate-100">
+                <span className="text-3xs font-black text-slate-500 uppercase tracking-wider block mb-2.5">
+                  Theo dõi danh sách Serial / Mã máy cấu hình ({drawerContract.danhSachMaMay.length} máy):
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {drawerContract.danhSachMaMay.map((serial, idx) => {
+                    const isDelivered = dels.some((d: Delivery) => d.danhSachMaMay?.includes(serial));
+                    return (
+                      <span 
+                        key={idx} 
+                        className={`inline-flex items-center px-2.5 py-1 rounded-md text-2xs font-mono font-bold border transition-colors ${
+                          isDelivered 
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}
+                      >
+                        {serial}
+                        {isDelivered ? <span className="ml-1.5 text-emerald-600 font-bold">✓ Đã giao</span> : <span className="ml-1.5 text-amber-600 font-medium">Chờ giao</span>}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </section>
         </div>
 
-        {/* PIC display */}
-        <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
-          <div>
-            <span className="text-2xs text-slate-600 block uppercase font-bold tracking-wider mb-1.5">Người Phụ Trách</span>
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-slate-950 text-white flex items-center justify-center font-bold text-2xs shadow-sm">
+        {/* ===================== CỘT VỆ TINH (30%): INTELLIGENCE INSPECTOR ===================== */}
+        <div className="lg:col-span-4 space-y-4">
+          
+          {/* Thẻ 1: Khách hàng & Báo giá căn cứ */}
+          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3">
+            <h4 className="text-2xs font-black uppercase tracking-widest text-slate-500 border-b border-slate-100 pb-2">
+              Chủ thể hợp đồng
+            </h4>
+
+            <div>
+              <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">Khách hàng pháp nhân</span>
+              <p className="font-bold text-slate-900 text-sm leading-snug line-clamp-2" title={drawerContract.tenKhachHang}>
+                {drawerContract.tenKhachHang || 'N/A'}
+              </p>
+              {drawerContract.sdt && (
+                <span className="font-mono text-3xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-block mt-1.5">
+                  {drawerContract.sdt}
+                </span>
+              )}
+            </div>
+
+            {drawerContract.soPhieuBaoGia && (
+              <div className="pt-2 border-t border-slate-100">
+                <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">Báo giá căn cứ</span>
+                <QuotationHoverCard quotationId={drawerContract.quotationId}>
+                  <div className="p-2.5 bg-slate-50 hover:bg-blue-50/50 border border-slate-200 hover:border-blue-300 transition-colors rounded-lg group cursor-pointer">
+                    <span className="font-mono font-bold text-blue-700 text-xs block group-hover:underline">
+                      {drawerContract.soPhieuBaoGia} ↗
+                    </span>
+                    <span className="text-3xs text-slate-500">Di chuột để xem tóm lược báo giá gốc</span>
+                  </div>
+                </QuotationHoverCard>
+              </div>
+            )}
+          </section>
+
+          {/* Thẻ 2: Quản trị & Ký kết */}
+          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span className="text-2xs font-black uppercase tracking-widest text-slate-500">
+                Ký kết & Phụ trách
+              </span>
+              <Button 
+                aria-label="Gửi thông báo ZNS" 
+                size="xs"
+                variant="subtle"
+                className="text-3xs font-bold uppercase tracking-wider h-6 px-2 text-blue-700"
+                onClick={async () => {
+                  const c = customers.find(x => x.id === drawerContract.customerId);
+                  const phone = drawerContract.sdt || c?.sdt;
+                  if (!phone) return notify.error("Khách hàng không có số điện thoại");
+                  if (!await confirm({ title: 'Thông báo tiến độ', message: `Gửi thông báo tiến độ HĐ tới ${phone}?` })) return;
+                  await sendZnsAndToast({
+                    entityId: drawerContract.id!, entityType: 'CONTRACT', messageType: ZnsMessageType.HOPDONG_SIGN_ZNS,
+                    phone: phone as string, payload: { ...drawerContract }, attemptBucket: nextAttempt(drawerContract.trangThaiGuiTinHopDong || undefined)
+                  });
+                }}
+              >
+                Gửi ZNS
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0 font-mono">
                 {extractAvatarBadge(drawerContract.nguoiPhuTrach)}
               </div>
-              <span className="font-bold text-slate-900 text-xs">{drawerContract.nguoiPhuTrach || 'Chưa nhận bàn giao'}</span>
+              <div className="min-w-0">
+                <span className="text-3xs text-slate-400 block font-bold uppercase">Người phụ trách</span>
+                <span className="font-bold text-slate-800 text-xs block truncate">{drawerContract.nguoiPhuTrach || 'Chưa nhận bàn giao'}</span>
+              </div>
             </div>
-          </div>
+
+            <div className="pt-2 border-t border-slate-100 text-xs flex justify-between items-center">
+              <span className="text-slate-500 text-2xs">Ngày ký kết:</span>
+              <span className="font-mono font-bold text-slate-800 text-xs">{formatDate(drawerContract.ngayKy)}</span>
+            </div>
+          </section>
+
+          {/* Thẻ 3: Dòng chảy chứng từ liên kết */}
+          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3">
+            <h4 className="text-2xs font-black uppercase tracking-widest text-slate-500 border-b border-slate-100 pb-2">
+              Chứng từ phái sinh
+            </h4>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-150">
+                <div>
+                  <span className="text-slate-600 font-medium text-2xs block">Phiếu thu tiền:</span>
+                  <span className="font-mono font-bold text-slate-800 text-3xs">{pays.length} phiếu đã ghi nhận</span>
+                </div>
+                {onCreatePayment && (
+                  <Button 
+                    variant="subtle" 
+                    size="xs" 
+                    className="h-6 text-3xs font-bold" 
+                    onClick={() => onCreatePayment(drawerContract)}
+                  >
+                    + Thu tiền
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-150">
+                <div>
+                  <span className="text-slate-600 font-medium text-2xs block">Phiếu giao hàng:</span>
+                  <span className="font-mono font-bold text-slate-800 text-3xs">{dels.length} phiếu xuất kho</span>
+                </div>
+                {onCreateDelivery && (
+                  <Button 
+                    variant="subtle" 
+                    size="xs" 
+                    className="h-6 text-3xs font-bold" 
+                    onClick={() => onCreateDelivery(drawerContract)}
+                  >
+                    + Xuất kho
+                  </Button>
+                )}
+              </div>
+            </div>
+          </section>
+
         </div>
       </div>
     </div>
@@ -404,6 +513,41 @@ export function ContractDetailDrawer({
     />
   );
 
+  const horizonHud = (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+      <div className="flex items-center gap-2.5 flex-wrap">
+        <span className="font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-xs font-bold border border-emerald-200">
+          {drawerContract.soHopDong}
+        </span>
+        {drawerContract.soDonHang && (
+          <span className="font-mono text-2xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+            ĐH: #{drawerContract.soDonHang}
+          </span>
+        )}
+        <span className="text-slate-300 font-sans">|</span>
+        <span className="text-slate-600 font-medium">
+          Ký ngày: <strong className="text-slate-800 font-mono">{formatDate(drawerContract.ngayKy)}</strong>
+        </span>
+        <span className="text-slate-300 font-sans">|</span>
+        <span className="px-2 py-0.5 rounded text-3xs font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
+          {drawerContract.tinhTrangHopDong || 'Mới'}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-2xs">
+          <span className="text-3xs uppercase font-bold text-slate-500 tracking-wider">Giá trị HĐ:</span>
+          <span className="font-mono text-sm font-black text-emerald-800 tabular-nums">
+            {new Intl.NumberFormat('vi-VN').format(totalContractAmount)} ₫
+          </span>
+          <span className="text-3xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 ml-1">
+            Đã thu {pPct}%
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <DetailDrawer
       isOpen={!!drawerContract}
@@ -415,7 +559,8 @@ export function ContractDetailDrawer({
       entityId={drawerContract?.id || ''}
       entityType="contract"
       icon={<FileText size={16} />}
-      size="screen"
+      size="studio"
+      horizonHud={horizonHud}
       tabs={customTabsList}
       footer={
         <div className="flex gap-2 justify-end w-full items-center">

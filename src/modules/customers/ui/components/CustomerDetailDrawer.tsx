@@ -10,6 +10,7 @@ import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
 import { EntityZnsHistory } from '@/src/widgets/EntityZnsHistory';
 import { EntityAuditLogs } from '@/src/widgets/EntityAuditLogs';
 import { Button } from '@/src/design-system/Button';
+import { formatCurrency } from '@/src/shared/utils/formatCurrency';
 import { ArrowLeft, ArrowRight, Trash2, Send, Edit, Printer } from 'lucide-react';
 import { CustomerReportModal } from './CustomerReportModal';
 import {
@@ -113,7 +114,64 @@ export function CustomerDetailDrawer({
     }
   }, [drawerQuotations, selectedQuotationId]);
 
+  // Compute realtime financial summary for Horizon HUD
+  const { ltv, debt } = React.useMemo(() => {
+    if (!customer) return { ltv: 0, debt: 0 };
+    const paid = drawerPayments.reduce((sum, p) => sum + (Number(p.soTien) || 0), 0);
+    const contractVal = drawerContracts.reduce((sum, c) => {
+      const prodSum = Array.isArray(c.products) ? c.products.reduce((s: number, prod: any) => s + (Number(prod.total) || 0), 0) : 0;
+      return sum + (Number(c.totalAmount) || Number(c.giaTriHopDong) || prodSum || 0);
+    }, 0);
+    const nonMayVal = drawerQuotations
+      .filter(q => String(q.loai || '').toUpperCase().includes('VẬT TƯ') || String(q.loai || '').toUpperCase().includes('DỊCH VỤ'))
+      .reduce((sum, q) => {
+        const prodSum = Array.isArray(q.products) ? q.products.reduce((s: number, prod: any) => s + (Number(prod.total) || 0), 0) : 0;
+        return sum + (Number(q.totalAmount) || Number(q.tongTien) || prodSum || 0);
+      }, 0);
+    const totalOrderVal = Math.max(contractVal + nonMayVal, paid);
+    const calculatedDebt = Math.max(0, totalOrderVal - paid);
+    return {
+      ltv: customer.ltv || paid || 0,
+      debt: (customer.totalDebt !== undefined && customer.totalDebt > 0) ? customer.totalDebt : calculatedDebt,
+    };
+  }, [customer, drawerPayments, drawerContracts, drawerQuotations]);
+
   if (!customer) return null;
+
+  // Horizon HUD (Top Status Pulse)
+  const horizonHud = (
+    <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div className="flex items-center gap-2.5">
+        <span className="font-mono font-black text-blue-900 bg-white px-2.5 py-1 rounded-md border border-blue-200 shadow-2xs">
+          {customer.maKh || 'KH-NA'}
+        </span>
+        <span className="text-3xs bg-blue-50 text-blue-750 font-extrabold px-2 py-0.5 rounded border border-blue-100 uppercase tracking-wider">
+          {customer.loaiKh || 'CHƯA PHÂN LOẠI'}
+        </span>
+        {customer.isArchived && (
+          <span className="text-3xs bg-slate-100 text-slate-500 font-extrabold px-2 py-0.5 rounded border border-slate-200 uppercase">
+            ĐÃ LƯU TRỮ
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1.5">
+          <span className="text-3xs text-slate-500 uppercase font-bold">LTV Tích lũy:</span>
+          <span className="font-mono font-black text-emerald-800">
+            {formatCurrency(ltv)}
+          </span>
+        </div>
+        <div className="h-3.5 w-px bg-slate-200 hidden sm:block" />
+        <div className="flex items-center gap-1.5">
+          <span className="text-3xs text-slate-500 uppercase font-bold">Công nợ:</span>
+          <span className={`font-mono font-bold ${debt > 0 ? 'text-red-700' : 'text-emerald-800'}`}>
+            {debt > 0 ? formatCurrency(debt) : '0 ₫ (Không nợ)'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <DetailDrawer
@@ -135,7 +193,8 @@ export function CustomerDetailDrawer({
       }
       entityId={customerId}
       entityType="customer"
-      size="screen"
+      size="studio"
+      horizonHud={horizonHud}
       onNavigatePrev={prevCustomer ? onNavigatePrev : undefined}
       onNavigateNext={nextCustomer ? onNavigateNext : undefined}
       topRightControls={

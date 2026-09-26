@@ -146,10 +146,9 @@ export function DeliveryDetailDrawer({
 
   if (!drawerDelivery) return null;
 
-  // 1. TỔNG QUAN PANEL
+  // 1. TỔNG QUAN PANEL (OMNI-NEXUS COD 11.0: 70% Left Logistics Matrix / 30% Right Inspector)
   const overviewPanel = (
-    <div className="space-y-6 pt-2">
-
+    <div className="space-y-5 pt-1">
       {/* Workflow Progress Display */}
       {drawerQuotation && (
         <WorkflowTimeline 
@@ -157,319 +156,315 @@ export function DeliveryDetailDrawer({
           contracts={drawerContract ? [drawerContract] : []}
           payments={paymentDoc ? [paymentDoc] : []}
           deliveries={[drawerDelivery]}
-          className="shadow-[0_1px_2px_rgba(15,23,42,0.02)]"
+          className="shadow-2xs border border-slate-200/80 rounded-xl"
         />
       )}
 
-      {/* Mismatch warnings */}
-      {isMismatch && (
-        <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-4 flex gap-3">
-          <AlertTriangle className="text-amber-700 shrink-0 mt-0.5" size={20} />
-          <div>
-            <h4 className="font-bold text-amber-900 text-xs">Cảnh báo: Lệch máy cấu hình (Discrepancy Detected)</h4>
-            <p className="text-amber-700 text-2xs/normal mt-1 leading-relaxed">
-              Danh sách sản phẩm hoặc khối lượng dòng máy trong Phiếu Giao này đang **khác biệt** so với Hợp đồng phụ lục vừa thay đổi mới nhất. Vui lòng rà soát lại thông tin cấu hình sản phẩm xuất xưởng!
-            </p>
-          </div>
-        </div>
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* ===================== CỘT TRỌNG TÂM (70%): LOGISTICS & FULFILLMENT MATRIX ===================== */}
+        <div className="lg:col-span-8 space-y-5">
+          
+          {/* Cảnh báo cấu hình máy lệch nếu có */}
+          {isMismatch && (
+            <div className="bg-amber-50 border border-amber-200/90 rounded-xl p-4 flex gap-3 shadow-xs">
+              <AlertTriangle className="text-amber-700 shrink-0 mt-0.5" size={20} />
+              <div>
+                <h4 className="font-bold text-amber-900 text-xs">Cảnh báo: Lệch máy cấu hình (Discrepancy Detected)</h4>
+                <p className="text-amber-800 text-2xs/normal mt-1 leading-relaxed">
+                  Danh sách sản phẩm hoặc khối lượng dòng máy trong Phiếu Giao này đang <strong>khác biệt</strong> so với Hợp đồng phụ lục vừa thay đổi mới nhất. Vui lòng rà soát lại thông tin cấu hình sản phẩm xuất xưởng!
+                </p>
+              </div>
+            </div>
+          )}
 
-      {/* Status Banner */}
-      {!isCompleted ? (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col items-start gap-4">
-          <div className="flex gap-3">
-            <Truck className="text-amber-700 shrink-0" size={24} />
-            <div>
-              <h4 className="font-bold text-amber-900 text-xs text-left">Đang chờ giao hàng</h4>
-              <p className="text-amber-750 text-2xs text-left mt-0.5">Dự kiến giao: <strong className="font-mono">{formatDate(drawerDelivery.ngayGiaoMay) || 'TBD'}</strong></p>
+          {/* Khối 1: Logistics Command Banner */}
+          {!isCompleted ? (
+            <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex gap-3">
+                <div className="p-2.5 bg-amber-100 text-amber-800 rounded-xl shrink-0">
+                  <Truck size={22} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-amber-900 text-xs">Đang chờ giao hàng & Bàn giao thực tế</h4>
+                  <p className="text-amber-800 text-2xs mt-0.5">
+                    Hạn dự kiến giao: <strong className="font-mono text-amber-950 font-bold">{formatDate(drawerDelivery.ngayGiaoMay) || 'Chưa xác định'}</strong>
+                  </p>
+                </div>
+              </div>
+              <Button 
+                aria-label="Hoàn tất giao hàng" 
+                disabled={!onMarkDelivered} 
+                onClick={() => onMarkDelivered && onMarkDelivered(drawerDelivery)} 
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 text-xs font-black rounded-lg shadow-sm h-9 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              >
+                Hoàn tất giao hàng
+              </Button>
             </div>
-          </div>
-          <Button aria-label="Hoàn tất giao hàng" disabled={!onMarkDelivered} onClick={() => onMarkDelivered && onMarkDelivered(drawerDelivery)} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 text-xs font-black rounded-lg shadow-sm h-9 disabled:opacity-50 disabled:cursor-not-allowed">
-            Hoàn tất giao hàng
-          </Button>
-        </div>
-      ) : (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col items-start gap-3 shadow-xs">
-          <div className="flex gap-3 items-center w-full">
-            <div className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-xs shrink-0">
-              <CheckCircle2 size={20} />
+          ) : (
+            <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+              <div className="flex gap-3 items-center min-w-0">
+                <div className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-xs shrink-0">
+                  <CheckCircle2 size={20} />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-emerald-900 text-sm">Giao hàng thành công</h4>
+                    <span className="text-3xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+                      Đã bàn giao
+                    </span>
+                  </div>
+                  <p className="text-emerald-700 text-xs mt-0.5">
+                    Ngày giao thực tế: <strong className="font-mono text-emerald-900">{formatDate(drawerDelivery.ngayGiaoThucTe)}</strong>
+                    {drawerDelivery.kyNhan && <> • Người nhận: <strong className="text-emerald-900">{drawerDelivery.kyNhan}</strong></>}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onViewConfirmation && onViewConfirmation(drawerDelivery)}
+                  className="bg-white hover:bg-emerald-50 text-emerald-800 border-emerald-200 text-xs font-bold h-8.5 px-3 flex items-center justify-center gap-1.5 shadow-2xs"
+                >
+                  <FileText size={13} className="text-emerald-600" />
+                  Xem biên bản
+                </Button>
+                {onRevertDelivered && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onRevertDelivered(drawerDelivery)}
+                    className="bg-white hover:bg-red-50 text-red-700 hover:text-red-800 border-red-200 text-xs font-bold h-8.5 px-3 flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
+                    title="Hủy/xóa thông tin xác nhận giao hàng và đưa về trạng thái Đang giao"
+                  >
+                    <RotateCcw size={13} className="text-red-600" />
+                    Hủy xác nhận
+                  </Button>
+                )}
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h4 className="font-bold text-emerald-900 text-sm">Giao hàng thành công</h4>
-                <span className="text-3xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
-                  Đã bàn giao
+          )}
+
+          {/* Khối 2: Căn cứ xuất kho ERP & Kế toán kho */}
+          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <span className="text-xs font-black uppercase text-slate-800 tracking-wider flex items-center gap-2">
+                <Package size={14} className="text-blue-600" />
+                CĂN CỨ XUẤT KHO ERP & QUẢN TRỊ KHO BÃI
+              </span>
+              {drawerDelivery.soPhieuXuat && (
+                <span className="font-mono text-2xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                  {drawerDelivery.soPhieuXuat}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
+                <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Kế toán kho</span>
+                <span className="font-bold text-slate-900">{drawerDelivery.keToanKho || '---'}</span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
+                <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Kho xuất hàng</span>
+                <span className="font-bold text-slate-900">{drawerDelivery.khoXuat || '---'}</span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
+                <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Ngày lập phiếu xuất</span>
+                <span className="font-mono font-bold text-slate-900">
+                  {drawerDelivery.ngayTaoPhieuXuat ? formatDate(drawerDelivery.ngayTaoPhieuXuat) : (drawerDelivery.ngayLapPgh ? formatDate(drawerDelivery.ngayLapPgh) : '---')}
                 </span>
               </div>
-              <p className="text-emerald-700 text-xs mt-0.5">
-                Ngày giao thực tế: <strong className="font-mono text-emerald-900">{formatDate(drawerDelivery.ngayGiaoThucTe)}</strong>
-                {drawerDelivery.kyNhan && <> • Người nhận: <strong className="text-emerald-900">{drawerDelivery.kyNhan}</strong></>}
+            </div>
+
+            {(drawerDelivery.ghiChuNoiBo || drawerDelivery.ghiChu) && (
+              <div className="pt-2 text-xs">
+                <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">Ghi chú điều phối kho & vận chuyển</span>
+                <p className="text-slate-700 text-xs leading-relaxed italic bg-slate-50 p-3 rounded-lg border border-slate-150">
+                  {drawerDelivery.ghiChuNoiBo || drawerDelivery.ghiChu}
+                </p>
+              </div>
+            )}
+          </section>
+
+          {/* Khối 3: Sản phẩm bàn giao chi tiết & Cấu hình máy */}
+          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                <Package size={14} className="text-blue-600" />
+                SẢN PHẨM BÀN GIAO THỰC TẾ
+              </h3>
+              <span className="font-mono text-3xs font-bold bg-blue-50 text-blue-800 px-2 py-0.5 rounded border border-blue-200">
+                {drawerDelivery?.products?.reduce((acc, p) => acc + (p.quantity || 0), 0) || drawerDelivery?.slMay || 0} sản phẩm
+              </span>
+            </div>
+
+            {drawerDelivery?.products?.length ? (
+              <DrawerProductList 
+                products={drawerDelivery.products}
+                subTotal={drawerDelivery.subTotal}
+                discountRate={drawerDelivery.discountRate}
+                discountAmount={drawerDelivery.discountAmount}
+                vatRate={drawerDelivery.vatRate}
+                vatAmount={drawerDelivery.vatAmount}
+                totalAmount={drawerDelivery.totalAmount}
+                accentColorClass="text-blue-700"
+              />
+            ) : (
+              <div className="px-4 py-8 text-center text-xs text-slate-400 font-medium bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                Phiếu giao tổng hợp (Không có danh mục sản phẩm lẻ).
+              </div>
+            )}
+
+            {/* Serial chips */}
+            {drawerDelivery.danhSachMaMay && drawerDelivery.danhSachMaMay.length > 0 && (
+              <div className="pt-3 border-t border-slate-100">
+                <span className="text-3xs uppercase font-bold text-slate-400 block mb-2">Danh sách Serial máy xuất xưởng</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {drawerDelivery.danhSachMaMay.map((serial, idx) => (
+                    <span key={idx} className="font-mono text-2xs font-bold uppercase bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+                      {serial}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* ===================== CỘT VỆ TINH (30%): INTELLIGENCE INSPECTOR ===================== */}
+        <div className="lg:col-span-4 space-y-4">
+          
+          {/* Thẻ 1: Khách hàng & Nơi nhận */}
+          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3">
+            <h4 className="text-2xs font-black uppercase tracking-widest text-slate-500 border-b border-slate-100 pb-2">
+              Khách hàng & Nơi nhận
+            </h4>
+
+            <div>
+              <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">Khách hàng nhận hàng</span>
+              <p className="font-bold text-slate-900 text-sm leading-snug line-clamp-2" title={drawerDelivery.tenKhachHang}>
+                {drawerDelivery.tenKhachHang || '---'}
               </p>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2 w-full pt-2.5 border-t border-emerald-100/90">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => onViewConfirmation && onViewConfirmation(drawerDelivery)}
-              className="flex-1 bg-white hover:bg-emerald-50 text-emerald-800 border-emerald-200 text-xs font-bold h-8 flex items-center justify-center gap-1.5 shadow-2xs"
-            >
-              <FileText size={13} className="text-emerald-600" />
-              Xem biên bản xác nhận
-            </Button>
-            {onRevertDelivered && (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => onRevertDelivered(drawerDelivery)}
-                className="bg-white hover:bg-red-50 text-red-700 hover:text-red-800 border-red-200 text-xs font-bold h-8 px-3 flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
-                title="Hủy/xóa thông tin xác nhận giao hàng và đưa về trạng thái Đang giao"
-              >
-                <RotateCcw size={13} className="text-red-600" />
-                Hủy xác nhận giao
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
+            <div className="pt-2 border-t border-slate-100">
+              <span className="text-3xs uppercase font-bold text-slate-400 block mb-1.5 flex items-center gap-1">
+                <MapPin size={11} className="text-blue-600" /> Địa chỉ giao nhận chi tiết
+              </span>
+              <p className="font-medium text-slate-800 text-xs leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-150">
+                {(drawerDelivery as any).diaChiGiaoHang || (drawerDelivery as any).diaChi || smartAddress}
+              </p>
+            </div>
 
-      {/* Reference Links Detailed Layout */}
-      <div className="p-4 bg-white border border-slate-200 shadow-sm rounded-xl grid grid-cols-2 gap-y-4 gap-x-2">
-         <div>
-            <div className="text-2xs text-slate-500 uppercase font-bold tracking-wider mb-1">Mã hóa đơn / PX</div>
-            <div className="flex flex-col">
-               <span className="font-mono font-bold text-sm text-slate-900 mb-0.5 truncate">{drawerDelivery.deliveryId || '---'}</span>
-               <span className="text-2xs font-mono text-slate-500 truncate" title={drawerDelivery.soPhieuXuat}>PX: {drawerDelivery.soPhieuXuat || '---'}</span>
+            <div className="pt-2 border-t border-slate-100">
+              <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">Người nhận liên hệ</span>
+              <p className="font-bold text-slate-900 text-xs">
+                {(drawerDelivery as any).nguoiLienHe || drawerDelivery.nguoiDaiDien || drawerDelivery.tenKhachHang || '---'}
+              </p>
+              <p className="font-mono text-2xs text-slate-600 font-semibold mt-0.5 flex items-center gap-1">
+                <Phone size={11} className="text-slate-400" />
+                {(drawerDelivery as any).sdtLienHe || drawerDelivery.sdt || 'Chưa có SĐT'}
+              </p>
             </div>
-         </div>
-         <div>
-            <div className="text-2xs text-slate-500 uppercase font-bold tracking-wider mb-1">Hợp đồng / Báo giá</div>
-            <div className="flex flex-col">
-               <span className="font-mono font-bold text-sm text-emerald-700 mb-0.5 truncate">{drawerDelivery.soHopDong || 'Không HĐ'}</span>
-               <span className="text-2xs font-mono text-amber-600 truncate" title={drawerQuotation?.soPhieuBaoGia || 'Không báo giá'}>{drawerQuotation?.soPhieuBaoGia ? `BG: ${drawerQuotation.soPhieuBaoGia}` : (drawerDelivery.quotationId ? 'Tồn tại BG' : 'Không BG')}</span>
+          </section>
+
+          {/* Thẻ 2: Vận chuyển & Điều phối */}
+          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3">
+            <h4 className="text-2xs font-black uppercase tracking-widest text-slate-500 border-b border-slate-100 pb-2">
+              Vận chuyển & Điều phối
+            </h4>
+
+            <div>
+              <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">Đơn vị vận chuyển</span>
+              <p className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                <Truck size={13} className="text-amber-600" />
+                {drawerDelivery.donViVanChuyen || 'Nội bộ vận chuyển'}
+              </p>
+              <p className="font-mono text-2xs text-slate-600 font-semibold mt-0.5 flex items-center gap-1">
+                <Phone size={11} className="text-slate-400" />
+                {drawerDelivery.soDienThoaiDonViVanChuyen ? `Hotline: ${drawerDelivery.soDienThoaiDonViVanChuyen}` : 'Chưa có SĐT lái xe'}
+              </p>
             </div>
-         </div>
-         <div className="col-span-2 pt-3 border-t border-slate-100">
-            <div className="text-2xs text-slate-500 uppercase font-bold tracking-wider mb-1">Đơn hàng / Khách hàng</div>
-            <div className="flex flex-col min-w-0">
-               <span className="font-mono text-2xs text-slate-500 mb-0.5 truncate">{drawerDelivery.soDonHang ? `DH: #${drawerDelivery.soDonHang}` : 'Không ĐH'}</span>
-               <span className="text-sm text-blue-700 font-bold truncate" title={drawerDelivery.tenKhachHang}>{drawerDelivery.tenKhachHang || 'N/A'}</span>
+
+            <div className="pt-2 border-t border-slate-100">
+              <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">Chuyên viên phụ trách</span>
+              <p className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                <User size={12} className="text-slate-400" />
+                {drawerDelivery.nguoiPhuTrach || '---'}
+              </p>
             </div>
-         </div>
-         {drawerDelivery.paymentId && (
-            <div className="col-span-2 pt-3 border-t border-slate-100">
-               <PaymentHoverCard
+
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-3xs uppercase font-bold text-slate-400">Trạng thái ZNS SGM</span>
+              <StatusPill statusStr={drawerDelivery.trangThaiGuiTinGiaoHang as any} />
+            </div>
+          </section>
+
+          {/* Thẻ 3: Hồ sơ đối chiếu */}
+          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3">
+            <h4 className="text-2xs font-black uppercase tracking-widest text-slate-500 border-b border-slate-100 pb-2">
+              Hồ sơ đối chiếu
+            </h4>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-150">
+                <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Hợp đồng</span>
+                <span className="font-mono font-bold text-emerald-700 text-xs truncate block" title={drawerDelivery.soHopDong}>
+                  {drawerDelivery.soHopDong || 'Không HĐ'}
+                </span>
+              </div>
+              <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-150">
+                <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Báo giá</span>
+                <span className="font-mono font-bold text-blue-700 text-xs truncate block" title={drawerQuotation?.soPhieuBaoGia}>
+                  {drawerQuotation?.soPhieuBaoGia || 'Không BG'}
+                </span>
+              </div>
+            </div>
+
+            {drawerDelivery.paymentId && (
+              <div className="pt-2 border-t border-slate-100">
+                <PaymentHoverCard
                   payment={paymentDoc || { id: drawerDelivery.paymentId, customerId: drawerDelivery.customerId, tenKhachHang: drawerDelivery.tenKhachHang } as any}
                   contracts={drawerContract ? [drawerContract] : []}
                   quotations={drawerQuotation ? [drawerQuotation] : []}
                   deliveries={[drawerDelivery]}
-               >
-                  <div className="p-4 bg-white border border-slate-150 hover:border-emerald-400 transition-colors rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.01)] group cursor-pointer text-left">
-                     <div className="text-2xs text-slate-550 mb-1.5 uppercase font-bold tracking-wider flex items-center justify-between">
-                        <span>Tham chiếu thanh toán</span>
-                        <span className="text-3xs text-emerald-600 lowercase font-medium group-hover:underline">Di chuột xem chi tiết thanh toán</span>
-                     </div>
-                     <div className="font-mono font-extrabold text-emerald-600 text-xs">{getEntityDisplayLabel('payment', paymentDoc)}</div>
+                >
+                  <div className="p-3 bg-emerald-50/50 border border-emerald-200 hover:border-emerald-400 transition-colors rounded-xl group cursor-pointer text-left">
+                    <div className="text-3xs text-emerald-800 uppercase font-bold tracking-wider flex items-center justify-between mb-1">
+                      <span>Chứng từ thanh toán</span>
+                      <span className="text-3xs text-emerald-600 lowercase font-medium group-hover:underline">Chi tiết ↗</span>
+                    </div>
+                    <div className="font-mono font-bold text-emerald-800 text-xs truncate">
+                      {getEntityDisplayLabel('payment', paymentDoc)}
+                    </div>
                   </div>
-               </PaymentHoverCard>
-            </div>
-         )}
-      </div>
-
-      {/* Overview Stack - Thông tin Giao nhận & Địa chỉ chi tiết */}
-      <div className="flex flex-col gap-3">
-        <div className="p-4 bg-white border border-slate-200 shadow-sm rounded-xl flex items-start gap-3">
-          <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg shrink-0"><MapPin size={16} /></div>
-          <div className="min-w-0 flex-1">
-            <div className="text-2xs text-slate-500 uppercase font-bold tracking-wider mb-0.5">Địa chỉ nhận hàng chi tiết</div>
-            <div className="font-semibold text-slate-900 text-xs leading-relaxed" title={(drawerDelivery as any).diaChiGiaoHang || (drawerDelivery as any).diaChi || smartAddress}>
-              {(drawerDelivery as any).diaChiGiaoHang || (drawerDelivery as any).diaChi || smartAddress}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="p-4 bg-white border border-slate-200 shadow-sm rounded-xl flex items-start gap-3">
-            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg shrink-0"><User size={16} /></div>
-            <div className="min-w-0">
-              <div className="text-2xs text-slate-500 uppercase font-bold tracking-wider mb-0.5">Người liên hệ nhận hàng</div>
-              <div className="font-bold text-slate-900 text-xs truncate">
-                {(drawerDelivery as any).nguoiLienHe || drawerDelivery.nguoiDaiDien || drawerDelivery.tenKhachHang || '---'}
+                </PaymentHoverCard>
               </div>
-              <div className="text-2xs font-mono text-slate-600 font-semibold mt-0.5">
-                {(drawerDelivery as any).sdtLienHe || drawerDelivery.sdt || 'Chưa có SĐT'}
+            )}
+          </section>
+
+          {/* Thẻ 4: Đặc cách Ban Giám Đốc nếu có */}
+          {drawerDelivery.dacCachGiaoTruoc && (
+            <section className="p-4 bg-amber-50/90 border border-amber-200 rounded-xl space-y-2 shadow-xs">
+              <div className="flex items-center gap-1.5 text-amber-900 font-black text-2xs uppercase tracking-wider">
+                <span>⚡</span> ĐẶC CÁCH BAN GIÁM ĐỐC
               </div>
-            </div>
-          </div>
-
-          <div className="p-4 bg-white border border-slate-200 shadow-sm rounded-xl flex items-start gap-3">
-            <div className="p-2.5 bg-orange-50 text-orange-600 rounded-lg shrink-0"><Truck size={16} /></div>
-            <div className="min-w-0">
-              <div className="text-2xs text-slate-500 uppercase font-bold tracking-wider mb-0.5">Đơn vị vận hành tải</div>
-              <div className="font-bold text-slate-900 text-xs truncate" title={drawerDelivery.donViVanChuyen}>
-                {drawerDelivery.donViVanChuyen || 'N/A'}
-              </div>
-              <div className="text-2xs font-mono text-slate-600 font-semibold mt-0.5">
-                {drawerDelivery.soDienThoaiDonViVanChuyen ? `Hotline: ${drawerDelivery.soDienThoaiDonViVanChuyen}` : 'Chưa có SĐT lái xe'}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-
-      
-      {/* Detail List */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-5 bg-white border border-slate-200 shadow-sm rounded-xl text-xs font-semibold">
-        <div>
-          <span className="text-2xs text-slate-500 block uppercase font-bold tracking-wider">Người Phụ Trách</span> 
-          <span className="font-extrabold text-slate-800 mt-1 block text-left">{drawerDelivery.nguoiPhuTrach || '---'}</span>
-        </div>
-        <div>
-          <span className="text-2xs text-slate-500 block uppercase font-bold tracking-wider">Trạng thái ZNS SGM</span> 
-          <div className="mt-1 flex justify-start"><StatusPill statusStr={drawerDelivery.trangThaiGuiTinGiaoHang as any} /></div>
-        </div>
-
-        <div className="col-span-1 sm:col-span-2 pt-3 border-t border-slate-100 grid grid-cols-2 gap-4">
-          <div>
-            <span className="text-2xs text-slate-500 block uppercase font-bold tracking-wider">Ngày lập phiếu</span> 
-            <span className="font-bold font-mono text-slate-800 mt-1 block text-left">
-              {drawerDelivery.ngayLapPgh ? formatDate(drawerDelivery.ngayLapPgh) : (drawerDelivery as any).createdAt ? formatDate((drawerDelivery as any).createdAt) : '---'}
-            </span>
-          </div>
-          <div>
-            <span className="text-2xs text-slate-500 block uppercase font-bold tracking-wider">Ngày dự kiến giao</span> 
-            <span className="font-bold font-mono text-amber-700 mt-1 block text-left">
-              {drawerDelivery.ngayGiaoMay ? formatDate(drawerDelivery.ngayGiaoMay) : '---'}
-            </span>
-          </div>
-        </div>
-
-        <div className="col-span-1 sm:col-span-2 pt-3 border-t border-slate-100 grid grid-cols-2 gap-4">
-          <div>
-            <span className="text-2xs text-slate-500 block uppercase font-bold tracking-wider">Ngày xác nhận giao</span> 
-            <span className="font-bold font-mono text-emerald-800 mt-1 block text-left">
-              {drawerDelivery.ngayGiaoThucTe ? formatDate(drawerDelivery.ngayGiaoThucTe) : <span className="text-slate-400 italic font-sans font-normal">Chưa xác nhận giao</span>}
-            </span>
-          </div>
-          <div>
-            <span className="text-2xs text-slate-500 block uppercase font-bold tracking-wider">Người xác nhận - Nhận hàng</span> 
-            <span className="font-bold text-slate-800 mt-1 block text-left">
-              {drawerDelivery.kyNhan || <span className="text-slate-400 italic font-sans font-normal">Chưa ký nhận</span>}
-            </span>
-          </div>
-        </div>
-
-        <div className="col-span-1 sm:col-span-2 pt-3 border-t border-slate-100">
-          <div>
-            <span className="text-2xs text-slate-500 block uppercase font-bold tracking-wider flex items-center gap-1.5"><Phone size={12}/> SĐT Vận Chuyển / Tài xế</span> 
-            <span className="font-bold font-mono text-slate-850 mt-1 block text-left">{drawerDelivery.soDienThoaiDonViVanChuyen || '---'}</span>
-          </div>
-        </div>
-
-        {drawerDelivery.danhSachMaMay && drawerDelivery.danhSachMaMay.length > 0 && (
-          <div className="col-span-1 sm:col-span-2 pt-3 border-t border-slate-100">
-            <span className="text-2xs text-slate-500 block uppercase font-bold tracking-wider">Danh sách Serial máy cấu hình</span> 
-            <div className="flex flex-wrap gap-1.5 mt-2 justify-start">
-              {drawerDelivery.danhSachMaMay.map((serial, idx) => (
-                <span key={idx} className="font-mono text-2xs font-black uppercase bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-150">{serial}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {drawerDelivery.dacCachGiaoTruoc && (
-          <div className="col-span-1 sm:col-span-2 pt-3 border-t border-amber-200">
-            <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl flex items-start gap-2.5 shadow-xs">
-              <span className="text-base leading-none">⚡</span>
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-xs font-bold text-amber-900 uppercase tracking-wide">
-                  ĐẶC CÁCH BAN GIÁM ĐỐC: GIAO TRƯỚC THANH TOÁN SAU
-                </span>
-                <span className="text-2xs text-amber-800 font-medium">
-                  {drawerDelivery.lyDoDacCach || 'Đơn hàng được phê duyệt xuất kho trước và đôn đốc thanh toán sau khi bàn giao nghiệm thu.'}
-                </span>
-                {drawerDelivery.nguoiPheDuyetDacCach && (
-                  <span className="text-3xs text-amber-600 font-semibold uppercase mt-0.5">
-                    Phê duyệt bởi: {drawerDelivery.nguoiPheDuyetDacCach}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Thông tin xuất kho ERP */}
-      <div className="p-4 bg-blue-50/40 border border-blue-200/60 rounded-xl space-y-3">
-        <div className="flex items-center justify-between border-b border-blue-100 pb-2">
-          <span className="text-2xs font-black uppercase text-blue-900 tracking-wider flex items-center gap-1.5">
-            <Package size={14} /> CĂN CỨ XUẤT KHO ERP
-          </span>
-          {drawerDelivery.soPhieuXuat && (
-            <span className="font-mono text-2xs font-bold text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200">
-              {drawerDelivery.soPhieuXuat}
-            </span>
+              <p className="text-2xs text-amber-800 font-medium leading-relaxed">
+                {drawerDelivery.lyDoDacCach || 'Đơn hàng được phê duyệt xuất kho trước và đôn đốc thanh toán sau khi bàn giao nghiệm thu.'}
+              </p>
+              {drawerDelivery.nguoiPheDuyetDacCach && (
+                <div className="text-3xs text-amber-700 font-bold uppercase pt-1 border-t border-amber-200/60">
+                  Phê duyệt: {drawerDelivery.nguoiPheDuyetDacCach}
+                </div>
+              )}
+            </section>
           )}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-          <div>
-            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Kế toán kho</span>
-            <span className="font-bold text-slate-900">{drawerDelivery.keToanKho || '---'}</span>
-          </div>
-          <div>
-            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Kho xuất</span>
-            <span className="font-bold text-slate-900">{drawerDelivery.khoXuat || '---'}</span>
-          </div>
-          <div>
-            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Ngày tạo phiếu xuất</span>
-            <span className="font-mono font-bold text-slate-900">{drawerDelivery.ngayTaoPhieuXuat ? formatDate(drawerDelivery.ngayTaoPhieuXuat) : '---'}</span>
-          </div>
-        </div>
-        {(drawerDelivery.ghiChuNoiBo || drawerDelivery.ghiChu) && (
-          <div className="pt-2 border-t border-blue-100/60 text-xs">
-            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Ghi chú xuất kho (Nội bộ)</span>
-            <p className="text-slate-700 text-xs leading-relaxed italic bg-white/70 p-2.5 rounded-lg border border-blue-100/80">
-              {drawerDelivery.ghiChuNoiBo || drawerDelivery.ghiChu}
-            </p>
-          </div>
-        )}
-      </div>
-      
-      {/* Products Check */}
-      <div>
-        <h3 className="text-xs font-black text-slate-600 mb-3 flex items-center gap-2 uppercase tracking-widest pl-1 header-text">
-          <Package size={14} className="text-slate-600" />
-          Sản phẩm bàn giao ({drawerDelivery?.products?.reduce((acc, p) => acc + (p.quantity || 0), 0) || drawerDelivery?.slMay || 0} SP)
-        </h3>
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden animate-in fade-in shadow-[0_1px_2px_rgba(15,23,42,0.02)] p-4">
-          {drawerDelivery?.products?.length ? (
-            <DrawerProductList 
-               products={drawerDelivery.products}
-               subTotal={drawerDelivery.subTotal}
-               discountRate={drawerDelivery.discountRate}
-               discountAmount={drawerDelivery.discountAmount}
-               vatRate={drawerDelivery.vatRate}
-               vatAmount={drawerDelivery.vatAmount}
-               totalAmount={drawerDelivery.totalAmount}
-               accentColorClass="text-blue-700"
-            />
-          ) : (
-            <div className="px-4 py-8 text-center text-sm text-slate-500 font-medium bg-slate-50 rounded-xl">Không có cấu trúc sản phẩm chi tiết.</div>
-          )}
+
         </div>
       </div>
-      
-      {/* Notes */}
-      {drawerDelivery.ghiChu && (
-        <div>
-          <h3 className="text-2xs font-bold text-slate-500 mb-2 uppercase tracking-wider flex items-center gap-1"><FileText size={12}/> Ghi chú lúc giao</h3>
-          <p className="text-xs text-slate-700 bg-amber-500/5 p-4 border border-amber-100 rounded-xl leading-relaxed whitespace-pre-wrap text-left font-semibold">{drawerDelivery.ghiChu}</p>
-        </div>
-      )}
     </div>
   );
 
@@ -651,6 +646,54 @@ export function DeliveryDetailDrawer({
     </div>
   );
 
+  // Horizon HUD (Top Status Pulse)
+  const horizonHud = (
+    <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div className="flex items-center gap-3">
+        <span className="font-mono font-black text-blue-900 bg-white px-2.5 py-1 rounded-md border border-blue-200 shadow-2xs">
+          {drawerDelivery.deliveryId || drawerDelivery.soPhieuXuat || 'N/A'}
+        </span>
+        <span className={`px-2 py-0.5 rounded text-3xs font-bold border ${
+          isCompleted 
+            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+            : 'bg-amber-50 text-amber-800 border-amber-200'
+        }`}>
+          {isCompleted ? '✓ Đã bàn giao' : 'Đang giao hàng'}
+        </span>
+        {drawerDelivery.soHopDong && (
+          <span className="font-mono text-3xs font-semibold text-slate-700 bg-white/80 px-2 py-0.5 rounded border border-slate-200">
+            HĐ: {drawerDelivery.soHopDong}
+          </span>
+        )}
+        {drawerDelivery.soPhieuXuat && (
+          <span className="font-mono text-3xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+            PX: {drawerDelivery.soPhieuXuat}
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1.5">
+          <span className="text-3xs text-slate-500 uppercase font-bold">Dự kiến giao:</span>
+          <span className="font-mono font-bold text-amber-800">
+            {drawerDelivery.ngayGiaoMay ? formatDate(drawerDelivery.ngayGiaoMay) : '---'}
+          </span>
+        </div>
+        {drawerDelivery.ngayGiaoThucTe && (
+          <>
+            <div className="h-3.5 w-px bg-slate-200 hidden sm:block" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-3xs text-slate-500 uppercase font-bold">Thực giao:</span>
+              <span className="font-mono font-bold text-emerald-800">
+                {formatDate(drawerDelivery.ngayGiaoThucTe)}
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <DetailDrawer
       isOpen={!!drawerDelivery}
@@ -670,7 +713,8 @@ export function DeliveryDetailDrawer({
       entityId={drawerDelivery.id || ''}
       entityType="delivery"
       icon={<Package size={16} />}
-      size="screen"
+      size="studio"
+      horizonHud={horizonHud}
       tabs={customTabsList}
       footer={
         <div className="flex justify-end w-full">

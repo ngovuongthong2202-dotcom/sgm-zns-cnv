@@ -215,9 +215,41 @@ export function QuotationDetailDrawer({
       owners={owners}
       totalValue={totalValue}
       handleOwnerChange={handleOwnerChange}
+      onClose={onClose}
     />
   );
 
+  const horizonHud = (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+      <div className="flex items-center gap-2.5 flex-wrap">
+        <span className="font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-bold border border-blue-200">
+          {quotation.soPhieuBaoGia}
+        </span>
+        <span className="text-slate-300 font-sans">|</span>
+        <span className="text-slate-600 font-medium">
+          Loại: <strong className="text-slate-800 font-bold">{quotation.loai || 'Chưa phân loại'}</strong>
+        </span>
+        <span className="text-slate-300 font-sans">|</span>
+        <span className="text-slate-500 font-mono text-2xs">
+          Lập: {formatDate(quotation.ngayBaoGia)}
+        </span>
+        {quotation.ngayHetHan && (
+          <span className="px-2 py-0.5 rounded text-3xs font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
+            Hạn: {formatDate(quotation.ngayHetHan)}
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-2xs">
+          <span className="text-3xs uppercase font-bold text-slate-500 tracking-wider">Tổng giá trị:</span>
+          <span className="font-mono text-sm font-black text-blue-700 tabular-nums">
+            {new Intl.NumberFormat('vi-VN').format(totalValue)} ₫
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 
   // 2. HOẠT ĐỘNG TIMELINE PANEL
   const timelinePanel = (
@@ -273,7 +305,6 @@ export function QuotationDetailDrawer({
     />
   );
 
- 
   return (
     <>
       <DetailDrawer
@@ -286,7 +317,8 @@ export function QuotationDetailDrawer({
         entityId={quotation?.id || ''}
         entityType="quotation"
         icon={<FileText size={16} />}
-        size="screen" // Full-screen width for bento-aesthetic layout
+        size="studio" // Adaptive Studio layout (1400px) with 1-click Viewport Switcher
+        horizonHud={horizonHud}
         tabs={customTabsList}
         footer={footerContent}
       >

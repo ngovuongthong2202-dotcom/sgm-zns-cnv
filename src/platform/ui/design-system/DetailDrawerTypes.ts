@@ -10,7 +10,9 @@ export interface DetailDrawerProps {
   subTitle?: React.ReactNode;
   statusPill?: React.ReactNode;
   topRightControls?: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full' | 'screen';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full' | 'docked' | 'studio' | 'screen';
+  allowViewportSwitch?: boolean;
+  horizonHud?: React.ReactNode;
   isDirty?: boolean;
   updatedBy?: string;
   updatedAt?: string;

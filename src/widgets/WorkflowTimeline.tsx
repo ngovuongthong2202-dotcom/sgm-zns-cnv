@@ -18,9 +18,21 @@ interface WorkflowTimelineProps {
   payments: Payment[];
   deliveries: Delivery[];
   className?: string;
+  onCreateContract?: () => void;
+  onCreatePayment?: () => void;
+  onCreateDelivery?: () => void;
 }
 
-export function WorkflowTimeline({ quotation, contracts, payments, deliveries, className = '' }: WorkflowTimelineProps) {
+export function WorkflowTimeline({ 
+  quotation, 
+  contracts, 
+  payments, 
+  deliveries, 
+  className = '',
+  onCreateContract,
+  onCreatePayment,
+  onCreateDelivery,
+}: WorkflowTimelineProps) {
   const isMachine = normalizeLoai(quotation.loai) === QUOTATION_LOAI.MAY;
   const { openDrawer } = useDrawerStack();
   const { bypassZns, bypassingId } = useManualZnsBypass();
@@ -126,7 +138,33 @@ export function WorkflowTimeline({ quotation, contracts, payments, deliveries, c
                      {step.docNumber} ↗
                    </Button>
                 ) : (
-                   <span className="text-2xs text-slate-500 mb-1">Chưa tạo</span>
+                   step.id === 'contract' && onCreateContract ? (
+                     <button
+                       type="button"
+                       onClick={onCreateContract}
+                       className="text-3xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded transition-all cursor-pointer shadow-2xs hover:shadow-xs mb-1"
+                     >
+                       + Tạo HĐ
+                     </button>
+                   ) : step.id === 'payment' && onCreatePayment ? (
+                     <button
+                       type="button"
+                       onClick={onCreatePayment}
+                       className="text-3xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded transition-all cursor-pointer shadow-2xs hover:shadow-xs mb-1"
+                     >
+                       + Phiếu thu
+                     </button>
+                   ) : step.id === 'delivery' && onCreateDelivery ? (
+                     <button
+                       type="button"
+                       onClick={onCreateDelivery}
+                       className="text-3xs font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 px-2 py-0.5 rounded transition-all cursor-pointer shadow-2xs hover:shadow-xs mb-1"
+                     >
+                       + Phiếu giao
+                     </button>
+                   ) : (
+                     <span className="text-2xs text-slate-400 mb-1">Chưa tạo</span>
+                   )
                 )}
 
                 {step.completed && (

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Tabs from '@radix-ui/react-tabs';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Printer, Trash2, Save, Send, Edit, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Printer, Trash2, Save, Send, Edit, ChevronLeft, ChevronRight, Columns2, Maximize2, LayoutGrid } from 'lucide-react';
 import { usePresence } from '@/src/hooks/usePresence';
 import { Button } from './Button';
 import { DetailDrawerProps } from './DetailDrawerTypes';
@@ -17,14 +17,19 @@ function URLDrawerSynchronizer({ isOpen, entityId, entityType }: { isOpen: boole
 
 export function DetailDrawer({ 
   isOpen, onClose, entityId, entityType, icon, title, subTitle, statusPill, topRightControls,
-  size = 'md', isDirty = false, updatedBy, updatedAt,
+  size = 'md', allowViewportSwitch, horizonHud, isDirty = false, updatedBy, updatedAt,
   overviewPanel, activityPanel, linksPanel, znsHistoryPanel, auditLogPanel, attachmentsPanel,
   children, footer, tabs,
   onSave, onSendZns, onPrint, onDelete, onEdit, modal = true, className = '',
   onNavigatePrev, onNavigateNext
 }: DetailDrawerProps) {
   const [activeTab, setActiveTab] = useState('overview');
+  const [currentSize, setCurrentSize] = useState(size);
   const { confirm } = useConfirm();
+
+  useEffect(() => {
+    setCurrentSize(size);
+  }, [size]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -48,16 +53,19 @@ export function DetailDrawer({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onNavigatePrev, onNavigateNext]);
 
-  const sizeClasses = {
+  const sizeClasses: Record<string, string> = {
     sm: 'sm:max-w-[420px] sm:w-[420px] w-full',
     md: 'sm:max-w-[440px] sm:w-[440px] w-full',
     lg: 'sm:max-w-[480px] sm:w-[480px] w-full',
     xl: 'sm:max-w-[640px] sm:w-[640px] w-full',
     full: 'sm:max-w-[840px] sm:w-[840px] w-full',
+    docked: 'sm:max-w-[760px] lg:max-w-[860px] w-full',
+    studio: 'sm:max-w-[1140px] 2xl:max-w-[1440px] w-full',
     screen: 'w-screen max-w-none'
   };
 
   const { activeUsers } = usePresence(entityId, entityType);
+  const isElastic = allowViewportSwitch ?? (['screen', 'studio', 'docked'].includes(size));
 
   return (
     <>
@@ -91,7 +99,7 @@ export function DetailDrawer({
                   animate={{ x: 0, opacity: 1 }}
                   exit={{ x: '100%', opacity: 0 }}
                   transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-                  className={`fixed inset-y-0 right-0 z-[125] w-full ${sizeClasses[size]} bg-white shadow-[0_24px_48px_-12px_rgba(15,23,42,0.16)] flex flex-col outline-none border-l border-slate-100 ${className}`}
+                  className={`fixed inset-y-0 right-0 z-[125] w-full ${sizeClasses[currentSize] || sizeClasses.screen} bg-white shadow-[0_24px_48px_-12px_rgba(15,23,42,0.16)] flex flex-col outline-none border-l border-slate-100 transition-[max-width] duration-300 ease-in-out ${className}`}
                 >
                   <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full overflow-hidden">
                   
@@ -184,6 +192,47 @@ export function DetailDrawer({
                           </div>
                         )}
 
+                        {isElastic && (
+                          <div className="flex items-center mx-1 gap-0.5 bg-slate-100/80 border border-slate-200/80 rounded-lg p-0.5" title="Chế độ hiển thị khung nhìn">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="xs"
+                              iconOnly
+                              onClick={() => setCurrentSize('docked')}
+                              className={`w-6 h-6 rounded ${currentSize === 'docked' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'text-slate-500 hover:text-slate-900'}`}
+                              title="Thu gọn (Docked 55vw)"
+                              aria-label="Thu gọn"
+                            >
+                              <Columns2 size={13} />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="xs"
+                              iconOnly
+                              onClick={() => setCurrentSize('studio')}
+                              className={`w-6 h-6 rounded ${currentSize === 'studio' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'text-slate-500 hover:text-slate-900'}`}
+                              title="Tiêu chuẩn (Studio 80vw)"
+                              aria-label="Tiêu chuẩn"
+                            >
+                              <LayoutGrid size={13} />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="xs"
+                              iconOnly
+                              onClick={() => setCurrentSize('screen')}
+                              className={`w-6 h-6 rounded ${currentSize === 'screen' ? 'bg-white shadow-xs text-blue-700 font-bold' : 'text-slate-500 hover:text-slate-900'}`}
+                              title="Toàn màn hình (Immersive 100vw)"
+                              aria-label="Toàn màn hình"
+                            >
+                              <Maximize2 size={13} />
+                            </Button>
+                          </div>
+                        )}
+
                         {topRightControls}
                         <Dialog.Close asChild>
                           <Button 
@@ -198,6 +247,13 @@ export function DetailDrawer({
                         </Dialog.Close>
                       </div>
                     </div>
+
+                    {/* Horizon HUD (Heads-Up Display) */}
+                    {horizonHud && (
+                      <div className="px-6 py-2.5 border-b border-slate-100 bg-slate-50/80 shrink-0 animate-in fade-in duration-200">
+                        {horizonHud}
+                      </div>
+                    )}
 
                     {/* Navigation Tab Heads */}
                     {!tabs && (overviewPanel || activityPanel || linksPanel || znsHistoryPanel || auditLogPanel || attachmentsPanel) && (
