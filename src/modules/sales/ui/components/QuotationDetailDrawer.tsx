@@ -156,13 +156,30 @@ export function QuotationDetailDrawer({
     } as any);
   const { totalAfterTax: totalValue } = aggregateProducts(quotation.products || []);
 
-  const safeContracts = contracts || lazyContracts;
-  const safePayments = payments || lazyPayments;
-  const safeDeliveries = deliveries || lazyDeliveries;
+  const safeContracts = (contracts && contracts.length > 0) ? contracts : lazyContracts;
+  const safePayments = (payments && payments.length > 0) ? payments : lazyPayments;
+  const safeDeliveries = (deliveries && deliveries.length > 0) ? deliveries : lazyDeliveries;
 
-  const matchingContracts = safeContracts.filter(c => c.quotationId === quotation.id);
-  const matchingPayments = safePayments.filter(p => p.quotationId === quotation.id || matchingContracts.some(c => c.id === p.contractId));
-  const matchingDeliveries = safeDeliveries.filter(d => d.quotationId === quotation.id || matchingContracts.some(c => c.id === d.contractId));
+  const matchingContracts = safeContracts.filter(c => 
+    c.quotationId === quotation.id || 
+    (quotation.soPhieuBaoGia && c.soPhieuBaoGia === quotation.soPhieuBaoGia)
+  );
+  const matchingContractIds = new Set(matchingContracts.map(c => c.id).filter(Boolean));
+  const matchingContractSos = new Set(matchingContracts.map(c => c.soHopDong).filter(Boolean));
+
+  const matchingPayments = safePayments.filter(p => 
+    p.quotationId === quotation.id || 
+    (quotation.soPhieuBaoGia && p.soPhieuBaoGia === quotation.soPhieuBaoGia) ||
+    (p.contractId && matchingContractIds.has(p.contractId)) ||
+    (p.soHopDong && matchingContractSos.has(p.soHopDong))
+  );
+
+  const matchingDeliveries = safeDeliveries.filter(d => 
+    d.quotationId === quotation.id || 
+    (quotation.soPhieuBaoGia && d.soPhieuBaoGia === quotation.soPhieuBaoGia) ||
+    (d.contractId && matchingContractIds.has(d.contractId)) ||
+    (d.soHopDong && matchingContractSos.has(d.soHopDong))
+  );
 
   // CUSTOM TABS CONTROLLERS
   const customTabsList = (

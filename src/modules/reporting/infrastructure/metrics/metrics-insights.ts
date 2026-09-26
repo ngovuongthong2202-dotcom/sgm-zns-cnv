@@ -1,4 +1,5 @@
 import { Customer, Quotation, Contract, Payment, Delivery, ZnsMessage } from './metrics-interfaces';
+import { addVietnamWorkingDays, getFirstInstallment, countVietnamWorkingDays } from '../../../../shared/utils/vietnamBusinessDays';
 
 export function differenceInDays(a: Date, b: Date): number {
   return Math.floor((a.getTime() - b.getTime()) / (1000 * 3600 * 24));
@@ -81,11 +82,14 @@ export function buildInsights(data: {
   const hdTreo = (() => {
     const res: Array<{ contract: Contract; daysLate: number }> = [];
     contracts.forEach(c => {
-      if (!c.ngayKy || !c.soNgayDuKienHoanThanh) return;
-      const dl = new Date(c.ngayKy);
-      dl.setDate(dl.getDate() + c.soNgayDuKienHoanThanh);
+      const matchingPays = payments.filter(p => p.contractId === c.id || p.contractId === c.soHopDong || (p as any).soHopDong === c.soHopDong);
+      const dot1 = getFirstInstallment(matchingPays);
+      const baseDate = dot1?.ngayThu || (c as any).ngayThuDot1 || c.ngayKy;
+      if (!baseDate || !c.soNgayDuKienHoanThanh) return;
+      const dl = addVietnamWorkingDays(baseDate, c.soNgayDuKienHoanThanh);
+      if (!dl) return;
 
-      if (now > dl) {
+      if (now.getTime() > dl.getTime()) {
         const dels = deliveries.filter(d => d.contractId === c.id && d.ngayGiaoThucTe);
         if (dels.length === 0) {
           const pays = payments.filter(p => p.contractId === c.id);

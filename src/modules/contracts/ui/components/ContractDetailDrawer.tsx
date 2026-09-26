@@ -22,6 +22,7 @@ import { checkContractLock } from '@/src/domain/policy/lock.policy';
 import { EntityBusinessLockWarning } from '@/src/widgets/EntityBusinessLockWarning';
 import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
 import { reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
+import { computeContractCompletionTimeline } from '@/src/shared/utils/vietnamBusinessDays';
 
 import { sendZnsAndToast, nextAttempt } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
@@ -163,26 +164,9 @@ export function ContractDetailDrawer({
   );
 
   // 1. TỔNG QUAN TAB (OMNI-NEXUS COD 11.0)
-  const ngayKyObj = drawerContract.ngayKy ? new Date(drawerContract.ngayKy) : null;
-  const ngayHT = drawerContract.soNgayDuKienHoanThanh || 0;
-  let progressDays = 0;
-  let isDelayed = false;
-  let daysLeft = 0;
-  
-  if (ngayKyObj && ngayHT > 0) {
-    const now = new Date();
-    const elapsed = Math.max(0, Math.floor((now.getTime() - ngayKyObj.getTime()) / (1000 * 60 * 60 * 24)));
-    progressDays = elapsed;
-    if (elapsed > ngayHT && dPct < 100) {
-      isDelayed = true;
-      daysLeft = elapsed - ngayHT;
-    } else {
-      daysLeft = Math.max(0, ngayHT - elapsed);
-    }
-  }
-  const timeProgressPct = ngayHT > 0 ? Math.min(100, Math.round((progressDays / ngayHT) * 100)) : 0;
-  const statusText = dPct >= 100 ? 'Hoàn thành bàn giao' : isDelayed ? 'Trễ tiến độ giao' : 'Đang triển khai';
-  const statusColor = dPct >= 100 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : isDelayed ? 'text-rose-700 bg-rose-50 border-rose-200' : 'text-blue-700 bg-blue-50 border-blue-200';
+  const completionTimeline = React.useMemo(() => {
+    return computeContractCompletionTimeline(drawerContract, pays, undefined, { deliveryPercentage: dPct });
+  }, [drawerContract, pays, dPct]);
 
   const overviewPanel = (
     <div className="space-y-5 pt-1 pb-6">
@@ -217,34 +201,46 @@ export function ContractDetailDrawer({
                   TIẾN ĐỘ THỰC THI HỢP ĐỒNG (DUAL-TRACK COCKPIT)
                 </h3>
               </div>
-              <span className={`text-2xs uppercase font-bold px-2 py-0.5 rounded-md border ${statusColor}`}>
-                {statusText}
+              <span className={`text-2xs uppercase font-bold px-2 py-0.5 rounded-md border ${completionTimeline.statusColor}`}>
+                {completionTimeline.statusText}
               </span>
             </div>
 
-            {/* Tiến độ thời gian thực hiện */}
+            {/* Tiến độ thời gian thực hiện (Chuẩn theo ngày làm việc Việt Nam - trừ CN & Lễ Tết) */}
             <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-150 mb-4">
               <div className="flex justify-between items-center mb-1.5 text-xs">
-                <span className="font-bold text-slate-700 flex items-center gap-1.5">
-                  Thời gian hợp đồng: {ngayHT > 0 ? `${ngayHT} ngày` : 'Chưa xác định hạn'}
+                <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                  Thời gian hợp đồng: {completionTimeline.workingDaysTotal > 0 ? `${completionTimeline.workingDaysTotal} ngày làm việc` : 'Chưa xác định hạn'}
                 </span>
-                <span className="font-mono text-2xs text-slate-600 font-semibold">
-                  {dPct >= 100 
-                    ? 'Đã giao xong toàn bộ' 
-                    : isDelayed 
-                      ? `Trễ ${daysLeft} ngày` 
-                      : `Còn lại ${daysLeft} ngày`}
+                <span className="font-mono text-2xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <span className="text-slate-500 font-normal">Hạn hoàn thành:</span>
+                  <span className="bg-white border border-slate-200 px-2 py-0.5 rounded text-blue-700 font-black">
+                    {completionTimeline.completionDateFormatted}
+                  </span>
+                  <span className={completionTimeline.isDelayed ? 'text-rose-600 font-extrabold' : 'text-slate-600'}>
+                    {dPct >= 100 
+                      ? '(Đã giao xong toàn bộ)' 
+                      : completionTimeline.isDelayed 
+                        ? `(Trễ ${completionTimeline.delayedWorkingDays} ngày)` 
+                        : `(Còn lại ${completionTimeline.workingDaysRemaining} ngày)`}
+                  </span>
                 </span>
               </div>
               <div className="h-2 bg-slate-200 rounded-full overflow-hidden mb-1.5">
                 <div 
-                  className={`h-full transition-all duration-500 ${dPct >= 100 ? 'bg-emerald-500' : isDelayed ? 'bg-rose-500' : 'bg-blue-500'}`} 
-                  style={{ width: `${timeProgressPct}%` }} 
+                  className={`h-full transition-all duration-500 ${dPct >= 100 ? 'bg-emerald-500' : completionTimeline.isDelayed ? 'bg-rose-500' : 'bg-blue-500'}`} 
+                  style={{ width: `${completionTimeline.timeProgressPercent}%` }} 
                 />
               </div>
-              <div className="flex justify-between text-3xs text-slate-400 font-mono">
-                <span>Ngày ký: {ngayKyObj ? formatDate(drawerContract.ngayKy) : 'Chưa ký'}</span>
-                <span>Tiến độ ngày: {timeProgressPct}%</span>
+              <div className="flex justify-between text-3xs text-slate-500 font-mono items-center">
+                <span className="font-semibold text-slate-600 flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-600" />
+                  Mốc tính: <strong className="text-slate-800 font-bold">{completionTimeline.baseDateLabel}</strong>
+                  <span className="text-slate-400 font-normal ml-0.5">(Trừ Chủ Nhật & Lễ/Tết VN)</span>
+                </span>
+                <span className="font-bold text-slate-700">
+                  Tiến độ: {completionTimeline.timeProgressPercent}% (Đã qua {completionTimeline.workingDaysElapsed}/{completionTimeline.workingDaysTotal} ngày)
+                </span>
               </div>
             </div>
 

@@ -5,6 +5,8 @@ import { ContractSchema, Contract } from '@/src/domain/schema/contract.schema';
 import { EntityZnsStatus } from '@/src/domain/enums/zns-status';
 import { getProductItemKey } from '@/src/shared/utils/product-key';
 import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
+import { formatDate } from '@/src/shared/utils/formatDate';
+import { addVietnamWorkingDays } from '@/src/shared/utils/vietnamBusinessDays';
 
 export const FormSchema = ContractSchema.extend({
   ngayKy: z.string().min(1, 'Ngày ký hợp đồng là bắt buộc'),
@@ -101,10 +103,8 @@ export function applyQuotationToContractForm(setValue: UseFormSetValue<FormValue
 
 export function computeEstimatedCompletionDate(ngayKy: string, soNgayDuKienHoanThanh: number): string {
   if (!ngayKy || !soNgayDuKienHoanThanh) return '';
-  const date = new Date(ngayKy);
-  if (isNaN(date.getTime())) return '';
-  date.setDate(date.getDate() + soNgayDuKienHoanThanh);
-  return date.toLocaleDateString('vi-VN');
+  const target = addVietnamWorkingDays(ngayKy, soNgayDuKienHoanThanh);
+  return target ? formatDate(target) : '';
 }
 
 export function filterExistingContractsForQuo(selectedQuoId: string, contracts: Contract[], currentContractId?: string): Contract[] {

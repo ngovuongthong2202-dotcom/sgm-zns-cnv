@@ -7,6 +7,8 @@ import { formatDate } from '@/src/shared/utils/formatDate';
 import { getStatusBadgeMeta } from '@/src/domain/enums/zns-status';
 import { useDrawerStack } from '@/src/contexts/DrawerStackContext';
 
+import { addVietnamWorkingDays } from '@/src/shared/utils/vietnamBusinessDays';
+
 const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 };
@@ -14,14 +16,8 @@ const formatCurrency = (val: number) => {
 const calcCompletionDate = (ngayKyStr?: string, days?: number) => {
   if (!ngayKyStr) return '—';
   if (!days) return formatDate(ngayKyStr);
-  try {
-    const date = new Date(ngayKyStr);
-    if (isNaN(date.getTime())) return '—';
-    date.setDate(date.getDate() + days);
-    return date.toLocaleDateString('vi-VN');
-  } catch {
-    return '—';
-  }
+  const target = addVietnamWorkingDays(ngayKyStr, days);
+  return target ? formatDate(target) : '—';
 };
 
 interface ContractsTabContentProps {

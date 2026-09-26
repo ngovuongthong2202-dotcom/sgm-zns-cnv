@@ -2,6 +2,7 @@ import { Contract } from '@/src/domain/schema/contract.schema';
 import { Payment } from '@/src/domain/schema/payment.schema';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { reconcileContractStats, reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
+import { addVietnamWorkingDays, getFirstInstallment } from '@/src/shared/utils/vietnamBusinessDays';
 
 export const contractAggregates = {
   totalCustomersWithContracts: (contracts: Contract[]) => {
@@ -82,7 +83,7 @@ export const contractAggregates = {
     return undeliveredCount;
   },
 
-  deadlineStats: (contracts: Contract[], deliveries: Delivery[]) => {
+  deadlineStats: (contracts: Contract[], deliveries: Delivery[], payments?: Payment[]) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -90,7 +91,10 @@ export const contractAggregates = {
     let upcomingCount = 0;
 
     contracts.forEach(c => {
-      if (!c.ngayKy || !c.soNgayDuKienHoanThanh) return;
+      const matchingPays = (payments || []).filter(p => p.contractId === c.id || p.contractId === c.soHopDong || p.soHopDong === c.soHopDong);
+      const dot1 = getFirstInstallment(matchingPays);
+      const baseDate = dot1?.ngayThu || (c as any).ngayThuDot1 || c.ngayKy;
+      if (!baseDate || !c.soNgayDuKienHoanThanh) return;
       
       const prodList = Array.isArray(c.products) ? c.products : [];
       const contractQty = prodList.reduce((s, p) => s + (p.quantity || 0), 0) || c.slMay || 0;
@@ -104,8 +108,8 @@ export const contractAggregates = {
       // Ignore if already fully delivered
       if (contractQty > 0 && deliveredQty >= contractQty) return;
 
-      const dt = new Date(c.ngayKy);
-      dt.setDate(dt.getDate() + c.soNgayDuKienHoanThanh);
+      const dt = addVietnamWorkingDays(baseDate, c.soNgayDuKienHoanThanh);
+      if (!dt) return;
       dt.setHours(0, 0, 0, 0);
 
       const diffTime = dt.getTime() - today.getTime();

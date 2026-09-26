@@ -6,6 +6,7 @@ import { swrColFetcher, swrDocFetcher } from '@/src/data/swr-fetchers';
 import { HoverCardPortal } from '@/src/design-system/HoverCardPortal';
 import { HoverCardProductsTab } from '@/src/widgets/HoverCardProductsTab';
 import { formatDate } from '@/src/shared/utils/formatDate';
+import { addVietnamWorkingDays } from '@/src/shared/utils/vietnamBusinessDays';
 import { cn } from '@/src/shared/utils/textFormatter';
 import { t } from '@/src/i18n/vi';
 
@@ -141,11 +142,19 @@ function QuotationHoverCardContent({ quotation, quotationId }: { quotation?: Quo
                                <span className="font-bold text-slate-800 line-clamp-1 group-hover:text-emerald-700 transition-colors">{c.soHopDong || c.soDonHang}</span>
                                <span className="font-mono text-emerald-700 font-bold">{new Intl.NumberFormat('vi-VN').format(c.totalAmount || 0)} ₫</span>
                              </div>
-                             <div className="grid grid-cols-2 gap-2 text-slate-500 text-2xs leading-tight">
-                               <div><span className="font-medium text-slate-400">Ngày ký:</span> <span className="font-medium text-slate-700">{formatDate(c.ngayKy) || '-'}</span></div>
-                               <div><span className="font-medium text-slate-400">Số ngày TH:</span> <span className="font-medium text-slate-700">{c.soNgayThucHien || c.soNgayDuKienHoanThanh || '-'} ngày</span></div>
-                               <div className="col-span-2"><span className="font-medium text-slate-400">Dự kiến HT:</span> <span className="font-medium text-slate-700">{formatDate(c.ngayDuKienHoanThanh) || '-'}</span></div>
-                             </div>
+                             {(() => {
+                               const baseDate = (c as any).ngayThuDot1 || c.ngayKy;
+                               const dDate = baseDate && (c.soNgayDuKienHoanThanh || c.soNgayThucHien) 
+                                 ? addVietnamWorkingDays(baseDate, c.soNgayDuKienHoanThanh || c.soNgayThucHien)
+                                 : null;
+                               return (
+                                 <div className="grid grid-cols-2 gap-2 text-slate-500 text-2xs leading-tight">
+                                   <div><span className="font-medium text-slate-400">Ngày ký:</span> <span className="font-medium text-slate-700">{formatDate(c.ngayKy) || '-'}</span></div>
+                                   <div><span className="font-medium text-slate-400">Số ngày TH:</span> <span className="font-medium text-slate-700">{c.soNgayThucHien || c.soNgayDuKienHoanThanh || '-'} ngày</span></div>
+                                   <div className="col-span-2"><span className="font-medium text-slate-400">Dự kiến HT:</span> <span className="font-bold text-blue-700">{dDate ? formatDate(dDate) : (formatDate(c.ngayDuKienHoanThanh) || '-')}</span></div>
+                                 </div>
+                               );
+                             })()}
                           </div>
                         ))}
                       </div>

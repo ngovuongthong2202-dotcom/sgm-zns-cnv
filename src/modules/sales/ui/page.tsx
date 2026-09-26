@@ -75,18 +75,32 @@ export default function QuotationsFeature() {
 
   const drawerContracts = useMemo(() => {
     if (!drawerQuotation?.id) return [];
-    return allContracts.filter((c) => c.quotationId === drawerQuotation.id);
-  }, [allContracts, drawerQuotation?.id]);
+    return allContracts.filter((c) => c.quotationId === drawerQuotation.id || (drawerQuotation.soPhieuBaoGia && c.soPhieuBaoGia === drawerQuotation.soPhieuBaoGia));
+  }, [allContracts, drawerQuotation?.id, drawerQuotation?.soPhieuBaoGia]);
 
   const drawerPayments = useMemo(() => {
     if (!drawerQuotation?.id) return [];
-    return allPayments.filter((p) => p.quotationId === drawerQuotation.id);
-  }, [allPayments, drawerQuotation?.id]);
+    const linkedContractIds = new Set(drawerContracts.map(c => c.id).filter(Boolean));
+    const linkedContractSos = new Set(drawerContracts.map(c => c.soHopDong).filter(Boolean));
+    return allPayments.filter((p) => 
+      p.quotationId === drawerQuotation.id || 
+      (drawerQuotation.soPhieuBaoGia && p.soPhieuBaoGia === drawerQuotation.soPhieuBaoGia) ||
+      (p.contractId && linkedContractIds.has(p.contractId)) ||
+      (p.soHopDong && linkedContractSos.has(p.soHopDong))
+    );
+  }, [allPayments, drawerQuotation?.id, drawerQuotation?.soPhieuBaoGia, drawerContracts]);
 
   const drawerDeliveries = useMemo(() => {
     if (!drawerQuotation?.id) return [];
-    return allDeliveries.filter((d) => d.quotationId === drawerQuotation.id);
-  }, [allDeliveries, drawerQuotation?.id]);
+    const linkedContractIds = new Set(drawerContracts.map(c => c.id).filter(Boolean));
+    const linkedContractSos = new Set(drawerContracts.map(c => c.soHopDong).filter(Boolean));
+    return allDeliveries.filter((d) => 
+      d.quotationId === drawerQuotation.id || 
+      (drawerQuotation.soPhieuBaoGia && d.soPhieuBaoGia === drawerQuotation.soPhieuBaoGia) ||
+      (d.contractId && linkedContractIds.has(d.contractId)) ||
+      (d.soHopDong && linkedContractSos.has(d.soHopDong))
+    );
+  }, [allDeliveries, drawerQuotation?.id, drawerQuotation?.soPhieuBaoGia, drawerContracts]);
 
   const customerTinhThanhMap = useMemo(() => extractCustomerTinhThanhMap(allCustomers), [allCustomers]);
   const tinhThanhList = useMemo(() => extractTinhThanhList(quotations, customerTinhThanhMap), [quotations, customerTinhThanhMap]);

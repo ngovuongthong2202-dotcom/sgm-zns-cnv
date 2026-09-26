@@ -130,6 +130,8 @@ export function PaymentRecordDrawer({
         if (contract) {
           enriched.soDonHang = enriched.soDonHang || contract.soDonHang || '';
           enriched.soHopDong = enriched.soHopDong || contract.soHopDong || '';
+          enriched.quotationId = enriched.quotationId || contract.quotationId || '';
+          enriched.soPhieuBaoGia = enriched.soPhieuBaoGia || contract.soPhieuBaoGia || '';
         } else if (payment.quotationId) {
           const matchingContract = (contracts && contracts.find(c => c.quotationId === payment.quotationId)) ||
             entityCachePool.find('contracts', (c: any) => c.quotationId === payment.quotationId);

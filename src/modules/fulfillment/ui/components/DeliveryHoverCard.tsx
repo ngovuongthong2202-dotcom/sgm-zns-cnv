@@ -8,6 +8,7 @@ import { formatDate } from '@/src/shared/utils/formatDate';
 import { HoverCardPortal } from '@/src/design-system/HoverCardPortal';
 import { HoverCardProductsTab } from '@/src/widgets/HoverCardProductsTab';
 import { cn } from '@/src/shared/utils/textFormatter';
+import { addVietnamWorkingDays } from '@/src/shared/utils/vietnamBusinessDays';
 
 interface Props {
   delivery?: Delivery;
@@ -58,6 +59,20 @@ function DeliveryHoverCardContent({ delivery, deliveryId }: { delivery?: Deliver
   }
 
   const totalValue = activeDelivery.products?.reduce((acc: number, p: any) => acc + ((p.price || 0) * (p.quantity || 1)), 0) || 0;
+
+  const contractDuration = Number(linkedContract?.soNgayDuKienHoanThanh || linkedContract?.soNgayThucHien || 0);
+  let contractBaseDate = linkedContract?.ngayKy;
+  if (linkedPayment) {
+    if (Array.isArray(linkedPayment.cacDotThu) && linkedPayment.cacDotThu.length > 0) {
+      const dot1 = linkedPayment.cacDotThu.find((d: any) => d.dot === 1 || d.tenDot?.includes('1')) || linkedPayment.cacDotThu[0];
+      if (dot1?.ngayThu) contractBaseDate = dot1.ngayThu;
+    } else if (linkedPayment.ngayThanhToan) {
+      contractBaseDate = linkedPayment.ngayThanhToan;
+    }
+  }
+  const contractCompletionDate = contractBaseDate && contractDuration > 0
+    ? addVietnamWorkingDays(contractBaseDate, contractDuration)
+    : (linkedContract?.ngayDuKienHoanThanh ? new Date(linkedContract.ngayDuKienHoanThanh) : null);
 
   return (
     <div className="flex flex-col h-full bg-slate-50 max-h-[85vh] overflow-hidden w-[420px]" onClick={(e) => e.stopPropagation()}>
@@ -171,7 +186,17 @@ function DeliveryHoverCardContent({ delivery, deliveryId }: { delivery?: Deliver
                    <div className="grid grid-cols-2 gap-2 text-slate-500 text-2xs leading-tight">
                      <div><span className="font-medium text-slate-400">Ngày ký:</span> <span className="font-medium text-slate-700">{formatDate(linkedContract?.ngayKy) || '-'}</span></div>
                      <div><span className="font-medium text-slate-400">Số ngày TH:</span> <span className="font-medium text-slate-700">{linkedContract?.soNgayThucHien || linkedContract?.soNgayDuKienHoanThanh || '-'} ngày</span></div>
-                     <div className="col-span-2"><span className="font-medium text-slate-400">Dự kiến HT:</span> <span className="font-medium text-slate-700">{formatDate(linkedContract?.ngayDuKienHoanThanh) || '-'}</span></div>
+                     <div className="col-span-2">
+                       <span className="font-medium text-slate-400">Dự kiến HT:</span>{' '}
+                       <span className="font-semibold text-blue-700">
+                         {contractCompletionDate ? formatDate(contractCompletionDate) : (formatDate(linkedContract?.ngayDuKienHoanThanh) || '-')}
+                       </span>
+                       {contractBaseDate && (
+                         <span className="text-[10px] text-slate-400 ml-1">
+                           ({contractBaseDate === linkedContract?.ngayKy ? 'từ ngày ký' : 'từ thu đợt 1'})
+                         </span>
+                       )}
+                     </div>
                    </div>
                 </div>
               ) : <div className="text-2xs text-slate-500 italic text-center py-2">Không liên kết hợp đồng</div>}

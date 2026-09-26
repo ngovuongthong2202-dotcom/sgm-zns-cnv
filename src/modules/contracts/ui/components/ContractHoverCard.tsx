@@ -6,6 +6,7 @@ import { FileText, Truck, Calculator, CalendarClock, UserCheck, Phone, MapPin, R
 import { swrColFetcher, swrDocFetcher } from '@/src/data/swr-fetchers';
 import { HoverCardPortal } from '@/src/design-system/HoverCardPortal';
 import { formatDate } from '@/src/shared/utils/formatDate';
+import { computeContractCompletionTimeline } from '@/src/shared/utils/vietnamBusinessDays';
 import { HoverCardProductsTab } from '@/src/widgets/HoverCardProductsTab';
 
 import { cn } from '@/src/shared/utils/textFormatter';
@@ -34,7 +35,7 @@ function ContractHoverCardContent({ contract, contractId }: { contract?: Contrac
   );
   
   const { data: payments } = useSWR<any[]>(
-    activeTab === 'links' && activeContract?.id ? `payments:500:contractId:${activeContract.id}` : null,
+    activeContract?.id ? `payments:500:contractId:${activeContract.id}` : null,
     swrColFetcher, { dedupingInterval: 60000 }
   );
 
@@ -63,6 +64,7 @@ function ContractHoverCardContent({ contract, contractId }: { contract?: Contrac
     swrColFetcher, { dedupingInterval: 60000 }
   );
   const waiverDelivery = (contractDeliveries || []).find((d: any) => d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU');
+  const completionTimeline = computeContractCompletionTimeline(activeContract, payments);
 
   const content = (
     <div className="flex flex-col h-full bg-slate-50 max-h-[85vh] overflow-hidden w-[420px]" onClick={(e) => e.stopPropagation()}>
@@ -129,18 +131,25 @@ function ContractHoverCardContent({ contract, contractId }: { contract?: Contrac
                   <MapPin size={10} className="text-slate-400 mt-0.5 shrink-0" /> {customer?.diaChi || '—'}{customer?.tinhThanh ? ` - ${customer.tinhThanh}` : ''}
                 </span>
               </div>
-              <div className="col-span-2 border-t border-slate-100 pt-3 flex gap-4">
+              <div className="col-span-2 border-t border-slate-100 pt-3 flex items-start justify-between gap-4">
                  <div>
                     <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Số ngày hiện thực:</span>
-                    <span className="font-medium text-slate-600 block leading-normal">
-                      {(activeContract as any).soNgayDuKienHoanThanh || '-'} ngày
+                    <span className="font-semibold text-slate-800 block leading-normal text-xs">
+                      {completionTimeline.workingDaysTotal > 0 ? `${completionTimeline.workingDaysTotal} ngày (làm việc)` : '-'}
                     </span>
                  </div>
-                 <div>
+                 <div className="text-right">
                     <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Ngày dự kiến hoàn thành:</span>
-                    <span className="font-medium text-slate-600 block leading-normal">
-                      {formatDate((activeContract as any).ngayDuKienHoanThanh) || '-'}
-                    </span>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span className="font-bold text-blue-700 block leading-normal text-xs font-mono">
+                        {completionTimeline.completionDateFormatted}
+                      </span>
+                      {completionTimeline.completionDate && (
+                        <span className="text-3xs font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                          {completionTimeline.baseDateType === 'DOT_1' ? `(Từ Thu Đợt 1: ${completionTimeline.baseDateFormatted})` : `(Từ Ngày ký: ${completionTimeline.baseDateFormatted})`}
+                        </span>
+                      )}
+                    </div>
                  </div>
               </div>
             </div>

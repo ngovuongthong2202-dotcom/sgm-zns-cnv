@@ -32,6 +32,8 @@ export interface Contract {
   soNgayDuKienHoanThanh?: number;
   nguoiPhuTrach?: string;
   ngayBanGiaoDuKien?: string;
+  soHopDong?: string;
+  soDonHang?: string;
 }
 
 export interface Payment {
@@ -40,6 +42,8 @@ export interface Payment {
   customerId?: string;
   contractId?: string;
   quotationId?: string;
+  soHopDong?: string;
+  cacDotThu?: any[];
   tinhTrangThanhToan?: string;
   soTienThanhToanValue?: number;
   workflow?: { status: string };

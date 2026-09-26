@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import { templateRendererService } from './template-renderer.service';
 import { z } from 'zod';
 import { formatDate } from '../../../shared/utils/formatDate';
+import { addVietnamWorkingDays } from '../../../shared/utils/vietnamBusinessDays';
 
 export const ZnsBasePayloadSchema = z.object({
   tinhTrangThanhToan: z.string().optional(),
@@ -217,6 +218,14 @@ export class ZnsPayloadBuilder {
     }
     if (requiredVarsSet.has('so_ngay') && isEmp(rendered.so_ngay)) {
       rendered.so_ngay = String(p.soNgayDuKienHoanThanh || p.soNgay || '30');
+    }
+    if ((requiredVarsSet.has('ngay_du_kien_hoan_thanh') || requiredVarsSet.has('ngay_hoan_thanh')) && isEmp(rendered.ngay_du_kien_hoan_thanh || rendered.ngay_hoan_thanh)) {
+      const baseDate = (p.ngayThuDot1 as string) || (p.ngayKy as string) || new Date().toISOString();
+      const days = Number(p.soNgayDuKienHoanThanh || p.soNgay || 30);
+      const target = addVietnamWorkingDays(baseDate, days);
+      const val = target ? formatDate(target) : formatDate(new Date());
+      if (requiredVarsSet.has('ngay_du_kien_hoan_thanh')) rendered.ngay_du_kien_hoan_thanh = val;
+      if (requiredVarsSet.has('ngay_hoan_thanh')) rendered.ngay_hoan_thanh = val;
     }
     if (requiredVarsSet.has('so_phieu') && isEmp(rendered.so_phieu)) {
       rendered.so_phieu = (p.soPhieuBaoGia as string) || (p.soHopDong as string) || 'Không có';

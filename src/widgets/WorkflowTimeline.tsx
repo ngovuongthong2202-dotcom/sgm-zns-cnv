@@ -39,10 +39,21 @@ export function WorkflowTimeline({
   const { confirm } = useConfirm();
   
   // Find related docs with Universal Lineage Resolution (both direct quotationId and indirect contract linkage)
-  const relatedContracts = contracts.filter(c => c.quotationId === quotation.id);
+  const relatedContracts = contracts.filter(c => c.quotationId === quotation.id || (quotation.soPhieuBaoGia && c.soPhieuBaoGia === quotation.soPhieuBaoGia));
   const relatedContractIds = new Set(relatedContracts.map(c => c.id).filter(Boolean));
-  const relatedPayments = payments.filter(p => p.quotationId === quotation.id || (p.contractId && relatedContractIds.has(p.contractId)));
-  const relatedDeliveries = deliveries.filter(d => d.quotationId === quotation.id || (d.contractId && relatedContractIds.has(d.contractId)));
+  const relatedContractSos = new Set(relatedContracts.map(c => c.soHopDong).filter(Boolean));
+  const relatedPayments = payments.filter(p => 
+    p.quotationId === quotation.id || 
+    (quotation.soPhieuBaoGia && p.soPhieuBaoGia === quotation.soPhieuBaoGia) ||
+    (p.contractId && relatedContractIds.has(p.contractId)) ||
+    (p.soHopDong && relatedContractSos.has(p.soHopDong))
+  );
+  const relatedDeliveries = deliveries.filter(d => 
+    d.quotationId === quotation.id || 
+    (quotation.soPhieuBaoGia && d.soPhieuBaoGia === quotation.soPhieuBaoGia) ||
+    (d.contractId && relatedContractIds.has(d.contractId)) ||
+    (d.soHopDong && relatedContractSos.has(d.soHopDong))
+  );
 
   // ZNS Status extractors
   const hasZnsSuccess = (doc: any) => normalizeLegacyStatus(doc?.trangThaiZns || doc?.trangThaiGuiTinBaoGia || doc?.trangThaiGuiTinHopDong || doc?.trangThaiGuiTinThanhToan || doc?.trangThaiGuiTinGiaoHang) === EntityZnsStatus.THANH_CONG;

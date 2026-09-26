@@ -231,6 +231,8 @@ export function ContractModalsContainer({
               }}
               payment={{
                 contractId: prefillPaymentContract.id,
+                quotationId: prefillPaymentContract.quotationId || '',
+                soPhieuBaoGia: prefillPaymentContract.soPhieuBaoGia || '',
                 customerId: prefillPaymentContract.customerId || '',
                 maKh: prefillPaymentContract.maKh || '',
                 tenKhachHang: prefillPaymentContract.tenKhachHang || '',
@@ -338,6 +340,8 @@ export function ContractModalsContainer({
                 paymentId: effectivePaymentId,
                 soChungTuThamChieu: effectivePaymentCode,
                 contractId: prefillDeliveryContract.id,
+                quotationId: prefillDeliveryContract.quotationId || '',
+                soPhieuBaoGia: prefillDeliveryContract.soPhieuBaoGia || '',
                 customerId: prefillDeliveryContract.customerId || '',
                 maKh: prefillDeliveryContract.maKh || '',
                 tenKhachHang: prefillDeliveryContract.tenKhachHang || '',

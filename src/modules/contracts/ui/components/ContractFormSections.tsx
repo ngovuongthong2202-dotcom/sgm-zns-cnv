@@ -122,8 +122,8 @@ export function ContractDefinitionSection({ register, errors, estimatedCompletio
             <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-2xs text-slate-500 font-extrabold font-mono">DAYS</span>
           </div>
           {estimatedCompletionDate && (
-            <span className="text-2xs font-bold text-emerald-700 bg-emerald-55/40 px-2 py-0.5 rounded border border-emerald-100 flex items-center gap-1.5 mt-1">
-              <Calendar className="w-3.5 h-3.5" /> DK Hoàn thành ngày: {formatDate(estimatedCompletionDate)}
+            <span className="text-2xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1.5 mt-1 font-mono">
+              <Calendar className="w-3.5 h-3.5 text-emerald-600" /> DK Hoàn thành: {formatDate(estimatedCompletionDate)} (trừ CN & Lễ Tết VN)
             </span>
           )}
           {errors.soNgayDuKienHoanThanh && <p className="text-red-600 text-xs font-medium mt-1">{errors.soNgayDuKienHoanThanh.message as string}</p>}

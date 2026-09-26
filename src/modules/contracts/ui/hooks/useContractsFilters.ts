@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Contract } from '@/src/domain/schema/contract.schema';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 import { reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
+import { addVietnamWorkingDays, getFirstInstallment } from '@/src/shared/utils/vietnamBusinessDays';
 
 const STATE_KEY = 'dataview:contracts:state';
 
@@ -76,9 +77,12 @@ export function useContractsFilters(
       today.setHours(0, 0, 0, 0);
       
       res = res.filter(c => {
-         if (!c.ngayKy || !c.soNgayDuKienHoanThanh) return false;
-         const dt = new Date(c.ngayKy);
-         dt.setDate(dt.getDate() + c.soNgayDuKienHoanThanh);
+         const matchingPays = realtimePayments.filter(p => p.contractId === c.id || p.contractId === c.soHopDong || p.soHopDong === c.soHopDong);
+         const dot1 = getFirstInstallment(matchingPays);
+         const baseDate = dot1?.ngayThu || (c as any).ngayThuDot1 || c.ngayKy;
+         if (!baseDate || !c.soNgayDuKienHoanThanh) return false;
+         const dt = addVietnamWorkingDays(baseDate, c.soNgayDuKienHoanThanh);
+         if (!dt) return false;
          dt.setHours(0,0,0,0);
          
          if (selectedDkHoanThanh === 'TODAY') {
@@ -155,9 +159,12 @@ export function useContractsFilters(
        });
     } else if (activeKpiFilter === 'OVERDUE' || activeKpiFilter === 'UPCOMING') {
        res = res.filter(c => {
-         if (!c.ngayKy || !c.soNgayDuKienHoanThanh) return false;
-         const dt = new Date(c.ngayKy);
-         dt.setDate(dt.getDate() + c.soNgayDuKienHoanThanh);
+         const matchingPays = realtimePayments.filter(p => p.contractId === c.id || p.contractId === c.soHopDong || p.soHopDong === c.soHopDong);
+         const dot1 = getFirstInstallment(matchingPays);
+         const baseDate = dot1?.ngayThu || (c as any).ngayThuDot1 || c.ngayKy;
+         if (!baseDate || !c.soNgayDuKienHoanThanh) return false;
+         const dt = addVietnamWorkingDays(baseDate, c.soNgayDuKienHoanThanh);
+         if (!dt) return false;
          dt.setHours(0,0,0,0);
          if (activeKpiFilter === 'OVERDUE') return dt.getTime() < today.getTime();
          

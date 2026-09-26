@@ -2,6 +2,7 @@ import { ProductItem } from '@/src/domain/schema/product.schema';
 import { Customer } from '@/src/domain/schema/customer.schema';
 /* eslint-disable max-lines */
 import { formatDate } from '@/src/shared/utils/formatDate';
+import { addVietnamWorkingDays, getFirstInstallment } from '@/src/shared/utils/vietnamBusinessDays';
 import React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Contract } from '@/src/domain/schema/contract.schema';
@@ -146,26 +147,29 @@ export const getContractColumns = (
     size: 150,
     cell: (info) => {
        const c = info.row.original;
+       const matchingPayments = (payments || []).filter(p => p.contractId === c.id || p.contractId === c.soHopDong || p.soHopDong === c.soHopDong);
+       const dot1 = getFirstInstallment(matchingPayments);
+       const baseDate = dot1?.ngayThu || (c as any).ngayThuDot1 || c.ngayKy;
        let hoanThanhStr = '---';
        let isOverdue = false;
-       if (c.ngayKy && c.soNgayDuKienHoanThanh) {
-          const dt = new Date(c.ngayKy);
-          dt.setDate(dt.getDate() + c.soNgayDuKienHoanThanh);
-          hoanThanhStr = dt.toISOString().split('T')[0];
-          // Set beginning of today to ignore time
-          const today = new Date();
-          today.setHours(0,0,0,0);
-          isOverdue = today > dt;
+       if (baseDate && c.soNgayDuKienHoanThanh) {
+          const dt = addVietnamWorkingDays(baseDate, c.soNgayDuKienHoanThanh);
+          if (dt) {
+            hoanThanhStr = formatDate(dt);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            isOverdue = today.getTime() > dt.getTime();
+          }
        }
        return (
          <div className="flex flex-col gap-0.5 min-w-0">
-           <span className="text-xs font-medium text-slate-800">{formatDate(c.ngayKy)}</span>
-           {(c.ngayKy && c.soNgayDuKienHoanThanh) ? (
-              <span className={`text-2xs font-medium px-1.5 py-0.5 rounded w-fit truncate mt-0.5 ${isOverdue ? 'bg-red-50 text-red-700' : 'bg-slate-50 text-slate-600'}`} title={isOverdue ? 'Đã quá hạn dự kiến' : ''}>
-                DK: {formatDate(hoanThanhStr)} ({c.soNgayDuKienHoanThanh} ngày)
+           <span className="text-xs font-semibold text-slate-800">{formatDate(c.ngayKy)}</span>
+           {(baseDate && c.soNgayDuKienHoanThanh && hoanThanhStr !== '---') ? (
+              <span className={`text-2xs font-semibold px-1.5 py-0.5 rounded w-fit truncate mt-0.5 ${isOverdue ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`} title={isOverdue ? 'Đã quá hạn dự kiến' : 'Hạn hoàn thành dự kiến (trừ CN & Lễ Tết)'}>
+                DK: {hoanThanhStr} ({c.soNgayDuKienHoanThanh} ngày)
               </span>
            ) : (
-              <span className="text-2xs text-slate-500 mt-0.5">—</span>
+              <span className="text-2xs text-slate-400 mt-0.5">—</span>
            )}
          </div>
        );

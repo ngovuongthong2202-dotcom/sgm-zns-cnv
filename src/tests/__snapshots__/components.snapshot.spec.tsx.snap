@@ -297,11 +297,11 @@ exports[`Component Snapshots (Baseline) > renders ContractFormModal 1`] = `
                     </span>
                   </div>
                   <span
-                    class="text-2xs font-bold text-emerald-700 bg-emerald-55/40 px-2 py-0.5 rounded border border-emerald-100 flex items-center gap-1.5 mt-1"
+                    class="text-2xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1.5 mt-1 font-mono"
                   >
                     <svg
                       aria-hidden="true"
-                      class="lucide lucide-calendar w-3.5 h-3.5"
+                      class="lucide lucide-calendar w-3.5 h-3.5 text-emerald-600"
                       fill="none"
                       height="24"
                       stroke="currentColor"
@@ -329,8 +329,9 @@ exports[`Component Snapshots (Baseline) > renders ContractFormModal 1`] = `
                         d="M3 10h18"
                       />
                     </svg>
-                     DK Hoàn thành ngày: 
-                    23/10/2026
+                     DK Hoàn thành: 
+                    28/10/2026
+                     (trừ CN & Lễ Tết VN)
                   </span>
                 </div>
                 <div
@@ -534,7 +535,7 @@ exports[`Component Snapshots (Baseline) > renders ContractFormModal 1`] = `
                     <span
                       class="font-mono text-slate-800 font-bold"
                     >
-                      23/10/2026
+                      28/10/2026
                     </span>
                   </p>
                   <p

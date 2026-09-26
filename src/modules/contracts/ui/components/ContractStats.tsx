@@ -22,7 +22,7 @@ export function ContractStats({
   const stats = useMemo(() => {
     const payment = contractAggregates.paymentStats(contracts, realtimePayments);
     const delivery = contractAggregates.deliveryStats(contracts, realtimeDeliveries);
-    const deadline = contractAggregates.deadlineStats(contracts, realtimeDeliveries);
+    const deadline = contractAggregates.deadlineStats(contracts, realtimeDeliveries, realtimePayments);
     const totalVal = contractAggregates.totalContractValue(contracts);
     const totalCust = contractAggregates.totalCustomersWithContracts(contracts);
 
