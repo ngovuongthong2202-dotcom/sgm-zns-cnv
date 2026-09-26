@@ -412,15 +412,23 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
               <div className="px-3 pb-2">
                 <ProductListInput 
                   products={deliveryProducts} 
-                  onChange={(newProducts) => setValue('products', newProducts)}
-                  readOnly={true}
-                  allowEditProductId={true}
+                  onChange={(newProducts) => {
+                    setValue('products', newProducts, { shouldDirty: true });
+                    const allSerials = Array.from(new Set(newProducts.flatMap(p => p.danhSachMaMay || [])));
+                    if (allSerials.length > 0) {
+                      setValue('danhSachMaMay', allSerials, { shouldDirty: true });
+                    }
+                  }}
+                  readOnly={false}
+                  allowEditProductId={false}
                   hideAddRemove={true}
                   maxQuantities={maxQuantities}
                   showBaoHanh={true}
                   baseDateForBaoHanh={watch('ngayGiaoMay') as string}
                   showPrice={true}
                   showFinance={true}
+                  showSerial={true}
+                  allContracts={contracts}
                 />
               </div>
               <div className="flex flex-col border-t border-slate-200 bg-white p-4">
@@ -452,7 +460,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
 
           <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-xs font-semibold text-slate-900 border-b border-slate-100 pb-3 uppercase tracking-wide flex items-center gap-2">
-              4. Mã máy / Serial thực tế xuất lô
+              4. Tổng hợp Mã máy / Serial thực tế xuất lô
             </h3>
             <div className="space-y-2">
               <MachineCodeChipInput 
@@ -460,7 +468,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                 onChange={(newVal) => setValue('danhSachMaMay', newVal, { shouldDirty: true })}
                 allContracts={contracts}
               />
-              <p className="text-2xs text-slate-500 font-medium">Nhập số serial chính xác đã xuất kho (sẽ đối soát với hợp đồng nếu có).</p>
+              <p className="text-2xs text-slate-500 font-medium">Nhập trực tiếp trên từng dòng máy ở trên hoặc bổ sung tại đây để đối soát với hợp đồng và bảo hành.</p>
             </div>
           </section>
 

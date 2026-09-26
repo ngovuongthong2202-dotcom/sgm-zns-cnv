@@ -5,6 +5,7 @@ import { ProductItem } from '@/src/domain/schema/product.schema';
 import { ProductBaoHanhFields } from './ProductBaoHanhFields';
 import { FinancialEngine } from '@/src/shared/utils/financialEngine';
 import { computeLineItem } from '@/src/domain/pricing/quotation-pricing';
+import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
 
 interface ProductFinanceCardProps {
   key?: React.Key;
@@ -16,6 +17,8 @@ interface ProductFinanceCardProps {
   hideAddRemove?: boolean;
   allowEditProductId?: boolean;
   showBaoHanh?: boolean;
+  showSerial?: boolean;
+  allContracts?: any[];
   onUpdate: <K extends keyof ProductItem>(index: number, field: K, value: ProductItem[K]) => void;
   onRemove: (index: number) => void;
 }
@@ -29,6 +32,8 @@ export function ProductFinanceCard({
   hideAddRemove,
   allowEditProductId,
   showBaoHanh,
+  showSerial,
+  allContracts,
   onUpdate,
   onRemove
 }: ProductFinanceCardProps) {
@@ -55,7 +60,10 @@ export function ProductFinanceCard({
 
       {/* Mobile Card Layout */}
       <div className="p-3 bg-slate-50/50 border-b border-slate-100">
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 px-2 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded font-mono">
+            #{p.stt || idx + 1}
+          </span>
           <input type="text"
             placeholder="Mã SP"
             value={p.productId}
@@ -172,6 +180,18 @@ export function ProductFinanceCard({
         )}
         {showBaoHanh && (
           <ProductBaoHanhFields product={p} viewType="card" disabled={disabled} onChange={(field, val) => onUpdate(idx, field, val === null ? undefined : val as any)} />
+        )}
+        {showSerial && (
+          <div className="mt-3 pt-2.5 border-t border-slate-100">
+            <span className="text-3xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
+              Mã máy / Serial ({p.danhSachMaMay?.length || 0}/{p.quantity || 0} {p.unit || 'Máy'}):
+            </span>
+            <MachineCodeChipInput
+              value={p.danhSachMaMay || []}
+              onChange={(codes) => onUpdate(idx, 'danhSachMaMay', codes)}
+              allContracts={allContracts}
+            />
+          </div>
         )}
       </div>
     </div>

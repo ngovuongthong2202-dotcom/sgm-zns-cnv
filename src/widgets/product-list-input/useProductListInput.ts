@@ -28,13 +28,14 @@ export function useProductListInput({
   const [bulkDiscPct, setBulkDiscPct] = useState<string>('');
   const [bulkDiscAmount, setBulkDiscAmount] = useState<string>('');
 
-  // Ensure we have IDs for all products (even legacy ones)
+  // Ensure we have IDs and STT for all products (even legacy ones)
   useEffect(() => {
-    const missingIds = products.some(p => !p.id);
-    if (missingIds) {
-      const updated = products.map(p => ({
+    const missingIdsOrStt = products.some((p, i) => !p.id || p.stt !== i + 1);
+    if (missingIdsOrStt && products.length > 0) {
+      const updated = products.map((p, i) => ({
         ...p,
-        id: p.id || crypto.randomUUID()
+        id: p.id || crypto.randomUUID(),
+        stt: i + 1
       }));
       onChange(updated);
     }
@@ -61,7 +62,7 @@ export function useProductListInput({
     if (bulkDiscPct === '') return;
     const v = parseFloat(bulkDiscPct);
     if (isNaN(v)) return;
-    const newProducts = products.map(p => computeLineItem({ ...p, discountPct: v, discountAmount: undefined }));
+    const newProducts = products.map(p => computeLineItem({ ...p, discountType: 'PERCENT', discountPct: v, discountAmount: undefined }));
     onChange(newProducts);
     setBulkDiscPct('');
   }, [bulkDiscPct, products, onChange]);
@@ -79,6 +80,7 @@ export function useProductListInput({
     const defaultVat = products.length > 0 && products[0].vatPct !== undefined ? products[0].vatPct : 8;
     const newItem = computeLineItem({
       id: crypto.randomUUID(),
+      stt: products.length + 1,
       productId: '',
       productName: '',
       quantity: 1,
@@ -93,6 +95,7 @@ export function useProductListInput({
     const defaultVat = p.vatPct !== undefined ? p.vatPct : (products.length > 0 && products[0].vatPct !== undefined ? products[0].vatPct : 8);
     const newItem = computeLineItem({
       ...p,
+      stt: products.length + 1,
       vatPct: defaultVat,
       id: p.id || crypto.randomUUID()
     });
@@ -100,7 +103,9 @@ export function useProductListInput({
   }, [products, onChange]);
 
   const removeProduct = useCallback((index: number) => {
-    onChange(products.filter((_, i) => i !== index));
+    const remaining = products.filter((_, i) => i !== index);
+    const reindexed = remaining.map((p, i) => ({ ...p, stt: i + 1 }));
+    onChange(reindexed);
   }, [products, onChange]);
 
   const updateProduct = useCallback(<K extends keyof ProductItem>(index: number, field: K, value: ProductItem[K]) => {
@@ -120,16 +125,39 @@ export function useProductListInput({
     }
 
     newProducts[index] = { ...newProducts[index], [field]: val };
+
+    // Realtime reactive warranty expiration calculation
+    if (field === 'soNgayBaoHanh') {
+      const days = Number(val);
+      if (days > 0) {
+        const base = baseDateForBaoHanh ? new Date(baseDateForBaoHanh) : new Date();
+        const exp = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+        newProducts[index].ngayHetHanBaoHanh = exp.toISOString().split('T')[0];
+      } else {
+        newProducts[index].ngayHetHanBaoHanh = undefined;
+      }
+    }
     
     if (showFinance) {
+      const price = Number(newProducts[index].price) || 0;
+      const qty = Number(newProducts[index].quantity) || 0;
+      const gross = price * qty;
+
       if (field === 'discountAmount') {
-         const price = Number(newProducts[index].price) || 0;
-         const qty = Number(newProducts[index].quantity) || 0;
-         const gross = price * qty;
-         if (gross > 0 && typeof val === 'number') {
-             newProducts[index].discountPct = parseFloat(((val/gross)*100).toFixed(2));
+         newProducts[index].discountType = 'AMOUNT';
+         newProducts[index].discountAmount = typeof val === 'number' ? val : undefined;
+         if (gross > 0 && typeof val === 'number' && val > 0) {
+             newProducts[index].discountPct = parseFloat(((val / gross) * 100).toFixed(2));
          } else if (!val) {
              newProducts[index].discountPct = undefined;
+             newProducts[index].discountType = undefined;
+         }
+      } else if (field === 'discountPct') {
+         newProducts[index].discountType = 'PERCENT';
+         newProducts[index].discountPct = typeof val === 'number' ? val : undefined;
+         if (!val) {
+             newProducts[index].discountAmount = undefined;
+             newProducts[index].discountType = undefined;
          }
       }
       newProducts[index] = computeLineItem(newProducts[index]);
@@ -140,7 +168,7 @@ export function useProductListInput({
     }
     
     onChange(newProducts);
-  }, [products, maxQuantities, showFinance, onChange]);
+  }, [products, maxQuantities, showFinance, baseDateForBaoHanh, onChange]);
 
   return {
     bulkVat,

@@ -1,6 +1,7 @@
 import { Customer } from '@/src/domain/schema/customer.schema';
 import { cleanProperVietnameseText, normalizeBusinessName, normalizePersonName, normalizeCode, squeezeSpaces } from '@/src/shared/utils/textFormatter';
 import { normalizePhoneVN } from '@/src/shared/utils/phone';
+import { sanitizeTaxCode } from '@/src/shared/utils/inputSanitizer';
 
 /**
  * Danh sách Loại hình Doanh nghiệp chuẩn hóa (theo Luật Doanh nghiệp Việt Nam)
@@ -14,6 +15,7 @@ export const STANDARDIZED_BUSINESS_TYPES = [
   'DOANH NGHIỆP TƯ NHÂN',
   'CÔNG TY HỢP DANH',
   'HỘ KINH DOANH',
+  'CÁ NHÂN',
   'HỢP TÁC XÃ / LIÊN HIỆP HTX',
   'CHI NHÁNH / VĂN PHÒNG ĐẠI DIỆN',
   'CƠ SỞ SẢN XUẤT / KINH DOANH',
@@ -204,7 +206,19 @@ export function normalizeCustomerFormValues(data: Customer): Customer {
   }
   normalized.maKh = normalizeCode(normalized.maKh);
   normalized.loaiHinhDoanhNghiep = (normalized.loaiHinhDoanhNghiep || '').toString().trim().toUpperCase();
-  normalized.tenKhachHang = normalizeBusinessName(normalized.tenKhachHang);
+  
+  const isIndividual = normalized.loaiHinhDoanhNghiep === 'CÁ NHÂN' || normalized.loaiKh === 'Cá nhân';
+  if (isIndividual) {
+    normalized.loaiHinhDoanhNghiep = 'CÁ NHÂN';
+    normalized.tenKhachHang = normalizePersonName(normalized.tenKhachHang);
+    if (!normalized.nguoiDaiDien && normalized.tenKhachHang) {
+      normalized.nguoiDaiDien = normalized.tenKhachHang;
+    }
+  } else {
+    normalized.tenKhachHang = normalizeBusinessName(normalized.tenKhachHang);
+  }
+
+  normalized.maSoThue = normalized.maSoThue ? sanitizeTaxCode(normalized.maSoThue) : '';
   normalized.diaChi = cleanProperVietnameseText(normalized.diaChi);
   normalized.tinhThanh = cleanProperVietnameseText(normalized.tinhThanh);
   normalized.nguoiDaiDien = normalizePersonName(normalized.nguoiDaiDien);

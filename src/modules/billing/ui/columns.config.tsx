@@ -431,6 +431,36 @@ export const getPaymentColumns = (
       );
     }
   },
+  {
+    id: 'soTienConLai',
+    header: 'Còn lại',
+    size: 130,
+    meta: { align: 'right' },
+    aggregationFn: 'sum',
+    accessorFn: (p) => {
+      const totalAmount = p.totalAmount || p.giaTriHopDong || p.subTotal || 0;
+      const soTien = p.soTien || 0;
+      if (p.soTienConLai !== undefined && p.soTienConLai !== null) return p.soTienConLai;
+      return totalAmount > soTien ? totalAmount - soTien : 0;
+    },
+    cell: (info) => {
+      const remaining = Number(info.getValue()) || 0;
+      if (remaining <= 0) {
+        return (
+          <div className="text-right w-full">
+            <span className="text-2xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              0 ₫
+            </span>
+          </div>
+        );
+      }
+      return (
+        <div className="text-right w-full font-mono font-bold text-amber-700 text-xs tabular-nums">
+          {new Intl.NumberFormat('vi-VN').format(remaining)} <span className="text-2xs text-slate-500 font-sans">₫</span>
+        </div>
+      );
+    }
+  },
 
   {
     accessorKey: 'nguoiPhuTrach',

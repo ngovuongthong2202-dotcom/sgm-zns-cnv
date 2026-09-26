@@ -5,6 +5,7 @@ import { ProductItem } from '@/src/domain/schema/product.schema';
 import { ProductBaoHanhFields } from './ProductBaoHanhFields';
 import { FinancialEngine } from '@/src/shared/utils/financialEngine';
 import { computeLineItem } from '@/src/domain/pricing/quotation-pricing';
+import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
 
 interface ProductFinanceRowProps {
   key?: React.Key;
@@ -15,6 +16,8 @@ interface ProductFinanceRowProps {
   disabled?: boolean;
   hideAddRemove?: boolean;
   showBaoHanh?: boolean;
+  showSerial?: boolean;
+  allContracts?: any[];
   onUpdate: <K extends keyof ProductItem>(index: number, field: K, value: ProductItem[K]) => void;
   onRemove: (index: number) => void;
 }
@@ -27,6 +30,8 @@ export function ProductFinanceRow({
   disabled,
   hideAddRemove,
   showBaoHanh,
+  showSerial,
+  allContracts,
   onUpdate,
   onRemove
 }: ProductFinanceRowProps) {
@@ -37,6 +42,11 @@ export function ProductFinanceRow({
   return (
     <React.Fragment>
       <tr className="group bg-white hover:bg-slate-50 transition-colors border-b border-slate-100">
+        {/* STT */}
+        <td className="p-3 align-top text-center w-[50px] font-bold text-slate-500 text-xs">
+          {p.stt || idx + 1}
+        </td>
+
         {/* Product Info */}
         <td className="p-3 align-top min-w-[280px]">
            <div className="flex flex-col gap-1.5 focus-within:ring-1 focus-within:ring-blue-100 rounded-md">
@@ -65,6 +75,20 @@ export function ProductFinanceRow({
            </div>
            {showBaoHanh && (
              <ProductBaoHanhFields product={p} viewType="table" disabled={disabled} onChange={(f, v) => onUpdate(idx, f, v === null ? undefined : v as any)} />
+           )}
+           {showSerial && (
+             <div className="mt-2 pt-2 border-t border-slate-100">
+               <div className="flex items-center justify-between mb-1">
+                 <span className="text-3xs font-bold text-slate-600 uppercase tracking-wider">
+                   Mã máy / Serial ({p.danhSachMaMay?.length || 0}/{p.quantity || 0} {p.unit || 'Máy'}):
+                 </span>
+               </div>
+               <MachineCodeChipInput 
+                 value={p.danhSachMaMay || []}
+                 onChange={(codes) => onUpdate(idx, 'danhSachMaMay', codes)}
+                 allContracts={allContracts}
+               />
+             </div>
            )}
         </td>
 
@@ -181,7 +205,7 @@ export function ProductFinanceRow({
       </tr>
       {maxQ !== undefined && (
         <tr>
-           <td colSpan={7} className="px-3 pb-2 -mt-1 bg-white border-b border-slate-100">
+           <td colSpan={8} className="px-3 pb-2 -mt-1 bg-white border-b border-slate-100">
               <div className="flex items-center gap-2 max-w-sm">
                 <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
                   <div className="h-full bg-blue-500 transition-all" style={{ width: `${Math.min(((p.quantity || 0) / maxQ) * 100, 100)}%` }} />

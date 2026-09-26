@@ -210,22 +210,32 @@ export function ContractFormModal({ contract, contracts, quotations, nguoiPhuTra
               <ProductListInput 
                 products={products} 
                 disabled={businessLock.locked}
-                onChange={(newProducts) => setValue('products', newProducts, { shouldDirty: true })} 
+                onChange={(newProducts) => {
+                  setValue('products', newProducts, { shouldDirty: true });
+                  const allSerials = Array.from(new Set(newProducts.flatMap(p => p.danhSachMaMay || [])));
+                  if (allSerials.length > 0) {
+                    setValue('danhSachMaMay', allSerials, { shouldDirty: true });
+                  }
+                }} 
                 showPrice={true}
                 showFinance={true}
+                showBaoHanh={true}
+                baseDateForBaoHanh={watchAll.ngayKyHopDong || watchAll.ngayTao || new Date().toISOString().split('T')[0]}
+                showSerial={true}
+                allContracts={contracts}
               />
             </div>
 
             <div className="space-y-2 border-t border-slate-100 pt-5">
               <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block">
-                Quản lý Mã Máy / Serial (Áp dụng cho HĐ Máy)
+                Tổng hợp Mã Máy / Serial Toàn Hợp Đồng
               </label>
               <MachineCodeChipInput 
                 value={watchAll.danhSachMaMay || []}
                 onChange={(newVal) => setValue('danhSachMaMay', newVal, { shouldDirty: true })}
                 allContracts={contracts}
               />
-              <p className="text-2xs text-slate-500 font-medium">Nhập số serial để đối soát khi lập phiếu giao hàng.</p>
+              <p className="text-2xs text-slate-500 font-medium">Nhập trực tiếp trên từng dòng máy ở bảng sản phẩm hoặc ghim bổ sung tại đây để đối soát khi lập phiếu giao hàng.</p>
             </div>
           </div>
 

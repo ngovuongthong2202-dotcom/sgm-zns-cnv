@@ -56,88 +56,158 @@ export function DrawerProductList({
       )}
 
       {healedProducts.length > 0 ? (
-        <div className="flex flex-col gap-3">
-          {healedProducts.map((p, idx) => {
-            const itemTotal = p.subtotalAfterTax;
-            const itemKey = getProductItemKey(p, idx);
-            const deliveredQ = deliveredQuantities ? (deliveredQuantities[itemKey] || 0) : 0;
-            const isFullyDelivered = deliveredQ >= (p.quantity || 1);
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden ring-1 ring-slate-900/5">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[760px]">
+              <thead>
+                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-700 text-2xs font-bold uppercase tracking-wider">
+                  <th className="p-3 text-center w-[50px]">STT</th>
+                  <th className="p-3 min-w-[260px]">Sản phẩm & Quy cách</th>
+                  <th className="p-3 text-center w-[90px]">SL / ĐVT</th>
+                  <th className="p-3 text-right w-[130px]">Đơn giá</th>
+                  <th className="p-3 text-right w-[110px]">Chiết khấu</th>
+                  <th className="p-3 text-right w-[100px]">VAT</th>
+                  <th className="p-3 text-right w-[140px]">Thành tiền</th>
+                  {deliveredQuantities && (
+                    <th className="p-3 text-center w-[120px]">Tiến độ giao</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs">
+                {healedProducts.map((p, idx) => {
+                  const itemTotal = p.subtotalAfterTax;
+                  const itemKey = getProductItemKey(p, idx);
+                  const deliveredQ = deliveredQuantities ? (deliveredQuantities[itemKey] || 0) : 0;
+                  const isFullyDelivered = deliveredQ >= (p.quantity || 1);
+                  const serials = Array.isArray(p.danhSachMaMay) ? p.danhSachMaMay : [];
+                  const isPromo = p.price === 0 && Boolean(p.productName || p.productId);
 
-            return (
-              <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-white border border-slate-200/80 rounded-2xl shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-                <div className="absolute top-0 left-0 w-1 h-full bg-slate-100 group-hover:bg-slate-200 transition-colors"></div>
-                
-                <div className="flex flex-col flex-1 min-w-0 pr-4">
-                  <span className="font-bold text-slate-800 text-sm leading-snug line-clamp-2" title={p.productName}>
-                    {p.productName || 'Sản phẩm chưa đặt tên'}
-                  </span>
-                  
-          <div className="flex flex-wrap gap-2 text-xs items-center text-slate-500 mt-1.5">
-            {p.productId && (
-              <>
-                <span className="font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 hidden sm:inline-block">Mã: {p.productId}</span>
-              </>
-            )}
-            <span className="font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">
-              SL: {p.quantity} <span className="font-normal text-slate-500">{p.unit || 'Cái'}</span>
-            </span>
-            <span className="text-slate-300 hidden sm:inline-block">•</span>
-            <span>ĐG: {new Intl.NumberFormat('vi-VN').format(p.price || 0)} ₫</span>
-            {p.discountPct ? (
-              <>
-                <span className="text-slate-300">•</span>
-                <span className="text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
-                  Disc: {p.discountPct}% 
-                  {p.discountAmount ? ` (-${new Intl.NumberFormat('vi-VN').format(p.discountAmount)} ₫)` : ''}
-                </span>
-              </>
-            ) : null}
-            {p.vatPct ? (
-              <>
-                <span className="text-slate-300">•</span>
-                <span className="text-sky-600 font-medium bg-sky-50 px-1.5 py-0.5 rounded border border-sky-100">
-                  VAT: {p.vatPct}%
-                  {p.taxAmount ? ` (+${new Intl.NumberFormat('vi-VN').format(p.taxAmount)} ₫)` : ''}
-                </span>
-              </>
-            ) : null}
+                  return (
+                    <tr key={idx} className="hover:bg-slate-50/70 transition-colors group">
+                      {/* STT */}
+                      <td className="p-3 text-center font-bold text-slate-500 font-mono text-xs align-top">
+                        {p.stt || idx + 1}
+                      </td>
+
+                      {/* Tên & Quy cách */}
+                      <td className="p-3 align-top min-w-[260px]">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {p.productId && (
+                              <span className="font-mono text-3xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                                {p.productId}
+                              </span>
+                            )}
+                            <span className="font-bold text-slate-900 text-xs">
+                              {p.productName || 'Sản phẩm chưa đặt tên'}
+                            </span>
+                            {isPromo && (
+                              <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 text-3xs font-bold rounded border border-emerald-200 uppercase tracking-wider">
+                                Tặng kèm
+                              </span>
+                            )}
+                          </div>
+
+                          {p.ghiChu && (
+                            <p className="text-2xs italic text-slate-500">{p.ghiChu}</p>
+                          )}
+
+                          {/* Machine Codes / Serials */}
+                          {serials.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1 items-center">
+                              <span className="text-3xs font-bold text-slate-600 uppercase">Mã máy:</span>
+                              {serials.map((sn, sIdx) => (
+                                <span key={sIdx} className="font-mono text-3xs bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-semibold border border-slate-200">
+                                  {sn}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Warranty Info */}
+                          {((p as any).soNgayBaoHanh || (p as any).ngayHetHanBaoHanh) && (
+                            <div className="flex items-center gap-1.5 text-3xs text-blue-700 font-medium mt-0.5">
+                              <span className="bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded border border-blue-200/60 font-semibold uppercase">
+                                BH: {Number((p as any).soNgayBaoHanh) > 0 ? `${Number((p as any).soNgayBaoHanh)} ngày` : ''}
+                                {(p as any).ngayHetHanBaoHanh ? ` (Đến ${(p as any).ngayHetHanBaoHanh})` : ''}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* SL / ĐVT */}
+                      <td className="p-3 text-center align-top whitespace-nowrap">
+                        <span className="font-bold text-slate-800 font-mono text-sm">{p.quantity}</span>
+                        <span className="text-2xs text-slate-500 font-medium ml-1">{p.unit || 'Máy'}</span>
+                      </td>
+
+                      {/* Đơn giá */}
+                      <td className="p-3 text-right align-top whitespace-nowrap">
+                        <span className="font-mono font-bold text-slate-800 text-xs">
+                          {new Intl.NumberFormat('vi-VN').format(p.price || 0)} ₫
+                        </span>
+                      </td>
+
+                      {/* Chiết khấu */}
+                      <td className="p-3 text-right align-top whitespace-nowrap">
+                        {p.discountAmount || p.discountPct ? (
+                          <div className="flex flex-col items-end text-amber-700">
+                            {p.discountPct ? <span className="font-bold text-2xs">-{p.discountPct}%</span> : null}
+                            {p.discountAmount ? (
+                              <span className="font-mono text-3xs text-amber-600">
+                                -{new Intl.NumberFormat('vi-VN').format(p.discountAmount)} ₫
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </td>
+
+                      {/* VAT */}
+                      <td className="p-3 text-right align-top whitespace-nowrap">
+                        {p.vatPct ? (
+                          <div className="flex flex-col items-end text-sky-700">
+                            <span className="font-bold text-2xs">{p.vatPct}%</span>
+                            <span className="font-mono text-3xs text-sky-600">
+                              +{new Intl.NumberFormat('vi-VN').format(p.taxAmount || 0)} ₫
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-300">0%</span>
+                        )}
+                      </td>
+
+                      {/* Thành tiền */}
+                      <td className="p-3 text-right align-top whitespace-nowrap">
+                        <span className="font-mono font-black text-slate-900 text-xs">
+                          {new Intl.NumberFormat('vi-VN').format(itemTotal ?? 0)} ₫
+                        </span>
+                      </td>
+
+                      {/* Tiến độ giao hàng */}
+                      {deliveredQuantities && (
+                        <td className="p-3 text-center align-top whitespace-nowrap">
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full transition-all ${isFullyDelivered ? 'bg-emerald-500' : deliveredQ > 0 ? 'bg-blue-500' : 'bg-slate-300'}`} 
+                                style={{ width: `${Math.min(100, (deliveredQ / (p.quantity || 1)) * 100)}%` }}
+                              />
+                            </div>
+                            <span className={`text-3xs font-bold ${isFullyDelivered ? 'text-emerald-700' : 'text-slate-500'}`}>
+                              {deliveredQ}/{p.quantity} {p.unit || 'Máy'}
+                            </span>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-
-                  {/* Warranty Info */}
-                  {((p as any).soNgayBaoHanh || (p as any).ngayHetHanBaoHanh) && (
-                    <div className="mt-2 flex items-center gap-2 text-2xs sm:text-2xs font-medium p-1.5 bg-blue-50/50 text-blue-700 border border-blue-100 rounded-[8px] w-fit">
-                      <span className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-[4px] uppercase tracking-wider font-bold">Bảo hành</span>
-                      {Number((p as any).soNgayBaoHanh) > 0 && <span>{Number((p as any).soNgayBaoHanh)} ngày</span>}
-                      {(p as any).soNgayBaoHanh && (p as any).ngayHetHanBaoHanh && <span className="text-blue-300">•</span>}
-                      {(p as any).ngayHetHanBaoHanh && <span>Hạn: {(p as any).ngayHetHanBaoHanh}</span>}
-                    </div>
-                  )}
-
-                  {/* Delivery Progress Bar */}
-                  {deliveredQuantities && p.quantity > 0 && (
-                    <div className="flex items-center gap-2 mt-3 max-w-[200px]">
-                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-500 ${isFullyDelivered ? 'bg-emerald-500' : deliveredQ > 0 ? 'bg-blue-500' : 'bg-slate-300'}`} 
-                          style={{width: `${Math.min(100, (deliveredQ / p.quantity) * 100)}%`}}
-                        ></div>
-                      </div>
-                      <span className="text-2xs text-slate-500 font-bold whitespace-nowrap">
-                        Giao: {deliveredQ}/{p.quantity}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t sm:border-t-0 sm:border-l border-slate-100 pt-3 sm:pt-0 sm:pl-4 mt-1 sm:mt-0">
-                  <span className="text-2xs font-semibold uppercase tracking-wider text-slate-400 block sm:mb-1">Cộng</span>
-                  <span className="font-mono font-black text-slate-800 text-base whitespace-nowrap">
-                    {new Intl.NumberFormat('vi-VN').format(itemTotal ?? 0)} ₫
-                  </span>
-                </div>
-              </div>
-            );
-          })}
         </div>
       ) : (
         <div className="flex items-center justify-center py-12 px-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50">

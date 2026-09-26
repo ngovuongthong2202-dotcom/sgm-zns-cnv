@@ -12,9 +12,10 @@ export function syncBaoHanhDates(products: ProductItem[], showBaoHanh: boolean |
   if (!showBaoHanh) return { needsUpdate: false, updatedProducts: products };
   
   let needsUpdate = false;
+  const effectiveBaseDate = baseDateForBaoHanh || new Date().toISOString().split('T')[0];
   const updatedProducts = products.map(p => {
-    if (p.soNgayBaoHanh && baseDateForBaoHanh) {
-      const baseDate = new Date(baseDateForBaoHanh);
+    if (p.soNgayBaoHanh && p.soNgayBaoHanh > 0) {
+      const baseDate = new Date(effectiveBaseDate);
       if (!isNaN(baseDate.getTime())) {
         const estimatedDate = new Date(baseDate.getTime() + p.soNgayBaoHanh * 24 * 60 * 60 * 1000);
         const newDateStr = estimatedDate.toISOString().split('T')[0];
@@ -23,7 +24,7 @@ export function syncBaoHanhDates(products: ProductItem[], showBaoHanh: boolean |
           return { ...p, ngayHetHanBaoHanh: newDateStr };
         }
       }
-    } else if (p.ngayHetHanBaoHanh && (!p.soNgayBaoHanh || !baseDateForBaoHanh)) {
+    } else if (p.ngayHetHanBaoHanh && !p.soNgayBaoHanh) {
       needsUpdate = true;
       const newP = { ...p };
       delete newP.ngayHetHanBaoHanh;

@@ -8,12 +8,15 @@ export const ProductItemSchema = z.object({
   unit: z.string().optional(),
   price: z.number().optional(),
   total: z.number().optional(), // Alias of subtotalAfterTax for backward compat
+  stt: z.number().optional(),
   soNgayBaoHanh: z.number().optional(),
   ngayHetHanBaoHanh: z.string().optional(),
+  danhSachMaMay: z.array(z.string()).optional(),
   // D1: Line-item finance fields
   ghiChu: z.string().optional(),
   note: z.string().optional().nullable(),
   item_code: z.string().optional(),
+  discountType: z.enum(['AMOUNT', 'PERCENT']).optional(),
   discountPct: z.number().optional(),
   discountAmount: z.number().optional(),
   subtotalAfterDiscount: z.number().optional(),

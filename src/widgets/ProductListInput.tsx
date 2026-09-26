@@ -23,6 +23,8 @@ interface ProductListInputProps {
   showPrice?: boolean;
   showFinance?: boolean; 
   disabled?: boolean;
+  showSerial?: boolean;
+  allContracts?: any[];
 }
 
 export default function ProductListInput({
@@ -37,7 +39,9 @@ export default function ProductListInput({
   defaultUnit = 'Máy',
   showPrice,
   showFinance,
-  disabled
+  disabled,
+  showSerial,
+  allContracts
 }: ProductListInputProps) {
 
   const {
@@ -95,6 +99,7 @@ export default function ProductListInput({
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="p-3 text-2xs font-bold text-slate-700 uppercase tracking-wider text-center w-[50px]">STT</th>
                   <th className="p-3 text-2xs font-bold text-slate-700 uppercase tracking-wider min-w-[280px]">Sản phẩm & Quy cách</th>
                   <th className="p-3 text-2xs font-bold text-slate-700 uppercase tracking-wider text-center w-[90px]">SL / ĐVT</th>
                   <th className="p-3 text-2xs font-bold text-slate-700 uppercase tracking-wider text-right w-[140px]">Đơn giá</th>
@@ -125,6 +130,8 @@ export default function ProductListInput({
                     disabled={disabled}
                     hideAddRemove={hideAddRemove}
                     showBaoHanh={showBaoHanh}
+                    showSerial={showSerial}
+                    allContracts={allContracts}
                     onUpdate={updateProduct}
                     onRemove={removeProduct}
                   />
@@ -148,6 +155,8 @@ export default function ProductListInput({
                 hideAddRemove={hideAddRemove}
                 allowEditProductId={allowEditProductId}
                 showBaoHanh={showBaoHanh}
+                showSerial={showSerial}
+                allContracts={allContracts}
                 onUpdate={updateProduct}
                 onRemove={removeProduct}
               />
@@ -165,6 +174,8 @@ export default function ProductListInput({
               allowEditProductId={allowEditProductId}
               showPrice={showPrice}
               showBaoHanh={showBaoHanh}
+              showSerial={showSerial}
+              allContracts={allContracts}
               onUpdate={updateProduct}
               onRemove={removeProduct}
             />

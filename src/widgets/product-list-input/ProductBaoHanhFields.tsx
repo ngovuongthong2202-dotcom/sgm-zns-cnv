@@ -9,6 +9,15 @@ interface ProductBaoHanhFieldsProps {
 }
 
 export function ProductBaoHanhFields({ product, viewType = 'card', disabled, onChange }: ProductBaoHanhFieldsProps) {
+  const displayExpiry = React.useMemo(() => {
+    if (product.ngayHetHanBaoHanh) return product.ngayHetHanBaoHanh;
+    if (product.soNgayBaoHanh && product.soNgayBaoHanh > 0) {
+      const exp = new Date(Date.now() + product.soNgayBaoHanh * 86400000);
+      return exp.toISOString().split('T')[0];
+    }
+    return '';
+  }, [product.ngayHetHanBaoHanh, product.soNgayBaoHanh]);
+
   return (
     <div className={`mt-2 ${viewType === 'card' ? 'pt-3 border-t border-slate-100' : 'pt-2'} grid grid-cols-2 gap-4 w-full md:max-w-md`}>
       <div className="space-y-1">
@@ -28,8 +37,8 @@ export function ProductBaoHanhFields({ product, viewType = 'card', disabled, onC
          <input aria-label="Nhập thông tin"
            type="date"
            readOnly={true}
-           value={product.ngayHetHanBaoHanh || ''}
-           className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded p-1.5 outline-none"
+           value={displayExpiry}
+           className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded p-1.5 outline-none font-mono"
          />
       </div>
     </div>

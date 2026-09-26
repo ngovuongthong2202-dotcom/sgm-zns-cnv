@@ -228,6 +228,7 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
                    defaultUnit={watch('loai') === 'BG Vật tư' ? 'Cái' : 'Máy'}
                    showPrice={true}
                    disabled={businessLock?.locked || isErpLocked}
+                   baseDateForBaoHanh={watch('ngayBaoGia') || new Date().toISOString().split('T')[0]}
                  />
               </div>
             </div>

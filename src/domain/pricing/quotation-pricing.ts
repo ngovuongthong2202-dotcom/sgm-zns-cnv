@@ -29,13 +29,29 @@ export function computeLineItem(item: ProductItem): ProductItem {
   const quantity = Math.max(0, Number(item.quantity) || 0);
   const gross = Math.round(price * quantity);
   
-  // 1. Phân giải chiết khấu
+  // 1. Phân giải chiết khấu (Explicit Intent Authority)
   let discountAmount = 0;
   let discountPct = item.discountPct !== undefined && item.discountPct !== null ? Number(item.discountPct) : undefined;
+  let discountType = item.discountType;
 
-  if (discountPct !== undefined && discountPct > 0) {
+  if (discountType === 'AMOUNT' && item.discountAmount !== undefined && item.discountAmount !== null) {
+    discountAmount = Math.min(gross, Math.max(0, Math.round(Number(item.discountAmount))));
+    if (gross > 0 && discountAmount > 0) {
+      discountPct = parseFloat(((discountAmount / gross) * 100).toFixed(2));
+    }
+  } else if (discountType === 'PERCENT' && discountPct !== undefined && discountPct > 0) {
+    discountAmount = Math.round(gross * (Math.min(100, discountPct) / 100));
+  } else if (item.discountAmount !== undefined && item.discountAmount !== null && item.discountAmount > 0 && (discountPct === undefined || discountPct === 0)) {
+    discountType = 'AMOUNT';
+    discountAmount = Math.min(gross, Math.max(0, Math.round(Number(item.discountAmount))));
+    if (gross > 0 && discountAmount > 0) {
+      discountPct = parseFloat(((discountAmount / gross) * 100).toFixed(2));
+    }
+  } else if (discountPct !== undefined && discountPct > 0) {
+    discountType = 'PERCENT';
     discountAmount = Math.round(gross * (Math.min(100, discountPct) / 100));
   } else if (item.discountAmount !== undefined && item.discountAmount !== null) {
+    discountType = 'AMOUNT';
     discountAmount = Math.min(gross, Math.max(0, Math.round(Number(item.discountAmount))));
     if (gross > 0 && discountAmount > 0) {
       discountPct = parseFloat(((discountAmount / gross) * 100).toFixed(2));
@@ -61,6 +77,7 @@ export function computeLineItem(item: ProductItem): ProductItem {
     ...item,
     price,
     quantity,
+    discountType: discountType || (discountAmount > 0 ? 'AMOUNT' : discountPct ? 'PERCENT' : undefined),
     discountPct,
     discountAmount,
     subtotalAfterDiscount,

@@ -35,11 +35,24 @@ export function ContractBasisSection({
             setValue('quotationId', val, { shouldValidate: true, shouldDirty: true });
             if (doc) setActiveQuotationDoc(doc);
           }}
-          excludeQuoIds={contract ? [] : contracts.filter((c: any) => normalizeLegacyStatus(c.trangThaiGuiTinHopDong) === EntityZnsStatus.THANH_CONG).map((c: any) => c.quotationId)}
+          excludeQuoIds={[]}
           filterOption={(q) => true}
           isOptionDisabled={(q) => {
             const loai = (q.loai || '').toString().trim().toUpperCase();
             if (loai !== 'BG MÁY') return { disabled: true, reason: 'Không phải báo giá bán máy' };
+
+            // Quota Gate: Không cho phép tạo tiếp HĐ khi Báo giá đã được ký đủ 100% số lượng
+            const otherContracts = (contracts || []).filter((c: any) => c.quotationId === q.id && (!contract || c.id !== contract.id));
+            const totalQuoQty = q.slMay || (q.products?.reduce((acc: number, p: any) => acc + (Number(p.quantity) || 0), 0) || 0);
+            const contractedQty = otherContracts.reduce((acc: number, c: any) => acc + (Number(c.slMay) || (c.products?.reduce((s: number, p: any) => s + (Number(p.quantity) || 0), 0) || 0)), 0);
+
+            if (totalQuoQty > 0 && contractedQty >= totalQuoQty) {
+              return { 
+                disabled: true, 
+                reason: `Đã lập HĐ đủ số lượng (${contractedQty}/${totalQuoQty} ${q.dvt || 'Máy'})` 
+              };
+            }
+
             return { disabled: false };
           }}
           error={errors.quotationId?.message as string | undefined}

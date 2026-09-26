@@ -4,6 +4,7 @@ import { Button } from '@/src/design-system';
 import { ProductItem } from '@/src/domain/schema/product.schema';
 import { ProductBaoHanhFields } from './ProductBaoHanhFields';
 import { FinancialEngine } from '@/src/shared/utils/financialEngine';
+import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
 
 interface ProductBasicItemProps {
   key?: React.Key;
@@ -16,6 +17,8 @@ interface ProductBasicItemProps {
   allowEditProductId?: boolean;
   showPrice?: boolean;
   showBaoHanh?: boolean;
+  showSerial?: boolean;
+  allContracts?: any[];
   onUpdate: <K extends keyof ProductItem>(index: number, field: K, value: ProductItem[K]) => void;
   onRemove: (index: number) => void;
 }
@@ -30,6 +33,8 @@ export function ProductBasicItem({
   allowEditProductId,
   showPrice,
   showBaoHanh,
+  showSerial,
+  allContracts,
   onUpdate,
   onRemove
 }: ProductBasicItemProps) {
@@ -37,9 +42,14 @@ export function ProductBasicItem({
     <div className="group relative bg-white border md:border-b-0 border-brand-border md:border-transparent md:border-b-brand-border/50 rounded-2xl md:rounded-none p-4 transition-all hover:bg-slate-50/50">
       <div className={`grid ${showPrice ? 'grid-cols-12' : 'grid-cols-12'} gap-3 lg:gap-4 items-start`}>
         <div className={`${showPrice ? 'col-span-12 md:col-span-2' : 'col-span-3'} space-y-1`}>
-          <label className="md:hidden text-2xs font-bold text-slate-600 uppercase tracking-tight flex items-center gap-1">
-            <Hash size={10} /> Mã SP
-          </label>
+          <div className="flex items-center gap-1.5">
+            <span className="shrink-0 px-1.5 py-0.5 bg-slate-100 text-slate-700 text-2xs font-bold rounded font-mono">
+              #{p.stt || idx + 1}
+            </span>
+            <label className="md:hidden text-2xs font-bold text-slate-600 uppercase tracking-tight flex items-center gap-1">
+              <Hash size={10} /> Mã SP
+            </label>
+          </div>
           <input aria-label="Nhập thông tin"
             type="text"
             value={p.productId}
@@ -140,6 +150,18 @@ export function ProductBasicItem({
       ) : null}
       {showBaoHanh && (
         <ProductBaoHanhFields product={p} viewType="table" disabled={disabled} onChange={(field, val) => onUpdate(idx, field, val === null ? undefined : val as any)} />
+      )}
+      {showSerial && (
+        <div className="mt-3 pt-2.5 border-t border-slate-100">
+          <span className="text-3xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
+            Mã máy / Serial ({p.danhSachMaMay?.length || 0}/{p.quantity || 0} {p.unit || 'Máy'}):
+          </span>
+          <MachineCodeChipInput
+            value={p.danhSachMaMay || []}
+            onChange={(codes) => onUpdate(idx, 'danhSachMaMay', codes)}
+            allContracts={allContracts}
+          />
+        </div>
       )}
     </div>
   );

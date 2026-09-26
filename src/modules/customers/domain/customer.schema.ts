@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { zProperString, zPhoneString, zSafeString } from '@/src/domain/mapping/zod-transforms';
 import { cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
+import { sanitizeTaxCode } from '@/src/shared/utils/inputSanitizer';
 
 export const ContactSchema = z.object({
   danhXung: zSafeString.optional(),
@@ -21,7 +22,7 @@ export const CustomerSchema = z.object({
   loaiKh: zSafeString.optional(),
   tenKhachHang: z.string().min(1, 'Tên khách hàng là bắt buộc').transform((val) => cleanProperVietnameseText(val || '')),
   loaiHinhDoanhNghiep: zSafeString.optional().transform((val) => (val || '').trim().toUpperCase()),
-  maSoThue: zSafeString.optional(),
+  maSoThue: zSafeString.optional().transform((val) => val ? sanitizeTaxCode(val) : ''),
   nguoiDaiDien: zProperString.optional(),
   gioiTinh: zSafeString.optional(),
   ngaySinh: zSafeString.optional(), // ISO Date string

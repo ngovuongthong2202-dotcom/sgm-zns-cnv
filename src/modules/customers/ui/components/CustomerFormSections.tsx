@@ -7,6 +7,8 @@ import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 import { autoDetectBusinessName, STANDARDIZED_BUSINESS_TYPES } from './CustomerFormHelpers';
 
+import { sanitizeTaxCode } from '@/src/shared/utils/inputSanitizer';
+
 interface ProfileSectionProps {
   register: UseFormRegister<any>;
   errors: FieldErrors<any>;
@@ -34,19 +36,58 @@ export function CustomerFormProfileSection({
   handleTaxLookup,
   PROVINCES
 }: ProfileSectionProps) {
+  const isIndividual = watch('loaiHinhDoanhNghiep') === 'CÁ NHÂN' || watch('loaiKh') === 'Cá nhân';
+
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-        <Building2 size={16} className="text-slate-800" />
-        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-          1. Profile Pháp Nhân
-        </h3>
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="flex items-center gap-2">
+          {isIndividual ? <Users size={16} className="text-blue-600" /> : <Building2 size={16} className="text-slate-800" />}
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+            {isIndividual ? '1. Profile Khách Hàng Cá Nhân' : '1. Profile Pháp Nhân'}
+          </h3>
+        </div>
+        <div className="flex items-center p-0.5 bg-slate-100 rounded-lg">
+          <button
+            type="button"
+            onClick={() => {
+              setValue('loaiHinhDoanhNghiep', 'CÔNG TY TNHH', { shouldDirty: true });
+              if (watch('loaiKh') === 'Cá nhân') {
+                setValue('loaiKh', 'Khách lẻ', { shouldDirty: true });
+              }
+            }}
+            className={`px-2.5 py-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1 ${
+              !isIndividual ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Building2 size={11} />
+            Doanh nghiệp
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setValue('loaiHinhDoanhNghiep', 'CÁ NHÂN', { shouldDirty: true });
+              setValue('loaiKh', 'Cá nhân', { shouldDirty: true });
+              setValue('maSoThue', '', { shouldDirty: true });
+              const currentName = watch('tenKhachHang');
+              if (currentName) {
+                setValue('nguoiDaiDien', currentName, { shouldDirty: true });
+              }
+            }}
+            className={`px-2.5 py-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1 ${
+              isIndividual ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Users size={11} />
+            Cá nhân (Nhanh 10s)
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1 sm:col-span-2 relative">
           <label className="text-2xs font-medium uppercase text-slate-500" htmlFor="tenKhachHang">
-            Tên KH / Pháp nhân <span className="text-red-500">*</span>
+            {isIndividual ? 'Họ và tên Khách hàng (Cá nhân)' : 'Tên KH / Pháp nhân'} <span className="text-red-500">*</span>
           </label>
           <div className="relative">
             <input
@@ -61,16 +102,26 @@ export function CustomerFormProfileSection({
               }}
               onBlur={(e) => {
                 register('tenKhachHang').onBlur(e);
-                const { loaiHinh, tenNgayNgan } = autoDetectBusinessName(e.target.value);
-                if (loaiHinh) {
-                  setValue('loaiHinhDoanhNghiep', loaiHinh, { shouldDirty: true });
-                }
-                if (tenNgayNgan && e.target.value !== tenNgayNgan) {
-                   setValue('tenKhachHang', tenNgayNgan, { shouldDirty: true });
+                if (isIndividual) {
+                  const cleaned = cleanProperVietnameseText(e.target.value);
+                  if (cleaned !== e.target.value) {
+                    setValue('tenKhachHang', cleaned, { shouldDirty: true });
+                  }
+                  if (!watch('nguoiDaiDien')) {
+                    setValue('nguoiDaiDien', cleaned, { shouldDirty: true });
+                  }
+                } else {
+                  const { loaiHinh, tenNgayNgan } = autoDetectBusinessName(e.target.value);
+                  if (loaiHinh) {
+                    setValue('loaiHinhDoanhNghiep', loaiHinh, { shouldDirty: true });
+                  }
+                  if (tenNgayNgan && e.target.value !== tenNgayNgan) {
+                     setValue('tenKhachHang', tenNgayNgan, { shouldDirty: true });
+                  }
                 }
               }}
               className="w-full placeholder:text-slate-300 h-8 border border-slate-200 rounded-lg pl-3 pr-8 text-sm"
-              placeholder="Mô tả và tên đầy đủ của doanh nghiệp..."
+              placeholder={isIndividual ? "Ví dụ: Nguyễn Văn An, Trần Thị Bích..." : "Mô tả và tên đầy đủ của doanh nghiệp..."}
             />
             {isAiFormatting ? (
               <Loader2 className="w-4 h-4 text-blue-500 absolute right-2 top-2 animate-spin" />
@@ -90,14 +141,14 @@ export function CustomerFormProfileSection({
 
         <div className="space-y-1">
           <label className="text-2xs font-medium uppercase text-slate-500" htmlFor="loaiHinhDoanhNghiep">
-            Loại hình DN
+            Loại hình DN / Tổ chức
           </label>
           <select
             id="loaiHinhDoanhNghiep"
             {...register('loaiHinhDoanhNghiep')}
             className="w-full bg-white h-8 border border-slate-200 rounded-lg px-3 text-sm text-slate-800"
           >
-            <option value="">Chọn loại hình doanh nghiệp</option>
+            <option value="">Chọn loại hình</option>
             {STANDARDIZED_BUSINESS_TYPES.map((type) => (
               <option key={type} value={type}>{type}</option>
             ))}
@@ -124,45 +175,74 @@ export function CustomerFormProfileSection({
           </div>
         </div>
 
-        <div className="space-y-1 sm:col-span-2">
-          <label className="text-2xs font-medium uppercase text-slate-500 flex items-center gap-1.5" htmlFor="maSoThue">
-            Mã Số Thuế <span className="text-2xs text-slate-500 font-normal lowercase">(10-13 chữ số)</span>
-          </label>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <input
-                id="maSoThue"
-                autoComplete="off"
-                {...register('maSoThue')}
-                className="w-full font-mono font-semibold h-8 border border-slate-200 rounded-lg px-3 text-sm placeholder:text-slate-300"
-                placeholder="Ví dụ: 0102030405..."
-              />
-              {isLookingUp && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              )}
-              {lookupStatus === 'success' && !isLookingUp && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
-                  <Check size={16} />
-                </div>
-              )}
-              {lookupStatus === 'error' && !isLookingUp && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-red-600">
-                  <AlertCircle size={16} />
-                </div>
-              )}
+        {isIndividual ? (
+          <div className="space-y-1 sm:col-span-2">
+            <div className="bg-blue-50/60 border border-blue-200/80 rounded-lg p-2.5 flex items-center justify-between text-2xs text-blue-900">
+              <span className="flex items-center gap-1.5 font-medium">
+                <Users size={13} className="text-blue-600" />
+                Khách hàng cá nhân không bắt buộc Mã số thuế (MST) & VietQR. Đã tối ưu tạo nhanh.
+              </span>
+              <span className="text-3xs font-mono font-bold bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">
+                CHẾ ĐỘ RÚT GỌN
+              </span>
             </div>
-            <Button
-              type="button"
-              onClick={handleTaxLookup}
-              disabled={isLookingUp}
-              className="h-8 px-4 bg-slate-900 text-white rounded-lg text-xs font-medium hover:bg-slate-800 shrink-0 disabled:opacity-50 transition-colors"
-            >
-              {isLookingUp ? 'Đang tra...' : 'Điền thông tin pháp nhân'}
-            </Button>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-1 sm:col-span-2">
+            <label className="text-2xs font-medium uppercase text-slate-500 flex items-center gap-1.5" htmlFor="maSoThue">
+              Mã Số Thuế <span className="text-2xs text-slate-500 font-normal lowercase">(10-13 chữ số)</span>
+            </label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  id="maSoThue"
+                  autoComplete="off"
+                  {...register('maSoThue')}
+                  onPaste={(e) => {
+                    const text = e.clipboardData.getData('text');
+                    if (text) {
+                      e.preventDefault();
+                      const clean = sanitizeTaxCode(text);
+                      setValue('maSoThue', clean, { shouldDirty: true, shouldValidate: true });
+                    }
+                  }}
+                  onBlur={(e) => {
+                    register('maSoThue').onBlur(e);
+                    const clean = sanitizeTaxCode(e.target.value);
+                    if (clean !== e.target.value) {
+                      setValue('maSoThue', clean, { shouldDirty: true, shouldValidate: true });
+                    }
+                  }}
+                  className="w-full font-mono font-semibold h-8 border border-slate-200 rounded-lg px-3 text-sm placeholder:text-slate-300"
+                  placeholder="Ví dụ: 0102030405..."
+                />
+                {isLookingUp && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+                {lookupStatus === 'success' && !isLookingUp && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
+                    <Check size={16} />
+                  </div>
+                )}
+                {lookupStatus === 'error' && !isLookingUp && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-red-600">
+                    <AlertCircle size={16} />
+                  </div>
+                )}
+              </div>
+              <Button
+                type="button"
+                onClick={handleTaxLookup}
+                disabled={isLookingUp}
+                className="h-8 px-4 bg-slate-900 text-white rounded-lg text-xs font-medium hover:bg-slate-800 shrink-0 disabled:opacity-50 transition-colors"
+              >
+                {isLookingUp ? 'Đang tra...' : 'Điền thông tin pháp nhân'}
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-1">
           <label className="text-2xs font-medium uppercase text-slate-500" htmlFor="tinhThanh">

@@ -13,9 +13,10 @@ interface QuotationProductsArrayProps {
   showPrice: boolean;
   products: ProductItem[];
   disabled?: boolean;
+  baseDateForBaoHanh?: string;
 }
 
-export function QuotationProductsArray({ setValue, defaultUnit, showPrice, products, disabled }: QuotationProductsArrayProps) {
+export function QuotationProductsArray({ setValue, defaultUnit, showPrice, products, disabled, baseDateForBaoHanh }: QuotationProductsArrayProps) {
   const handleChange = React.useCallback((newProducts: ProductItem[]) => {
     setValue('products', newProducts, { shouldValidate: true, shouldDirty: true });
   }, [setValue]);
@@ -29,6 +30,7 @@ export function QuotationProductsArray({ setValue, defaultUnit, showPrice, produ
       showFinance={true} // Enable finance features here
       disabled={disabled}
       showBaoHanh={true}
+      baseDateForBaoHanh={baseDateForBaoHanh}
     />
   );
 }
