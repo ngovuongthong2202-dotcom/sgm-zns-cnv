@@ -349,7 +349,7 @@ export function PaymentRecordDrawer({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-50 z-50 flex flex-col h-screen overflow-hidden">
+    <div className="fixed inset-0 bg-slate-50 z-[200] flex flex-col h-screen overflow-hidden">
       <div className="bg-slate-50 flex flex-col h-full w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header toolbar */}
         <div className="bg-slate-900 flex items-center justify-between px-6 py-3.5 shrink-0 z-20 shadow-md">

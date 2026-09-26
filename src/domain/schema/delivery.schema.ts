@@ -5,7 +5,7 @@ import { ProductItemSchema } from './product.schema';
 export const DeliverySchema = z.object({
   id: z.string().optional(),
   deliveryId: z.string().min(1, 'Số hiệu giao hàng là bắt buộc'),
-  paymentId: z.string().min(1),
+  paymentId: z.string().optional().default(''),
   contractId: z.string().optional(),
   quotationId: z.string().optional(),
   customerId: z.string().min(1),
@@ -48,6 +48,8 @@ export const DeliverySchema = z.object({
   kyNhan: z.string().optional(),
   ghiChu: z.string().optional(),
   soDienThoaiDonViVanChuyen: z.string().optional(),
+  thoGiaoMay: z.string().optional().or(z.literal('')),
+  sdtThoGiaoMay: z.string().optional().or(z.literal('')),
   
   // Product snapshot (Current shipment items)
   products: z.array(ProductItemSchema).optional().default([]),

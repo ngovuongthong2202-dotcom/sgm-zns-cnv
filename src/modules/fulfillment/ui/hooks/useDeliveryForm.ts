@@ -271,6 +271,90 @@ export function useDeliveryForm(
     }
   }, [contracts, quotations, customers, deliveries, setValue, defaultOfficer]);
 
+  const populateFromQuotation = useCallback((q: any) => {
+    if (!q) return;
+    setValue('quotationId', q.id, { shouldValidate: true });
+    setValue('soPhieuBaoGia', q.soPhieuBaoGia || '');
+    setValue('soBaoGia', q.soPhieuBaoGia || '');
+    setValue('ngayBaoGia', q.ngayBaoGia || '');
+    setValue('customerId', q.customerId || '');
+    setValue('maKh', q.maKh || '');
+    setValue('tenKhachHang', q.tenKhachHang || '');
+    setValue('sdt', q.sdt || '');
+    setValue('nguoiDaiDien', q.nguoiDaiDien || '');
+    setValue('loai', q.loai || '');
+    setValue('loaiBaoGia', q.loai || '');
+    setValue('dvt', q.dvt || 'Bộ');
+    setValue('slMay', Number(q.slMay) || 1);
+    setValue('giaTriHopDong', Number(q.totalAmount) || 0);
+    setValue('totalAmount', Number(q.totalAmount) || 0);
+    setValue('subTotal', q.subTotal || 0);
+    setValue('vatRate', q.vatRate || 0);
+    setValue('vatAmount', q.vatAmount || 0);
+    setValue('discountRate', q.discountRate || 0);
+    setValue('discountAmount', q.discountAmount || 0);
+    setValue('nguoiPhuTrach', defaultOfficer);
+
+    const targetCustId = q.customerId;
+    const targetCustMa = q.maKh;
+    const customer = customers?.find((c: any) => (targetCustId && c.id === targetCustId) || (targetCustMa && c.maKh === targetCustMa));
+
+    const contactPerson = customer?.contacts?.[0]?.nguoiDaiDien || customer?.nguoiDaiDien || q.nguoiDaiDien || '';
+    const contactPhone = customer?.contacts?.[0]?.sdt || customer?.sdt || q.sdt || '';
+    const deliveryAddress = customer?.diaChi || customer?.tinhThanh || q.diaChi || '';
+
+    setValue('nguoiLienHe', contactPerson, { shouldValidate: true });
+    setValue('sdtLienHe', contactPhone, { shouldValidate: true });
+    setValue('diaChiGiaoHang', deliveryAddress, { shouldValidate: true });
+
+    const productList = Array.isArray(q.products) ? q.products : [];
+    if (productList.length > 0) {
+      const validDeliveries = (deliveries || []).filter((d: any) => 
+        !d.deletedAt && !d.deleted_at && String(d.tinhTrangGiaoHang || '').toUpperCase() !== 'HỦY'
+      );
+      const linkedDeliveries = validDeliveries.filter((d: any) => d.quotationId === q.id || d.soPhieuBaoGia === q.soPhieuBaoGia);
+
+      const actualDeliveredMap: Record<string, number> = {};
+      linkedDeliveries.forEach((d: any) => {
+        const dItems = Array.isArray(d.products) ? d.products : [];
+        dItems.forEach((dp: any, idx: number) => {
+          const itemKey = getProductItemKey(dp, idx);
+          actualDeliveredMap[itemKey] = (actualDeliveredMap[itemKey] || 0) + Number(dp.quantity || 0);
+          if (dp.productId) actualDeliveredMap[dp.productId] = (actualDeliveredMap[dp.productId] || 0) + Number(dp.quantity || 0);
+          if (dp.productName) actualDeliveredMap[dp.productName] = (actualDeliveredMap[dp.productName] || 0) + Number(dp.quantity || 0);
+        });
+      });
+
+      const limits: Record<string, number> = {};
+      const remainingProducts = productList.map((cp: any, idx: number) => {
+        const itemKey = getProductItemKey(cp, idx);
+        const delivered = actualDeliveredMap[itemKey] || (cp.productId ? actualDeliveredMap[cp.productId] : 0) || 0;
+        const reqQty = Number(cp.quantity || 0);
+        const remaining = Math.max(0, reqQty - delivered);
+        limits[itemKey] = remaining;
+        return {
+          ...cp,
+          id: itemKey,
+          quantity: remaining,
+        };
+      }).filter((cp: any) => limits[cp.id] > 0);
+
+      setValue('products', remainingProducts);
+      const totalRemainingQty = remainingProducts.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0);
+      setValue('slMay', totalRemainingQty);
+      setMaxQuantities(limits);
+    }
+  }, [customers, deliveries, setValue, defaultOfficer]);
+
+  useEffect(() => {
+    if (delivery?.quotationId && !selectedPaymentId && !delivery?.id) {
+      const q = quotations?.find((x: any) => x.id === delivery.quotationId || x.soPhieuBaoGia === delivery.quotationId);
+      if (q) {
+        populateFromQuotation(q);
+      }
+    }
+  }, [delivery?.quotationId, selectedPaymentId, delivery?.id, quotations, populateFromQuotation]);
+
   useEffect(() => {
     if (selectedPaymentId && !delivery?.id) {
       const p = payments?.find((x: any) => x.id === selectedPaymentId || x.paymentId === selectedPaymentId);

@@ -4,7 +4,7 @@ import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { Contract } from '@/src/domain/schema/contract.schema';
 import { Payment } from '@/src/domain/schema/payment.schema';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
-import { Check, Clock, FileText, FileSignature, Wallet, Truck, ArrowRight } from 'lucide-react';
+import { Check, Clock, FileText, FileSignature, Wallet, Truck, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { normalizeLegacyStatus, EntityZnsStatus } from '@/src/domain/enums/zns-status';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { useDrawerStack } from '@/src/contexts/DrawerStackContext';
@@ -96,15 +96,16 @@ export function WorkflowTimeline({
     entityType: 'payment' as const,
   });
 
-  // Step 4: Giao hàng
+  // Step 4: Giao hàng / Nghiệm thu dịch vụ
+  const isService = normalizeLoai(quotation.loai) === QUOTATION_LOAI.DICH_VU;
   const delivery = relatedDeliveries[0];
   steps.push({
     id: 'delivery',
-    title: 'Giao Hàng',
-    type: 'Giao hàng',
+    title: isService ? 'Nghiệm Thu' : 'Giao Hàng',
+    type: isService ? 'Nghiệm thu' : 'Giao hàng',
     docId: delivery?.id,
     docNumber: delivery?.deliveryId,
-    icon: <Truck size={16} />,
+    icon: isService ? <CheckCircle2 size={16} /> : <Truck size={16} />,
     completed: !!delivery,
     znsSuccess: delivery ? hasZnsSuccess(delivery) : false,
     znsStatus: normalizeLegacyStatus((delivery as any)?.trangThaiZns || (delivery as any)?.trangThaiGuiTinGiaoHang),

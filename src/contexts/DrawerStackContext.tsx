@@ -129,16 +129,14 @@ export function DrawerStackProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const closeDrawer = useCallback(() => {
+    setStack((prev) => {
+      if (prev.length === 0) return prev;
+      const nextStack = prev.slice(0, -1);
+      updateUrlWithStack(nextStack, false);
+      return nextStack;
+    });
     if (pushedCountRef.current > 0) {
       pushedCountRef.current -= 1;
-      window.history.back();
-    } else {
-      setStack((prev) => {
-        if (prev.length === 0) return prev;
-        const nextStack = prev.slice(0, -1);
-        updateUrlWithStack(nextStack, false);
-        return nextStack;
-      });
     }
   }, []);
 

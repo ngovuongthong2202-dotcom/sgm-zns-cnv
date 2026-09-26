@@ -2270,7 +2270,7 @@ exports[`Component Snapshots (Baseline) > renders DataViewEngine 1`] = `
 exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
 <div>
   <div
-    class="fixed inset-0 bg-slate-50 z-50 flex flex-col h-screen overflow-hidden"
+    class="fixed inset-0 bg-slate-50 z-[200] flex flex-col h-screen overflow-hidden"
   >
     <div
       class="bg-slate-50 flex flex-col h-full w-full overflow-hidden"
@@ -2314,7 +2314,7 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
               Lập Phiếu Giao Hàng & Vận Chuyển
             </h2>
             <div
-              class="text-2xs text-slate-500 font-semibold flex items-center gap-2"
+              class="text-2xs text-slate-400 font-semibold flex items-center gap-2"
             >
               <span>
                 Xác nhận lịch trình bàn giao & Kích hoạt ZNS theo dõi đơn
@@ -2851,6 +2851,76 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
                       name="soDienThoaiDonViVanChuyen"
                       placeholder="09xx..."
                     />
+                  </div>
+                  <div
+                    class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100"
+                  >
+                    <div
+                      class="space-y-1.5 focus-within:text-blue-600 transition-colors"
+                    >
+                      <label
+                        class="text-2xs font-bold uppercase tracking-wide text-slate-700 block flex items-center gap-1"
+                        for="thoGiaoMay"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="lucide lucide-wrench text-amber-600"
+                          fill="none"
+                          height="12"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          viewBox="0 0 24 24"
+                          width="12"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z"
+                          />
+                        </svg>
+                        Thợ giao máy / KTV
+                      </label>
+                      <input
+                        class="h-8 rounded-lg border border-slate-200 px-3 text-sm font-semibold w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-normal placeholder:text-slate-400"
+                        id="thoGiaoMay"
+                        name="thoGiaoMay"
+                        placeholder="Họ tên thợ giao máy..."
+                      />
+                    </div>
+                    <div
+                      class="space-y-1.5 focus-within:text-blue-600 transition-colors"
+                    >
+                      <label
+                        class="text-2xs font-bold uppercase tracking-wide text-slate-700 block flex items-center gap-1"
+                        for="sdtThoGiaoMay"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="lucide lucide-phone text-emerald-600"
+                          fill="none"
+                          height="12"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          viewBox="0 0 24 24"
+                          width="12"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"
+                          />
+                        </svg>
+                        SĐT liên lạc thợ
+                      </label>
+                      <input
+                        class="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full font-mono font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400"
+                        id="sdtThoGiaoMay"
+                        name="sdtThoGiaoMay"
+                        placeholder="Số điện thoại thợ giao..."
+                      />
+                    </div>
                   </div>
                 </div>
                 <div
@@ -3730,7 +3800,7 @@ exports[`Component Snapshots (Baseline) > renders EntityLinks 1`] = `
 exports[`Component Snapshots (Baseline) > renders PaymentRecordDrawer 1`] = `
 <div>
   <div
-    class="fixed inset-0 bg-slate-50 z-50 flex flex-col h-screen overflow-hidden"
+    class="fixed inset-0 bg-slate-50 z-[200] flex flex-col h-screen overflow-hidden"
   >
     <div
       class="bg-slate-50 flex flex-col h-full w-full overflow-hidden"
@@ -4467,10 +4537,10 @@ exports[`Component Snapshots (Baseline) > renders PaymentRecordDrawer 1`] = `
               class="flex flex-col animate-in fade-in duration-300"
             >
               <div
-                class="flex items-center justify-center py-12 px-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50"
+                class="flex items-center justify-center py-12 px-4 border border-dashed border-slate-300 rounded-2xl bg-slate-50"
               >
                 <span
-                  class="text-xs text-slate-400 font-medium"
+                  class="text-xs text-slate-700 font-semibold"
                 >
                   Không có sản phẩm thiết bị nào
                 </span>

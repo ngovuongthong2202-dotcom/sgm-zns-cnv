@@ -16,7 +16,8 @@ import {
   ShieldCheck, 
   Boxes, 
   Warehouse,
-  ShoppingBag
+  ShoppingBag,
+  Wrench
 } from 'lucide-react';
 import { cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
 import { sanitizeText } from '@/src/shared/utils/inputSanitizer';
@@ -32,6 +33,8 @@ const CompleteSchema = z.object({
   keToanKho: z.string().optional(),
   khoXuat: z.string().optional(),
   donViVanChuyen: z.string().optional(),
+  thoGiaoMay: z.string().optional(),
+  sdtThoGiaoMay: z.string().optional(),
   ghiChu: z.string().optional(),
 });
 
@@ -84,6 +87,8 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
       keToanKho: delivery.keToanKho || '',
       khoXuat: delivery.khoXuat || '',
       donViVanChuyen: delivery.donViVanChuyen || '',
+      thoGiaoMay: delivery.thoGiaoMay || '',
+      sdtThoGiaoMay: delivery.sdtThoGiaoMay || '',
       ghiChu: delivery.ghiChu || '',
     }
   });
@@ -114,6 +119,8 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
       keToanKho: data.keToanKho || delivery.keToanKho,
       khoXuat: data.khoXuat || delivery.khoXuat,
       donViVanChuyen: data.donViVanChuyen || delivery.donViVanChuyen,
+      thoGiaoMay: data.thoGiaoMay || delivery.thoGiaoMay,
+      sdtThoGiaoMay: data.sdtThoGiaoMay || delivery.sdtThoGiaoMay,
       products: updatedProducts,
       danhSachMaMay: allAggregatedSerials.length > 0 ? Array.from(new Set(allAggregatedSerials)) : (delivery.danhSachMaMay || []),
       ghiChu: finalNote || undefined,
@@ -366,8 +373,34 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                     </div>
                   </div>
 
-                  {/* ZONE 4: NGÀY KÝ NHẬN & GHI CHÚ BÀN GIAO */}
+                  {/* ZONE 4: KỸ THUẬT VIÊN GIAO MÁY, NGÀY KÝ NHẬN & GHI CHÚ BÀN GIAO */}
                   <div className="px-5 pb-5 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-2xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <Wrench size={12} className="text-amber-600" /> 
+                          Thợ giao máy / KTV kỹ thuật
+                        </label>
+                        <input 
+                          {...register('thoGiaoMay')}
+                          className="h-9 px-3 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-100 outline-none bg-white" 
+                          placeholder="Họ tên thợ giao máy / KTV phụ trách..."
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-2xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <Phone size={12} className="text-emerald-600" /> 
+                          SĐT liên lạc thợ giao
+                        </label>
+                        <input 
+                          {...register('sdtThoGiaoMay')}
+                          className="h-9 px-3 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-100 outline-none bg-white" 
+                          placeholder="Số điện thoại liên lạc thợ..."
+                        />
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <label className="text-2xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">

@@ -1,7 +1,7 @@
 import React from 'react';
 import { UseFormRegister, FieldErrors, UseFormWatch, UseFormSetValue } from 'react-hook-form';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
-import { Truck, Package, Lock } from 'lucide-react';
+import { Truck, Package, Lock, Wrench, Phone } from 'lucide-react';
 import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 
@@ -369,6 +369,34 @@ export function DeliveryTransportSection({
               className="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full font-mono font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400"
               placeholder="09xx..."
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100">
+            <div className="space-y-1.5 focus-within:text-blue-600 transition-colors">
+              <label className="text-2xs font-bold uppercase tracking-wide text-slate-700 block flex items-center gap-1" htmlFor="thoGiaoMay">
+                <Wrench size={12} className="text-amber-600" />
+                Thợ giao máy / KTV
+              </label>
+              <input
+                id="thoGiaoMay"
+                {...register('thoGiaoMay')}
+                className="h-8 rounded-lg border border-slate-200 px-3 text-sm font-semibold w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-normal placeholder:text-slate-400"
+                placeholder="Họ tên thợ giao máy..."
+              />
+            </div>
+
+            <div className="space-y-1.5 focus-within:text-blue-600 transition-colors">
+              <label className="text-2xs font-bold uppercase tracking-wide text-slate-700 block flex items-center gap-1" htmlFor="sdtThoGiaoMay">
+                <Phone size={12} className="text-emerald-600" />
+                SĐT liên lạc thợ
+              </label>
+              <input
+                id="sdtThoGiaoMay"
+                {...register('sdtThoGiaoMay')}
+                className="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full font-mono font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400"
+                placeholder="Số điện thoại thợ giao..."
+              />
+            </div>
           </div>
         </div>
 

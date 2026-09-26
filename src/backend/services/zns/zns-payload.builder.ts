@@ -22,7 +22,9 @@ export const ZnsBasePayloadSchema = z.object({
   id: z.string().optional(),
   tenKhachHang: z.string().optional(),
   sdt: z.string().optional(),
-  soPhieuBaoGia: z.string().optional()
+  soPhieuBaoGia: z.string().optional(),
+  thoGiaoMay: z.string().optional(),
+  sdtThoGiaoMay: z.string().optional()
 }).catchall(z.unknown());
 
 export type ZnsBasePayload = z.infer<typeof ZnsBasePayloadSchema>;
@@ -168,6 +170,12 @@ export class ZnsPayloadBuilder {
     }
     if (requiredVarsSet.has('ngay_giao_may') && isEmp(rendered.ngay_giao_may)) {
         rendered.ngay_giao_may = p.ngayGiaoMay || p.ngayGiao || 'Không có';
+    }
+    if (!isEmp((p as any).thoGiaoMay)) {
+        rendered.tho_giao_may = (p as any).thoGiaoMay;
+    }
+    if (!isEmp((p as any).sdtThoGiaoMay)) {
+        rendered.sdt_tho_giao_may = (p as any).sdtThoGiaoMay;
     }
 
     if (requiredVarsSet.has('danh_sach_ma_may') && isEmp(rendered.danh_sach_ma_may)) {

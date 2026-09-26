@@ -7,7 +7,7 @@ import { swrDocFetcher } from '@/src/data/swr-fetchers';
 import { PaymentHoverCard } from '@/src/modules/billing/ui/components/PaymentHoverCard';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
-import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, ShieldCheck, Clock, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, ShieldCheck, Clock, RotateCcw, ChevronDown, ChevronUp, Wrench } from 'lucide-react';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
 import { TabLichSuHoatDong } from "@/src/widgets/TabLichSuHoatDong";
@@ -15,6 +15,7 @@ import { TabLichSuHeThong } from "@/src/widgets/TabLichSuHeThong";
 import { TabLienKet } from "@/src/widgets/TabLienKet";
 import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
 import { DrawerProductList } from '@/src/widgets/DrawerProductList';
+import { ExportDeliveryPdf } from './ExportDeliveryPdf';
 
 import { Button } from '@/src/design-system/Button';
 
@@ -552,6 +553,27 @@ export function DeliveryDetailDrawer({
               </p>
             </div>
 
+            {/* Thợ giao máy & Kỹ thuật viên */}
+            <div className="pt-2 border-t border-slate-100 bg-amber-50/60 p-2.5 rounded-lg border border-amber-200/70">
+              <span className="text-3xs uppercase font-black text-amber-900 block mb-1 flex items-center gap-1">
+                <Wrench size={11} className="text-amber-700" /> Thợ giao máy / KTV kỹ thuật
+              </span>
+              <p className="font-bold text-slate-950 text-xs">
+                {drawerDelivery.thoGiaoMay || 'Chưa phân công thợ'}
+              </p>
+              {drawerDelivery.sdtThoGiaoMay ? (
+                <a 
+                  href={`tel:${drawerDelivery.sdtThoGiaoMay}`}
+                  className="font-mono text-2xs text-blue-700 hover:text-blue-900 font-bold mt-1 flex items-center gap-1 inline-flex bg-white px-2 py-0.5 rounded border border-blue-200 hover:bg-blue-50 transition-colors"
+                >
+                  <Phone size={11} className="text-emerald-600" />
+                  {drawerDelivery.sdtThoGiaoMay} (Gọi thợ)
+                </a>
+              ) : (
+                <span className="text-3xs text-slate-500 italic block mt-0.5">Chưa có SĐT liên lạc thợ</span>
+              )}
+            </div>
+
             <div className="pt-2 border-t border-slate-100">
               <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">Chuyên viên phụ trách</span>
               <p className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
@@ -912,6 +934,8 @@ export function DeliveryDetailDrawer({
                 </Button>
               </div>
             </div>
+
+            <ExportDeliveryPdf delivery={drawerDelivery} variant="secondary" />
 
             <Button aria-label="Chỉnh sửa" variant="dark" size="sm" onClick={() => { onEdit(drawerDelivery); onClose(); }} className="h-9 font-bold">Chỉnh sửa</Button>
           </div>

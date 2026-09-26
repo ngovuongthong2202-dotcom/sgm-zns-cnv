@@ -80,6 +80,8 @@ export function ContractModalsContainer({
   const [prefillPaymentStatus, setPrefillPaymentStatus] = React.useState<string>('ĐÃ THANH TOÁN');
   const [transitionPaymentInfo, setTransitionPaymentInfo] = React.useState<{ id?: string; code?: string; isDacCach?: boolean } | null>(null);
 
+  const isFormModalActive = Boolean(prefillPaymentContract || prefillDeliveryContract || isFormOpen);
+
   return (
     <>
       <ContractDetailDrawer
@@ -87,6 +89,8 @@ export function ContractModalsContainer({
         payments={realtimePayments}
         deliveries={realtimeDeliveries}
         customers={drawerCustomer ? [drawerCustomer] : []}
+        modal={!isFormModalActive}
+        className={isFormModalActive ? 'opacity-0 pointer-events-none' : ''}
         onClose={() => setDrawerContract(null)}
         onEdit={(contract) => { setEditingContract(contract); setDrawerContract(null); setIsFormOpen(true); }}
         onCreatePayment={async (contract) => {

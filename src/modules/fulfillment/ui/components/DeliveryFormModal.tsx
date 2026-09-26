@@ -177,7 +177,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
   }, [payments, selectedPaymentId]);
 
   return (
-    <div className="fixed inset-0 bg-slate-50 z-50 flex flex-col h-screen overflow-hidden">
+    <div className="fixed inset-0 bg-slate-50 z-[200] flex flex-col h-screen overflow-hidden">
       <div className="bg-slate-50 flex flex-col h-full w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header toolbar */}
         <div className="bg-slate-900 flex items-center justify-between px-6 py-3.5 shrink-0 z-20 shadow-md">
@@ -186,9 +186,17 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                 <Clock size={16} />
              </div>
              <div>
-                <h2 className="text-sm font-bold text-white uppercase tracking-wider">{delivery ? 'Hiệu chỉnh Lệnh Giao Hàng' : 'Lập Phiếu Giao Hàng & Vận Chuyển'}</h2>
-                <div className="text-2xs text-slate-500 font-semibold flex items-center gap-2">
-                   <span>Xác nhận lịch trình bàn giao & Kích hoạt ZNS theo dõi đơn</span>
+                <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                  {(watchAll.loai === 'Dịch vụ' || (delivery as any)?.loai === 'Dịch vụ')
+                    ? (delivery ? 'Hiệu chỉnh Biên Bản Bàn Giao & Nghiệm Thu Dịch Vụ' : 'Lập Biên Bản Bàn Giao & Nghiệm Thu Dịch Vụ Kỹ Thuật')
+                    : (delivery ? 'Hiệu chỉnh Lệnh Giao Hàng' : 'Lập Phiếu Giao Hàng & Vận Chuyển')}
+                </h2>
+                <div className="text-2xs text-slate-400 font-semibold flex items-center gap-2">
+                   <span>
+                    {(watchAll.loai === 'Dịch vụ' || (delivery as any)?.loai === 'Dịch vụ')
+                      ? 'Biên bản chuyển giao kỹ thuật, phụ tùng vật tư & nghiệm thu dịch vụ'
+                      : 'Xác nhận lịch trình bàn giao & Kích hoạt ZNS theo dõi đơn'}
+                   </span>
                 </div>
              </div>
           </div>

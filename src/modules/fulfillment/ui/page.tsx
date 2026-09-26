@@ -66,13 +66,22 @@ export default function DeliveriesFeature() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [drawerDelivery, setDrawerDelivery] = useState<Delivery | null>(null);
 
-  // Tự động mở Modal lập phiếu giao hàng khi điều hướng từ Phiếu thu (Payment)
+  // Tự động mở Modal lập phiếu giao hàng khi điều hướng từ Phiếu thu (Payment) hoặc Báo giá (Quotation)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const fromPayment = params.get('fromPayment') || params.get('paymentId') || (location.state as any)?.createFromPayment;
     const targetPaymentId = typeof fromPayment === 'string' ? fromPayment : fromPayment?.id || fromPayment?.paymentId;
     if (targetPaymentId && !isFormOpen) {
       setEditingDelivery({ paymentId: targetPaymentId } as any);
+      setIsFormOpen(true);
+      window.history.replaceState({}, document.title, location.pathname);
+      return;
+    }
+
+    const fromQuotation = params.get('fromQuotation') || params.get('quotationId') || (location.state as any)?.createFromQuotation;
+    const targetQuotationId = typeof fromQuotation === 'string' ? fromQuotation : fromQuotation?.id || fromQuotation?.quotationId;
+    if (targetQuotationId && !isFormOpen) {
+      setEditingDelivery({ quotationId: targetQuotationId } as any);
       setIsFormOpen(true);
       window.history.replaceState({}, document.title, location.pathname);
     }

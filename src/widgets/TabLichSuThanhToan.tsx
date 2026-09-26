@@ -4,6 +4,7 @@ import { Payment } from "@/src/domain/schema/payment.schema";
 import { getPaymentDisplayLabel } from "@/src/domain/mapping/entity-label";
 import { useNavigate } from "react-router-dom";
 import { ExternalLink, CreditCard } from "lucide-react";
+import { useDrawerStack } from "@/src/contexts/DrawerStackContext";
 
 interface TabLichSuThanhToanProps {
   matchingPayments: Partial<Payment>[];
@@ -13,10 +14,11 @@ interface TabLichSuThanhToanProps {
 
 export function TabLichSuThanhToan({ matchingPayments, onNavigateNew, showCreateButton }: TabLichSuThanhToanProps) {
   const navigate = useNavigate();
+  const { openDrawer } = useDrawerStack();
 
   const handleOpenPayment = (p: Partial<Payment>) => {
     if (p.id) {
-      navigate(`/payments?id=${p.id}`, { state: { openDrawer: p } });
+      openDrawer('payment', p.id);
     }
   };
 
