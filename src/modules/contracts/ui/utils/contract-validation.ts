@@ -7,14 +7,30 @@ export async function validateContractSubmit({
   contract,
   user,
   quotations,
-  existingContractsForQuo
+  existingContractsForQuo,
+  allContracts = []
 }: {
   data: any;
   contract: Contract | null;
   user: any;
   quotations: Quotation[];
   existingContractsForQuo: any[];
+  allContracts?: any[];
 }): Promise<boolean> {
+  // NEXUS Uniqueness Gate: Chống trùng số hợp đồng tuyệt đối
+  if (data.soHopDong && Array.isArray(allContracts)) {
+    const normCode = (data.soHopDong || '').toString().trim().toUpperCase();
+    const duplicate = allContracts.find((c: any) => {
+      if (contract && (c.id === contract.id || c.soHopDong === contract.soHopDong)) return false;
+      const cCode = (c.soHopDong || c.so_hop_dong || c.maHopDong || '').toString().trim().toUpperCase();
+      return cCode === normCode && !c.deletedAt && !c.deleted_at;
+    });
+    if (duplicate) {
+      notify.error(`Số hợp đồng "${data.soHopDong}" đã tồn tại trên hệ thống (của khách hàng: ${duplicate.tenKhachHang || 'khác'}). Vui lòng kiểm tra lại!`);
+      return false;
+    }
+  }
+
   if (!contract) {
     const { checkWorkflowGate } = await import('@/src/domain/workflow-ui');
     const canProceed = await checkWorkflowGate('CONTRACT', data.quotationId, undefined, user?.email);

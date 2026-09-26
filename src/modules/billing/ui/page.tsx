@@ -208,7 +208,6 @@ export default function PaymentsFeature() {
         onPrefillQuotation={(q) => { setPrefillQuotationForPayment(q); setEditingPayment(null); }}
         onOpenForm={() => setIsFormOpen(true)}
       />
-      <PageHeader title="Thanh toán" meta="Quản lý và đối soát công nợ, khoản thu" />
 
       <PaymentDeliveryBanner
         finishedDeliveryRecommend={finishedDeliveryRecommend}

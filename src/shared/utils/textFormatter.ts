@@ -265,3 +265,62 @@ export function parseCurrencyToNumber(val: unknown): number {
   if (isNaN(num)) return 0;
   return isNegative ? -num : num;
 }
+
+const VIETNAMESE_DIGITS = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
+const VIETNAMESE_UNITS = ['', 'nghìn', 'triệu', 'tỷ', 'nghìn tỷ', 'triệu tỷ'];
+
+export function readVietnameseCurrency(amount: number): string {
+  if (!amount || isNaN(amount) || amount <= 0) return 'Không đồng';
+  const rounded = Math.round(amount);
+  if (rounded === 0) return 'Không đồng';
+
+  function readGroupOfThree(num: number, showLeadingZero: boolean): string {
+    const h = Math.floor(num / 100);
+    const t = Math.floor((num % 100) / 10);
+    const o = num % 10;
+    if (h === 0 && t === 0 && o === 0) return '';
+    let res = '';
+    if (h > 0 || showLeadingZero) {
+      res += `${VIETNAMESE_DIGITS[h]} trăm `;
+    }
+    if (t > 1) {
+      res += `${VIETNAMESE_DIGITS[t]} mươi `;
+      if (o === 1) res += 'mốt ';
+      else if (o === 5) res += 'lăm ';
+      else if (o > 0) res += `${VIETNAMESE_DIGITS[o]} `;
+    } else if (t === 1) {
+      res += 'mười ';
+      if (o === 5) res += 'lăm ';
+      else if (o > 0) res += `${VIETNAMESE_DIGITS[o]} `;
+    } else {
+      if (o > 0) {
+        if (h > 0 || showLeadingZero) res += 'lẻ ';
+        res += `${VIETNAMESE_DIGITS[o]} `;
+      }
+    }
+    return res.trim();
+  }
+
+  let num = rounded;
+  const groups: number[] = [];
+  while (num > 0) {
+    groups.push(num % 1000);
+    num = Math.floor(num / 1000);
+  }
+
+  let words = '';
+  for (let i = groups.length - 1; i >= 0; i--) {
+    const g = groups[i];
+    if (g > 0) {
+      const showLeading = i < groups.length - 1;
+      const gStr = readGroupOfThree(g, showLeading);
+      if (gStr) {
+        words += `${gStr} ${VIETNAMESE_UNITS[i]} `;
+      }
+    }
+  }
+
+  words = words.trim().replace(/\s+/g, ' ');
+  if (!words) return 'Không đồng';
+  return words.charAt(0).toUpperCase() + words.slice(1) + ' đồng chẵn.';
+}

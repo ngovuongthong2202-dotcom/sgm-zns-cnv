@@ -220,7 +220,6 @@ export default function ContractsFeature() {
         onPrefillQuotation={(q) => { setPrefillQuotation(q); setEditingContract(null); }}
         onOpenForm={() => setIsFormOpen(true)}
       />
-      <PageHeader title="Hợp đồng" meta="Quản lý hợp đồng máy nguyên chiếc" />
 
       <div className="px-6 pt-4 shrink-0">
         <ContractStats 

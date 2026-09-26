@@ -96,6 +96,20 @@ export default function AppLayout() {
     return 'Hệ thống';
   };
 
+  const getPageSubtitle = () => {
+    const path = location.pathname;
+    if (path.startsWith('/customers')) return 'Quản lý khách hàng tiềm năng và khách hàng hiện tại';
+    if (path.startsWith('/quotations')) return 'Quản lý báo giá, đơn đặt hàng vật tư dịch vụ';
+    if (path.startsWith('/contracts')) return 'Quản lý hợp đồng máy nguyên chiếc';
+    if (path.startsWith('/payments')) return 'Quản lý và đối soát công nợ, khoản thu';
+    if (path.startsWith('/deliveries')) return 'Quản lý lịch giao hàng, lắp đặt và kho';
+    if (path.startsWith('/reports')) return 'Trung tâm phân tích và báo cáo quản trị đa chiều';
+    if (path.startsWith('/zns-hub')) return 'Quản lý tin nhắn Zalo, lỗi gửi tin và mô phỏng giao tiếp Zalo';
+    if (path.startsWith('/audit-logs')) return 'Nhật ký truy vết và lịch sử thay đổi hệ thống';
+    if (path.startsWith('/settings')) return 'Cấu hình tham số và thiết lập hệ thống';
+    return '';
+  };
+
   const asideClasses = `bg-slate-50 text-slate-700 border-r border-slate-200 ${isCollapsed ? 'w-[52px]' : 'w-[220px]'} overflow-x-hidden`;
 
   const navItemActive = 'bg-white text-slate-900 font-medium shadow-[0_1px_2px_rgba(15,23,42,0.05)] border-slate-200/60 ring-1 ring-slate-900/5';
@@ -226,12 +240,22 @@ export default function AppLayout() {
 
       {/* Main Content Pane */}
       <main className="flex-1 flex flex-col min-w-0 relative h-full">
-        {/* Topbar exactly 48px high */}
+        {/* Topbar exactly 48px high - NEXUS Adaptive Command Strip */}
         <header className="h-12 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 z-50 select-none">
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-600 font-medium">Bản đồ IA</span>
-            <ChevronRight size={10} className="text-slate-300" />
-            <span className="text-slate-800 font-semibold">{getPageTitle()}</span>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium shrink-0">
+              <span className="hover:text-slate-700 transition-colors">Bản đồ IA</span>
+              <ChevronRight size={11} className="text-slate-300" />
+              <span className="text-slate-900 font-bold text-sm tracking-tight">{getPageTitle()}</span>
+            </div>
+            {getPageSubtitle() && (
+              <>
+                <div className="h-3.5 w-[1px] bg-slate-200 shrink-0 hidden md:block" />
+                <span className="text-xs text-slate-400 font-normal truncate hidden md:block max-w-[280px] lg:max-w-md xl:max-w-xl">
+                  {getPageSubtitle()}
+                </span>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-4">

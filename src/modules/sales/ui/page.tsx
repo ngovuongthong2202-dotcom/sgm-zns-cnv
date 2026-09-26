@@ -229,11 +229,9 @@ export default function QuotationsFeature() {
   return (
     <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">
       <QuotationDrawerRouteListener hasDrawer={!!drawerQuotation} onOpenDrawer={setDrawerQuotation} />
-      {/* Page Header */}
-      <PageHeader title="Báo giá & Đơn hàng" meta="Quản lý báo giá, đơn đặt hàng vật tư dịch vụ" />
 
       {/* Thống kê đài phát/báo giá */}
-      <div className="px-6 pt-6 shrink-0">
+      <div className="px-6 pt-4 shrink-0">
         <QuotationStats 
           quotations={statsQuotations}
           allContracts={allContracts}

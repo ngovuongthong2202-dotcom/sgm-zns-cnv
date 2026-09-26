@@ -91,7 +91,8 @@ export function ContractFormModal({ contract, contracts, quotations, nguoiPhuTra
         contract,
         user,
         quotations,
-        existingContractsForQuo
+        existingContractsForQuo,
+        allContracts: contracts
       });
       if (!isValid) return;
 

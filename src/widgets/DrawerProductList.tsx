@@ -1,6 +1,7 @@
 import React from 'react';
 import { ProductItem } from '@/src/domain/schema/product.schema';
 import { aggregateProducts, computeLineItem } from '@/src/domain/pricing/quotation-pricing';
+import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 
 interface DeliveryQuantities {
   [key: string]: number;
@@ -17,6 +18,8 @@ interface Props {
   deliveredQuantities?: DeliveryQuantities;
   accentColorClass?: string;
   hideTotals?: boolean;
+  paidAmount?: number;
+  remainingDebt?: number;
 }
 
 function getProductItemKey(p: ProductItem, index: number) {
@@ -27,7 +30,9 @@ export function DrawerProductList({
   products,
   deliveredQuantities,
   accentColorClass = 'text-blue-700',
-  hideTotals = false
+  hideTotals = false,
+  paidAmount,
+  remainingDebt
 }: Props) {
   const healedProducts = React.useMemo(() => (products || []).map(computeLineItem), [products]);
   const aggs = React.useMemo(() => aggregateProducts(healedProducts), [healedProducts]);
@@ -206,82 +211,122 @@ export function DrawerProductList({
                   );
                 })}
               </tbody>
+              {!hideTotals && products && products.length > 0 && (
+                <tfoot className="border-t-2 border-slate-200 divide-y divide-slate-100 bg-slate-50/70 select-none">
+                  {/* 1. Subtotal / Cộng tiền hàng */}
+                  <tr className="hover:bg-slate-100/60 transition-colors">
+                    <td colSpan={3} className="p-3 text-slate-600 align-middle">
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                        <span className="text-xs font-semibold text-slate-700">Tổng cộng:</span>
+                        <span className="text-xs font-mono font-bold text-slate-800">{totalProducts} sản phẩm</span>
+                        <span className="text-2xs text-slate-500 font-medium">({totalQuantity} mục)</span>
+                      </div>
+                    </td>
+                    <td colSpan={3} className="p-3 text-right text-2xs font-bold uppercase tracking-wider text-slate-600 align-middle">
+                      Cộng tiền hàng (Tạm tính):
+                    </td>
+                    <td className="p-3 text-right font-mono font-bold text-slate-900 text-xs align-middle whitespace-nowrap">
+                      {new Intl.NumberFormat('vi-VN').format(calculatedSubTotal)} ₫
+                    </td>
+                    {deliveredQuantities && <td className="p-3"></td>}
+                  </tr>
+
+                  {/* 2. Chiết khấu (nếu > 0) */}
+                  {calculatedDiscount > 0 && (
+                    <tr className="hover:bg-amber-50/40 transition-colors bg-amber-50/20">
+                      <td colSpan={3} className="p-2.5 px-3 text-2xs text-amber-700 italic align-middle">
+                        Áp dụng chính sách chiết khấu thương mại
+                      </td>
+                      <td colSpan={3} className="p-2.5 px-3 text-right text-2xs font-bold uppercase tracking-wider text-amber-700 align-middle">
+                        Tổng chiết khấu:
+                      </td>
+                      <td className="p-2.5 px-3 text-right font-mono font-bold text-amber-700 text-xs align-middle whitespace-nowrap">
+                        -{new Intl.NumberFormat('vi-VN').format(calculatedDiscount)} ₫
+                      </td>
+                      {deliveredQuantities && <td className="p-2.5"></td>}
+                    </tr>
+                  )}
+
+                  {/* 3. Tiền thuế VAT (nếu > 0) */}
+                  {calculatedVat > 0 && (
+                    <tr className="hover:bg-sky-50/40 transition-colors bg-sky-50/20">
+                      <td colSpan={3} className="p-2.5 px-3 text-2xs text-sky-700 italic align-middle">
+                        Thuế giá trị gia tăng (GTGT / VAT)
+                      </td>
+                      <td colSpan={3} className="p-2.5 px-3 text-right text-2xs font-bold uppercase tracking-wider text-sky-700 align-middle">
+                        Tiền thuế VAT:
+                      </td>
+                      <td className="p-2.5 px-3 text-right font-mono font-bold text-sky-700 text-xs align-middle whitespace-nowrap">
+                        +{new Intl.NumberFormat('vi-VN').format(calculatedVat)} ₫
+                      </td>
+                      {deliveredQuantities && <td className="p-2.5"></td>}
+                    </tr>
+                  )}
+
+                  {/* 4. Tổng thanh toán */}
+                  <tr className="bg-blue-50/70 border-t-2 border-slate-300 hover:bg-blue-50 transition-colors">
+                    <td colSpan={3} className="p-3 text-slate-700 align-middle">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-3xs uppercase font-bold text-slate-500 tracking-wider">Số tiền viết bằng chữ:</span>
+                        <span className="text-xs italic font-semibold text-slate-800 line-clamp-1">
+                          {readVietnameseCurrency(calculatedTotal)}
+                        </span>
+                      </div>
+                    </td>
+                    <td colSpan={3} className="p-3 text-right align-middle">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                        <span className="text-xs font-black uppercase tracking-wider text-blue-900">
+                          Tổng thanh toán:
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-3 text-right font-mono font-black text-sm md:text-base text-blue-700 align-middle tabular-nums whitespace-nowrap">
+                      {new Intl.NumberFormat('vi-VN').format(calculatedTotal)} ₫
+                    </td>
+                    {deliveredQuantities && <td className="p-3"></td>}
+                  </tr>
+
+                  {/* 5. Đã thanh toán (nếu có context hợp đồng/thanh toán) */}
+                  {paidAmount !== undefined && paidAmount > 0 && (
+                    <tr className="hover:bg-emerald-50/40 transition-colors bg-emerald-50/20">
+                      <td colSpan={3} className="p-2 px-3 text-3xs text-emerald-700 font-semibold align-middle">
+                        Tiến độ dòng tiền: Đã thanh toán ghi nhận thực thu
+                      </td>
+                      <td colSpan={3} className="p-2 px-3 text-right text-2xs font-bold uppercase tracking-wider text-emerald-800 align-middle">
+                        Đã thanh toán:
+                      </td>
+                      <td className="p-2 px-3 text-right font-mono font-bold text-emerald-700 text-xs align-middle whitespace-nowrap">
+                        {new Intl.NumberFormat('vi-VN').format(paidAmount)} ₫
+                      </td>
+                      {deliveredQuantities && <td className="p-2"></td>}
+                    </tr>
+                  )}
+
+                  {/* 6. Còn lại phải thanh toán / Công nợ */}
+                  {remainingDebt !== undefined && remainingDebt > 0 && (
+                    <tr className="hover:bg-amber-50/40 transition-colors bg-amber-50/30">
+                      <td colSpan={3} className="p-2 px-3 text-3xs text-amber-700 font-semibold align-middle">
+                        Nghĩa vụ công nợ còn lại
+                      </td>
+                      <td colSpan={3} className="p-2 px-3 text-right text-2xs font-bold uppercase tracking-wider text-amber-800 align-middle">
+                        Còn lại (Công nợ):
+                      </td>
+                      <td className="p-2 px-3 text-right font-mono font-bold text-amber-700 text-xs align-middle whitespace-nowrap">
+                        {new Intl.NumberFormat('vi-VN').format(remainingDebt)} ₫
+                      </td>
+                      {deliveredQuantities && <td className="p-2"></td>}
+                    </tr>
+                  )}
+                </tfoot>
+              )}
             </table>
           </div>
         </div>
       ) : (
         <div className="flex items-center justify-center py-12 px-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50">
           <span className="text-xs text-slate-400 font-medium">Không có sản phẩm thiết bị nào</span>
-        </div>
-      )}
-
-      {/* Modern Totals Summary - VIP Light Layout */}
-      {!hideTotals && products && products.length > 0 && (
-        <div className="mt-8 w-full bg-white rounded-2xl overflow-hidden shadow-[0_2px_16px_-4px_rgba(0,0,0,0.05)] border border-slate-200">
-          <div className="flex flex-col md:flex-row items-center justify-between p-4 px-6 md:p-6 pb-5 bg-gradient-to-br from-slate-50 to-white">
-            {/* Header / Context */}
-            <div className="flex flex-col mb-4 md:mb-0 mr-auto md:mr-8 md:min-w-[180px]">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-                <span className="text-2xs font-black uppercase tracking-widest text-blue-600">Tổng kết tài chính</span>
-              </div>
-              <h4 className="text-sm font-bold text-slate-800 tracking-wide uppercase">Giá trị & Thanh toán</h4>
-              <p className="text-2xs text-slate-700 mt-1 max-w-[200px]">Đã bao gồm các khoản thuế & chiết khấu được áp dụng trên từng hạng mục sản phẩm.</p>
-              
-              <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-100">
-                <div className="flex flex-col">
-                  <span className="text-2xs text-slate-700 uppercase font-bold tracking-wider">Tổng SP</span>
-                  <span className="font-mono text-sm font-semibold text-slate-700">{totalProducts}</span>
-                </div>
-                <div className="w-px h-6 bg-slate-200"></div>
-                <div className="flex flex-col">
-                  <span className="text-2xs text-slate-700 uppercase font-bold tracking-wider">Tổng SL</span>
-                  <span className="font-mono text-sm font-semibold text-slate-700">{totalQuantity}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Breakdowns */}
-            <div className="flex flex-1 w-full justify-between md:justify-end md:gap-10 mt-2 md:mt-0">
-              <div className="flex flex-col mb-3 md:mb-0">
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Giá trị hàng hóa</span>
-                <span className="font-mono font-bold text-slate-800">
-                  {new Intl.NumberFormat('vi-VN').format(calculatedSubTotal)} ₫
-                </span>
-              </div>
-
-              {calculatedDiscount > 0 && (
-                <div className="flex flex-col mb-3 md:mb-0">
-                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Chiết khấu</span>
-                  <span className="font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 -ml-2 w-max">
-                    - {new Intl.NumberFormat('vi-VN').format(calculatedDiscount)} ₫
-                  </span>
-                </div>
-              )}
-
-              {calculatedVat > 0 && (
-                <div className="flex flex-col mb-3 md:mb-0">
-                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Thuế VAT</span>
-                  <span className="font-mono font-bold text-sky-700">
-                    {new Intl.NumberFormat('vi-VN').format(calculatedVat)} ₫
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="bg-slate-50 border-t border-slate-200 p-4 px-6 flex justify-between items-center relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-blue-50 to-transparent pointer-events-none"></div>
-            <span className="text-xs font-black uppercase tracking-widest text-slate-700 z-10 block">Tổng thanh toán</span>
-            <div className="flex items-center gap-4 z-10">
-               <span className="font-mono text-sm font-semibold text-slate-400">
-                 VNĐ
-               </span>
-               <span className={`font-mono font-black text-2xl md:text-3xl leading-none tracking-tight tabular-nums text-blue-700`}>
-                 {new Intl.NumberFormat('vi-VN').format(calculatedTotal)} ₫
-               </span>
-            </div>
-          </div>
         </div>
       )}
     </div>

@@ -222,8 +222,6 @@ export default function DeliveriesFeature() {
 
   return (
     <div className="flex flex-col h-full bg-surface-sunken relative overflow-hidden">
-      <PageHeader title="Giao hàng" meta="Quản lý lịch giao hàng, lắp đặt và kho" />
-      
       <div className="px-6 pt-4 shrink-0">
         <DeliveryKPIs
           kpis={kpis}

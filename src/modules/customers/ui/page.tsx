@@ -169,9 +169,8 @@ export default function CustomersFeature() {
 
   return (
     <div className="flex flex-col h-full bg-slate-50">
-      <PageHeader title="Khách hàng" meta="Quản lý khách hàng tiềm năng và khách hàng hiện tại" />
       {/* Thống kê đài phát */}
-      <div className="px-6 pt-6 shrink-0">
+      <div className="px-6 pt-4 shrink-0">
         <CustomerStats 
           customers={customers} 
           selectedZnsStatus={selectedZnsStatus}

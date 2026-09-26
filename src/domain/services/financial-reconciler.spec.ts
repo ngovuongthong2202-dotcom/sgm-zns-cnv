@@ -129,4 +129,42 @@ describe('SGM Enterprise Financial Reconciler', () => {
     const otherPaid = calculateOtherPaidMultiMilestone('p-m3', [milestone1, milestone2], 'CONTRACT:c-023');
     expect(otherPaid).toBe(1284404000);
   });
+
+  it('strictly isolates payments by customerId when contract numbers collide', () => {
+    // Tình huống 2 hợp đồng khác khách hàng nhưng vô tình trùng số hợp đồng
+    const contractCustomerA = {
+      id: 'c-customer-a',
+      soHopDong: '024/KD1-SGM/TN-CT/26',
+      customerId: 'cust-thep-truong-sa',
+      totalAmount: 3773800000
+    } as unknown as Contract;
+
+    const contractCustomerB = {
+      id: 'c-customer-b',
+      soHopDong: '024/KD1-SGM/TN-CT/26',
+      customerId: 'cust-ton-long-phat',
+      totalAmount: 1198800000
+    } as unknown as Contract;
+
+    const paymentCustomerA = {
+      id: 'p-a',
+      contractId: 'c-customer-a',
+      soHopDong: '024/KD1-SGM/TN-CT/26',
+      customerId: 'cust-thep-truong-sa',
+      soTien: 600000000,
+      tinhTrangThanhToan: 'Công nợ'
+    } as unknown as Payment;
+
+    // Customer A phải nhận đúng thanh toán 600M
+    const progA = reconcileContractFinancials(contractCustomerA, [paymentCustomerA]);
+    expect(progA.totalPaid).toBe(600000000);
+    expect(progA.remainingDebt).toBe(3173800000);
+    expect(progA.paidCount).toBe(1);
+
+    // Customer B TUYỆT ĐỐI KHÔNG ĐƯỢC NHẬN NHẦM thanh toán của Customer A
+    const progB = reconcileContractFinancials(contractCustomerB, [paymentCustomerA]);
+    expect(progB.totalPaid).toBe(0);
+    expect(progB.remainingDebt).toBe(1198800000);
+    expect(progB.paidCount).toBe(0);
+  });
 });

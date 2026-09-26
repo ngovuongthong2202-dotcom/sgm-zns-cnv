@@ -56,7 +56,7 @@ function ContractHoverCardContent({ contract, contractId }: { contract?: Contrac
     );
   }
 
-  const totalValue = activeContract.products?.reduce((acc: number, p: any) => acc + ((p.price || 0) * (p.quantity || 1)), 0) || 0;
+  const totalValue = activeContract.totalAmount || activeContract.products?.reduce((acc: number, p: any) => acc + (p.total != null ? Number(p.total) : ((Number(p.price) || 0) * (Number(p.quantity) || 1))), 0) || 0;
 
   const content = (
     <div className="flex flex-col h-full bg-slate-50 max-h-[85vh] overflow-hidden w-[420px]" onClick={(e) => e.stopPropagation()}>

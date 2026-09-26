@@ -50,6 +50,7 @@ export function getLinkedPaymentsForContract(
   if (!contract || !payments || !Array.isArray(payments)) return [];
   const cId = contract.id;
   const cSoHD = contract.soHopDong;
+  const cCustomerId = contract.customerId;
 
   return payments.filter(p => {
     if (!p) return false;
@@ -57,12 +58,23 @@ export function getLinkedPaymentsForContract(
     if (pAny.deletedAt || pAny.deleted_at || pAny.isDeleted) return false;
     if (isPaymentCancelled(p.tinhTrangThanhToan)) return false;
 
+    // NEXUS Pillar: Strict Customer Isolation - Tuyệt đối không cho phép dòng tiền khách hàng A gán vào hợp đồng khách hàng B
+    if (p.customerId && cCustomerId && p.customerId !== cCustomerId) {
+      return false;
+    }
+
     const pContractId = p.contractId;
     const pSoHopDong = p.soHopDong || pAny.contractCode;
 
-    return (
-      (pContractId && (pContractId === cId || pContractId === cSoHD)) ||
-      (pSoHopDong && (pSoHopDong === cSoHD || pSoHopDong === cId))
+    // NEXUS Pillar: Primary Key Priority - Nếu phiếu có contractId rõ ràng, bắt buộc phải khớp ID hợp đồng
+    if (pContractId) {
+      return pContractId === cId || (cSoHD && pContractId === cSoHD);
+    }
+
+    // Secondary fallback: Chỉ đối chiếu số hợp đồng khi phiếu thanh toán chưa gán contractId cụ thể
+    return Boolean(
+      (cSoHD && pSoHopDong === cSoHD) ||
+      (cId && pSoHopDong === cId)
     );
   });
 }

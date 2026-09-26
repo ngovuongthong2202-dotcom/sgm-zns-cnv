@@ -344,6 +344,8 @@ export function ContractDetailDrawer({
              totalAmount={drawerContract.totalAmount}
              deliveredQuantities={normalizeLoai(drawerContract.loai) !== QUOTATION_LOAI.MAY ? drawerContract.deliveredQuantities : undefined}
              accentColorClass="text-emerald-700"
+             paidAmount={contractProg.totalPaid}
+             remainingDebt={contractProg.remainingDebt}
           />
         </div>
 

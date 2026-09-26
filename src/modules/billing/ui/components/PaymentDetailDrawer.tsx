@@ -215,6 +215,8 @@ export function PaymentDetailDrawer({
                vatAmount={payment.vatAmount}
                totalAmount={payment.totalAmount}
                accentColorClass="text-blue-700"
+               paidAmount={payment.soTien}
+               remainingDebt={Math.max(0, (payment.totalAmount || (payment as any).tongTienCanThanhToan || 0) - (payment.soTien || 0))}
             />
           ) : (
             <div className="px-4 py-8 text-center text-sm text-slate-500 font-medium bg-slate-50 rounded-xl">Không có cấu trúc sản phẩm chi tiết.</div>
