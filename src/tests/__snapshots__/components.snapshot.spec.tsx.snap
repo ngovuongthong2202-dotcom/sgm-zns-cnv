@@ -420,7 +420,7 @@ exports[`Component Snapshots (Baseline) > renders ContractFormModal 1`] = `
                   <span
                     class="text-slate-500 uppercase text-2xs tracking-wider"
                   >
-                    Tạm tính (Gốc):
+                    Cộng tiền hàng (Tạm tính):
                   </span>
                   <span
                     class="font-mono font-extrabold text-slate-800"
@@ -430,19 +430,26 @@ exports[`Component Snapshots (Baseline) > renders ContractFormModal 1`] = `
                   </span>
                 </div>
                 <div
-                  class="space-y-1.5 pt-3 border-t border-slate-100 bg-slate-50 p-3 rounded-lg border border-slate-200"
+                  class="space-y-1.5 pt-3 border-t border-slate-100 bg-blue-50/60 p-3 rounded-lg border border-blue-100"
                 >
                   <span
                     class="text-2xs font-bold text-blue-900 uppercase tracking-widest block"
                   >
-                    Tổng trị giá hợp đồng (Sau thuế)
+                    TỔNG THANH TOÁN (HỢP ĐỒNG)
                   </span>
                   <strong
-                    class="text-lg font-mono text-blue-950 font-black block tracking-wide select-none"
+                    class="text-lg font-mono text-blue-900 font-black block tracking-wide select-none"
                   >
                     0
                      đ
                   </strong>
+                  <div
+                    class="text-3xs italic text-slate-600 font-normal leading-tight pt-1 border-t border-blue-200/50"
+                  >
+                    (Bằng chữ: 
+                    Không đồng
+                    )
+                  </div>
                 </div>
               </div>
             </div>
@@ -5246,48 +5253,35 @@ exports[`Component Snapshots (Baseline) > renders QuotationFormModal 1`] = `
                 class="bg-slate-900 text-white rounded-xl p-4 space-y-2.5 shadow-sm font-semibold select-none"
               >
                 <div
-                  class="flex justify-between items-center text-2xs text-slate-500 uppercase tracking-widest pb-1 border-b border-white/10"
+                  class="flex justify-between items-center text-2xs text-slate-400 uppercase tracking-widest pb-1 border-b border-white/10"
                 >
                   <span>
                     Hạng mục
                   </span>
                   <span>
-                    Giải ngân (VND)
+                    Giá trị (VND)
                   </span>
                 </div>
                 <div
-                  class="flex justify-between items-center text-sm text-slate-300"
+                  class="flex justify-between items-center text-xs text-slate-300"
                 >
                   <span>
-                    Trước thuế:
+                    Cộng tiền hàng (Tạm tính):
                   </span>
                   <span
-                    class="font-mono tabular-nums"
+                    class="font-mono tabular-nums font-bold"
                   >
                     0 ₫
                   </span>
                 </div>
                 <div
-                  class="flex justify-between items-center text-emerald-400 text-sm"
+                  class="flex justify-between items-center text-xs text-slate-300"
                 >
                   <span>
-                    Chiết khấu:
+                    Tiền thuế VAT:
                   </span>
                   <span
-                    class="font-mono tabular-nums"
-                  >
-                    -
-                    0 ₫
-                  </span>
-                </div>
-                <div
-                  class="flex justify-between items-center text-sm text-slate-300"
-                >
-                  <span>
-                    Thuế VAT:
-                  </span>
-                  <span
-                    class="font-mono tabular-nums"
+                    class="font-mono tabular-nums font-bold"
                   >
                     +
                     0 ₫
@@ -5297,15 +5291,22 @@ exports[`Component Snapshots (Baseline) > renders QuotationFormModal 1`] = `
                   class="pt-2 border-t border-white/10 mt-1 flex justify-between items-center"
                 >
                   <span
-                    class="text-2xs text-slate-500 uppercase tracking-widest"
+                    class="text-2xs text-slate-400 uppercase tracking-widest font-black"
                   >
-                    TỔNG TOÀN BỘ:
+                    TỔNG THANH TOÁN:
                   </span>
                   <span
-                    class="font-mono text-base text-sky-400 tabular-nums"
+                    class="font-mono text-base text-sky-400 tabular-nums font-black"
                   >
                     0 ₫
                   </span>
+                </div>
+                <div
+                  class="text-3xs italic text-slate-400 font-normal pt-1 border-t border-white/5 leading-tight"
+                >
+                  (Bằng chữ: 
+                  Không đồng
+                  )
                 </div>
               </div>
             </div>

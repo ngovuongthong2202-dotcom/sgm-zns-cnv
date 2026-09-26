@@ -72,25 +72,25 @@ export function HoverCardProductsTab({
       </div>
 
       {/* Totals Summary */}
-      <div className="bg-slate-50 px-5 py-4 border-t border-slate-200 mt-auto shrink-0 shadow-[0_-5px_15px_-10px_rgba(0,0,0,0.05)] z-10 w-full rounded-b-xl">
+      <div className="bg-slate-50 px-5 py-3.5 border-t border-slate-200 mt-auto shrink-0 shadow-[0_-5px_15px_-10px_rgba(0,0,0,0.05)] z-10 w-full rounded-b-xl">
         <div className="flex justify-between text-2xs text-slate-700 mb-1.5">
-          <span className="font-medium">Tạm tính:</span>
+          <span className="font-medium">Cộng tiền hàng (Tạm tính):</span>
           <span className="font-mono font-semibold text-slate-800">{new Intl.NumberFormat('vi-VN').format(calculatedSubTotal)} ₫</span>
         </div>
         {(discountAmount || 0) > 0 && (
-          <div className="flex justify-between text-2xs text-emerald-600 mb-1.5">
-            <span className="font-medium">Chiết khấu {discountRate ? `(${discountRate}%)` : ''}:</span>
+          <div className="flex justify-between text-2xs text-emerald-700 mb-1.5">
+            <span className="font-medium">Chiết khấu thương mại {discountRate ? `(${discountRate}%)` : ''}:</span>
             <span className="font-mono font-bold">-{new Intl.NumberFormat('vi-VN').format(discountAmount || 0)} ₫</span>
           </div>
         )}
         {(vatAmount || 0) > 0 && (
           <div className="flex justify-between text-2xs text-slate-700 mb-1.5">
-            <span className="font-medium">Thuế VAT {vatRate ? `(${vatRate}%)` : ''}:</span>
-            <span className="font-mono font-semibold text-slate-800">{new Intl.NumberFormat('vi-VN').format(vatAmount || 0)} ₫</span>
+            <span className="font-medium">Tiền thuế VAT {vatRate ? `(${vatRate}%)` : ''}:</span>
+            <span className="font-mono font-semibold text-slate-800">+{new Intl.NumberFormat('vi-VN').format(vatAmount || 0)} ₫</span>
           </div>
         )}
-        <div className="flex justify-between items-end mt-3 pt-3 border-t border-slate-200">
-          <span className="text-2xs font-bold uppercase tracking-wider text-slate-700">Tổng thanh toán</span>
+        <div className="flex justify-between items-end mt-2 pt-2 border-t border-slate-200">
+          <span className="text-2xs font-bold uppercase tracking-wider text-slate-800">Tổng thanh toán:</span>
           <span className={`font-mono font-black text-base leading-none ${accentColorClass} drop-shadow-sm`}>
             {new Intl.NumberFormat('vi-VN').format(calculatedTotal)} ₫
           </span>

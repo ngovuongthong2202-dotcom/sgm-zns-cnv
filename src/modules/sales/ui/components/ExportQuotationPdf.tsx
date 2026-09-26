@@ -5,6 +5,7 @@ import { Button } from '@/src/design-system/Button';
 import { Printer } from 'lucide-react';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
+import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 
 interface ExportQuotationPdfProps {
   quotation: Quotation;
@@ -154,22 +155,27 @@ export function ExportQuotationPdf({ quotation, variant = 'secondary', className
 
           {/* Financial summary card logic inside the printed shape */}
           <div className="flex justify-end mb-12 relative z-10">
-            <div className="w-80 space-y-2 border-t border-slate-200 pt-4">
+            <div className="w-96 space-y-2 border-t border-slate-200 pt-4">
               <div className="flex justify-between text-xs text-slate-600">
-                <span>Cộng tiền hàng:</span>
+                <span>Cộng tiền hàng (Tạm tính):</span>
                 <span className="font-mono text-slate-900 tabular-nums font-bold">{formatCurrency(subtotal)}</span>
               </div>
-              <div className="flex justify-between text-xs text-slate-600">
-                <span>Chiết khấu thương mại:</span>
-                <span className="font-mono text-slate-900 tabular-nums font-bold">-{formatCurrency(discount)}</span>
-              </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-xs text-amber-700">
+                  <span>Chiết khấu thương mại:</span>
+                  <span className="font-mono tabular-nums font-bold">-{formatCurrency(discount)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-xs text-slate-600 border-b border-dashed border-slate-100 pb-2">
                 <span>Thuế giá trị gia tăng ({vatRate}%):</span>
-                <span className="font-mono text-slate-900 tabular-nums font-bold">{formatCurrency(vatAmount)}</span>
+                <span className="font-mono text-slate-900 tabular-nums font-bold">+{formatCurrency(vatAmount)}</span>
               </div>
-              <div className="flex justify-between text-sm text-slate-950 font-black pt-1">
-                <span>TỔNG GIAO DỊCH (VAT):</span>
+              <div className="flex justify-between text-sm text-slate-950 font-black pt-1 border-t-2 border-slate-900">
+                <span>TỔNG THANH TOÁN:</span>
                 <span className="font-mono text-blue-700 text-base tabular-nums">{formatCurrency(total)}</span>
+              </div>
+              <div className="text-3xs italic text-slate-600 text-right pt-0.5 leading-tight">
+                (Bằng chữ: {readVietnameseCurrency(total)})
               </div>
             </div>
           </div>

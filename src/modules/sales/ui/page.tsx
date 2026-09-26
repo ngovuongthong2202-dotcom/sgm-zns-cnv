@@ -238,6 +238,8 @@ export default function QuotationsFeature() {
           allPayments={allPayments}
           selectedLoai={selectedLoai}
           setSelectedLoai={setSelectedLoai}
+          selectedTienDo={selectedTienDo}
+          setSelectedTienDo={setSelectedTienDo}
         />
       </div>
 

@@ -5,7 +5,7 @@ import { AsyncSearchableSelect } from '@/src/design-system/primitives/AsyncSearc
 import { CustomerHoverCard } from '@/src/modules/customers';
 import { formatVietnameseCurrency } from '@/src/domain/pricing/quotation-pricing';
 import { formatDate } from '@/src/shared/utils/formatDate';
-import { normalizeCode, normalizePersonName } from '@/src/shared/utils/textFormatter';
+import { normalizeCode, normalizePersonName, readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 
@@ -344,29 +344,34 @@ export function QuotationRightSidebar({
 
         <div className="space-y-3">
           <div className="bg-slate-900 text-white rounded-xl p-4 space-y-2.5 shadow-sm font-semibold select-none">
-            <div className="flex justify-between items-center text-2xs text-slate-500 uppercase tracking-widest pb-1 border-b border-white/10">
+            <div className="flex justify-between items-center text-2xs text-slate-400 uppercase tracking-widest pb-1 border-b border-white/10">
               <span>Hạng mục</span>
-              <span>Giải ngân (VND)</span>
+              <span>Giá trị (VND)</span>
             </div>
             
-            <div className="flex justify-between items-center text-sm text-slate-300">
-              <span>Trước thuế:</span>
-              <span className="font-mono tabular-nums">{formatVietnameseCurrency(aggs.totalGross)}</span>
+            <div className="flex justify-between items-center text-xs text-slate-300">
+              <span>Cộng tiền hàng (Tạm tính):</span>
+              <span className="font-mono tabular-nums font-bold">{formatVietnameseCurrency(aggs.totalGross)}</span>
             </div>
 
-            <div className="flex justify-between items-center text-emerald-400 text-sm">
-              <span>Chiết khấu:</span>
-              <span className="font-mono tabular-nums">-{formatVietnameseCurrency(aggs.totalDiscount)}</span>
-            </div>
+            {aggs.totalDiscount > 0 && (
+              <div className="flex justify-between items-center text-emerald-400 text-xs">
+                <span>Chiết khấu thương mại:</span>
+                <span className="font-mono tabular-nums font-bold">-{formatVietnameseCurrency(aggs.totalDiscount)}</span>
+              </div>
+            )}
 
-            <div className="flex justify-between items-center text-sm text-slate-300">
-              <span>Thuế VAT:</span>
-              <span className="font-mono tabular-nums">+{formatVietnameseCurrency(aggs.totalVat)}</span>
+            <div className="flex justify-between items-center text-xs text-slate-300">
+              <span>Tiền thuế VAT:</span>
+              <span className="font-mono tabular-nums font-bold">+{formatVietnameseCurrency(aggs.totalVat)}</span>
             </div>
 
             <div className="pt-2 border-t border-white/10 mt-1 flex justify-between items-center">
-              <span className="text-2xs text-slate-500 uppercase tracking-widest">TỔNG TOÀN BỘ:</span>
-              <span className="font-mono text-base text-sky-400 tabular-nums">{formatVietnameseCurrency(aggs.totalAfterTax)}</span>
+              <span className="text-2xs text-slate-400 uppercase tracking-widest font-black">TỔNG THANH TOÁN:</span>
+              <span className="font-mono text-base text-sky-400 tabular-nums font-black">{formatVietnameseCurrency(aggs.totalAfterTax)}</span>
+            </div>
+            <div className="text-3xs italic text-slate-400 font-normal pt-1 border-t border-white/5 leading-tight">
+              (Bằng chữ: {readVietnameseCurrency(aggs.totalAfterTax)})
             </div>
           </div>
         </div>

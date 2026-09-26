@@ -3,6 +3,7 @@ import { Search, FileText, CreditCard, Calendar } from 'lucide-react';
 import { QuotationSmartSearch } from '@/src/widgets/QuotationSmartSearch';
 import { normalizeLegacyStatus, EntityZnsStatus } from '@/src/domain/enums/zns-status';
 import { formatDate } from '@/src/shared/utils/formatDate';
+import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 
@@ -181,26 +182,29 @@ export function ContractFinanceSection({ subTotal, discountAmount, vatAmount, to
 
       <div className="space-y-3.5 text-xs text-slate-600">
         <div className="flex justify-between items-center py-1.5 border-b border-slate-50 font-semibold">
-          <span className="text-slate-500 uppercase text-2xs tracking-wider">Tạm tính (Gốc):</span>
+          <span className="text-slate-500 uppercase text-2xs tracking-wider">Cộng tiền hàng (Tạm tính):</span>
           <span className="font-mono font-extrabold text-slate-800">{new Intl.NumberFormat('vi-VN').format(subTotal)} đ</span>
         </div>
         {discountAmount > 0 && (
           <div className="flex justify-between items-center py-1.5 border-b border-slate-50 font-semibold text-emerald-800">
-            <span className="text-emerald-700 uppercase text-2xs tracking-wider">Chiết khấu hàng hóa:</span>
+            <span className="text-emerald-700 uppercase text-2xs tracking-wider">Chiết khấu thương mại:</span>
             <span className="font-mono font-bold">-{new Intl.NumberFormat('vi-VN').format(discountAmount)} đ</span>
           </div>
         )}
         {vatAmount > 0 && (
           <div className="flex justify-between items-center py-1.5 border-b border-slate-50 font-semibold">
-            <span className="text-slate-500 uppercase text-2xs tracking-wider">Thuế GTGT (VAT):</span>
+            <span className="text-slate-500 uppercase text-2xs tracking-wider">Tiền thuế VAT:</span>
             <span className="font-mono font-bold text-slate-800">{new Intl.NumberFormat('vi-VN').format(vatAmount)} đ</span>
           </div>
         )}
-        <div className="space-y-1.5 pt-3 border-t border-slate-100 bg-slate-50 p-3 rounded-lg border border-slate-200">
-          <span className="text-2xs font-bold text-blue-900 uppercase tracking-widest block">Tổng trị giá hợp đồng (Sau thuế)</span>
-          <strong className="text-lg font-mono text-blue-950 font-black block tracking-wide select-none">
+        <div className="space-y-1.5 pt-3 border-t border-slate-100 bg-blue-50/60 p-3 rounded-lg border border-blue-100">
+          <span className="text-2xs font-bold text-blue-900 uppercase tracking-widest block">TỔNG THANH TOÁN (HỢP ĐỒNG)</span>
+          <strong className="text-lg font-mono text-blue-900 font-black block tracking-wide select-none">
             {new Intl.NumberFormat('vi-VN').format(totalAmount)} đ
           </strong>
+          <div className="text-3xs italic text-slate-600 font-normal leading-tight pt-1 border-t border-blue-200/50">
+            (Bằng chữ: {readVietnameseCurrency(totalAmount)})
+          </div>
         </div>
       </div>
     </div>

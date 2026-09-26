@@ -3,6 +3,7 @@ import { Hash, Type, Boxes } from 'lucide-react';
 import { ProductItem } from '@/src/domain/schema/product.schema';
 import { getProductItemKey } from '@/src/shared/utils/product-key';
 import { aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
+import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 
 import { useProductListInput } from './product-list-input/useProductListInput';
 import { ProductFinanceCard } from './product-list-input/ProductFinanceCard';
@@ -95,31 +96,21 @@ export default function ProductListInput({
         )}
 
         {showFinance && products.length > 0 && (
-          <div className="hidden lg:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto ring-1 ring-slate-900/5 mt-4">
-            <table className="w-full text-left border-collapse min-w-[900px]">
+          <div className="hidden lg:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto ring-1 ring-slate-900/5 mt-3">
+            <table className="w-full text-left border-collapse min-w-[760px]">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="p-3 text-2xs font-bold text-slate-700 uppercase tracking-wider text-center w-[50px]">STT</th>
-                  <th className="p-3 text-2xs font-bold text-slate-700 uppercase tracking-wider min-w-[280px]">Sản phẩm & Quy cách</th>
-                  <th className="p-3 text-2xs font-bold text-slate-700 uppercase tracking-wider text-center w-[90px]">SL / ĐVT</th>
-                  <th className="p-3 text-2xs font-bold text-slate-700 uppercase tracking-wider text-right w-[140px]">Đơn giá</th>
-                  <th className="p-3 w-[120px]">
-                    <div className="flex flex-col text-[#b45309]">
-                       <span className="text-2xs font-bold uppercase tracking-wider text-center">Chiết khấu (<span className="font-mono">%</span>)</span>
-                       <span className="text-3xs font-medium text-center opacity-80 uppercase pt-0.5">Tiền giảm</span>
-                    </div>
-                  </th>
-                  <th className="p-3 w-[110px]">
-                    <div className="flex flex-col text-[#0369a1]">
-                       <span className="text-2xs font-bold uppercase tracking-wider text-center">VAT (<span className="font-mono">%</span>)</span>
-                       <span className="text-3xs font-medium text-center opacity-80 uppercase pt-0.5">Tiền thuế</span>
-                    </div>
-                  </th>
-                  <th className="p-3 text-2xs font-black text-slate-800 uppercase tracking-widest text-right w-[140px]">Thành tiền</th>
-                  <th className="p-3 w-[40px]"></th>
+                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-700 text-2xs font-bold uppercase tracking-wider">
+                  <th className="p-3 text-center w-[48px]">STT</th>
+                  <th className="p-3 min-w-[260px]">Sản phẩm & Quy cách</th>
+                  <th className="p-3 text-center w-[90px]">SL / ĐVT</th>
+                  <th className="p-3 text-right w-[130px]">Đơn giá</th>
+                  <th className="p-3 text-right w-[115px]">Chiết khấu</th>
+                  <th className="p-3 text-right w-[105px]">VAT</th>
+                  <th className="p-3 text-right w-[140px]">Thành tiền</th>
+                  <th className="p-3 text-center w-[40px]"></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100 text-xs">
                 {products.map((p, idx) => (
                   <ProductFinanceRow 
                     key={idx} 
@@ -137,6 +128,82 @@ export default function ProductListInput({
                   />
                 ))}
               </tbody>
+              <tfoot className="border-t-2 border-slate-200 divide-y divide-slate-100 bg-slate-50/70 select-none">
+                {/* 1. Subtotal / Cộng tiền hàng */}
+                <tr className="hover:bg-slate-100/60 transition-colors">
+                  <td colSpan={3} className="p-3 text-slate-600 align-middle">
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                      <span className="text-xs font-semibold text-slate-700">Tổng cộng:</span>
+                      <span className="text-xs font-mono font-bold text-slate-800">{products.length} sản phẩm</span>
+                      <span className="text-2xs text-slate-500 font-medium">({totalQuantity} mục)</span>
+                    </div>
+                  </td>
+                  <td colSpan={3} className="p-3 text-right text-2xs font-bold uppercase tracking-wider text-slate-600 align-middle">
+                    Cộng tiền hàng (Tạm tính):
+                  </td>
+                  <td className="p-3 text-right font-mono font-bold text-slate-900 text-xs align-middle whitespace-nowrap">
+                    {new Intl.NumberFormat('vi-VN').format(aggs?.totalGross || 0)} ₫
+                  </td>
+                  <td className="p-3"></td>
+                </tr>
+
+                {/* 2. Chiết khấu (nếu > 0) */}
+                {(aggs?.totalDiscount || 0) > 0 && (
+                  <tr className="hover:bg-amber-50/40 transition-colors bg-amber-50/20">
+                    <td colSpan={3} className="p-2.5 px-3 text-2xs text-amber-700 italic align-middle">
+                      Áp dụng chính sách chiết khấu thương mại
+                    </td>
+                    <td colSpan={3} className="p-2.5 px-3 text-right text-2xs font-bold uppercase tracking-wider text-amber-700 align-middle">
+                      Chiết khấu thương mại:
+                    </td>
+                    <td className="p-2.5 px-3 text-right font-mono font-bold text-amber-700 text-xs align-middle whitespace-nowrap">
+                      -{new Intl.NumberFormat('vi-VN').format(aggs?.totalDiscount || 0)} ₫
+                    </td>
+                    <td className="p-2.5"></td>
+                  </tr>
+                )}
+
+                {/* 3. Tiền thuế VAT (nếu > 0) */}
+                {(aggs?.totalVat || 0) > 0 && (
+                  <tr className="hover:bg-sky-50/40 transition-colors bg-sky-50/20">
+                    <td colSpan={3} className="p-2.5 px-3 text-2xs text-sky-700 italic align-middle">
+                      Thuế giá trị gia tăng (GTGT / VAT)
+                    </td>
+                    <td colSpan={3} className="p-2.5 px-3 text-right text-2xs font-bold uppercase tracking-wider text-sky-700 align-middle">
+                      Tiền thuế VAT:
+                    </td>
+                    <td className="p-2.5 px-3 text-right font-mono font-bold text-sky-700 text-xs align-middle whitespace-nowrap">
+                      +{new Intl.NumberFormat('vi-VN').format(aggs?.totalVat || 0)} ₫
+                    </td>
+                    <td className="p-2.5"></td>
+                  </tr>
+                )}
+
+                {/* 4. Tổng thanh toán */}
+                <tr className="bg-blue-50/70 border-t-2 border-slate-300 hover:bg-blue-50 transition-colors">
+                  <td colSpan={3} className="p-3 text-slate-700 align-middle">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-3xs uppercase font-bold text-slate-500 tracking-wider">Số tiền viết bằng chữ:</span>
+                      <span className="text-xs italic font-semibold text-slate-800 line-clamp-1">
+                        {readVietnameseCurrency(aggs?.totalAfterTax || 0)}
+                      </span>
+                    </div>
+                  </td>
+                  <td colSpan={3} className="p-3 text-right align-middle">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                      <span className="text-xs font-black uppercase tracking-wider text-blue-900">
+                        Tổng thanh toán:
+                      </span>
+                    </div>
+                  </td>
+                  <td className="p-3 text-right font-mono font-black text-sm md:text-base text-blue-700 align-middle tabular-nums whitespace-nowrap">
+                    {new Intl.NumberFormat('vi-VN').format(aggs?.totalAfterTax || 0)} ₫
+                  </td>
+                  <td className="p-3"></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}

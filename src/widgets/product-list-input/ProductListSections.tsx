@@ -79,29 +79,29 @@ export function ProductListFooter({
 }: any) {
   if (showFinance && productsLength > 0) {
     return (
-      <div className="sticky bottom-0 z-20 flex flex-wrap justify-end gap-5 lg:gap-8 p-4 sm:p-5 bg-white rounded-2xl border-t-2 border-x border-slate-200 mt-6 shadow-[0_-10px_30px_-15px_rgba(0,0,0,0.1)] items-center">
+      <div className="lg:hidden sticky bottom-0 z-20 flex flex-wrap justify-end gap-3 p-3.5 bg-white rounded-xl border border-slate-200 mt-4 shadow-md items-center">
         <div className="flex flex-col items-end opacity-70">
-          <span className="text-2xs font-bold uppercase tracking-widest text-slate-700">Số lượng</span>
-          <span className="text-sm font-bold font-mono text-slate-800">{aggs?.totalQuantity} <span className="text-2xs">mục</span></span>
+          <span className="text-3xs font-bold uppercase tracking-widest text-slate-700">Số lượng</span>
+          <span className="text-xs font-bold font-mono text-slate-800">{aggs?.totalQuantity} <span className="text-3xs">mục</span></span>
         </div>
         <div className="flex flex-col items-end opacity-70">
-          <span className="text-2xs font-bold uppercase tracking-widest text-amber-600">Tổng giảm CK</span>
-          <span className="text-sm font-bold font-mono text-amber-700">-{new Intl.NumberFormat('vi-VN').format(aggs?.totalDiscount || 0)}</span>
+          <span className="text-3xs font-bold uppercase tracking-widest text-amber-600">Tổng giảm CK</span>
+          <span className="text-xs font-bold font-mono text-amber-700">-{new Intl.NumberFormat('vi-VN').format(aggs?.totalDiscount || 0)}</span>
         </div>
-        <div className="w-px h-8 bg-slate-200 hidden md:block"></div>
+        <div className="w-px h-6 bg-slate-200"></div>
         <div className="flex flex-col items-end">
-          <span className="text-2xs font-bold uppercase tracking-widest text-slate-700">Trị giá hàng</span>
-          <span className="text-sm font-bold font-mono text-slate-800">{new Intl.NumberFormat('vi-VN').format(aggs?.totalBeforeTax || 0)}</span>
+          <span className="text-3xs font-bold uppercase tracking-widest text-slate-700">Trị giá hàng</span>
+          <span className="text-xs font-bold font-mono text-slate-800">{new Intl.NumberFormat('vi-VN').format(aggs?.totalBeforeTax || 0)}</span>
         </div>
         <div className="flex flex-col items-end">
-          <span className="text-2xs font-bold uppercase tracking-widest text-sky-600">Tổng VAT</span>
-          <span className="text-sm font-bold font-mono text-sky-700">+{new Intl.NumberFormat('vi-VN').format(aggs?.totalVat || 0)}</span>
+          <span className="text-3xs font-bold uppercase tracking-widest text-sky-600">Tổng VAT</span>
+          <span className="text-xs font-bold font-mono text-sky-700">+{new Intl.NumberFormat('vi-VN').format(aggs?.totalVat || 0)}</span>
         </div>
-        <div className="flex flex-col items-end bg-gradient-to-r from-blue-50 to-blue-50 p-2.5 px-5 rounded-xl border border-blue-100 shadow-sm ml-2">
-          <span className="text-2xs font-bold uppercase tracking-widest text-blue-600 mb-0.5">Tổng thanh toán</span>
+        <div className="flex flex-col items-end bg-blue-50 p-2 px-3 rounded-lg border border-blue-100 shadow-xs ml-1">
+          <span className="text-3xs font-bold uppercase tracking-widest text-blue-600 mb-0.5">Tổng thanh toán</span>
           <div className="flex items-baseline gap-1">
-             <span className="text-2xl lg:text-2xl font-black tracking-tight text-blue-700">{new Intl.NumberFormat('vi-VN').format(aggs?.totalAfterTax || 0)}</span>
-             <span className="text-xs font-bold text-blue-500 font-mono">₫</span>
+             <span className="text-base font-black tracking-tight text-blue-700">{new Intl.NumberFormat('vi-VN').format(aggs?.totalAfterTax || 0)}</span>
+             <span className="text-3xs font-bold text-blue-500 font-mono">₫</span>
           </div>
         </div>
       </div>

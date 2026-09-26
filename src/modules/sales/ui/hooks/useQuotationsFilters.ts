@@ -3,6 +3,7 @@ import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 import { normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
+import { isQuotationWithContract } from '../components/QuotationStats';
 
 const STATE_KEY = 'dataview:quotations:state';
 
@@ -88,9 +89,19 @@ export function useQuotationsFilters(
         const poolPayments = entityCachePool.getAll('payments');
         const poolDeliveries = entityCachePool.getAll('deliveries');
 
-        const hasContract = allContracts.some(c => c.quotationId === q.id) || poolContracts.some((c: any) => c.quotationId === q.id);
-        const hasPayment = allPayments.some(p => p.quotationId === q.id) || poolPayments.some((p: any) => p.quotationId === q.id);
-        const hasDelivery = allDeliveries.some(d => d.quotationId === q.id) || poolDeliveries.some((d: any) => d.quotationId === q.id);
+        const combinedContracts = [...(allContracts || []), ...(poolContracts || [])];
+        const combinedPayments = [...(allPayments || []), ...(poolPayments || [])];
+        const combinedDeliveries = [...(allDeliveries || []), ...(poolDeliveries || [])];
+
+        const hasContract = isQuotationWithContract(q, combinedContracts);
+        const hasPayment = combinedPayments.some((p: any) => 
+          (p.quotationId && (p.quotationId === q.id || p.quotationId === q.soBaoGia || p.quotationId === q.soPhieuBaoGia)) ||
+          (p.soPhieuBaoGia && (p.soPhieuBaoGia === q.soBaoGia || p.soPhieuBaoGia === q.soPhieuBaoGia || p.soPhieuBaoGia === q.id))
+        );
+        const hasDelivery = combinedDeliveries.some((d: any) => 
+          (d.quotationId && (d.quotationId === q.id || d.quotationId === q.soBaoGia || d.quotationId === q.soPhieuBaoGia)) ||
+          (d.soPhieuBaoGia && (d.soPhieuBaoGia === q.soBaoGia || d.soPhieuBaoGia === q.soPhieuBaoGia || d.soPhieuBaoGia === q.id))
+        );
         
         if (selectedTienDo === 'CO_HOP_DONG') return hasContract;
         if (selectedTienDo === 'DA_THANH_TOAN') return hasPayment;
