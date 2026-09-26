@@ -167,4 +167,46 @@ describe('SGM Enterprise Financial Reconciler', () => {
     expect(progB.remainingDebt).toBe(1198800000);
     expect(progB.paidCount).toBe(0);
   });
+
+  it('accurately reconciles distinct contracts: Truong Sa (028) and Long Phat (024)', () => {
+    const contractTruongSa = {
+      id: '14eb8459-fdfe-4d0b-83ab-4260774e33c0',
+      soHopDong: '028/KD1-SGM/TN-CT/26',
+      customerId: 'cf65a80c-b97f-490b-ab60-2e828d849cac',
+      totalAmount: 3773800000
+    } as unknown as Contract;
+
+    const contractLongPhat = {
+      id: 'a0188981-396a-45d3-900f-eaa4dd837628',
+      soHopDong: '024/KD1-SGM/TN-CT/26',
+      customerId: '5064d478-61df-45ee-ba05-683df4a57ada',
+      totalAmount: 1198800000
+    } as unknown as Contract;
+
+    const paymentTruongSa = {
+      id: '152deb29-9c06-43ee-8d44-2e4d7741717f',
+      contractId: '14eb8459-fdfe-4d0b-83ab-4260774e33c0',
+      soHopDong: '028/KD1-SGM/TN-CT/26',
+      customerId: 'cf65a80c-b97f-490b-ab60-2e828d849cac',
+      soTien: 600000000,
+      tinhTrangThanhToan: 'Công nợ'
+    } as unknown as Payment;
+
+    const allPayments = [paymentTruongSa];
+
+    // Thép Trường Sa nhận đúng 600M
+    const progTS = reconcileContractFinancials(contractTruongSa, allPayments);
+    expect(progTS.totalPaid).toBe(600000000);
+    expect(progTS.remainingDebt).toBe(3173800000);
+    expect(progTS.paidCount).toBe(1);
+    expect(progTS.paymentPercentage).toBe(16);
+
+    // Tôn Long Phát nhận đúng 0 đ (Chưa TT)
+    const progLP = reconcileContractFinancials(contractLongPhat, allPayments);
+    expect(progLP.totalPaid).toBe(0);
+    expect(progLP.remainingDebt).toBe(1198800000);
+    expect(progLP.paidCount).toBe(0);
+    expect(progLP.paymentPercentage).toBe(0);
+  });
 });
+
