@@ -230,6 +230,7 @@ export function ContractModalsContainer({
                 customerId: prefillPaymentContract.customerId || '',
                 maKh: prefillPaymentContract.maKh || '',
                 tenKhachHang: prefillPaymentContract.tenKhachHang || '',
+                tenNguoiNop: prefillPaymentContract.nguoiDaiDien || prefillPaymentContract.tenKhachHang || '',
                 sdt: prefillPaymentContract.sdt || '',
                 soHopDong: prefillPaymentContract.soHopDong || '',
                 soDonHang: prefillPaymentContract.soDonHang || '',

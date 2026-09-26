@@ -9,17 +9,14 @@ import {
   User, 
   Calendar, 
   FileText, 
-  Package, 
-  Check, 
   Truck, 
   Building2, 
   MapPin, 
   Phone, 
   ShieldCheck, 
   Boxes, 
-  FileCheck,
-  Hash,
-  Warehouse
+  Warehouse,
+  ShoppingBag
 } from 'lucide-react';
 import { cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
 import { sanitizeText } from '@/src/shared/utils/inputSanitizer';
@@ -46,22 +43,27 @@ interface CompleteDeliveryModalProps {
   onSave: (data: Partial<Delivery>) => Promise<void>;
 }
 
-const DEFAULT_ATTACHED_DOCS = [
-  'Biên bản bàn giao & nghiệm thu kỹ thuật',
-  'Hóa đơn điện tử GTGT',
-  'Phiếu xuất kho kiêm vận chuyển nội bộ ERP',
-  'Phiếu / Tem bảo hành chính hãng',
-  'Tài liệu hướng dẫn vận hành & an toàn'
-];
-
 export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDeliveryModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [serials, setSerials] = useState<string[]>(delivery.danhSachMaMay || []);
-  const [selectedDocs, setSelectedDocs] = useState<string[]>([
-    'Biên bản bàn giao & nghiệm thu kỹ thuật',
-    'Phiếu xuất kho kiêm vận chuyển nội bộ ERP',
-    'Phiếu / Tem bảo hành chính hãng'
-  ]);
+
+  // Gán Serial theo từng dòng sản phẩm tương ứng
+  const [productSerials, setProductSerials] = useState<Record<string, string[]>>(() => {
+    const init: Record<string, string[]> = {};
+    (delivery.products || []).forEach((p, idx) => {
+      const key = p.productId || p.productName || `p_${idx}`;
+      init[key] = Array.isArray(p.danhSachMaMay) && p.danhSachMaMay.length > 0 
+        ? [...p.danhSachMaMay] 
+        : [];
+    });
+    // Nếu có danh sách mã máy tổng của phiếu giao nhưng các dòng chưa có, gán vào sản phẩm đầu tiên nếu chỉ có 1 dòng
+    if (delivery.danhSachMaMay?.length && delivery.products?.length === 1) {
+      const key = delivery.products[0].productId || delivery.products[0].productName || 'p_0';
+      if (!init[key]?.length) {
+        init[key] = [...delivery.danhSachMaMay];
+      }
+    }
+    return init;
+  });
   
   useEffect(() => {
     setMounted(true);
@@ -79,34 +81,31 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
       ngayGiaoThucTe: new Date().toISOString().split('T')[0],
       kyNhan: delivery.kyNhan || delivery.nguoiLienHe || '',
       soPhieuXuat: delivery.soPhieuXuat || '',
-      keToanKho: delivery.keToanKho || 'Ban Kho vận SGM',
-      khoXuat: delivery.khoXuat || 'Kho tổng SGM',
-      donViVanChuyen: delivery.donViVanChuyen || 'Nội bộ / Xe tải công ty',
+      keToanKho: delivery.keToanKho || '',
+      khoXuat: delivery.khoXuat || '',
+      donViVanChuyen: delivery.donViVanChuyen || '',
       ghiChu: delivery.ghiChu || '',
     }
   });
 
-  const toggleDoc = (doc: string) => {
-    setSelectedDocs(prev => 
-      prev.includes(doc) ? prev.filter(d => d !== doc) : [...prev, doc]
-    );
-  };
-
   const onSubmit = async (data: CompleteFormValues) => {
     let finalNote = sanitizeText(data.ghiChu || '');
     const cleanKyNhan = sanitizeText(cleanProperVietnameseText(data.kyNhan));
-    
-    const docsNote = selectedDocs.length > 0 
-      ? `Hồ sơ kèm theo: ${selectedDocs.join(', ')}` 
-      : '';
-
-    if (docsNote) {
-      finalNote = finalNote ? `${finalNote}\n--- ${docsNote} ---` : docsNote;
-    }
 
     if (delivery.ghiChu && finalNote && !finalNote.includes(delivery.ghiChu)) {
       finalNote = `${delivery.ghiChu}\n--- Cập nhật lúc bàn giao ---\n${finalNote}`;
     }
+
+    const allAggregatedSerials: string[] = [];
+    const updatedProducts = (delivery.products || []).map((prod, idx) => {
+      const key = prod.productId || prod.productName || `p_${idx}`;
+      const pSerials = productSerials[key] || [];
+      allAggregatedSerials.push(...pSerials);
+      return {
+        ...prod,
+        danhSachMaMay: pSerials
+      };
+    });
 
     await onSave({
       ngayGiaoThucTe: data.ngayGiaoThucTe,
@@ -115,7 +114,8 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
       keToanKho: data.keToanKho || delivery.keToanKho,
       khoXuat: data.khoXuat || delivery.khoXuat,
       donViVanChuyen: data.donViVanChuyen || delivery.donViVanChuyen,
-      danhSachMaMay: serials.length > 0 ? serials : (delivery.danhSachMaMay || []),
+      products: updatedProducts,
+      danhSachMaMay: allAggregatedSerials.length > 0 ? Array.from(new Set(allAggregatedSerials)) : (delivery.danhSachMaMay || []),
       ghiChu: finalNote || undefined,
     });
     
@@ -131,7 +131,7 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
         <Dialog.Content asChild>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 outline-none" style={{ pointerEvents: 'auto' }}>
             <div 
-              className="relative z-10 w-full max-w-3xl outline-none flex flex-col max-h-[94vh]"
+              className="relative z-10 w-full max-w-4xl outline-none flex flex-col max-h-[94vh]"
               onClick={(e) => e.stopPropagation()}
             >
               <motion.div 
@@ -151,7 +151,13 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                         Xác nhận hoàn tất giao hàng & Bàn giao thiết bị
                       </Dialog.Title>
                       <Dialog.Description className="text-2xs text-blue-100/90 mt-0.5 font-medium">
-                        Phiếu giao: <strong className="font-mono text-white underline">{delivery.deliveryId}</strong> | Căn cứ HĐ: <strong className="font-mono text-white">{delivery.soHopDong || 'Theo đơn hàng'}</strong>
+                        Phiếu giao: <strong className="font-mono text-white underline">{delivery.deliveryId}</strong>
+                        {delivery.soDonHang && (
+                          <> | Đơn hàng: <strong className="font-mono text-white">{delivery.soDonHang}</strong></>
+                        )}
+                        {delivery.soHopDong && (
+                          <> | Căn cứ HĐ: <strong className="font-mono text-white">{delivery.soHopDong}</strong></>
+                        )}
                       </Dialog.Description>
                     </div>
                   </div>
@@ -163,13 +169,13 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                 {/* Form Body */}
                 <form id="completeDeliveryForm" onSubmit={handleSubmit(onSubmit)} className="p-0 flex-1 overflow-y-auto space-y-4 text-xs">
                   
-                  {/* ZONE 1: THÔNG TIN KHÁCH HÀNG & ĐIỂM GIAO */}
+                  {/* ZONE 1: THÔNG TIN KHÁCH HÀNG, ĐƠN HÀNG & ĐỊA ĐIỂM BÀN GIAO */}
                   <div className="p-5 border-b border-slate-100 bg-slate-50/50 space-y-3">
                     <h4 className="text-2xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5 border-b border-slate-200/60 pb-2">
                       <Building2 size={13} className="text-blue-600" />
-                      Thông tin khách hàng & Địa điểm bàn giao
+                      Thông tin khách hàng, đơn hàng & Điểm bàn giao
                     </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                       <div className="p-2.5 bg-white rounded-lg border border-slate-200">
                         <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Khách hàng</span>
                         <span className="font-bold text-slate-800 text-xs line-clamp-1" title={delivery.tenKhachHang}>
@@ -192,6 +198,19 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                           <Phone size={10} className="shrink-0" />
                           {delivery.sdtLienHe || delivery.sdt || '---'}
                         </span>
+                      </div>
+
+                      <div className="p-2.5 bg-white rounded-lg border border-slate-200">
+                        <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Căn cứ đơn hàng / HĐ</span>
+                        <span className="font-mono font-bold text-blue-800 text-xs flex items-center gap-1">
+                          <ShoppingBag size={11} className="text-blue-600 shrink-0" />
+                          {delivery.soDonHang || 'ĐH chưa gắn'}
+                        </span>
+                        {delivery.soHopDong && (
+                          <span className="font-mono text-3xs font-semibold text-slate-600 block mt-0.5">
+                            HĐ: {delivery.soHopDong}
+                          </span>
+                        )}
                       </div>
 
                       <div className="p-2.5 bg-white rounded-lg border border-slate-200">
@@ -218,7 +237,7 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                         <input 
                           {...register('soPhieuXuat')}
                           className="h-8 px-2.5 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-100 outline-none" 
-                          placeholder="PXK-2026-..." 
+                          placeholder="Nhập số phiếu xuất kho..." 
                         />
                       </div>
                       <div>
@@ -228,7 +247,7 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                         <input 
                           {...register('khoXuat')}
                           className="h-8 px-2.5 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-100 outline-none" 
-                          placeholder="Kho tổng SGM" 
+                          placeholder="Nhập địa điểm / kho xuất..." 
                         />
                       </div>
                       <div>
@@ -238,7 +257,7 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                         <input 
                           {...register('keToanKho')}
                           className="h-8 px-2.5 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-100 outline-none" 
-                          placeholder="Kế toán kho phụ trách" 
+                          placeholder="Nhập thủ kho / kế toán phụ trách..." 
                         />
                       </div>
                       <div>
@@ -248,18 +267,18 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                         <input 
                           {...register('donViVanChuyen')}
                           className="h-8 px-2.5 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-100 outline-none" 
-                          placeholder="Xe tải công ty / GHTK..." 
+                          placeholder="Nhập đơn vị vận chuyển / xe..." 
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* ZONE 3: DANH SÁCH THIẾT BỊ, BẢO HÀNH & SERIAL */}
+                  {/* ZONE 3: DANH SÁCH THIẾT BỊ, BẢO HÀNH & GÁN SERIAL TƯƠNG ỨNG TỪNG SẢN PHẨM */}
                   <div className="px-5 space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <h4 className="text-2xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
                         <Boxes size={13} className="text-emerald-600" />
-                        Danh sách sản phẩm bàn giao ({delivery.products?.length || 0} mục)
+                        Danh sách sản phẩm bàn giao & Gán mã Serial máy ({delivery.products?.length || 0} mục)
                       </h4>
                       <span className="font-mono text-2xs font-black text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                         Tổng số lượng: {totalQuantity} cái/máy
@@ -272,33 +291,69 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                           <thead className="bg-slate-50 border-b border-slate-200 text-3xs font-black uppercase tracking-wider text-slate-500">
                             <tr>
                               <th className="p-2.5 px-3 w-10 text-center">STT</th>
-                              <th className="p-2.5 px-3">Tên Hàng / Model Cấu Hình</th>
-                              <th className="p-2.5 px-3 w-28 text-center border-l border-slate-200">Số Lượng</th>
-                              <th className="p-2.5 px-3 w-44 border-l border-slate-200">Thời Gian Bảo Hành</th>
+                              <th className="p-2.5 px-3 min-w-[200px]">Tên Hàng / Model Cấu Hình</th>
+                              <th className="p-2.5 px-3 w-24 text-center border-l border-slate-200">Số Lượng</th>
+                              <th className="p-2.5 px-3 w-36 border-l border-slate-200">Bảo Hành</th>
+                              <th className="p-2.5 px-3 min-w-[260px] border-l border-slate-200">Mã Serial Gán Cho Máy</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-150 bg-white">
                             {delivery.products!.map((prod, idx) => {
+                              const key = prod.productId || prod.productName || `p_${idx}`;
+                              const curSerials = productSerials[key] || [];
+                              const targetQty = Number(prod.quantity) || 1;
+                              const isFilled = curSerials.length === targetQty;
+
                               const warrantyDisplay = (prod as any).ngayHetHanBaoHanh 
                                 ? formatDate((prod as any).ngayHetHanBaoHanh)
                                 : ((prod as any).thoiGianBaoHanh ? `${(prod as any).thoiGianBaoHanh} tháng` : '12 tháng (Tiêu chuẩn)');
+
                               return (
                                 <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
-                                  <td className="p-2.5 px-3 text-center text-slate-400 font-mono text-3xs">{idx + 1}</td>
-                                  <td className="p-2.5 px-3 text-slate-800 font-medium">
+                                  <td className="p-2.5 px-3 text-center text-slate-400 font-mono text-3xs align-top pt-3">
+                                    {idx + 1}
+                                  </td>
+                                  <td className="p-2.5 px-3 text-slate-800 font-medium align-top">
                                     <span className="font-bold text-slate-900 block">{prod.productName}</span>
                                     {prod.productId && (
                                       <span className="font-mono text-3xs text-slate-500">Mã: {prod.productId}</span>
                                     )}
                                   </td>
-                                  <td className="p-2.5 px-3 text-center font-mono font-bold text-slate-800 border-l border-slate-100 bg-slate-50/40">
+                                  <td className="p-2.5 px-3 text-center font-mono font-bold text-slate-800 border-l border-slate-100 bg-slate-50/40 align-top pt-3">
                                     {prod.quantity} <span className="text-3xs text-slate-500 font-normal">{prod.unit || 'Máy'}</span>
                                   </td>
-                                  <td className="p-2.5 px-3 text-xs border-l border-slate-100">
+                                  <td className="p-2.5 px-3 text-xs border-l border-slate-100 align-top pt-3">
                                     <span className="inline-flex items-center gap-1 font-mono font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-3xs">
                                       <ShieldCheck size={11} className="shrink-0" />
                                       {warrantyDisplay}
                                     </span>
+                                  </td>
+                                  <td className="p-2.5 px-3 border-l border-slate-100 bg-blue-50/20 align-top">
+                                    <div className="space-y-1.5">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-3xs font-bold text-slate-600 uppercase">
+                                          Serial máy ({curSerials.length}/{targetQty})
+                                        </span>
+                                        {isFilled ? (
+                                          <span className="text-3xs font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.2 rounded border border-emerald-300">
+                                            ✓ Đủ {targetQty} mã
+                                          </span>
+                                        ) : (
+                                          <span className="text-3xs text-amber-700 font-semibold">
+                                            (Nhập {targetQty} serial)
+                                          </span>
+                                        )}
+                                      </div>
+                                      <MachineCodeChipInput 
+                                        value={curSerials}
+                                        onChange={(newSerials) => {
+                                          setProductSerials(prev => ({
+                                            ...prev,
+                                            [key]: newSerials
+                                          }));
+                                        }}
+                                      />
+                                    </div>
                                   </td>
                                 </tr>
                               );
@@ -309,58 +364,9 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                         <div className="p-4 text-center text-slate-400 text-xs">Không có sản phẩm trong phiếu</div>
                       )}
                     </div>
-
-                    {/* Quản lý Mã Serial từng máy */}
-                    <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-2xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                          <Hash size={12} className="text-blue-600" />
-                          Mã Serial từng máy bàn giao ({serials.length} serial đã gán)
-                        </label>
-                        <span className="text-3xs text-slate-400">
-                          Nhập mã serial máy rồi gõ Enter hoặc dấu phẩy
-                        </span>
-                      </div>
-                      <MachineCodeChipInput 
-                        value={serials}
-                        onChange={setSerials}
-                      />
-                    </div>
                   </div>
 
-                  {/* ZONE 4: HỒ SƠ ĐỐI CHIẾU & KÝ NHẬN BÀN GIAO THỰC TẾ */}
-                  <div className="px-5 space-y-3">
-                    <h4 className="text-2xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5 border-b border-slate-100 pb-2">
-                      <FileCheck size={13} className="text-emerald-600" />
-                      Hồ sơ đối chiếu kèm theo bàn giao
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {DEFAULT_ATTACHED_DOCS.map((doc) => {
-                        const isChecked = selectedDocs.includes(doc);
-                        return (
-                          <div 
-                            key={doc}
-                            onClick={() => toggleDoc(doc)}
-                            className={`p-2 rounded-lg border text-2xs font-semibold cursor-pointer select-none transition-all flex items-center gap-2 ${
-                              isChecked 
-                                ? 'bg-blue-50 border-blue-300 text-blue-900 shadow-2xs' 
-                                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                            }`}
-                          >
-                            <input 
-                              type="checkbox" 
-                              checked={isChecked} 
-                              onChange={() => {}} 
-                              className="rounded text-blue-600 focus:ring-0 cursor-pointer" 
-                            />
-                            <span>{doc}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* ZONE 5: NGÀY KÝ NHẬN & GHI CHÚ */}
+                  {/* ZONE 4: NGÀY KÝ NHẬN & GHI CHÚ BÀN GIAO */}
                   <div className="px-5 pb-5 space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">

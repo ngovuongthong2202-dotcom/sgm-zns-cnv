@@ -85,6 +85,35 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
       return;
     }
 
+    // Tự động tạo snapshot lịch sử (Price Revisions Engine) khi cập nhật báo giá đã có dữ liệu sản phẩm
+    if (quotation?.id && quotation.products && quotation.products.length > 0) {
+      const isModified = 
+        JSON.stringify(quotation.products) !== JSON.stringify(normalizedData.products) ||
+        quotation.totalAmount !== normalizedData.totalAmount ||
+        quotation.discountAmount !== normalizedData.discountAmount ||
+        quotation.vatAmount !== normalizedData.vatAmount;
+
+      if (isModified) {
+        const revCount = (quotation.revisions || []).length;
+        const autoRevision = {
+          id: crypto.randomUUID(),
+          name: `Phiên bản tự động #${revCount + 1}`,
+          note: 'Lưu tự động trước khi cập nhật bảng giá/sản phẩm mới',
+          createdAt: new Date().toISOString(),
+          createdBy: 'Hệ thống tự động',
+          products: quotation.products,
+          subTotal: quotation.subTotal || 0,
+          discountRate: Number(quotation.discountRate) || 0,
+          discountAmount: quotation.discountAmount || 0,
+          vatRate: Number(quotation.vatRate) || 0,
+          vatAmount: quotation.vatAmount || 0,
+          totalAmount: quotation.totalAmount || 0,
+        };
+        const cleanRev = Object.fromEntries(Object.entries(autoRevision).filter(([_, v]) => v !== undefined));
+        normalizedData.revisions = [...(quotation.revisions || []), cleanRev as any];
+      }
+    }
+
     await onSave(normalizedData);
     await clearDraft();
   };

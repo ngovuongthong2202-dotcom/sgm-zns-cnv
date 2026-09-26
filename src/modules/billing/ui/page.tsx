@@ -291,6 +291,10 @@ export default function PaymentsFeature() {
           }}
           onSendZns={handleSendZns}
           onDelete={handleDeletePayment}
+          onUpdate={async (id, data) => {
+            await updatePaymentWithTransaction(id, () => data);
+            setDrawerPayment(prev => prev && prev.id === id ? { ...prev, ...data } : prev);
+          }}
         />
       )}
 

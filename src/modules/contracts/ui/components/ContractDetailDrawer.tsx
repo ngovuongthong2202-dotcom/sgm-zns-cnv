@@ -254,7 +254,7 @@ export function ContractDetailDrawer({
               <div className="p-3.5 bg-slate-50/70 border border-slate-150 rounded-lg">
                 <div className="flex justify-between items-end mb-2">
                   <span className="text-3xs uppercase font-bold tracking-wider text-slate-500">Tài chính (Đã thu)</span>
-                  <span className="text-2xs font-mono font-bold text-slate-800">
+                  <span className="text-2xs font-currency font-bold text-slate-800">
                     {new Intl.NumberFormat('vi-VN').format(totalPaid)} / {new Intl.NumberFormat('vi-VN').format(totalContractAmount)} ₫
                     <span className="text-emerald-700 ml-1 font-bold">({pPct}%)</span>
                   </span>
@@ -265,7 +265,7 @@ export function ContractDetailDrawer({
                     style={{ width: `${pPct}%` }} 
                   />
                 </div>
-                <span className="text-3xs text-slate-500 block text-right font-mono">
+                <span className="text-3xs text-slate-500 block text-right font-currency">
                   {contractProg.remainingDebt > 0 ? `Còn nợ: ${new Intl.NumberFormat('vi-VN').format(contractProg.remainingDebt)} ₫` : '✓ Đã tất toán 100%'}
                 </span>
               </div>
@@ -547,7 +547,7 @@ export function ContractDetailDrawer({
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-2xs">
           <span className="text-3xs uppercase font-bold text-slate-500 tracking-wider">Giá trị HĐ:</span>
-          <span className="font-mono text-sm font-black text-emerald-800 tabular-nums">
+          <span className="font-currency text-sm font-black text-emerald-800">
             {new Intl.NumberFormat('vi-VN').format(totalContractAmount)} ₫
           </span>
           <span className="text-3xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 ml-1">

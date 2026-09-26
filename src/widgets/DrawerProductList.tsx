@@ -70,15 +70,15 @@ export function DrawerProductList({
             <table className="w-full text-left border-collapse min-w-[760px]">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-700 text-2xs font-bold uppercase tracking-wider">
-                  <th className="p-3 text-center w-[50px]">STT</th>
-                  <th className="p-3 min-w-[260px]">Sản phẩm & Quy cách</th>
-                  <th className="p-3 text-center w-[90px]">SL / ĐVT</th>
-                  <th className="p-3 text-right w-[130px]">Đơn giá</th>
-                  <th className="p-3 text-right w-[110px]">Chiết khấu</th>
-                  <th className="p-3 text-right w-[100px]">VAT</th>
-                  <th className="p-3 text-right w-[140px]">Thành tiền</th>
+                  <th className="p-2.5 text-center w-10">STT</th>
+                  <th className="p-2.5 min-w-[280px]">Sản phẩm & Quy cách</th>
+                  <th className="p-2.5 text-center w-[90px]">SL / ĐVT</th>
+                  <th className="p-2.5 text-right w-[130px]">Đơn giá</th>
+                  <th className="p-2.5 text-right w-[110px]">Chiết khấu</th>
+                  <th className="p-2.5 text-right w-[100px]">VAT</th>
+                  <th className="p-2.5 text-right w-[140px]">Thành tiền</th>
                   {deliveredQuantities && (
-                    <th className="p-3 text-center w-[120px]">Tiến độ giao</th>
+                    <th className="p-2.5 text-center w-[120px]">Tiến độ giao</th>
                   )}
                 </tr>
               </thead>
@@ -94,12 +94,12 @@ export function DrawerProductList({
                   return (
                     <tr key={idx} className="hover:bg-slate-50/70 transition-colors group">
                       {/* STT */}
-                      <td className="p-3 text-center font-bold text-slate-500 font-mono text-xs align-top">
+                      <td className="p-2.5 text-center font-bold text-slate-400 font-mono text-xs align-top w-10">
                         {p.stt || idx + 1}
                       </td>
 
                       {/* Tên & Quy cách */}
-                      <td className="p-3 align-top min-w-[260px]">
+                      <td className="p-2.5 align-top min-w-[280px]">
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             {p.productId && (
@@ -153,7 +153,7 @@ export function DrawerProductList({
 
                       {/* Đơn giá */}
                       <td className="p-3 text-right align-top whitespace-nowrap">
-                        <span className="font-mono font-bold text-slate-800 text-xs">
+                        <span className="font-currency font-bold text-slate-800 text-xs">
                           {new Intl.NumberFormat('vi-VN').format(p.price || 0)} ₫
                         </span>
                       </td>
@@ -164,7 +164,7 @@ export function DrawerProductList({
                           <div className="flex flex-col items-end text-amber-700">
                             {p.discountPct ? <span className="font-bold text-2xs">-{p.discountPct}%</span> : null}
                             {p.discountAmount ? (
-                              <span className="font-mono text-3xs text-amber-600">
+                              <span className="font-currency text-3xs text-amber-600 font-semibold">
                                 -{new Intl.NumberFormat('vi-VN').format(p.discountAmount)} ₫
                               </span>
                             ) : null}
@@ -179,7 +179,7 @@ export function DrawerProductList({
                         {p.vatPct ? (
                           <div className="flex flex-col items-end text-sky-700">
                             <span className="font-bold text-2xs">{p.vatPct}%</span>
-                            <span className="font-mono text-3xs text-sky-600">
+                            <span className="font-currency text-3xs text-sky-600 font-semibold">
                               +{new Intl.NumberFormat('vi-VN').format(p.taxAmount || 0)} ₫
                             </span>
                           </div>
@@ -190,7 +190,7 @@ export function DrawerProductList({
 
                       {/* Thành tiền */}
                       <td className="p-3 text-right align-top whitespace-nowrap">
-                        <span className="font-mono font-black text-slate-900 text-xs">
+                        <span className="font-currency font-black text-slate-900 text-xs">
                           {new Intl.NumberFormat('vi-VN').format(itemTotal ?? 0)} ₫
                         </span>
                       </td>
@@ -230,7 +230,7 @@ export function DrawerProductList({
                     <td colSpan={3} className="p-3 text-right text-2xs font-bold uppercase tracking-wider text-slate-600 align-middle">
                       Cộng tiền hàng (Tạm tính):
                     </td>
-                    <td className="p-3 text-right font-mono font-bold text-slate-900 text-xs align-middle whitespace-nowrap">
+                    <td className="p-3 text-right font-currency font-bold text-slate-900 text-xs align-middle whitespace-nowrap">
                       {new Intl.NumberFormat('vi-VN').format(calculatedSubTotal)} ₫
                     </td>
                     {deliveredQuantities && <td className="p-3"></td>}
@@ -245,7 +245,7 @@ export function DrawerProductList({
                       <td colSpan={3} className="p-2.5 px-3 text-right text-2xs font-bold uppercase tracking-wider text-amber-700 align-middle">
                         Tổng chiết khấu:
                       </td>
-                      <td className="p-2.5 px-3 text-right font-mono font-bold text-amber-700 text-xs align-middle whitespace-nowrap">
+                      <td className="p-2.5 px-3 text-right font-currency font-bold text-amber-700 text-xs align-middle whitespace-nowrap">
                         -{new Intl.NumberFormat('vi-VN').format(calculatedDiscount)} ₫
                       </td>
                       {deliveredQuantities && <td className="p-2.5"></td>}
@@ -261,21 +261,20 @@ export function DrawerProductList({
                       <td colSpan={3} className="p-2.5 px-3 text-right text-2xs font-bold uppercase tracking-wider text-sky-700 align-middle">
                         Tiền thuế VAT:
                       </td>
-                      <td className="p-2.5 px-3 text-right font-mono font-bold text-sky-700 text-xs align-middle whitespace-nowrap">
+                      <td className="p-2.5 px-3 text-right font-currency font-bold text-sky-700 text-xs align-middle whitespace-nowrap">
                         +{new Intl.NumberFormat('vi-VN').format(calculatedVat)} ₫
                       </td>
                       {deliveredQuantities && <td className="p-2.5"></td>}
                     </tr>
                   ) : (effectiveVatRate === 0) ? (
-                    <tr className="hover:bg-amber-50/40 transition-colors bg-amber-50/20">
-                      <td colSpan={3} className="p-2.5 px-3 text-2xs text-amber-800 italic align-middle flex items-center gap-1.5">
-                        <AlertTriangle size={13} className="text-amber-600 shrink-0" />
-                        Thuế suất GTGT: <strong>0%</strong> (Áp dụng đối tượng miễn/xuất khẩu)
+                    <tr className="hover:bg-slate-100/60 transition-colors">
+                      <td colSpan={3} className="p-2.5 px-3 text-2xs text-slate-500 italic align-middle">
+                        Thuế giá trị gia tăng (GTGT / VAT)
                       </td>
-                      <td colSpan={3} className="p-2.5 px-3 text-right text-2xs font-bold uppercase tracking-wider text-amber-800 align-middle">
+                      <td colSpan={3} className="p-2.5 px-3 text-right text-2xs font-bold uppercase tracking-wider text-slate-600 align-middle">
                         Tiền thuế VAT (0%):
                       </td>
-                      <td className="p-2.5 px-3 text-right font-mono font-bold text-amber-800 text-xs align-middle whitespace-nowrap">
+                      <td className="p-2.5 px-3 text-right font-currency font-bold text-slate-700 text-xs align-middle whitespace-nowrap">
                         0 ₫
                       </td>
                       {deliveredQuantities && <td className="p-2.5"></td>}
@@ -300,7 +299,7 @@ export function DrawerProductList({
                         </span>
                       </div>
                     </td>
-                    <td className="p-3 text-right font-mono font-black text-sm md:text-base text-blue-700 align-middle tabular-nums whitespace-nowrap">
+                    <td className="p-3 text-right font-currency font-black text-sm md:text-base text-blue-700 align-middle tabular-nums whitespace-nowrap">
                       {new Intl.NumberFormat('vi-VN').format(calculatedTotal)} ₫
                     </td>
                     {deliveredQuantities && <td className="p-3"></td>}
@@ -315,7 +314,7 @@ export function DrawerProductList({
                       <td colSpan={3} className="p-2 px-3 text-right text-2xs font-bold uppercase tracking-wider text-emerald-800 align-middle">
                         Đã thanh toán:
                       </td>
-                      <td className="p-2 px-3 text-right font-mono font-bold text-emerald-700 text-xs align-middle whitespace-nowrap">
+                      <td className="p-2 px-3 text-right font-currency font-bold text-emerald-700 text-xs align-middle whitespace-nowrap">
                         {new Intl.NumberFormat('vi-VN').format(paidAmount)} ₫
                       </td>
                       {deliveredQuantities && <td className="p-2"></td>}
@@ -331,7 +330,7 @@ export function DrawerProductList({
                       <td colSpan={3} className="p-2 px-3 text-right text-2xs font-bold uppercase tracking-wider text-amber-800 align-middle">
                         Còn lại (Công nợ):
                       </td>
-                      <td className="p-2 px-3 text-right font-mono font-bold text-amber-700 text-xs align-middle whitespace-nowrap">
+                      <td className="p-2 px-3 text-right font-currency font-bold text-amber-700 text-xs align-middle whitespace-nowrap">
                         {new Intl.NumberFormat('vi-VN').format(remainingDebt)} ₫
                       </td>
                       {deliveredQuantities && <td className="p-2"></td>}
@@ -344,14 +343,9 @@ export function DrawerProductList({
 
           {/* Cảnh báo tuân thủ pháp luật thuế VAT 0% */}
           {(effectiveVatRate === 0) && (
-            <div className="mt-3 p-3 bg-amber-50/90 border border-amber-200 rounded-xl text-amber-900 text-2xs flex items-start gap-2.5 shadow-2xs">
-              <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
-              <div className="leading-relaxed">
-                <strong className="font-bold text-amber-950 block text-xs">Cảnh báo tuân thủ xuất hóa đơn (Thuế suất VAT 0%):</strong>
-                <span className="text-amber-850 mt-0.5 block">
-                  Hợp đồng / Báo giá này đang áp dụng mức thuế suất <strong>VAT 0%</strong>. Theo quy định tại Nghị định 123/2020/NĐ-CP và Luật thuế GTGT, thuế suất 0% chỉ áp dụng đối với hàng hóa, dịch vụ xuất khẩu hoặc doanh nghiệp trong khu phi thuế quan (EPE). Vui lòng rà soát kỹ căn cứ pháp lý trước khi phát hành Hóa đơn điện tử.
-                </span>
-              </div>
+            <div className="mt-2.5 px-3 py-2 bg-slate-50 border border-slate-200/80 rounded-lg text-slate-500 text-3xs flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+              <span>Thuế suất GTGT 0% áp dụng cho đối tượng miễn thuế hoặc hàng hóa/dịch vụ theo quy định pháp luật.</span>
             </div>
           )}
         </div>

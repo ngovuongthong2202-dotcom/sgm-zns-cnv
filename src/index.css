@@ -229,3 +229,10 @@ button svg {
   vertical-align: middle;
 }
 
+.font-currency {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 0;
+  letter-spacing: -0.01em;
+}
+

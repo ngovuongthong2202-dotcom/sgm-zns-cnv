@@ -1,11 +1,11 @@
 /* eslint-disable max-lines */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useSWR from 'swr';
 import { swrColFetcher, swrDocFetcher } from '@/src/data/swr-fetchers';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
-import { Payment } from '@/src/domain/schema/payment.schema';
-import { CreditCard, Calendar, Clock, Send, DollarSign, Edit, Package, User, FileText } from 'lucide-react';
+import { Payment, PaymentInstallment } from '@/src/domain/schema/payment.schema';
+import { CreditCard, Calendar, Clock, Send, DollarSign, Edit, Package, User, FileText, Plus } from 'lucide-react';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { TabLichSuGiaoHang } from "@/src/widgets/TabLichSuGiaoHang";
@@ -17,6 +17,9 @@ import { EntityAuditMetadataCard } from "@/src/widgets/EntityAuditMetadataCard";
 import { ContractHoverCard } from '@/src/modules/contracts/ui/components/ContractHoverCard';
 import { QuotationHoverCard } from '@/src/modules/sales/ui/components/QuotationHoverCard';
 import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
+import { RecordInstallmentModal } from './RecordInstallmentModal';
+import { repositoryFactory } from '@/src/data/repositories/factory';
+import { notify } from '@/src/shared/utils/notify';
 
 import { Button } from '@/src/design-system/Button';
 
@@ -29,6 +32,7 @@ interface PaymentDetailDrawerProps {
   onEdit?: (payment: Payment) => void;
   onSendZns?: (payment: Payment) => void;
   onDelete?: (payment: Payment) => void;
+  onUpdate?: (id: string, data: Partial<Payment>) => Promise<void>;
   modal?: boolean;
   className?: string;
 }
@@ -40,10 +44,12 @@ export function PaymentDetailDrawer({
   onEdit,
   onSendZns,
   onDelete,
+  onUpdate,
   modal,
   className,
 }: PaymentDetailDrawerProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'deliveries' | 'zns' | 'links' | 'audit'>('overview');
+  const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const { confirm } = useConfirm();
 
   useEffect(() => {
@@ -56,6 +62,11 @@ export function PaymentDetailDrawer({
   const contractId = payment?.contractId || '';
   const { data: contractDoc } = useSWR<any>(
     isOpen && payment.contractId ? `contracts:${payment.contractId}` : null,
+    swrDocFetcher
+  );
+
+  const { data: customerDoc } = useSWR<any>(
+    isOpen && payment.customerId ? `customers:${payment.customerId}` : null,
     swrDocFetcher
   );
 
@@ -83,6 +94,74 @@ export function PaymentDetailDrawer({
 
   const totalPayable = payment.totalAmount || (payment as any).tongTienCanThanhToan || payment.soTien || 0;
   const remainingDebt = Math.max(0, totalPayable - (payment.soTien || 0));
+
+  // Thuật toán Contact Cascading để tìm chính xác họ tên người đại diện nộp tiền
+  const payerName = useMemo(() => {
+    if (payment.tenNguoiNop && payment.tenNguoiNop.trim()) return payment.tenNguoiNop.trim();
+    if (contractDoc?.nguoiDaiDien && contractDoc.nguoiDaiDien.trim()) return contractDoc.nguoiDaiDien.trim();
+    if (customerDoc?.contacts?.length) {
+      if (payment.sdt) {
+        const matched = customerDoc.contacts.find((c: any) => c.sdt === payment.sdt);
+        if (matched?.nguoiDaiDien && matched.nguoiDaiDien.trim()) return matched.nguoiDaiDien.trim();
+      }
+      if (customerDoc.contacts[0]?.nguoiDaiDien && customerDoc.contacts[0].nguoiDaiDien.trim()) {
+        return customerDoc.contacts[0].nguoiDaiDien.trim();
+      }
+    }
+    if (customerDoc?.nguoiDaiDien && customerDoc.nguoiDaiDien.trim()) return customerDoc.nguoiDaiDien.trim();
+    if (payment.tenKhachHang && payment.tenKhachHang.trim()) return payment.tenKhachHang.trim();
+    return 'Chưa cập nhật người đại diện';
+  }, [payment.tenNguoiNop, payment.sdt, payment.tenKhachHang, contractDoc?.nguoiDaiDien, customerDoc?.contacts, customerDoc?.nguoiDaiDien]);
+
+  // Sổ cái các đợt thu (Multi-installment Ledger)
+  const effectiveInstallments: PaymentInstallment[] = useMemo(() => {
+    if (payment.cacDotThu && payment.cacDotThu.length > 0) {
+      return payment.cacDotThu;
+    }
+    if (payment.soTien && payment.soTien > 0) {
+      return [{
+        id: 'DOT-1-INIT',
+        lanThu: 1,
+        soTien: payment.soTien,
+        ngayThu: payment.ngayThanhToan || payment.createdAt || new Date().toISOString().split('T')[0],
+        phuongThucThanhToan: payment.phuongThucThanhToan || 'Chuyển khoản',
+        soChungTuThamChieu: payment.soChungTu || '',
+        nguoiNop: payerName,
+        ghiChu: payment.ghiChu || 'Đợt thu ban đầu',
+      }];
+    }
+    return [];
+  }, [payment.cacDotThu, payment.soTien, payment.ngayThanhToan, payment.createdAt, payment.phuongThucThanhToan, payment.soChungTu, payment.ghiChu, payerName]);
+
+  const handleSaveInstallment = async (
+    newInstallment: PaymentInstallment,
+    newTotalPaid: number,
+    newRemaining: number,
+    newStatus: string
+  ) => {
+    try {
+      const updatedInstallments = [...effectiveInstallments, newInstallment];
+      const payload: Partial<Payment> = {
+        cacDotThu: updatedInstallments,
+        soTien: newTotalPaid,
+        congNoConLai: newRemaining,
+        tinhTrangThanhToan: newStatus,
+        ngayThanhToan: newInstallment.ngayThu,
+        phuongThucThanhToan: newInstallment.phuongThucThanhToan,
+        soChungTu: newInstallment.soChungTuThamChieu || payment.soChungTu,
+        tenNguoiNop: newInstallment.nguoiNop || payment.tenNguoiNop,
+      };
+
+      if (onUpdate && payment.id) {
+        await onUpdate(payment.id, payload);
+      } else if (payment.id) {
+        await repositoryFactory.get('payments').update(payment.id, payload);
+      }
+      notify.success(`Đã ghi nhận Đợt ${newInstallment.lanThu} (${formatCurrency(newInstallment.soTien)}) thành công!`);
+    } catch (err: any) {
+      notify.error('Lỗi khi ghi nhận đợt thu: ' + (err.message || 'Lỗi không xác định'));
+    }
+  };
 
   // 1. TỔNG QUAN TAB (OMNI-NEXUS COD 11.0)
   const overviewPanel = (
@@ -153,26 +232,36 @@ export function PaymentDetailDrawer({
             <div className="p-4 bg-gradient-to-r from-emerald-50/80 to-teal-50/50 border border-emerald-200 rounded-xl mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <span className="text-3xs uppercase font-bold text-emerald-800 tracking-wider flex items-center gap-1.5 mb-1">
-                  <DollarSign size={13} className="text-emerald-600" /> SỐ TIỀN THỰC THU ĐỢT NÀY
+                  <DollarSign size={13} className="text-emerald-600" /> SỐ TIỀN THỰC THU LŨY KẾ
                 </span>
-                <div className="font-mono font-black text-2xl md:text-3xl text-emerald-800 tabular-nums">
+                <div className="font-currency font-black text-2xl md:text-3xl text-emerald-800 tabular-nums">
                   {formatCurrency(payment.soTien || 0)}
                 </div>
               </div>
 
-              <div className="flex flex-col sm:items-end text-xs">
-                <span className="text-3xs uppercase font-bold text-slate-500 mb-0.5">Phương thức thanh toán</span>
-                <span className="font-bold text-slate-800 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
-                  {payment.phuongThucThanhToan || 'Chuyển khoản'}
-                </span>
+              <div className="flex flex-col sm:items-end gap-2 text-xs">
+                {remainingDebt > 0 && (
+                  <Button
+                    onClick={() => setIsRecordModalOpen(true)}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8 px-3 shadow-xs"
+                  >
+                    <Plus size={13} className="mr-1" /> Ghi nhận đợt thu mới
+                  </Button>
+                )}
+                <div className="flex items-center gap-1 text-slate-500 text-3xs">
+                  <span>Phương thức:</span>
+                  <span className="font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    {payment.phuongThucThanhToan || 'Chuyển khoản'}
+                  </span>
+                </div>
               </div>
             </div>
 
             {/* Đối soát dòng tiền 3 con số */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
-                <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Ngày thực thu</span>
-                <span className="font-mono font-bold text-slate-800 text-xs flex items-center gap-1">
+                <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Ngày thực thu gần nhất</span>
+                <span className="font-currency font-bold text-slate-800 text-xs flex items-center gap-1">
                   <Calendar size={12} className="text-slate-400" />
                   {formatDate(payment.ngayThanhToan)}
                 </span>
@@ -180,18 +269,91 @@ export function PaymentDetailDrawer({
 
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
                 <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Hạn chót thanh toán</span>
-                <span className="font-mono font-bold text-amber-800 text-xs flex items-center gap-1">
+                <span className="font-currency font-bold text-amber-800 text-xs flex items-center gap-1">
                   <Clock size={12} className="text-amber-500" />
                   {payment.ngayDenHan ? formatDate(payment.ngayDenHan) : 'Không ghi nhận'}
                 </span>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
-                <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Công nợ</span>
-                <span className={`font-mono font-bold text-xs ${remainingDebt > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Công nợ còn lại</span>
+                <span className={`font-currency font-black text-xs ${remainingDebt > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
                   {remainingDebt > 0 ? formatCurrency(remainingDebt) : '✓ Tất toán 100%'}
                 </span>
               </div>
+            </div>
+
+            {/* Sổ cái các đợt thu (Payment Installments Matrix) */}
+            <div className="mt-4 pt-4 border-t border-slate-150 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <CreditCard size={14} className="text-emerald-700" />
+                  <h4 className="text-2xs font-black uppercase tracking-wider text-slate-700">
+                    Lịch sử các đợt thu ({effectiveInstallments.length} đợt)
+                  </h4>
+                </div>
+                {remainingDebt > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsRecordModalOpen(true)}
+                    className="text-3xs font-bold text-emerald-800 bg-emerald-100/70 hover:bg-emerald-200 border border-emerald-300 px-2 py-1 rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    + Thu tiếp đợt mới
+                  </button>
+                )}
+              </div>
+
+              {effectiveInstallments.length > 0 ? (
+                <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs">
+                  <table className="w-full text-left text-2xs">
+                    <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 text-3xs uppercase tracking-wider">
+                      <tr>
+                        <th className="p-2 px-3 text-center w-16">Lần thu</th>
+                        <th className="p-2 px-3 w-24">Ngày thu</th>
+                        <th className="p-2 px-3 text-right w-36">Số tiền thực thu</th>
+                        <th className="p-2 px-3">Hình thức & Số UNC</th>
+                        <th className="p-2 px-3">Người nộp</th>
+                        <th className="p-2 px-3">Ghi chú</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {effectiveInstallments.map((inst, idx) => (
+                        <tr key={inst.id || idx} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="p-2 px-3 text-center font-bold text-slate-600">
+                            <span className="font-mono text-3xs bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">
+                              Đợt {inst.lanThu || idx + 1}
+                            </span>
+                          </td>
+                          <td className="p-2 px-3 font-currency text-slate-600">
+                            {formatDate(inst.ngayThu)}
+                          </td>
+                          <td className="p-2 px-3 text-right font-currency font-black text-emerald-800">
+                            {formatCurrency(inst.soTien || 0)}
+                          </td>
+                          <td className="p-2 px-3 text-slate-700 font-medium">
+                            <span>{inst.phuongThucThanhToan || 'Chuyển khoản'}</span>
+                            {inst.soChungTuThamChieu && (
+                              <span className="font-mono text-3xs text-blue-700 font-semibold block">
+                                UNC: {inst.soChungTuThamChieu}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-2 px-3 text-slate-800">
+                            {inst.nguoiNop || payerName}
+                          </td>
+                          <td className="p-2 px-3 text-slate-500 italic text-3xs">
+                            {inst.ghiChu || '---'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-center text-3xs text-slate-400">
+                  Chưa ghi nhận chi tiết đợt thu nào trong sổ cái. Bấm "+ Thu tiếp đợt mới" để ghi nhận.
+                </div>
+              )}
             </div>
           </section>
 
@@ -249,13 +411,11 @@ export function PaymentDetailDrawer({
               )}
             </div>
 
-            {(payment.tenNguoiNop || payment.sdt) && (
-              <div className="pt-2 border-t border-slate-100 text-xs">
-                <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">Đại diện nộp tiền</span>
-                <span className="font-semibold text-slate-800 block">{payment.tenNguoiNop || '---'}</span>
-                {payment.sdt && <span className="font-mono text-3xs text-blue-700 font-bold block mt-0.5">{payment.sdt}</span>}
-              </div>
-            )}
+            <div className="pt-2 border-t border-slate-100 text-xs">
+              <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">Đại diện nộp tiền</span>
+              <span className="font-semibold text-slate-800 block">{payerName}</span>
+              {payment.sdt && <span className="font-mono text-3xs text-blue-700 font-bold block mt-0.5">{payment.sdt}</span>}
+            </div>
           </section>
 
           {/* Thẻ 2: Căn cứ Thu tiền */}
@@ -356,14 +516,14 @@ export function PaymentDetailDrawer({
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-1.5">
           <span className="text-3xs text-slate-700 uppercase font-bold">Thực thu:</span>
-          <span className="font-mono font-black text-emerald-800">
+          <span className="font-currency font-black text-emerald-800">
             {formatCurrency(payment.soTien || 0)}
           </span>
         </div>
         <div className="h-3.5 w-px bg-slate-200 hidden sm:block" />
         <div className="flex items-center gap-1.5">
           <span className="text-3xs text-slate-700 uppercase font-bold">Còn nợ:</span>
-          <span className={`font-mono font-bold ${remainingDebt > 0 ? 'text-amber-800' : 'text-emerald-800'}`}>
+          <span className={`font-currency font-bold ${remainingDebt > 0 ? 'text-amber-800' : 'text-emerald-800'}`}>
             {remainingDebt > 0 ? formatCurrency(remainingDebt) : '0 ₫ (Xong)'}
           </span>
         </div>
@@ -372,8 +532,9 @@ export function PaymentDetailDrawer({
   );
 
   return (
-    <DetailDrawer
-      isOpen={isOpen}
+    <>
+      <DetailDrawer
+        isOpen={isOpen}
       onClose={onClose}
       modal={modal}
       className={className}
@@ -517,5 +678,16 @@ export function PaymentDetailDrawer({
         )}
       </div>
     </DetailDrawer>
+
+    {isRecordModalOpen && (
+      <RecordInstallmentModal
+        isOpen={isRecordModalOpen}
+        onClose={() => setIsRecordModalOpen(false)}
+        payment={payment}
+        defaultPayerName={payerName}
+        onSave={handleSaveInstallment}
+      />
+    )}
+  </>
   );
 }

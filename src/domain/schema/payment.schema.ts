@@ -2,6 +2,21 @@ import { z } from 'zod';
 
 import { ProductItemSchema } from './product.schema';
 
+export const PaymentInstallmentSchema = z.object({
+  id: z.string(), // "DOT-1", "DOT-2"...
+  lanThu: z.number().int().positive(), // 1, 2, 3...
+  soTien: z.number().positive('Số tiền thu phải lớn hơn 0'),
+  ngayThu: z.string(), // YYYY-MM-DD
+  phuongThucThanhToan: z.string().default('Chuyển khoản'),
+  soChungTuThamChieu: z.string().optional(), // Số UNC, mã GD ngân hàng
+  nguoiNop: z.string().optional(),
+  nguoiThu: z.string().optional(),
+  ghiChu: z.string().optional(),
+  createdAt: z.string().optional(),
+});
+
+export type PaymentInstallment = z.infer<typeof PaymentInstallmentSchema>;
+
 export const PaymentSchema = z.object({
   id: z.string().optional(),
   paymentId: z.string().min(1), // Logic ID
@@ -29,7 +44,8 @@ export const PaymentSchema = z.object({
   ghiChu: z.string().optional(),
   
   // Financial fields
-  soTien: z.number().optional(), // Legacy and input amount
+  soTien: z.number().optional(), // Total collected amount across all installments
+  congNoConLai: z.number().optional(), // Remaining debt
   subTotal: z.number().optional(),
   vatRate: z.number().optional().default(0), 
   vatAmount: z.number().optional().default(0),
@@ -37,6 +53,14 @@ export const PaymentSchema = z.object({
   discountAmount: z.number().optional().default(0),
   totalAmount: z.number().optional(), // Expected total from contract/quotation
   giaTriHopDong: z.number().optional(), // direct alias/sync for delivery mapping
+  
+  // Multi-installment Ledger
+  cacDotThu: z.array(PaymentInstallmentSchema).optional().default([]),
+
+  // Executive waiver (Đặc cách Ban Giám Đốc)
+  dacCachGiaoTruoc: z.boolean().optional().default(false),
+  lyDoDacCach: z.string().optional(),
+  nguoiPheDuyetDacCach: z.string().optional(),
   
   // Product details snapshot
   products: z.array(ProductItemSchema).optional().default([]),

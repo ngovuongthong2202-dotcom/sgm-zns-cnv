@@ -126,24 +126,11 @@ export function DeliveryDetailDrawer({
     return `${customerLabel}, Việt Nam`;
   }, [drawerDelivery, drawerContract]);
 
-  const isMismatch = useMemo(() => {
-    if (!drawerDelivery || !drawerContract) return false;
-    const contractProducts = drawerContract.products || [];
-    const deliveryProducts = drawerDelivery.products || [];
-
-    if (contractProducts.length === 0 && deliveryProducts.length > 0) return true;
-    if (contractProducts.length !== deliveryProducts.length) return true;
-
-    for (const dp of deliveryProducts) {
-      const match = contractProducts.find((cp: any) => 
-        (cp.id || cp.productId || cp.productName) === (dp.id || dp.productId || dp.productName)
-      );
-      if (!match) return true;
-      if (Number(match.quantity) < Number(dp.quantity)) return true;
-    }
-
-    return false;
-  }, [drawerDelivery, drawerContract]);
+  const normalizeItemKey = (p: any) => {
+    const code = (p.productId || '').trim().toLowerCase();
+    const name = (p.productName || '').trim().toLowerCase();
+    return code || name;
+  };
 
   const mismatchDiffList = useMemo(() => {
     if (!drawerDelivery || !drawerContract) return [];
@@ -153,7 +140,7 @@ export function DeliveryDetailDrawer({
     const diffMap = new Map<string, { name: string; model?: string; contractQty: number; deliveryQty: number }>();
 
     contractProducts.forEach((cp: any, idx: number) => {
-      const key = cp.productId || cp.productName || `c_${idx}`;
+      const key = normalizeItemKey(cp) || `c_${idx}`;
       diffMap.set(key, {
         name: cp.productName || 'Sản phẩm',
         model: cp.productId || '',
@@ -163,10 +150,10 @@ export function DeliveryDetailDrawer({
     });
 
     deliveryProducts.forEach((dp: any, idx: number) => {
-      const key = dp.productId || dp.productName || `d_${idx}`;
+      const key = normalizeItemKey(dp) || `d_${idx}`;
       const existing = diffMap.get(key);
       if (existing) {
-        existing.deliveryQty = Number(dp.quantity) || 0;
+        existing.deliveryQty += Number(dp.quantity) || 0;
       } else {
         diffMap.set(key, {
           name: dp.productName || 'Sản phẩm ngoài hợp đồng',
@@ -179,6 +166,32 @@ export function DeliveryDetailDrawer({
 
     return Array.from(diffMap.values());
   }, [drawerDelivery, drawerContract]);
+
+  const { isRealMismatch, isPartialDelivery, totalDeliveredQty, totalContractQty } = useMemo(() => {
+    if (!drawerDelivery || !drawerContract) {
+      return { isRealMismatch: false, isPartialDelivery: false, totalDeliveredQty: 0, totalContractQty: 0 };
+    }
+
+    const cProducts = drawerContract.products || [];
+    const dProducts = drawerDelivery.products || [];
+    const totalC = cProducts.reduce((acc: number, p: any) => acc + (Number(p.quantity) || 0), 0);
+    const totalD = dProducts.reduce((acc: number, p: any) => acc + (Number(p.quantity) || 0), 0);
+
+    // If there is any item outside contract (contractQty === 0) or exceeding contract qty (deliveryQty > contractQty)
+    const hasExcessOrUncontracted = mismatchDiffList.some(item => item.contractQty === 0 || item.deliveryQty > item.contractQty);
+    if (hasExcessOrUncontracted) {
+      return { isRealMismatch: true, isPartialDelivery: false, totalDeliveredQty: totalD, totalContractQty: totalC };
+    }
+
+    // If all items match exactly with 100% quantity
+    const isPerfect = mismatchDiffList.every(item => item.contractQty === item.deliveryQty);
+    if (isPerfect) {
+      return { isRealMismatch: false, isPartialDelivery: false, totalDeliveredQty: totalD, totalContractQty: totalC };
+    }
+
+    // If delivery is less than contract (Partial Delivery / Giao đợt)
+    return { isRealMismatch: false, isPartialDelivery: true, totalDeliveredQty: totalD, totalContractQty: totalC };
+  }, [mismatchDiffList, drawerDelivery, drawerContract]);
 
   if (!drawerDelivery) return null;
 
@@ -200,8 +213,42 @@ export function DeliveryDetailDrawer({
         {/* ===================== CỘT TRỌNG TÂM (70%): LOGISTICS & FULFILLMENT MATRIX ===================== */}
         <div className="lg:col-span-8 space-y-5">
           
-          {/* Cảnh báo cấu hình máy lệch nếu có */}
-          {isMismatch && (
+          {/* Giao hàng từng phần (Partial Delivery) - Hiển thị badge tiến độ trang nhã */}
+          {isPartialDelivery && (
+            <div className="bg-blue-50/70 border border-blue-200/80 rounded-xl p-3.5 shadow-2xs flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                <div>
+                  <h4 className="font-bold text-blue-900 text-xs">
+                    Tiến độ giao hàng đợt ({totalDeliveredQty}/{totalContractQty} máy - {totalContractQty > 0 ? Math.round((totalDeliveredQty / totalContractQty) * 100) : 0}%)
+                  </h4>
+                  <p className="text-blue-700 text-3xs mt-0.5">
+                    Phiếu này bàn giao một phần sản phẩm theo hợp đồng ({drawerContract?.soHopDong || 'liên kết'}). Phần còn lại sẽ được giao ở các đợt tiếp theo.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMismatchDetails(!showMismatchDetails)}
+                className="text-3xs font-bold text-blue-800 bg-white hover:bg-blue-100 border border-blue-200 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
+              >
+                {showMismatchDetails ? (
+                  <>
+                    <span>Thu gọn</span>
+                    <ChevronUp size={13} />
+                  </>
+                ) : (
+                  <>
+                    <span>Xem đối soát</span>
+                    <ChevronDown size={13} />
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Cảnh báo cấu hình máy lệch THỰC SỰ (Chỉ hiển thị khi xuất ngoài HĐ hoặc vượt số lượng) */}
+          {isRealMismatch && (
             <div className="bg-amber-50 border border-amber-200/90 rounded-xl p-4 shadow-xs space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
@@ -209,7 +256,7 @@ export function DeliveryDetailDrawer({
                   <div>
                     <h4 className="font-bold text-amber-900 text-xs">Cảnh báo</h4>
                     <p className="text-amber-800 text-3xs mt-0.5">
-                      Phát hiện chênh lệch danh mục / số lượng sản phẩm so với hợp đồng ({drawerContract?.soHopDong || 'liên kết'})
+                      Phát hiện sản phẩm ngoài hợp đồng hoặc số lượng xuất vượt hợp đồng ({drawerContract?.soHopDong || 'liên kết'})
                     </p>
                   </div>
                 </div>
@@ -231,64 +278,65 @@ export function DeliveryDetailDrawer({
                   )}
                 </button>
               </div>
+            </div>
+          )}
 
-              {showMismatchDetails && (
-                <div className="pt-2 border-t border-amber-200/80 space-y-2">
-                  <p className="text-amber-900 text-2xs leading-relaxed">
-                    Bảng đối chiếu cấu hình sản phẩm giữa Hợp đồng và Phiếu giao hàng:
-                  </p>
-                  <div className="border border-amber-200 rounded-lg overflow-hidden bg-white shadow-2xs">
-                    <table className="w-full text-left text-2xs">
-                      <thead className="bg-amber-100/70 text-amber-950 font-bold border-b border-amber-200 text-3xs uppercase tracking-wider">
-                        <tr>
-                          <th className="p-2 px-3">Sản phẩm / Model</th>
-                          <th className="p-2 px-3 text-center w-28">SL Hợp đồng</th>
-                          <th className="p-2 px-3 text-center w-28">SL Giao lần này</th>
-                          <th className="p-2 px-3 text-center w-36">Chênh lệch</th>
+          {/* Bảng chi tiết đối soát hàng hóa (Mở khi bấm toggle ở partial delivery hoặc mismatch) */}
+          {(isRealMismatch || isPartialDelivery) && showMismatchDetails && (
+            <div className="border border-slate-200 rounded-xl p-3 bg-white shadow-2xs space-y-2">
+              <p className="text-slate-700 text-2xs font-semibold">
+                Bảng đối chiếu sản phẩm giữa Hợp đồng và Phiếu giao hàng:
+              </p>
+              <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs">
+                <table className="w-full text-left text-2xs">
+                  <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 text-3xs uppercase tracking-wider">
+                    <tr>
+                      <th className="p-2 px-3">Sản phẩm / Model</th>
+                      <th className="p-2 px-3 text-center w-28">SL Hợp đồng</th>
+                      <th className="p-2 px-3 text-center w-28">SL Giao lần này</th>
+                      <th className="p-2 px-3 text-center w-36">Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {mismatchDiffList.map((item, idx) => {
+                      const diff = item.deliveryQty - item.contractQty;
+                      return (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="p-2 px-3 font-medium text-slate-800">
+                            <span>{item.name}</span>
+                            {item.model && <span className="font-mono text-slate-400 text-3xs block">{item.model}</span>}
+                          </td>
+                          <td className="p-2 px-3 text-center font-mono font-semibold text-slate-700">
+                            {item.contractQty}
+                          </td>
+                          <td className="p-2 px-3 text-center font-mono font-bold text-slate-900">
+                            {item.deliveryQty}
+                          </td>
+                          <td className="p-2 px-3 text-center">
+                            {diff === 0 ? (
+                              <span className="text-3xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                Khớp 100%
+                              </span>
+                            ) : diff < 0 ? (
+                              <span className="text-3xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                Giao {item.deliveryQty}/{item.contractQty} máy
+                              </span>
+                            ) : item.contractQty === 0 ? (
+                              <span className="text-3xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                                Ngoài HĐ (+{item.deliveryQty})
+                              </span>
+                            ) : (
+                              <span className="text-3xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                                Vượt +{diff} máy
+                              </span>
+                            )}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-amber-100">
-                        {mismatchDiffList.map((item, idx) => {
-                          const diff = item.deliveryQty - item.contractQty;
-                          return (
-                            <tr key={idx} className="hover:bg-amber-50/50">
-                              <td className="p-2 px-3 font-medium text-slate-800">
-                                <span>{item.name}</span>
-                                {item.model && <span className="font-mono text-slate-400 text-3xs block">{item.model}</span>}
-                              </td>
-                              <td className="p-2 px-3 text-center font-mono font-semibold text-slate-700">
-                                {item.contractQty}
-                              </td>
-                              <td className="p-2 px-3 text-center font-mono font-bold text-slate-900">
-                                {item.deliveryQty}
-                              </td>
-                              <td className="p-2 px-3 text-center">
-                                {diff === 0 ? (
-                                  <span className="text-3xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                    Khớp 100%
-                                  </span>
-                                ) : diff < 0 ? (
-                                  <span className="text-3xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                                    Thiếu {Math.abs(diff)} cái
-                                  </span>
-                                ) : item.contractQty === 0 ? (
-                                  <span className="text-3xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                                    Ngoài HĐ (+{item.deliveryQty})
-                                  </span>
-                                ) : (
-                                  <span className="text-3xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
-                                    Vượt +{diff} cái
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
