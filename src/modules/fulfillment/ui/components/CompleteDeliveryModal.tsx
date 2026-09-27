@@ -81,7 +81,7 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<CompleteFormValues>({
     resolver: zodResolver(CompleteSchema),
     defaultValues: {
-      ngayGiaoThucTe: new Date().toISOString().split('T')[0],
+      ngayGiaoThucTe: delivery.ngayGiaoThucTe || delivery.ngayGiaoMay || new Date().toISOString().split('T')[0],
       kyNhan: delivery.kyNhan || delivery.nguoiLienHe || '',
       soPhieuXuat: delivery.soPhieuXuat || '',
       keToanKho: delivery.keToanKho || '',

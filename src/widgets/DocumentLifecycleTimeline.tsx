@@ -12,6 +12,8 @@ import { TabLichSuHoatDong } from './TabLichSuHoatDong';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { formatCurrency as formatMoney } from '@/src/shared/utils/formatCurrency';
 
+import { useDrawerStack, DrawerStackItem } from '@/src/contexts/DrawerStackContext';
+
 interface DocumentLifecycleTimelineProps {
   currentType: 'quotation' | 'contract' | 'payment';
   currentDoc: any;
@@ -29,11 +31,11 @@ export function DocumentLifecycleTimeline({
   relatedPayments = [],
   relatedDeliveries = [],
 }: DocumentLifecycleTimelineProps) {
-  const navigate = useNavigate();
+  const { openDrawer } = useDrawerStack();
 
-  const handleOpenDoc = (route: string, doc: any) => {
+  const handleOpenDoc = (type: DrawerStackItem['entityType'], doc: any) => {
     if (doc?.id) {
-      navigate(`/${route}?id=${doc.id}`, { state: { openDrawer: doc } });
+      openDrawer(type, doc.id);
     }
   };
 
@@ -76,7 +78,7 @@ export function DocumentLifecycleTimeline({
             relatedQuotations.map(q => (
               <div 
                 key={q.id}
-                onClick={() => handleOpenDoc('quotations', q)}
+                onClick={() => handleOpenDoc('quotation', q)}
                 className="p-3.5 bg-slate-50 border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 rounded-xl transition-all flex items-start gap-3 cursor-pointer group shadow-xs"
               >
                 <div className="w-8 h-8 rounded-lg bg-slate-200 group-hover:bg-blue-600 text-slate-700 group-hover:text-white flex items-center justify-center shrink-0 transition-colors">
@@ -124,7 +126,7 @@ export function DocumentLifecycleTimeline({
             relatedContracts.map(c => (
               <div 
                 key={c.id}
-                onClick={() => handleOpenDoc('contracts', c)}
+                onClick={() => handleOpenDoc('contract', c)}
                 className="p-3.5 bg-slate-50 border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 rounded-xl transition-all flex items-start gap-3 cursor-pointer group shadow-xs"
               >
                 <div className="w-8 h-8 rounded-lg bg-slate-200 group-hover:bg-emerald-600 text-slate-700 group-hover:text-white flex items-center justify-center shrink-0 transition-colors">
@@ -174,7 +176,7 @@ export function DocumentLifecycleTimeline({
               return (
                 <div 
                   key={p.id}
-                  onClick={() => handleOpenDoc('payments', p)}
+                  onClick={() => handleOpenDoc('payment', p)}
                   className="p-3.5 bg-slate-50 border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 rounded-xl transition-all flex items-start gap-3 cursor-pointer group shadow-xs"
                 >
                   <div className="w-8 h-8 rounded-lg bg-slate-200 group-hover:bg-blue-600 text-slate-700 group-hover:text-white flex items-center justify-center shrink-0 transition-colors">
@@ -208,7 +210,7 @@ export function DocumentLifecycleTimeline({
               return (
                 <div 
                   key={d.id}
-                  onClick={() => handleOpenDoc('deliveries', d)}
+                  onClick={() => handleOpenDoc('delivery', d)}
                   className="p-3.5 bg-slate-50 border border-slate-200 hover:border-amber-400 hover:bg-amber-50/40 rounded-xl transition-all flex items-start gap-3 cursor-pointer group shadow-xs"
                 >
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${

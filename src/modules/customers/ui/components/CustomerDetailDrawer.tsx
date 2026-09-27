@@ -13,6 +13,7 @@ import { Button } from '@/src/design-system/Button';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
 import { ArrowLeft, ArrowRight, Trash2, Send, Edit, Printer } from 'lucide-react';
 import { CustomerReportModal } from './CustomerReportModal';
+import { CustomerOmniFlowStream } from './CustomerOmniFlowStream';
 import {
   QuotesTabContent,
   ContractsTabContent,
@@ -31,7 +32,7 @@ interface CustomerDetailDrawerProps {
   onEdit: () => void;
   onSendZns: (customer: Customer) => void;
   onDeleteCustomer: (customer: Customer) => void;
-  initialTab?: 'overview' | 'activity' | 'quotes' | 'contracts' | 'payments' | 'deliveries' | 'zns' | 'audit';
+  initialTab?: 'overview' | 'flow' | 'activity' | 'quotes' | 'contracts' | 'payments' | 'deliveries' | 'zns' | 'audit';
   modal?: boolean;
   className?: string;
 }
@@ -51,7 +52,7 @@ export function CustomerDetailDrawer({
   modal,
   className,
 }: CustomerDetailDrawerProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'quotes' | 'contracts' | 'payments' | 'deliveries' | 'zns' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'flow' | 'activity' | 'quotes' | 'contracts' | 'payments' | 'deliveries' | 'zns' | 'audit'>('overview');
   const [isReportOpen, setIsReportOpen] = useState(false);
 
   // Reset tab to overview or initialTab when drawer opens for a new customer
@@ -305,6 +306,7 @@ export function CustomerDetailDrawer({
           {(
             [
               { id: 'overview', label: 'Tổng quan' },
+              { id: 'flow', label: 'Dòng chảy 360°', count: drawerQuotations.length, loading: qLoading },
               { id: 'activity', label: 'Hoạt động' },
               { id: 'quotes', label: 'Báo giá', count: drawerQuotations.length, loading: qLoading },
               { id: 'contracts', label: 'Hợp đồng', count: drawerContracts.length, loading: cLoading },
@@ -344,41 +346,50 @@ export function CustomerDetailDrawer({
           <div className="pt-2 flex flex-col gap-4">
             {drawerQuotations.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
-                  <div className="space-y-0.5">
-                    <h4 className="text-2xs uppercase font-black tracking-widest text-slate-500">
-                      Tiến trình phiếu ({drawerQuotations.length} Báo Giá)
+                {/* Header cùng 1 hàng: Tiêu đề TIẾN TRÌNH PHIẾU + Capsule Selector Pills */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                    <h4 className="text-2xs uppercase font-black tracking-widest text-slate-700 whitespace-nowrap">
+                      TIẾN TRÌNH PHIẾU
                     </h4>
-                    <p className="text-2xs text-slate-500">Chọn báo giá dưới đây để xem tiến trình tương ứng</p>
+                    <span className="px-1.5 py-0.2 text-3xs font-extrabold bg-blue-50 text-blue-700 rounded-full border border-blue-200 whitespace-nowrap">
+                      {drawerQuotations.length} Báo Giá
+                    </span>
                   </div>
-                </div>
 
-                <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin">
-                  {[...drawerQuotations].sort((a, b) => {
-                    const timeA = new Date(a.createdAt || a.ngayCapNhat || 0).getTime();
-                    const timeB = new Date(b.createdAt || b.ngayCapNhat || 0).getTime();
-                    return timeB - timeA;
-                  }).map((quote, idx) => {
-                    const isSelected = selectedQuotationId === quote.id;
-                    const dateStr = quote.createdAt || quote.ngayCapNhat ? new Date(quote.createdAt || quote.ngayCapNhat).toLocaleDateString('vi-VN') : '';
-                    return (
-                      <button
-                        key={quote.id}
-                        type="button"
-                        onClick={() => setSelectedQuotationId(quote.id || null)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border text-left shrink-0 transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-                        }`}
-                      >
-                        <div className="font-bold">{quote.soPhieuBaoGia || `Draft #${idx + 1}`}</div>
-                        <div className={`text-2xs mt-0.5 ${isSelected ? 'text-blue-100' : 'text-slate-500'}`}>
-                          {quote.loai} {dateStr && `• ${dateStr}`}
-                        </div>
-                      </button>
-                    );
-                  })}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none flex-1 justify-start sm:justify-end min-w-0">
+                    {[...drawerQuotations].sort((a, b) => {
+                      const timeA = new Date(a.createdAt || a.ngayCapNhat || 0).getTime();
+                      const timeB = new Date(b.createdAt || b.ngayCapNhat || 0).getTime();
+                      return timeB - timeA;
+                    }).map((quote, idx) => {
+                      const isSelected = selectedQuotationId === quote.id;
+                      const dateStr = quote.createdAt || quote.ngayCapNhat ? new Date(quote.createdAt || quote.ngayCapNhat).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '';
+                      return (
+                        <button
+                          key={quote.id}
+                          type="button"
+                          onClick={() => setSelectedQuotationId(quote.id || null)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold border shrink-0 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs ${
+                            isSelected
+                              ? 'bg-blue-600 text-white border-blue-600 ring-2 ring-blue-600/20'
+                              : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          <span className="font-mono text-2xs tracking-tight">{quote.soPhieuBaoGia || `BG #${idx + 1}`}</span>
+                          <span className={`text-3xs font-semibold px-1 py-0.2 rounded ${isSelected ? 'bg-blue-700/80 text-blue-100' : 'bg-slate-200/80 text-slate-600'}`}>
+                            {quote.loai || 'MÁY'}
+                          </span>
+                          {dateStr && (
+                            <span className={`text-3xs font-normal tabular-nums ${isSelected ? 'text-blue-100' : 'text-slate-500'}`}>
+                              {dateStr}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {(() => {
@@ -404,6 +415,18 @@ export function CustomerDetailDrawer({
               payments={drawerPayments}
               contracts={drawerContracts}
               quotations={drawerQuotations}
+            />
+          </div>
+        )}
+
+        {/* Customer 360 Omni-Flow Stream Tab */}
+        {activeTab === 'flow' && (
+          <div className="pt-2">
+            <CustomerOmniFlowStream
+              quotations={drawerQuotations}
+              contracts={drawerContracts}
+              payments={drawerPayments}
+              deliveries={drawerDeliveries}
             />
           </div>
         )}

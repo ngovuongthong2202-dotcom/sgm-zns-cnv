@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { useNavigate } from 'react-router-dom';
+import { useDrawerStack } from '@/src/contexts/DrawerStackContext';
 
 import { FileText, FileSignature, Wallet, Truck, Bell } from 'lucide-react';
 import { format } from 'date-fns';
@@ -181,11 +182,24 @@ export function CustomerActivityTimeline({ customerId }: { customerId: string })
     );
   }
 
+  const { openDrawer } = useDrawerStack();
+
   const handleClick = (item: {id: string, date?: string, type: string, summary: string, route?: string, raw?: any, color?: string, icon?: any, title?: string, timestamp?: number | string, metadata?: any}) => {
     if (item.type === 'ZNS') {
       navigate(`/${item.route}`);
     } else {
-      navigate(`/${item.route}?id=${item.raw.id}`, { state: { openDrawer: item.raw } });
+      const typeMap: Record<string, 'quotation' | 'contract' | 'payment' | 'delivery'> = {
+        'QUOTATION': 'quotation',
+        'CONTRACT': 'contract',
+        'PAYMENT': 'payment',
+        'DELIVERY': 'delivery',
+      };
+      const entityType = typeMap[item.type];
+      if (entityType && item.raw?.id) {
+        openDrawer(entityType, item.raw.id);
+      } else if (item.route && item.raw?.id) {
+        navigate(`/${item.route}?id=${item.raw.id}`, { state: { openDrawer: item.raw } });
+      }
     }
   };
 

@@ -56,7 +56,7 @@ function QuickEditAmount({ value, onSave }: { value: number, onSave: (v: number)
             }
           }}
           onBlur={handleSave}
-          className="w-full min-w-[80px] max-w-[120px] text-right px-2 py-1 text-sm font-mono font-bold text-emerald-700 bg-emerald-50 border-2 border-emerald-500 rounded outline-none"
+          className="w-full min-w-[80px] max-w-[120px] text-right px-2 py-1 text-sm font-currency font-bold text-emerald-800 bg-emerald-50 border-2 border-emerald-500 rounded outline-none"
         />
       </div>
     );
@@ -64,11 +64,11 @@ function QuickEditAmount({ value, onSave }: { value: number, onSave: (v: number)
 
   return (
     <div 
-       className="font-mono font-bold text-emerald-700 text-right w-full min-w-[80px] hover:bg-emerald-50 px-2 py-1 rounded cursor-pointer border border-transparent hover:border-emerald-200 transition-colors tabular-nums"
+       className="font-currency font-bold text-emerald-800 text-right w-full min-w-[80px] hover:bg-emerald-50 px-2 py-1 rounded cursor-pointer border border-transparent hover:border-emerald-200 transition-colors tabular-nums text-xs"
        onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
        title="Nhấp để sửa số tiền"
     >
-      {new Intl.NumberFormat('vi-VN').format(value || 0)} <span className="text-2xs text-slate-600 font-sans">₫</span>
+      {new Intl.NumberFormat('vi-VN').format(value || 0)} <span className="text-2xs font-semibold">₫</span>
     </div>
   );
 }
@@ -451,8 +451,8 @@ export const getPaymentColumns = (
              }} 
            />
            {totalAmount > 0 && totalAmount !== soTien && (
-              <div className="text-2xs text-slate-500 font-medium mt-0.5 font-mono" title={`Tổng: ${new Intl.NumberFormat('vi-VN').format(totalAmount)}`}>
-                 / {new Intl.NumberFormat('vi-VN').format(totalAmount)}
+              <div className="text-2xs text-slate-500 font-semibold mt-0.5 font-currency tabular-nums" title={`Tổng: ${new Intl.NumberFormat('vi-VN').format(totalAmount)} ₫`}>
+                 / {new Intl.NumberFormat('vi-VN').format(totalAmount)} ₫
               </div>
            )}
         </div>
@@ -483,8 +483,8 @@ export const getPaymentColumns = (
         );
       }
       return (
-        <div className="text-right w-full font-mono font-bold text-amber-700 text-xs tabular-nums">
-          {new Intl.NumberFormat('vi-VN').format(remaining)} <span className="text-2xs text-slate-500 font-sans">₫</span>
+        <div className="text-right w-full font-currency font-bold text-amber-800 text-xs tabular-nums">
+          {new Intl.NumberFormat('vi-VN').format(remaining)} <span className="text-2xs font-semibold">₫</span>
         </div>
       );
     }

@@ -8,7 +8,7 @@ import { swrDocFetcher } from '@/src/data/swr-fetchers';
 import { PaymentHoverCard } from '@/src/modules/billing/ui/components/PaymentHoverCard';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
-import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, ShieldCheck, Clock, RotateCcw, ChevronDown, ChevronUp, Wrench } from 'lucide-react';
+import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, ShieldCheck, Clock, RotateCcw, ChevronDown, ChevronUp, Wrench, Info } from 'lucide-react';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
 import { TabLichSuHoatDong } from "@/src/widgets/TabLichSuHoatDong";
@@ -55,10 +55,18 @@ export function DeliveryDetailDrawer({
   setCompletingDelivery,
   onCompleteDeliverySubmit,
 }: DeliveryDetailDrawerProps) {
-  const { data: paymentDoc } = useSWR<any>(
-    drawerDelivery?.paymentId ? `payments:${drawerDelivery.paymentId}` : null,
-    swrDocFetcher
-  );
+  const paymentQueryKey = drawerDelivery?.paymentId 
+    ? `payments:${drawerDelivery.paymentId}` 
+    : drawerContract?.paymentId 
+    ? `payments:${drawerContract.paymentId}` 
+    : drawerContract?.id 
+    ? `payments:50:contractId:${drawerContract.id}` 
+    : null;
+  const { data: rawPaymentData } = useSWR<any>(paymentQueryKey, swrDocFetcher);
+  const paymentDoc = useMemo(() => {
+    if (!rawPaymentData) return null;
+    return Array.isArray(rawPaymentData) ? rawPaymentData[0] : rawPaymentData;
+  }, [rawPaymentData]);
   const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'links' | 'zns' | 'audit'>('overview');
   const [showMismatchDetails, setShowMismatchDetails] = useState(false);
 
@@ -197,30 +205,83 @@ export function DeliveryDetailDrawer({
 
   const contractTimeline = useMemo(() => {
     if (!drawerContract) return null;
-    return computeContractCompletionTimeline(drawerContract, paymentDoc ? [paymentDoc] : []);
-  }, [drawerContract, paymentDoc]);
+    return computeContractCompletionTimeline(
+      drawerContract, 
+      paymentDoc ? [paymentDoc] : [],
+      undefined,
+      { deliveries: drawerDelivery ? [drawerDelivery] : [] }
+    );
+  }, [drawerContract, paymentDoc, drawerDelivery]);
 
   const deliverySla = useMemo(() => {
-    if (!contractTimeline?.completionDate || !drawerDelivery?.ngayGiaoMay) {
-      return { status: 'NONE' as const, notice: '', diffDays: 0 };
+    if (!contractTimeline?.completionDate) {
+      return { status: 'NONE' as const, notice: '', diffDays: 0, planNotice: '', isActual: false };
     }
-    const dDate = parseSafeDate(drawerDelivery.ngayGiaoMay);
-    if (!dDate) return { status: 'NONE' as const, notice: '', diffDays: 0 };
-    const diffTime = dDate.getTime() - contractTimeline.completionDate.getTime();
+
+    // 1. Nếu ĐÃ BÀN GIAO THỰC TẾ (ngayGiaoThucTe tồn tại)
+    if (drawerDelivery?.ngayGiaoThucTe) {
+      const actualDate = parseSafeDate(drawerDelivery.ngayGiaoThucTe);
+      if (!actualDate) return { status: 'NONE' as const, notice: '', diffDays: 0, planNotice: '', isActual: false };
+      const diffTime = actualDate.getTime() - contractTimeline.completionDate.getTime();
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays <= 0) {
+        return {
+          status: 'MATCH' as const,
+          notice: diffDays === 0 ? '✓ Đã bàn giao đúng hạn cam kết HĐ' : `✓ Đã bàn giao thực tế sớm ${Math.abs(diffDays)} ngày so với cam kết HĐ`,
+          diffDays,
+          planNotice: '',
+          isActual: true
+        };
+      }
+      return {
+        status: 'DELAY' as const,
+        notice: `🚨 Bàn giao thực tế muộn hơn cam kết HĐ ${diffDays} ngày!`,
+        diffDays,
+        planNotice: '',
+        isActual: true
+      };
+    }
+
+    // 2. Nếu ĐANG CHỜ GIAO HÀNG (Chưa có ngayGiaoThucTe)
+    const planDate = parseSafeDate(drawerDelivery?.ngayGiaoMay);
+    if (!planDate) return { status: 'NONE' as const, notice: '', diffDays: 0, planNotice: '', isActual: false };
+    
+    const diffTime = planDate.getTime() - contractTimeline.completionDate.getTime();
     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    
+    // So sánh ngày dự kiến với ngày hôm nay
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const isPlanOverdue = planDate.getTime() < today.getTime();
+
+    if (isPlanOverdue) {
+      return {
+        status: 'WARNING' as const,
+        notice: `⚠️ Quá lịch dự kiến (${formatDate(drawerDelivery?.ngayGiaoMay)}) - Chờ xác nhận thực tế`,
+        planNotice: diffDays <= 0 ? `(Lịch dự kiến vẫn trước hạn HĐ ${Math.abs(diffDays)} ngày)` : `(Lịch dự kiến muộn hơn hạn HĐ ${diffDays} ngày)`,
+        diffDays,
+        isActual: false
+      };
+    }
+
     if (diffDays <= 0) {
       return {
         status: 'MATCH' as const,
-        notice: diffDays === 0 ? '✓ Đúng hạn cam kết HĐ' : `✓ Giao sớm ${Math.abs(diffDays)} ngày so với HĐ`,
-        diffDays
+        notice: diffDays === 0 ? 'Kế hoạch giao đúng hạn cam kết HĐ' : `Kế hoạch giao trước hạn cam kết HĐ ${Math.abs(diffDays)} ngày`,
+        diffDays,
+        planNotice: '',
+        isActual: false
       };
     }
+
     return {
       status: 'DELAY' as const,
-      notice: `⚠️ Lệch cam kết HĐ: Lịch giao muộn hơn hạn HĐ ${diffDays} ngày!`,
-      diffDays
+      notice: `⚠️ Lịch giao dự kiến muộn hơn hạn cam kết HĐ ${diffDays} ngày!`,
+      diffDays,
+      planNotice: '',
+      isActual: false
     };
-  }, [contractTimeline, drawerDelivery?.ngayGiaoMay]);
+  }, [contractTimeline, drawerDelivery?.ngayGiaoMay, drawerDelivery?.ngayGiaoThucTe]);
 
   if (!drawerDelivery) return null;
 
@@ -387,10 +448,27 @@ export function DeliveryDetailDrawer({
                     )}
                   </p>
                   {deliverySla.status !== 'NONE' && (
-                    <div className="mt-1">
-                      <span className={`inline-block text-3xs font-extrabold px-2 py-0.5 rounded-md border ${deliverySla.status === 'MATCH' ? 'text-emerald-800 bg-emerald-100 border-emerald-300' : 'text-rose-800 bg-rose-100 border-rose-300'}`}>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <span className={`inline-flex items-center gap-1 text-3xs font-extrabold px-2.5 py-0.5 rounded-md border ${
+                        deliverySla.status === 'MATCH' 
+                          ? 'text-emerald-800 bg-emerald-100 border-emerald-300' 
+                          : deliverySla.status === 'WARNING'
+                          ? 'text-amber-900 bg-amber-100 border-amber-300'
+                          : 'text-rose-800 bg-rose-100 border-rose-300'
+                      }`}>
                         {deliverySla.notice}
                       </span>
+                      {deliverySla.planNotice && (
+                        <span className="text-3xs text-slate-600 font-medium">
+                          {deliverySla.planNotice}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {contractTimeline?.productionTrigger?.isPostDeliverySettlement && (
+                    <div className="mt-2 text-3xs font-semibold text-blue-800 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200 flex items-center gap-1.5">
+                      <Info size={12} className="text-blue-600 shrink-0" />
+                      <span>Đặc cách Giao trước - Tất toán sau: Hợp đồng đã tất toán sau khi nhận bàn giao máy. Bấm &ldquo;Hoàn tất giao hàng&rdquo; để xác nhận ngày bàn giao thực tế.</span>
                     </div>
                   )}
                 </div>
@@ -426,6 +504,17 @@ export function DeliveryDetailDrawer({
                       </span>
                     )}
                   </p>
+                  {deliverySla.status !== 'NONE' && (
+                    <div className="mt-1.5">
+                      <span className={`inline-block text-3xs font-extrabold px-2 py-0.5 rounded-md border ${
+                        deliverySla.status === 'MATCH' 
+                          ? 'text-emerald-800 bg-emerald-100 border-emerald-300' 
+                          : 'text-rose-800 bg-rose-100 border-rose-300'
+                      }`}>
+                        {deliverySla.notice}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 

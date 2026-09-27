@@ -305,10 +305,10 @@ export const getContractColumns = (
 
       return (
         <div className="flex flex-col gap-1 w-full max-w-[140px] leading-normal py-0.5">
-          <div className="flex items-center justify-between text-2xs font-medium font-mono">
-            <span className="text-slate-800 font-bold">{pct}%</span>
-            <span className="text-slate-500 font-semibold truncate leading-none">
-              {pct === 100 ? 'Tất toán' : `Nợ: ${new Intl.NumberFormat('vi-VN').format(remaining)}đ`}
+          <div className="flex items-center justify-between text-2xs font-currency">
+            <span className="text-slate-900 font-bold tabular-nums">{pct}%</span>
+            <span className={`font-bold tabular-nums truncate leading-none ${pct === 100 ? 'text-emerald-700' : 'text-slate-700'}`}>
+              {pct === 100 ? 'Tất toán' : `Nợ: ${new Intl.NumberFormat('vi-VN').format(remaining)} ₫`}
             </span>
           </div>
           <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">

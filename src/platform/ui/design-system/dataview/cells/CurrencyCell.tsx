@@ -8,7 +8,7 @@ interface CurrencyCellProps {
 export function CurrencyCell({ value, subText }: CurrencyCellProps) {
   return (
     <div className="w-full flex flex-col items-end justify-center gap-0.5">
-       <span className="font-mono font-medium text-slate-800 text-xs tabular-nums">
+       <span className="font-currency font-bold text-slate-900 text-xs tabular-nums">
          {new Intl.NumberFormat('vi-VN').format(value || 0)} ₫
        </span>
        {subText && (

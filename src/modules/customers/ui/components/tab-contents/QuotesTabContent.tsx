@@ -106,8 +106,8 @@ export function QuotesTabContent({ loading, quotations }: QuotesTabContentProps)
                     <tr key={idx} className="hover:bg-slate-50/45 text-slate-650">
                       <td className="p-2 pl-3 font-medium text-slate-800">{p.productName}</td>
                       <td className="p-2 text-center text-slate-500 font-mono text-2xs">{p.quantity} {p.unit || 'cái'}</td>
-                      <td className="p-2 text-right text-slate-550 font-mono text-2xs">{formatCurrency(p.price || 0)}</td>
-                      <td className="p-2 text-right pr-3 text-slate-950 font-bold font-mono text-2xs">{formatCurrency(p.total || ((p.price || 0) * p.quantity))}</td>
+                      <td className="p-2 text-right text-slate-700 font-currency font-medium tabular-nums text-2xs">{formatCurrency(p.price || 0)}</td>
+                      <td className="p-2 text-right pr-3 text-slate-950 font-bold font-currency tabular-nums text-2xs">{formatCurrency(p.total || ((p.price || 0) * p.quantity))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -118,7 +118,7 @@ export function QuotesTabContent({ loading, quotations }: QuotesTabContentProps)
           <div className="flex justify-end pt-1 bg-white select-none">
             <div className="text-right">
               <span className="text-2xs font-medium text-slate-500 uppercase tracking-wide mr-1.5">Tổng giá trị:</span>
-              <span className="text-sm font-extrabold text-blue-650 font-mono">{formatCurrency(q.totalAmount || q.totalAmount || 0)}</span>
+              <span className="text-sm font-black text-blue-700 font-currency tabular-nums">{formatCurrency(q.totalAmount || (q as any).triGiaBaoGia || 0)}</span>
             </div>
           </div>
         </div>

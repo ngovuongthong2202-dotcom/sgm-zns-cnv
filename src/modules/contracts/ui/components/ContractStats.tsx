@@ -129,7 +129,7 @@ export function ContractStats({
           <h3 className="text-xs font-bold tracking-wide uppercase">Thanh Toán HĐ</h3>
         </div>
 
-        <div className="space-y-1.5 text-2xs font-mono font-medium mt-auto">
+        <div className="space-y-1.5 text-2xs font-currency mt-auto">
           {/* Tổng HĐ */}
           <div 
             onClick={() => handleKpiToggle('TOTAL')}
@@ -140,7 +140,7 @@ export function ContractStats({
             }`}
           >
             <span className="text-slate-500 font-sans pl-1">Tổng HĐ: <span className="font-bold text-slate-700">{stats.totalContractsCount}</span></span>
-            <span className="text-slate-800 font-semibold pr-1">{formatCurrency(stats.totalValue)}</span>
+            <span className="text-slate-900 font-bold tabular-nums pr-1">{formatCurrency(stats.totalValue)}</span>
           </div>
 
           {/* Đã thu */}
@@ -153,7 +153,7 @@ export function ContractStats({
             }`}
           >
             <span className="text-slate-500 font-sans pl-1">Đã thu: <span className="font-bold text-emerald-600">{stats.paidCount} HĐ</span></span>
-            <span className="text-emerald-700 font-semibold pr-1">{formatCurrency(stats.totalPaidValue)}</span>
+            <span className="text-emerald-800 font-bold tabular-nums pr-1">{formatCurrency(stats.totalPaidValue)}</span>
           </div>
 
           {/* Còn nợ */}
@@ -166,7 +166,7 @@ export function ContractStats({
             }`}
           >
             <span className="text-slate-500 font-sans pl-1">Nợ HĐ: <span className="font-bold text-blue-600">{stats.unpaidCount} HĐ</span></span>
-            <span className="text-blue-700 font-semibold pr-1">{formatCurrency(stats.totalUnpaidValue)}</span>
+            <span className="text-blue-800 font-bold tabular-nums pr-1">{formatCurrency(stats.totalUnpaidValue)}</span>
           </div>
         </div>
       </div>

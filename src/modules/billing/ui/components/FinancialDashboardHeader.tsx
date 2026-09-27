@@ -52,12 +52,12 @@ export function FinancialDashboardHeader({
     : 0;
 
   return (
-    <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 mb-3 select-none">
-      {/* 1. Tổng số Hợp Đồng theo tình trạng */}
-      <div className="bg-white rounded-xl border border-slate-200 p-2.5 flex flex-col hover:border-slate-300 transition-colors relative">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-2.5 mb-3 select-none items-stretch">
+      {/* 1. Tổng số Hợp Đồng theo tình trạng (3 cols) */}
+      <div className="xl:col-span-3 bg-white rounded-xl border border-slate-200 p-2.5 flex flex-col hover:border-slate-300 transition-colors relative shadow-2xs">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 text-slate-600">
-            <FileText size={16} className="text-blue-600" />
+            <FileText size={15} className="text-blue-600" />
             <h3 className="text-2xs font-bold tracking-wider uppercase text-slate-500">Số Hợp Đồng</h3>
             <span className="px-1.5 py-0.2 text-3xs font-black bg-blue-50 text-blue-700 rounded-full border border-blue-100" title="Tổng số hợp đồng">{totalContracts}</span>
           </div>
@@ -67,7 +67,7 @@ export function FinancialDashboardHeader({
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-2 text-2xs font-medium font-mono mt-auto">
+        <div className="grid grid-cols-2 gap-1.5 text-2xs font-medium mt-auto">
            {['Miễn phí', 'Chưa TT', 'Công nợ', 'Tất toán'].map(st => (
               <div 
                 key={st} 
@@ -75,17 +75,17 @@ export function FinancialDashboardHeader({
                 className={`flex justify-between items-center px-2 py-1 rounded cursor-pointer transition-colors border ${selectedStatus === st ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-400 font-bold text-blue-700' : 'bg-slate-50 border-slate-100 hover:border-blue-350 hover:bg-blue-50/50'}`}
               >
                 <span className="text-slate-500 font-sans truncate pr-1" title={st}>{st}</span>
-                <span className="text-slate-800">{statsByStatus[st as keyof typeof statsByStatus].contracts}</span>
+                <span className="text-slate-800 font-bold font-mono text-xs">{statsByStatus[st as keyof typeof statsByStatus].contracts}</span>
               </div>
            ))}
         </div>
       </div>
 
-      {/* 2. Tổng số Khách Hàng theo tình trạng */}
-      <div className="bg-white rounded-xl border border-slate-200 p-2.5 flex flex-col hover:border-slate-300 transition-colors relative">
+      {/* 2. Tổng số Khách Hàng theo tình trạng (3 cols) */}
+      <div className="xl:col-span-3 bg-white rounded-xl border border-slate-200 p-2.5 flex flex-col hover:border-slate-300 transition-colors relative shadow-2xs">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 text-slate-600">
-            <Users size={16} className="text-cyan-600" />
+            <Users size={15} className="text-cyan-600" />
             <h3 className="text-2xs font-bold tracking-wider uppercase text-slate-500">Khách Hàng</h3>
             <span className="px-1.5 py-0.2 text-3xs font-black bg-cyan-50 text-cyan-700 rounded-full border border-cyan-100" title="Tổng số khách hàng">{totalCustomers}</span>
           </div>
@@ -95,7 +95,7 @@ export function FinancialDashboardHeader({
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-2 text-2xs font-medium font-mono mt-auto">
+        <div className="grid grid-cols-2 gap-1.5 text-2xs font-medium mt-auto">
            {['Miễn phí', 'Chưa TT', 'Công nợ', 'Tất toán'].map(st => (
               <div 
                 key={st} 
@@ -103,76 +103,89 @@ export function FinancialDashboardHeader({
                 className={`flex justify-between items-center px-2 py-1 rounded cursor-pointer transition-colors border ${selectedStatus === st ? 'border-cyan-400 bg-cyan-50 ring-1 ring-cyan-400 font-bold text-cyan-700' : 'bg-slate-50 border-slate-100 hover:border-cyan-350 hover:bg-cyan-50/50'}`}
               >
                 <span className="text-slate-500 font-sans truncate pr-1" title={st}>{st}</span>
-                <span className="text-slate-800">{statsByStatus[st as keyof typeof statsByStatus].customers}</span>
+                <span className="text-slate-800 font-bold font-mono text-xs">{statsByStatus[st as keyof typeof statsByStatus].customers}</span>
               </div>
            ))}
         </div>
       </div>
 
-      {/* 3. Tình trạng công nợ (Gồm Công nợ tổng + Đã thu) */}
-      <div className="bg-white rounded-xl border border-slate-200 flex flex-col hover:border-slate-300 transition-colors overflow-hidden relative">
-        <div className="px-2.5 py-1.5 flex items-center justify-between border-b border-slate-100/60 shrink-0 bg-slate-50/50">
-          <span className="text-2xs font-bold uppercase tracking-wider text-slate-500">Tình trạng công nợ</span>
+      {/* 3. Tình trạng công nợ (Gồm Công nợ tổng + Đã thu - 4 cols rộng rãi, không rớt dòng) */}
+      <div className="xl:col-span-4 bg-white rounded-xl border border-slate-200 flex flex-col hover:border-slate-300 transition-colors overflow-hidden relative shadow-2xs">
+        <div className="px-2.5 py-1.5 flex items-center justify-between border-b border-slate-100 shrink-0 bg-slate-50/60">
+          <span className="text-2xs font-bold uppercase tracking-wider text-slate-600">Tình trạng công nợ</span>
+          <span className="text-3xs font-semibold text-slate-400">Đối soát thời gian thực</span>
         </div>
         
         <div className="flex flex-col divide-y divide-slate-100 flex-1">
           {/* Nửa trên: Công nợ tổng */}
           <div 
             onClick={() => onFilterTab?.(activeTab === 'PENDING' ? 'ALL' : 'PENDING')}
-            className={`px-2.5 py-2 flex items-center justify-between cursor-pointer transition-colors duration-150 ${activeTab === 'PENDING' ? 'bg-amber-50/40 ring-1 ring-inset ring-amber-400' : 'hover:bg-slate-50/40'}`}
+            className={`px-3 py-1.5 flex items-center justify-between cursor-pointer transition-colors duration-150 ${activeTab === 'PENDING' ? 'bg-amber-50/60 ring-1 ring-inset ring-amber-400' : 'hover:bg-slate-50/40'}`}
           >
             <div className="flex flex-col min-w-0">
-              <span className="text-2xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <AlertCircle size={12} className="text-amber-500" /> Công Nợ Tổng
+              <span className="text-3xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <AlertCircle size={13} className="text-amber-600 shrink-0" /> Công Nợ Tổng Cần Thu
               </span>
-              <span className="text-sm font-black font-mono text-amber-700 tracking-tight mt-0.5">{formatMoney(totalDebt)}</span>
+              <span className="text-sm font-black font-currency text-amber-800 tracking-tight whitespace-nowrap tabular-nums mt-0.5">
+                {formatMoney(totalDebt)}
+              </span>
             </div>
-            {activeTab === 'PENDING' && (
-              <span className="text-3xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">Đang lọc</span>
+            {activeTab === 'PENDING' ? (
+              <span className="text-3xs bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded font-bold">Đang lọc</span>
+            ) : (
+              <span className="text-3xs text-slate-400 font-medium">Bấm để lọc</span>
             )}
           </div>
 
-          {/* Nửa dưới: Đã thu */}
+          {/* Nửa dưới: Thu tích luỹ (Micro-Metric Stack: Label on top, Value below - Không bao giờ rớt dòng) */}
           <div 
             onClick={() => onFilterTab?.(activeTab === 'PAID' ? 'ALL' : 'PAID')}
-            className={`px-2.5 py-1.5 flex flex-col justify-between cursor-pointer transition-colors duration-150 ${activeTab === 'PAID' ? 'bg-emerald-50/40 ring-1 ring-inset ring-emerald-400' : 'hover:bg-slate-50/40'}`}
+            className={`px-2.5 py-2 flex flex-col justify-between cursor-pointer transition-colors duration-150 flex-1 ${activeTab === 'PAID' ? 'bg-emerald-50/50 ring-1 ring-inset ring-emerald-400' : 'hover:bg-slate-50/40'}`}
           >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-2xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Coins size={12} className="text-emerald-500" /> Thu tích luỹ
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-3xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Coins size={13} className="text-emerald-600 shrink-0" /> Thu tích luỹ
               </span>
               {activeTab === 'PAID' && (
-                <span className="text-3xs bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">Đang lọc</span>
+                <span className="text-3xs bg-emerald-100 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded font-bold">Đang lọc</span>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-2xs font-mono leading-tight">
-              <div className="flex justify-between border-r border-slate-100 pr-1.5">
-                <span className="text-slate-400 font-sans">Hôm nay</span>
-                <span className="text-emerald-700 font-bold">{formatMoney(collectedToday)}</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              <div className="bg-slate-50/90 rounded px-2 py-1 flex flex-col justify-center border border-slate-100">
+                <span className="text-3xs uppercase font-bold text-slate-500 tracking-wider">Hôm nay</span>
+                <span className="font-currency font-black text-xs text-emerald-800 tabular-nums whitespace-nowrap mt-0.5" title={formatMoney(collectedToday)}>
+                  {formatMoney(collectedToday)}
+                </span>
               </div>
-              <div className="flex justify-between pl-1.5">
-                <span className="text-slate-400 font-sans">Tuần này</span>
-                <span className="text-slate-700 font-bold">{formatMoney(collectedThisWeek)}</span>
+              <div className="bg-slate-50/90 rounded px-2 py-1 flex flex-col justify-center border border-slate-100">
+                <span className="text-3xs uppercase font-bold text-slate-500 tracking-wider">Tuần này</span>
+                <span className="font-currency font-black text-xs text-slate-800 tabular-nums whitespace-nowrap mt-0.5" title={formatMoney(collectedThisWeek)}>
+                  {formatMoney(collectedThisWeek)}
+                </span>
               </div>
-              <div className="flex justify-between border-r border-slate-100/50 pr-1.5">
-                <span className="text-slate-400 font-sans">Tháng này</span>
-                <span className="text-slate-700 font-bold">{formatMoney(collectedThisMonth)}</span>
+              <div className="bg-slate-50/90 rounded px-2 py-1 flex flex-col justify-center border border-slate-100">
+                <span className="text-3xs uppercase font-bold text-slate-500 tracking-wider">Tháng này</span>
+                <span className="font-currency font-black text-xs text-slate-800 tabular-nums whitespace-nowrap mt-0.5" title={formatMoney(collectedThisMonth)}>
+                  {formatMoney(collectedThisMonth)}
+                </span>
               </div>
-              <div className="flex justify-between pl-1.5">
-                <span className="text-slate-400 font-sans">Năm nay</span>
-                <span className="text-slate-700 font-bold">{formatMoney(collectedThisYear)}</span>
+              <div className="bg-slate-50/90 rounded px-2 py-1 flex flex-col justify-center border border-slate-100">
+                <span className="text-3xs uppercase font-bold text-slate-500 tracking-wider">Năm nay</span>
+                <span className="font-currency font-black text-xs text-slate-800 tabular-nums whitespace-nowrap mt-0.5" title={formatMoney(collectedThisYear)}>
+                  {formatMoney(collectedThisYear)}
+                </span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 4. Phân loại theo Bảng Giá */}
+      {/* 4. Phân loại theo Bảng Giá (2 cols) */}
       {statsByType && (
-        <div className="bg-white rounded-xl border border-slate-200 p-2.5 flex flex-col hover:border-slate-300 transition-colors relative">
+        <div className="xl:col-span-2 bg-white rounded-xl border border-slate-200 p-2.5 flex flex-col hover:border-slate-300 transition-colors relative shadow-2xs">
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-1.5 text-slate-600">
-              <PieChart size={16} className="text-cyan-600" />
+              <PieChart size={15} className="text-cyan-600" />
               <h3 className="text-2xs font-bold tracking-wider uppercase text-slate-500">Phân Loại</h3>
               <span className="px-1.5 py-0.2 text-3xs font-black bg-cyan-50 text-cyan-700 rounded-full border border-cyan-150" title="Tổng số báo giá">{totalTypesCount}</span>
             </div>
@@ -185,7 +198,7 @@ export function FinancialDashboardHeader({
 
           <div className="text-3xs text-slate-400 font-sans mb-1.5 px-0.5 flex justify-between uppercase tracking-wider border-b border-dashed border-slate-100 pb-1">
             <span>Danh mục</span>
-            <span>Số báo giá / Số Khách hàng</span>
+            <span>Số BG / KH</span>
           </div>
 
           <div className="grid grid-cols-1 gap-1 text-2xs font-medium mt-auto">
@@ -203,14 +216,14 @@ export function FinancialDashboardHeader({
                return (
                   <div 
                     key={item.id} 
-                    className={`flex justify-between items-center px-1.5 py-1 rounded cursor-pointer transition-colors border ${isSelected ? 'border-cyan-400 bg-cyan-50/70 ring-1 ring-cyan-400 font-bold text-cyan-700' : 'border-slate-100 bg-slate-50 hover:bg-cyan-50/50 hover:border-cyan-350'}`}
+                    className={`flex justify-between items-center px-2 py-1 rounded cursor-pointer transition-colors border ${isSelected ? 'border-cyan-400 bg-cyan-50/70 ring-1 ring-cyan-400 font-bold text-cyan-700' : 'border-slate-100 bg-slate-50 hover:bg-cyan-50/50 hover:border-cyan-350'}`}
                     onClick={() => onFilterPhanLoai?.(isSelected ? '' : item.id)}
                   >
-                    <span className="text-slate-700 font-sans font-bold truncate">{item.label}</span>
+                    <span className="text-slate-700 font-sans font-bold truncate text-3xs">{item.label}</span>
                     <span className="space-x-1 flex items-center shrink-0">
-                      <span className="text-slate-800 font-mono font-bold" title="Số lượng">{st.count} <span className="text-3xs text-slate-400 font-sans font-normal ml-0.5">phiếu</span></span> 
-                      <span className="text-slate-300 font-sans">/</span> 
-                      <span className="text-slate-500 font-mono" title="Số lượng khách hàng">{st.customers} <span className="text-3xs text-slate-400 font-sans font-normal ml-0.5">KH</span></span>
+                      <span className="text-slate-800 font-mono font-bold text-3xs" title="Số lượng">{st.count}</span> 
+                      <span className="text-slate-300 font-sans text-3xs">/</span> 
+                      <span className="text-slate-500 font-mono text-3xs" title="Số lượng khách hàng">{st.customers} <span className="text-3xs text-slate-400 font-sans font-normal">KH</span></span>
                     </span>
                   </div>
                );

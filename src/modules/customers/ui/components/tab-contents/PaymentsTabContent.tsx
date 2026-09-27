@@ -103,7 +103,7 @@ export function PaymentsTabContent({ loading, payments }: PaymentsTabContentProp
               <div className="flex justify-end pt-1 bg-white select-none text-right">
                 <div>
                   <span className="text-2xs font-medium text-slate-500 uppercase tracking-wide mr-1.5">Số tiền đã nộp:</span>
-                  <span className="text-sm font-extrabold text-emerald-650 font-mono">{formatCurrency(p.soTien || p.totalAmount || 0)}</span>
+                  <span className="text-sm font-black text-emerald-800 font-currency tabular-nums">{formatCurrency(p.soTien || (p as any).totalAmount || 0)}</span>
                 </div>
               </div>
             </div>
