@@ -10,6 +10,7 @@ import {
   checkWeekendDeliveryRisk,
   computeContractCompletionTimeline,
   VIETNAM_COMPENSATORY_WORKDAYS_SET,
+  cleanDocCode,
 } from './vietnamBusinessDays';
 
 describe('Vietnam Business Days & Working Calendar Engine (Apex Sovereign 15.0)', () => {
@@ -226,6 +227,76 @@ describe('Vietnam Business Days & Working Calendar Engine (Apex Sovereign 15.0)'
 
       expect(timeline.executionStage).toBe('DA_NGHIEM_THU_BAN_GIAO');
       expect(timeline.statusText).toBe('Hoàn thành bàn giao');
+    });
+
+    it('nhận diện chính xác case Giao Hàng Trước - Thanh Toán 100% Sau (Case HĐ 022 Tôn Long Phát)', () => {
+      const contract022 = {
+        id: 'CT-022',
+        soHopDong: '022/KD1-SGM/TN-OT/26',
+        soDonHang: '#11-KDDH2607-025',
+        ngayKy: '2026-07-20',
+        soNgayDuKienHoanThanh: 45,
+        giaTriSauThue: 480000000,
+      };
+
+      const deliveries022 = [
+        {
+          id: 'DEL-0130',
+          deliveryId: 'PGH-2026-0130',
+          soPhieuXuat: '11-PXBHDH2607-022',
+          ngayTaoPhieuXuat: '2026-07-25',
+          ngayGiaoMay: '2026-07-28',
+          ngayGiaoThucTe: '2026-07-28', // Giao thực tế ngày 28/07/2026
+        },
+      ];
+
+      const payments022 = [
+        {
+          id: 'PAY-5405',
+          paymentId: 'PT-2026-5405',
+          soTien: 480000000,
+          ngayThanhToan: '2026-08-04', // Thanh toán 100% sau ngày giao hàng
+          cacDotThu: [
+            { lanThu: 1, ngayThu: '2026-08-04', soTien: 480000000 },
+          ],
+        },
+      ];
+
+      // Đánh giá ngưỡng cọc
+      const triggerRes = checkProductionTriggerThreshold(payments022, 480000000, 30, {
+        deliveries: deliveries022,
+      });
+
+      expect(triggerRes.isPostDeliverySettlement).toBe(true);
+      expect(triggerRes.statusLabel).toBe('Tất toán sau giao máy');
+      expect(triggerRes.triggerType).toBe('POST_DELIVERY_SETTLEMENT');
+
+      // Đánh giá timeline HĐ tại thời điểm tháng 9/2026 (27/09/2026):
+      const timeline = computeContractCompletionTimeline(contract022, payments022, '2026-09-27', {
+        deliveries: deliveries022,
+      });
+
+      // Mốc tính Base Date PHẢI lấy từ Ngày ký HĐ (20/07/2026), không dời theo ngày thanh toán trễ:
+      expect(timeline.baseDateType).toBe('NGAY_KY');
+      expect(timeline.baseDateFormatted).toBe('20/07/2026');
+
+      // Vì máy ĐÃ GIAO THỰC TẾ ngày 28/07/2026 -> Hoàn thành thực tế ngày 28/07/2026:
+      expect(timeline.isActuallyDelivered).toBe(true);
+      expect(timeline.completionDateFormatted).toBe('28/07/2026');
+      expect(timeline.isDelayed).toBe(false); // TUYỆT ĐỐI KHÔNG BỊ BÁO TRỄ 2 NGÀY!
+      expect(timeline.delayedWorkingDays).toBe(0);
+      expect(timeline.statusText).toContain('Đã giao máy (Sớm');
+      expect(timeline.executionStage).toBe('DA_NGHIEM_THU_BAN_GIAO');
+    });
+  });
+
+  describe('cleanDocCode (Chuẩn hóa mã chứng từ)', () => {
+    it('bóc tách dấu # và khoảng trắng thừa', () => {
+      expect(cleanDocCode('#11-KDDH2607-025')).toBe('11-KDDH2607-025');
+      expect(cleanDocCode('  #11-PXBHDH2607-022  ')).toBe('11-PXBHDH2607-022');
+      expect(cleanDocCode('022/KD1-SGM/TN-OT/26')).toBe('022/KD1-SGM/TN-OT/26');
+      expect(cleanDocCode(null)).toBe('');
+      expect(cleanDocCode(undefined)).toBe('');
     });
   });
 });

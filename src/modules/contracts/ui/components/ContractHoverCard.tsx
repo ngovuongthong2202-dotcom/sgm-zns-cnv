@@ -64,7 +64,7 @@ function ContractHoverCardContent({ contract, contractId }: { contract?: Contrac
     swrColFetcher, { dedupingInterval: 60000 }
   );
   const waiverDelivery = (contractDeliveries || []).find((d: any) => d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU');
-  const completionTimeline = computeContractCompletionTimeline(activeContract, payments);
+  const completionTimeline = computeContractCompletionTimeline(activeContract, payments, undefined, { deliveries: contractDeliveries });
 
   const content = (
     <div className="flex flex-col h-full bg-slate-50 max-h-[85vh] overflow-hidden w-[420px]" onClick={(e) => e.stopPropagation()}>
@@ -137,13 +137,13 @@ function ContractHoverCardContent({ contract, contractId }: { contract?: Contrac
                     <span className="font-semibold text-slate-800 block leading-normal text-xs">
                       {completionTimeline.workingDaysTotal > 0 ? `${completionTimeline.workingDaysTotal} ngày (làm việc)` : '-'}
                       {completionTimeline.hasAddendumExtension && (
-                        <span className="ml-1 text-3xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1 py-0.2 rounded">
+                        <span className="ml-1 text-3xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1 py-0.2 rounded">
                           +{completionTimeline.extendedWorkingDays}d
                         </span>
                       )}
                     </span>
                     {completionTimeline.executionStageLabel && (
-                      <span className={`inline-block mt-1 text-3xs font-extrabold uppercase px-1.5 py-0.5 rounded border ${completionTimeline.executionStageColor || 'text-purple-700 bg-purple-50 border-purple-200'}`}>
+                      <span className={`inline-block mt-1 text-3xs font-extrabold uppercase px-1.5 py-0.5 rounded border ${completionTimeline.executionStageColor || 'text-blue-700 bg-blue-50 border-blue-200'}`}>
                         {completionTimeline.executionStageLabel}
                       </span>
                     )}

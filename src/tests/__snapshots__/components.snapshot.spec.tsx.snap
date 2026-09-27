@@ -354,7 +354,7 @@ exports[`Component Snapshots (Baseline) > renders ContractFormModal 1`] = `
                       type="number"
                     />
                     <span
-                      class="absolute right-3.5 top-1/2 -translate-y-1/2 text-2xs text-indigo-600 font-extrabold font-mono"
+                      class="absolute right-3.5 top-1/2 -translate-y-1/2 text-2xs text-blue-600 font-extrabold font-mono"
                     >
                       DAYS
                     </span>

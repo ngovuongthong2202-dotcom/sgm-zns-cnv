@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import useSWR from 'swr';
-import { swrDocFetcher } from '@/src/data/swr-fetchers';
+import { swrDocFetcher, swrColFetcher } from '@/src/data/swr-fetchers';
 import type { Customer } from '@/src/domain/schema/customer.schema';
 import type { Quotation } from '@/src/domain/schema/quotation.schema';
 import type { Contract } from '@/src/domain/schema/contract.schema';
@@ -271,6 +271,22 @@ function QuotationDrawerWrapper({ isOpen, onClose, entityId, className, modal }:
     isOpen && entityId ? `quotations:${entityId}` : null,
     swrDocFetcher as any
   );
+  const { data: contracts = [] } = useSWR<any[]>(
+    isOpen && entityId ? `contracts:500` : null,
+    swrColFetcher
+  );
+  const { data: payments = [] } = useSWR<any[]>(
+    isOpen && entityId ? `payments:500` : null,
+    swrColFetcher
+  );
+  const { data: deliveries = [] } = useSWR<any[]>(
+    isOpen && entityId ? `deliveries:500` : null,
+    swrColFetcher
+  );
+  const { data: customers = [] } = useSWR<any[]>(
+    isOpen && entityId ? `customers:500` : null,
+    swrColFetcher
+  );
 
   if (isLoading) return null;
   if (!quotation) return null;
@@ -278,12 +294,12 @@ function QuotationDrawerWrapper({ isOpen, onClose, entityId, className, modal }:
   return (
     <QuotationDetailDrawer
       quotation={quotation}
-      customers={[]}
+      customers={customers}
       owners={[]}
       statuses={[]}
-      contracts={[]}
-      payments={[]}
-      deliveries={[]}
+      contracts={contracts}
+      payments={payments}
+      deliveries={deliveries}
       onClose={onClose}
       onEdit={() => {}}
       onUpdate={async () => {}}
@@ -300,6 +316,14 @@ function ContractDrawerWrapper({ isOpen, onClose, entityId, className, modal }: 
     isOpen && entityId ? `contracts:${entityId}` : null,
     swrDocFetcher as any
   );
+  const { data: payments = [] } = useSWR<any[]>(
+    isOpen && entityId ? `payments:500` : null,
+    swrColFetcher
+  );
+  const { data: deliveries = [] } = useSWR<any[]>(
+    isOpen && entityId ? `deliveries:500` : null,
+    swrColFetcher
+  );
 
   if (isLoading) return null;
   if (!contract) return null;
@@ -307,8 +331,8 @@ function ContractDrawerWrapper({ isOpen, onClose, entityId, className, modal }: 
   return (
     <ContractDetailDrawer
       drawerContract={contract}
-      payments={[]}
-      deliveries={[]}
+      payments={payments}
+      deliveries={deliveries}
       customers={[]}
       onClose={onClose}
       onEdit={() => {}}

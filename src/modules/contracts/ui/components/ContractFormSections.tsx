@@ -133,7 +133,7 @@ export function ContractDefinitionSection({ register, errors, estimatedCompletio
           <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Số ngày gia hạn (Phụ lục HĐ)</label>
           <div className="relative">
             <input aria-label="Số ngày gia hạn" type="number" min="0" {...register('soNgayGiaHan', { valueAsNumber: true })} className="premium-input w-full font-bold h-8 rounded-lg pr-12 font-mono border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white" placeholder="0" />
-            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-2xs text-indigo-600 font-extrabold font-mono">DAYS</span>
+            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-2xs text-blue-600 font-extrabold font-mono">DAYS</span>
           </div>
         </div>
 

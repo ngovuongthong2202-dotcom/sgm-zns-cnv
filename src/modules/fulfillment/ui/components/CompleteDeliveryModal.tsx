@@ -148,7 +148,7 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                 className="bg-white rounded-2xl shadow-2xl w-full flex flex-col max-h-[94vh] border border-slate-200 overflow-hidden"
               >
                 {/* Header */}
-                <div className="px-6 py-4 bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white shrink-0 flex items-center justify-between gap-4">
+                <div className="px-6 py-4 bg-gradient-to-r from-blue-700 via-blue-800 to-slate-900 text-white shrink-0 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5">
                     <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md border border-white/20">
                       <Truck size={22} className="text-white" />
@@ -233,7 +233,7 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                   {/* ZONE 2: CĂN CỨ XUẤT KHO ERP & VẬN CHUYỂN */}
                   <div className="px-5 space-y-3">
                     <h4 className="text-2xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5 border-b border-slate-100 pb-2">
-                      <Warehouse size={13} className="text-indigo-600" />
+                      <Warehouse size={13} className="text-blue-600" />
                       Căn cứ phiếu xuất kho ERP & Điều phối vận chuyển
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">

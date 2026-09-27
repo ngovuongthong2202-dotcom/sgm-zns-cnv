@@ -297,21 +297,33 @@ export function getFirstInstallment(
  * 1. Khách hàng đã nộp đủ đợt 1, hoặc
  * 2. Tổng số tiền đã thanh toán >= Ngưỡng cọc quy định (mặc định 30% giá trị hợp đồng).
  */
+/**
+ * Chuẩn hóa mã tài liệu/chứng từ công nghiệp:
+ * - Bỏ dấu '#' ở đầu (ví dụ: #11-KDDH2607-025 -> 11-KDDH2607-025)
+ * - Loại bỏ khoảng trắng thừa, chuẩn hóa chữ hoa
+ */
+export function cleanDocCode(code?: string | null): string {
+  if (!code) return '';
+  return String(code).trim().replace(/^[#\s]+/, '').replace(/[\s]+$/, '').toUpperCase();
+}
+
 export interface ProductionTriggerResult {
   isTriggered: boolean;
   triggerDate: string | null;
-  triggerType: 'FULL_INSTALLMENT_1' | 'PERCENT_THRESHOLD' | 'FIRST_PAYMENT' | 'CONTRACT_SIGNING';
+  triggerType: 'FULL_INSTALLMENT_1' | 'PERCENT_THRESHOLD' | 'FIRST_PAYMENT' | 'CONTRACT_SIGNING' | 'POST_DELIVERY_SETTLEMENT';
   totalPaid: number;
   requiredThresholdAmount: number;
   thresholdPercent: number;
   statusLabel: string;
   triggerInstallmentNumber?: number;
+  isPostDeliverySettlement?: boolean;
 }
 
 export function checkProductionTriggerThreshold(
   payments?: any[],
   contractAmount: number = 0,
-  thresholdPercent: number = 30
+  thresholdPercent: number = 30,
+  options?: { deliveries?: any[]; isDacCachGiaoTruoc?: boolean }
 ): ProductionTriggerResult {
   const reqAmount = contractAmount > 0 ? Math.round(contractAmount * (thresholdPercent / 100)) : 0;
 
@@ -379,19 +391,61 @@ export function checkProductionTriggerThreshold(
     }
   }
 
+  // Kiểm tra nghiệp vụ Giao hàng trước - Thanh toán sau (Post-Delivery Settlement)
+  let isPostDeliverySettlement = false;
+  if (options?.isDacCachGiaoTruoc) {
+    isPostDeliverySettlement = true;
+  } else if (options?.deliveries && Array.isArray(options.deliveries) && options.deliveries.length > 0) {
+    let earliestDeliveryTime = Infinity;
+    for (const d of options.deliveries) {
+      if (!d) continue;
+      if (d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU') {
+        isPostDeliverySettlement = true;
+        break;
+      }
+      const rawDate = d.ngayGiaoThucTe || d.ngayGiaoMay || d.ngayTaoPhieuXuat || d.ngayLapPgh;
+      const parsed = parseSafeDate(rawDate);
+      if (parsed && parsed.getTime() < earliestDeliveryTime) {
+        earliestDeliveryTime = parsed.getTime();
+      }
+    }
+    if (triggerDate && earliestDeliveryTime !== Infinity) {
+      const triggerTime = parseSafeDate(triggerDate)?.getTime() || 0;
+      if (earliestDeliveryTime <= triggerTime) {
+        isPostDeliverySettlement = true;
+      }
+    }
+  }
+
   const isTriggered = reqAmount > 0 ? runningSum >= reqAmount : runningSum > 0;
+
+  let triggerType: 'FULL_INSTALLMENT_1' | 'PERCENT_THRESHOLD' | 'FIRST_PAYMENT' | 'CONTRACT_SIGNING' | 'POST_DELIVERY_SETTLEMENT';
+  let statusLabel: string;
+
+  if (isPostDeliverySettlement) {
+    triggerType = 'POST_DELIVERY_SETTLEMENT';
+    statusLabel = 'Tất toán sau giao máy';
+  } else if (isTriggered) {
+    triggerType = triggerInstNumber === 1 ? 'FULL_INSTALLMENT_1' : 'PERCENT_THRESHOLD';
+    statusLabel = 'Đã kích hoạt sản xuất';
+  } else if (runningSum > 0) {
+    triggerType = 'FIRST_PAYMENT';
+    statusLabel = 'Chờ đủ cọc khởi động';
+  } else {
+    triggerType = 'CONTRACT_SIGNING';
+    statusLabel = 'Chờ cọc khởi động';
+  }
 
   return {
     isTriggered,
     triggerDate: isTriggered ? triggerDate : (entries[0]?.ngayThu || null),
-    triggerType: isTriggered
-      ? (triggerInstNumber === 1 ? 'FULL_INSTALLMENT_1' : 'PERCENT_THRESHOLD')
-      : (runningSum > 0 ? 'FIRST_PAYMENT' : 'CONTRACT_SIGNING'),
+    triggerType,
     totalPaid: runningSum,
     requiredThresholdAmount: reqAmount,
     thresholdPercent,
-    statusLabel: isTriggered ? 'Đã kích hoạt sản xuất' : 'Chờ đủ cọc khởi động',
+    statusLabel,
     triggerInstallmentNumber: triggerInstNumber,
+    isPostDeliverySettlement,
   };
 }
 
@@ -459,21 +513,30 @@ export interface ContractCompletionTimeline {
   executionStage?: ContractExecutionStage;
   executionStageLabel?: string;
   executionStageColor?: string;
+  isActuallyDelivered?: boolean;
+  earlyDeliveryWorkingDays?: number;
 }
 
 /**
- * Động cơ Tính toán Toàn diện Tiến độ Hoàn thành Hợp đồng (SGM Apex Sovereign Engine):
- * 1. Phân tích Ngưỡng Cọc Kích hoạt Sản xuất (Production Trigger Threshold).
- * 2. Xác định mốc tính Base Date thông minh: Ngày đạt cọc Đợt 1 > Ngày ký HĐ.
+ * Động cơ Tính toán Toàn diện Tiến độ Hoàn thành Hợp đồng (SGM Apex Sovereign Chronos-Fabric 16.0):
+ * 1. Phân tích Ngưỡng Cọc Kích hoạt Sản xuất (Production Trigger Threshold) & Nhận diện Giao trước Trả sau.
+ * 2. Xác định mốc tính Base Date thông minh:
+ *    - Nếu giao trước trả sau hoặc đặc cách xuất kho: Base Date = Ngày ký HĐ (ngayKy).
+ *    - Nếu có cọc bình thường: Base Date = Ngày đạt ngưỡng cọc (ngayThu).
  * 3. Hỗ trợ Phụ lục Gia hạn tiến độ (Contract Addendum Extension) không bị phạt quá hạn oan.
- * 4. Tự động kiểm tra nguy cơ giao hàng cuối tuần (Thứ 7 / CN).
+ * 4. Khi ĐÃ GIAO HÀNG THỰC TẾ (ngayGiaoThucTe tồn tại):
+ *    - Chốt SLA Hoàn thành Vận hành tại đúng ngày giao thực tế, tuyệt đối KHÔNG bị tính là trễ hạn HĐ!
  * 5. Phân tầng 5 Chặng Thực thi Vật lý (Execution State Machine).
  */
 export function computeContractCompletionTimeline(
   contract: any,
   payments?: any[],
   currentDateInput?: Date | string,
-  options: { includeSaturday?: boolean; deliveryPercentage?: number } = { includeSaturday: true }
+  options: {
+    includeSaturday?: boolean;
+    deliveryPercentage?: number;
+    deliveries?: any[];
+  } = { includeSaturday: true }
 ): ContractCompletionTimeline {
   const defaultEmpty: ContractCompletionTimeline = {
     completionDate: null,
@@ -496,7 +559,7 @@ export function computeContractCompletionTimeline(
     isWeekendDeliveryRisk: false,
     executionStage: 'CHO_COC_KHOI_DONG',
     executionStageLabel: 'Chưa xác định',
-    executionStageColor: 'text-slate-600 bg-slate-50 border-slate-200',
+    executionStageColor: 'text-blue-700 bg-blue-50 border-blue-200',
   };
 
   if (!contract) return defaultEmpty;
@@ -512,23 +575,45 @@ export function computeContractCompletionTimeline(
   );
   const thresholdPercent = Number(contract.thresholdPercent) || 30;
 
-  // Kiểm tra ngưỡng cọc sản xuất
-  const productionTrigger = checkProductionTriggerThreshold(payments, contractAmount, thresholdPercent);
+  const isWaiver = Boolean(
+    contract.dacCachGiaoTruoc ||
+    contract.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU' ||
+    (options.deliveries || []).some((d: any) => d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU')
+  );
+
+  // Kiểm tra ngưỡng cọc sản xuất kèm kiểm tra phân định giao trước trả sau
+  const productionTrigger = checkProductionTriggerThreshold(payments, contractAmount, thresholdPercent, {
+    deliveries: options.deliveries,
+    isDacCachGiaoTruoc: isWaiver,
+  });
   const dot1 = getFirstInstallment(payments);
+
+  // Kiểm tra xem máy đã được giao thực tế hoặc xuất kho hay chưa
+  const actualDelivery = (options.deliveries || []).find((d: any) => d.ngayGiaoThucTe);
+  const actualDeliveryDate = actualDelivery?.ngayGiaoThucTe ? parseSafeDate(actualDelivery.ngayGiaoThucTe) : null;
+  const hasScheduledDelivery = (options.deliveries || []).some((d: any) => d.ngayGiaoMay || d.soPhieuXuat || d.dacCachGiaoTruoc);
 
   let baseDate: Date | null = null;
   let baseDateType: 'DOT_1' | 'NGAY_KY' | 'CHUA_XAC_DINH' = 'CHUA_XAC_DINH';
   let baseDateLabel = 'Chưa xác định mốc tính';
 
-  // Nếu đã đạt ngưỡng cọc sản xuất -> Mốc tính là ngày đạt ngưỡng
-  if (productionTrigger.isTriggered && productionTrigger.triggerDate) {
+  // NẾU là nghiệp vụ Giao hàng trước - Thanh toán sau (Post-Delivery Settlement hoặc Đặc cách giao trước):
+  // Mốc tính Base Date sản xuất/giao hàng PHẢI lấy từ Ngày ký HĐ (vì nhà máy xuất hàng theo hợp đồng, không chờ cọc)!
+  if (productionTrigger.isPostDeliverySettlement || isWaiver) {
+    if (contract.ngayKy) {
+      baseDate = parseSafeDate(contract.ngayKy);
+      if (baseDate) {
+        baseDateType = 'NGAY_KY';
+        baseDateLabel = `Từ Ngày ký HĐ (${formatDate(contract.ngayKy)}) - Giao trước trả sau`;
+      }
+    }
+  } else if (productionTrigger.isTriggered && productionTrigger.triggerDate) {
     baseDate = parseSafeDate(productionTrigger.triggerDate);
     if (baseDate) {
       baseDateType = 'DOT_1';
       baseDateLabel = `Từ Ngày thu Đợt 1 (${formatDate(productionTrigger.triggerDate)})`;
     }
   } else if (dot1 && dot1.ngayThu) {
-    // Nếu có bản ghi đợt 1
     baseDate = parseSafeDate(dot1.ngayThu);
     if (baseDate) {
       baseDateType = 'DOT_1';
@@ -554,11 +639,17 @@ export function computeContractCompletionTimeline(
     };
   }
 
-  // Tính Ngày hoàn thành gốc (chưa gia hạn) và Ngày hoàn thành thực tế (đã tính gia hạn)
+  // Tính Ngày hoàn thành gốc (chưa gia hạn) và Ngày cam kết HĐ (đã tính gia hạn)
   const originalTargetDate = addVietnamWorkingDays(baseDate, originalWorkingDays, options);
   const originalCompletionDateFormatted = originalTargetDate ? formatDate(originalTargetDate) : '---';
 
-  const completionDate = addVietnamWorkingDays(baseDate, effectiveWorkingDays, options);
+  const scheduledCompletionDate = addVietnamWorkingDays(baseDate, effectiveWorkingDays, options);
+
+  // NẾU ĐÃ GIAO THỰC TẾ (actualDeliveryDate tồn tại):
+  // Ngày hoàn thành thực tế CHÍNH LÀ ngày giao máy thực tế!
+  // Tuyệt đối không bị coi là trễ hạn (isDelayed = false, delayedWorkingDays = 0)
+  const isActuallyDelivered = !!actualDeliveryDate;
+  const completionDate = isActuallyDelivered ? actualDeliveryDate : scheduledCompletionDate;
   const completionDateFormatted = completionDate ? formatDate(completionDate) : '---';
   const baseDateFormatted = formatDate(baseDate);
 
@@ -573,8 +664,18 @@ export function computeContractCompletionTimeline(
   let workingDaysRemaining = 0;
   let isDelayed = false;
   let delayedWorkingDays = 0;
+  let earlyDeliveryWorkingDays = 0;
 
-  if (todayOnly.getTime() <= baseDate.getTime()) {
+  if (isActuallyDelivered) {
+    // Đã giao hàng thực tế -> SLA vận hành hoàn tất 100%!
+    workingDaysElapsed = countVietnamWorkingDays(baseDate, actualDeliveryDate, options);
+    workingDaysRemaining = 0;
+    isDelayed = false;
+    delayedWorkingDays = 0;
+    if (originalTargetDate && actualDeliveryDate.getTime() < originalTargetDate.getTime()) {
+      earlyDeliveryWorkingDays = countVietnamWorkingDays(actualDeliveryDate, originalTargetDate, options);
+    }
+  } else if (todayOnly.getTime() <= baseDate.getTime()) {
     workingDaysElapsed = 0;
     workingDaysRemaining = effectiveWorkingDays;
   } else if (completionDate) {
@@ -589,14 +690,19 @@ export function computeContractCompletionTimeline(
     }
   }
 
-  const timeProgressPercent =
-    effectiveWorkingDays > 0 ? Math.min(100, Math.round((workingDaysElapsed / effectiveWorkingDays) * 100)) : 0;
+  const timeProgressPercent = isActuallyDelivered ? 100 : (
+    effectiveWorkingDays > 0 ? Math.min(100, Math.round((workingDaysElapsed / effectiveWorkingDays) * 100)) : 0
+  );
 
-  const dPct = options.deliveryPercentage ?? 0;
+  const dPct = isActuallyDelivered ? 100 : (options.deliveryPercentage ?? 0);
   let statusText = 'Đang triển khai';
   let statusColor = 'text-blue-700 bg-blue-50 border-blue-200';
 
-  if (dPct >= 100) {
+  if (isActuallyDelivered) {
+    const earlyNotice = earlyDeliveryWorkingDays > 0 ? ` (Sớm ${earlyDeliveryWorkingDays} ngày)` : '';
+    statusText = `Đã giao máy${earlyNotice}`;
+    statusColor = 'text-emerald-700 bg-emerald-50 border-emerald-200';
+  } else if (dPct >= 100) {
     statusText = 'Hoàn thành bàn giao';
     statusColor = 'text-emerald-700 bg-emerald-50 border-emerald-200';
   } else if (isDelayed) {
@@ -604,21 +710,21 @@ export function computeContractCompletionTimeline(
     statusColor = 'text-rose-700 bg-rose-50 border-rose-200';
   } else if (hasAddendumExtension) {
     statusText = `Gia hạn +${extendedWorkingDays} ngày`;
-    statusColor = 'text-indigo-700 bg-indigo-50 border-indigo-200';
+    statusColor = 'text-blue-700 bg-blue-50 border-blue-200';
   }
 
-  // Xác định 5 Chặng Thực thi Vật lý (Execution Stage Machine)
+  // Xác định 5 Chặng Thực thi Vật lý (Execution Stage Machine) - TUYỆT ĐỐI KHÔNG DÙNG MÀU TÍM
   let executionStage: ContractExecutionStage = 'CHO_COC_KHOI_DONG';
   let executionStageLabel = 'Chờ cọc khởi động';
-  let executionStageColor = 'text-purple-700 bg-purple-50 border-purple-200';
+  let executionStageColor = 'text-blue-700 bg-blue-50 border-blue-200';
 
-  if (contract.status === 'COMPLETED' || dPct >= 100) {
+  if (contract.status === 'COMPLETED' || isActuallyDelivered || dPct >= 100) {
     executionStage = 'DA_NGHIEM_THU_BAN_GIAO';
-    executionStageLabel = 'Đã nghiệm thu bàn giao';
+    executionStageLabel = 'Đã bàn giao máy';
     executionStageColor = 'text-emerald-700 bg-emerald-50 border-emerald-200';
-  } else if (dPct > 0) {
+  } else if (dPct > 0 || hasScheduledDelivery || isWaiver) {
     executionStage = 'DANG_GIAO_LAP_DAT';
-    executionStageLabel = 'Đang giao & lắp đặt';
+    executionStageLabel = isWaiver ? 'Đặc cách xuất xưởng/Giao máy' : 'Đang giao & lắp đặt';
     executionStageColor = 'text-cyan-700 bg-cyan-50 border-cyan-200';
   } else if (timeProgressPercent >= 90) {
     executionStage = 'CHO_NGHIEM_THU_XUONG';
@@ -631,7 +737,7 @@ export function computeContractCompletionTimeline(
   } else {
     executionStage = 'CHO_COC_KHOI_DONG';
     executionStageLabel = 'Chờ cọc khởi động';
-    executionStageColor = 'text-purple-700 bg-purple-50 border-purple-200';
+    executionStageColor = 'text-blue-700 bg-blue-50 border-blue-200';
   }
 
   return {
@@ -649,7 +755,7 @@ export function computeContractCompletionTimeline(
     timeProgressPercent,
     statusText,
     statusColor,
-    // Apex Sovereign extensions
+    // Apex Sovereign Chronos-Fabric extensions
     productionTrigger,
     hasAddendumExtension,
     extendedWorkingDays,
@@ -662,5 +768,7 @@ export function computeContractCompletionTimeline(
     executionStage,
     executionStageLabel,
     executionStageColor,
+    isActuallyDelivered,
+    earlyDeliveryWorkingDays,
   };
 }

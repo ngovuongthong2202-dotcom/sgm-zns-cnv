@@ -220,12 +220,20 @@ export class ZnsPayloadBuilder {
       rendered.so_ngay = String(p.soNgayDuKienHoanThanh || p.soNgay || '30');
     }
     if ((requiredVarsSet.has('ngay_du_kien_hoan_thanh') || requiredVarsSet.has('ngay_hoan_thanh')) && isEmp(rendered.ngay_du_kien_hoan_thanh || rendered.ngay_hoan_thanh)) {
-      const baseDate = (p.ngayThuDot1 as string) || (p.ngayKy as string) || new Date().toISOString();
-      const days = Number(p.soNgayDuKienHoanThanh || p.soNgay || 30);
-      const target = addVietnamWorkingDays(baseDate, days);
+      if (p.ngayGiaoThucTe && requiredVarsSet.has('ngay_hoan_thanh')) {
+        rendered.ngay_hoan_thanh = formatDate(p.ngayGiaoThucTe as string);
+      }
+      const isPostDelivery = Boolean(p.dacCachGiaoTruoc || p.isPostDeliverySettlement || p.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU');
+      const baseDate = isPostDelivery
+        ? ((p.ngayKy as string) || (p.createdAt as string) || new Date().toISOString())
+        : ((p.ngayThuDot1 as string) || (p.ngayKy as string) || new Date().toISOString());
+      const baseDays = Number(p.soNgayDuKienHoanThanh || p.soNgay || 30);
+      const extensionDays = Number(p.soNgayGiaHan || 0);
+      const totalDays = baseDays + extensionDays;
+      const target = addVietnamWorkingDays(baseDate, totalDays);
       const val = target ? formatDate(target) : formatDate(new Date());
       if (requiredVarsSet.has('ngay_du_kien_hoan_thanh')) rendered.ngay_du_kien_hoan_thanh = val;
-      if (requiredVarsSet.has('ngay_hoan_thanh')) rendered.ngay_hoan_thanh = val;
+      if (requiredVarsSet.has('ngay_hoan_thanh') && isEmp(rendered.ngay_hoan_thanh)) rendered.ngay_hoan_thanh = val;
     }
     if (requiredVarsSet.has('so_phieu') && isEmp(rendered.so_phieu)) {
       rendered.so_phieu = (p.soPhieuBaoGia as string) || (p.soHopDong as string) || 'Không có';

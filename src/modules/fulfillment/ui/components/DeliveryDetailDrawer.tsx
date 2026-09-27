@@ -351,7 +351,7 @@ export function DeliveryDetailDrawer({
                                 Giao {item.deliveryQty}/{item.contractQty} máy
                               </span>
                             ) : item.contractQty === 0 ? (
-                              <span className="text-3xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                              <span className="text-3xs font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
                                 Ngoài HĐ (+{item.deliveryQty})
                               </span>
                             ) : (

@@ -20,7 +20,7 @@ import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
 import { RecordInstallmentModal } from './RecordInstallmentModal';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { notify } from '@/src/shared/utils/notify';
-import { checkProductionTriggerThreshold } from '@/src/shared/utils/vietnamBusinessDays';
+import { checkProductionTriggerThreshold, ProductionTriggerResult } from '@/src/shared/utils/vietnamBusinessDays';
 
 import { Button } from '@/src/design-system/Button';
 
@@ -87,17 +87,12 @@ export function PaymentDetailDrawer({
     { revalidateOnFocus: false }
   );
 
-  if (!payment) return null;
-
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
-  };
-
-  const totalPayable = payment.totalAmount || (payment as any).tongTienCanThanhToan || payment.soTien || 0;
-  const remainingDebt = Math.max(0, totalPayable - (payment.soTien || 0));
+  const totalPayable = payment ? (payment.totalAmount || (payment as any).tongTienCanThanhToan || payment.soTien || 0) : 0;
+  const remainingDebt = payment ? Math.max(0, totalPayable - (payment.soTien || 0)) : 0;
 
   // Thuật toán Contact Cascading để tìm chính xác họ tên người đại diện nộp tiền
   const payerName = useMemo(() => {
+    if (!payment) return '';
     if (payment.tenNguoiNop && payment.tenNguoiNop.trim()) return payment.tenNguoiNop.trim();
     if (contractDoc?.nguoiDaiDien && contractDoc.nguoiDaiDien.trim()) return contractDoc.nguoiDaiDien.trim();
     if (customerDoc?.contacts?.length) {
@@ -112,10 +107,11 @@ export function PaymentDetailDrawer({
     if (customerDoc?.nguoiDaiDien && customerDoc.nguoiDaiDien.trim()) return customerDoc.nguoiDaiDien.trim();
     if (payment.tenKhachHang && payment.tenKhachHang.trim()) return payment.tenKhachHang.trim();
     return 'Chưa cập nhật người đại diện';
-  }, [payment.tenNguoiNop, payment.sdt, payment.tenKhachHang, contractDoc?.nguoiDaiDien, customerDoc?.contacts, customerDoc?.nguoiDaiDien]);
+  }, [payment, contractDoc?.nguoiDaiDien, customerDoc?.contacts, customerDoc?.nguoiDaiDien]);
 
   // Sổ cái các đợt thu (Multi-installment Ledger)
   const effectiveInstallments: PaymentInstallment[] = useMemo(() => {
+    if (!payment) return [];
     if (payment.cacDotThu && payment.cacDotThu.length > 0) {
       return payment.cacDotThu;
     }
@@ -132,12 +128,24 @@ export function PaymentDetailDrawer({
       }];
     }
     return [];
-  }, [payment.cacDotThu, payment.soTien, payment.ngayThanhToan, payment.createdAt, payment.phuongThucThanhToan, payment.soChungTu, payment.ghiChu, payerName]);
+  }, [payment, payerName]);
 
-  // Đánh giá ngưỡng kích hoạt sản xuất theo Lịch & Ngân quỹ Apex Sovereign 15.0
-  const triggerThresholdInfo = useMemo(() => {
-    return checkProductionTriggerThreshold([payment], totalPayable, 30);
-  }, [payment, totalPayable]);
+  // Đánh giá ngưỡng kích hoạt sản xuất theo Lịch & Ngân quỹ Apex Sovereign 15.0 & Chronos-Fabric
+  const triggerThresholdInfo: ProductionTriggerResult = useMemo(() => {
+    if (!payment) {
+      return {
+        isTriggered: false,
+        triggerDate: null,
+        triggerType: 'FULL_INSTALLMENT_1' as const,
+        totalPaid: 0,
+        requiredThresholdAmount: 0,
+        thresholdPercent: 30,
+        statusLabel: '',
+        isPostDeliverySettlement: false,
+      };
+    }
+    return checkProductionTriggerThreshold([payment], totalPayable, 30, { deliveries });
+  }, [payment, totalPayable, deliveries]);
 
   const triggerInstallmentIdx = useMemo(() => {
     if (!triggerThresholdInfo.isTriggered || !triggerThresholdInfo.triggerInstallmentNumber) {
@@ -148,6 +156,12 @@ export function PaymentDetailDrawer({
     );
     return idx >= 0 ? idx : 0;
   }, [triggerThresholdInfo, effectiveInstallments]);
+
+  if (!payment) return null;
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+  };
 
   const handleSaveInstallment = async (
     newInstallment: PaymentInstallment,
@@ -276,24 +290,24 @@ export function PaymentDetailDrawer({
             {/* Đối soát dòng tiền 3 con số */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
-                <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Ngày thực thu gần nhất</span>
-                <span className="font-currency font-bold text-slate-800 text-xs flex items-center gap-1">
-                  <Calendar size={12} className="text-slate-400" />
+                <span className="text-3xs uppercase font-bold text-slate-600 block mb-0.5">Ngày thực thu gần nhất</span>
+                <span className="font-currency font-bold text-slate-900 text-xs flex items-center gap-1">
+                  <Calendar size={12} className="text-slate-500" />
                   {formatDate(payment.ngayThanhToan)}
                 </span>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
-                <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Hạn chót thanh toán</span>
-                <span className="font-currency font-bold text-amber-800 text-xs flex items-center gap-1">
-                  <Clock size={12} className="text-amber-500" />
+                <span className="text-3xs uppercase font-bold text-slate-600 block mb-0.5">Hạn chót thanh toán</span>
+                <span className="font-currency font-bold text-amber-900 text-xs flex items-center gap-1">
+                  <Clock size={12} className="text-amber-600" />
                   {payment.ngayDenHan ? formatDate(payment.ngayDenHan) : 'Không ghi nhận'}
                 </span>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
-                <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Công nợ còn lại</span>
-                <span className={`font-currency font-black text-xs ${remainingDebt > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                <span className="text-3xs uppercase font-bold text-slate-600 block mb-0.5">Công nợ còn lại</span>
+                <span className={`font-currency font-black text-xs ${remainingDebt > 0 ? 'text-amber-800' : 'text-emerald-800'}`}>
                   {remainingDebt > 0 ? formatCurrency(remainingDebt) : '✓ Tất toán 100%'}
                 </span>
               </div>
@@ -307,7 +321,11 @@ export function PaymentDetailDrawer({
                   <h4 className="text-2xs font-black uppercase tracking-wider text-slate-700">
                     Lịch sử các đợt thu ({effectiveInstallments.length} đợt)
                   </h4>
-                  {triggerThresholdInfo.isTriggered ? (
+                  {triggerThresholdInfo.isPostDeliverySettlement ? (
+                    <span className="text-3xs font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs">
+                      <span>✓</span> Tất toán 100% sau khi nhận máy (Giao trước - Thanh toán sau)
+                    </span>
+                  ) : triggerThresholdInfo.isTriggered ? (
                     <span className="text-3xs font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs">
                       <span>🎯</span> Đã đạt cọc sản xuất ({Math.round(totalPayable > 0 ? (triggerThresholdInfo.totalPaid / totalPayable) * 100 : 100)}% ≥ {triggerThresholdInfo.thresholdPercent}%)
                     </span>
@@ -351,7 +369,7 @@ export function PaymentDetailDrawer({
                               </span>
                               {idx === triggerInstallmentIdx && (
                                 <span className="text-3xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-2xs">
-                                  🎯 Kích hoạt SX
+                                  {triggerThresholdInfo.isPostDeliverySettlement ? '💳 Tất toán sau giao máy' : '🎯 Kích hoạt SX'}
                                 </span>
                               )}
                             </div>

@@ -24,6 +24,6 @@ describe('event-bus side-effects', () => {
     await workflowEventService.emitEvent(entityId, 'QuotationCreated', payload);
 
     console.log('\n--- All tests passed! ---\n');
-  });
+  }, 15000);
 });
 

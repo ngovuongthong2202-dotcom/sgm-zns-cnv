@@ -133,8 +133,8 @@ export function QuotationStats({
       },
       {
         id: 'HAS_CONTRACT', label: 'Đã Có Hợp Đồng', type: 'CO_HOP_DONG',
-        ...hasContractStat, icon: FileCheck2, iconColor: 'bg-violet-100 text-violet-700',
-        barColor: 'bg-violet-600',
+        ...hasContractStat, icon: FileCheck2, iconColor: 'bg-teal-100 text-teal-700',
+        barColor: 'bg-teal-600',
         isActive: isContractFilterActive,
         isContractCard: true
       }
@@ -165,7 +165,7 @@ export function QuotationStats({
         let activeBorders = 'border-slate-200/80 bg-white hover:border-slate-300';
         if (stat.isActive) {
           activeBorders = stat.isContractCard
-            ? 'border-violet-400 bg-violet-50/60 ring-1 ring-violet-400/20'
+            ? 'border-teal-400 bg-teal-50/60 ring-1 ring-teal-400/20'
             : 'border-slate-400 bg-slate-50 ring-1 ring-slate-400/10';
         }
 

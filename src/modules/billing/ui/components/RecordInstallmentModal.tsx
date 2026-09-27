@@ -365,7 +365,7 @@ export function RecordInstallmentModal({
 
                     <div className="space-y-1">
                       <label className="text-2xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                        <CreditCard size={13} className="text-indigo-700" />
+                        <CreditCard size={13} className="text-blue-700" />
                         Phương thức thanh toán <span className="text-red-600">*</span>
                       </label>
                       <select 

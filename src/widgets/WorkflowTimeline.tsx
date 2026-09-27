@@ -11,6 +11,7 @@ import { useDrawerStack } from '@/src/contexts/DrawerStackContext';
 import { useConfirm } from '@/src/design-system/Confirm';
 import { useManualZnsBypass } from '@/src/hooks/useManualZnsBypass';
 import { toast } from 'react-hot-toast';
+import { cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';
 
 interface WorkflowTimelineProps {
   quotation: Quotation;
@@ -38,22 +39,46 @@ export function WorkflowTimeline({
   const { bypassZns, bypassingId } = useManualZnsBypass();
   const { confirm } = useConfirm();
   
-  // Find related docs with Universal Lineage Resolution (both direct quotationId and indirect contract linkage)
-  const relatedContracts = contracts.filter(c => c.quotationId === quotation.id || (quotation.soPhieuBaoGia && c.soPhieuBaoGia === quotation.soPhieuBaoGia));
-  const relatedContractIds = new Set(relatedContracts.map(c => c.id).filter(Boolean));
-  const relatedContractSos = new Set(relatedContracts.map(c => c.soHopDong).filter(Boolean));
-  const relatedPayments = payments.filter(p => 
-    p.quotationId === quotation.id || 
-    (quotation.soPhieuBaoGia && p.soPhieuBaoGia === quotation.soPhieuBaoGia) ||
-    (p.contractId && relatedContractIds.has(p.contractId)) ||
-    (p.soHopDong && relatedContractSos.has(p.soHopDong))
-  );
-  const relatedDeliveries = deliveries.filter(d => 
-    d.quotationId === quotation.id || 
-    (quotation.soPhieuBaoGia && d.soPhieuBaoGia === quotation.soPhieuBaoGia) ||
-    (d.contractId && relatedContractIds.has(d.contractId)) ||
-    (d.soHopDong && relatedContractSos.has(d.soHopDong))
-  );
+  // Find related docs with Universal Lineage Resolution (Apex Sovereign Chronos-Fabric)
+  const qId = cleanDocCode(quotation.id);
+  const qSo = cleanDocCode(quotation.soPhieuBaoGia);
+
+  const cleanContractIds = new Set<string>();
+  const cleanContractSos = new Set<string>();
+  const cleanContractDhs = new Set<string>();
+
+  (contracts || []).forEach(c => {
+    if (c.id) cleanContractIds.add(cleanDocCode(c.id));
+    if (c.soHopDong) cleanContractSos.add(cleanDocCode(c.soHopDong));
+    if (c.soDonHang) cleanContractDhs.add(cleanDocCode(c.soDonHang));
+  });
+
+  const relatedContracts = (contracts || []).filter(c => {
+    if (!c) return false;
+    if (contracts.length === 1) return true;
+    const cQId = cleanDocCode(c.quotationId);
+    const cQSo = cleanDocCode(c.soPhieuBaoGia);
+    return (qId && cQId && qId === cQId) || (qSo && cQSo && qSo === cQSo);
+  });
+
+  const isDocRelated = (doc: any) => {
+    if (!doc) return false;
+    const docQId = cleanDocCode(doc.quotationId);
+    const docQSo = cleanDocCode(doc.soPhieuBaoGia);
+    const docCId = cleanDocCode(doc.contractId);
+    const docCSo = cleanDocCode(doc.soHopDong || doc.contractCode);
+    const docCDh = cleanDocCode(doc.soDonHang);
+
+    if (qId && docQId && qId === docQId) return true;
+    if (qSo && docQSo && qSo === docQSo) return true;
+    if (docCId && (cleanContractIds.has(docCId) || cleanContractSos.has(docCId))) return true;
+    if (docCSo && (cleanContractSos.has(docCSo) || cleanContractIds.has(docCSo))) return true;
+    if (docCDh && cleanContractDhs.has(docCDh)) return true;
+    return false;
+  };
+
+  const relatedPayments = (payments || []).filter(isDocRelated);
+  const relatedDeliveries = (deliveries || []).filter(isDocRelated);
 
   // ZNS Status extractors
   const hasZnsSuccess = (doc: any) => normalizeLegacyStatus(doc?.trangThaiZns || doc?.trangThaiGuiTinBaoGia || doc?.trangThaiGuiTinHopDong || doc?.trangThaiGuiTinThanhToan || doc?.trangThaiGuiTinGiaoHang) === EntityZnsStatus.THANH_CONG;

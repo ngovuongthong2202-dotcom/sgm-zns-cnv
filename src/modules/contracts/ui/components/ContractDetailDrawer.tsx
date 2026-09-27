@@ -22,7 +22,7 @@ import { checkContractLock } from '@/src/domain/policy/lock.policy';
 import { EntityBusinessLockWarning } from '@/src/widgets/EntityBusinessLockWarning';
 import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
 import { reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
-import { computeContractCompletionTimeline } from '@/src/shared/utils/vietnamBusinessDays';
+import { computeContractCompletionTimeline, cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';
 
 import { sendZnsAndToast, nextAttempt } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
@@ -74,17 +74,18 @@ export function ContractDetailDrawer({
 
   const isOpen = !!drawerContract;
 
-  const { data: lazyPayments = [] } = useSWR<any[]>(
-    isOpen && drawerContract?.id && activeTab === 'payments' && (!payments || payments.length === 0)
-      ? `payments:50:contractId:${drawerContract?.id}`
+  // Background SWR fetchers (Mesh fallback - 0ms cache hits)
+  const { data: rawLazyPayments = [] } = useSWR<any[]>(
+    isOpen && (!payments || payments.length === 0)
+      ? `payments:500`
       : null,
     swrColFetcher,
     { revalidateOnFocus: false }
   );
 
-  const { data: lazyDeliveries = [] } = useSWR<any[]>(
-    isOpen && drawerContract?.id && activeTab === 'deliveries' && (!deliveries || deliveries.length === 0)
-      ? `deliveries:50:contractId:${drawerContract?.id}`
+  const { data: rawLazyDeliveries = [] } = useSWR<any[]>(
+    isOpen && (!deliveries || deliveries.length === 0)
+      ? `deliveries:500`
       : null,
     swrColFetcher,
     { revalidateOnFocus: false }
@@ -97,22 +98,55 @@ export function ContractDetailDrawer({
   );
   const quotationDoc = quotationSnapshot || (drawerContract?.quotationId ? entityCachePool.get('quotations', drawerContract.quotationId) : null);
 
-  if (!drawerContract) return null;
+  const allPays = (payments && payments.length > 0) ? payments : rawLazyPayments;
+  const allDels = (deliveries && deliveries.length > 0) ? deliveries : rawLazyDeliveries;
 
-  const pays = (payments || []).length > 0
-    ? (payments || []).filter((p: Payment) => p.contractId === drawerContract.id || p.contractId === drawerContract.soHopDong || (p as any).contractCode === drawerContract.soHopDong || p.soHopDong === drawerContract.soHopDong)
-    : lazyPayments;
-  const dels = (deliveries || []).length > 0
-    ? (deliveries || []).filter((d: Delivery) => d.contractId === drawerContract.id || d.contractId === drawerContract.soHopDong || (d as any).contractCode === drawerContract.soHopDong || d.soHopDong === drawerContract.soHopDong)
-    : lazyDeliveries;
+  const pays = React.useMemo(() => {
+    if (!drawerContract) return [];
+    const cId = cleanDocCode(drawerContract.id);
+    const cSoHopDong = cleanDocCode(drawerContract.soHopDong);
+    const cSoDonHang = cleanDocCode(drawerContract.soDonHang);
+    const cQuotationId = cleanDocCode(drawerContract.quotationId);
+
+    return (allPays || []).filter((p: any) => {
+      const pContractId = cleanDocCode(p.contractId);
+      const pSoHopDong = cleanDocCode(p.soHopDong || p.contractCode);
+      const pSoDonHang = cleanDocCode(p.soDonHang);
+      const pQuotationId = cleanDocCode(p.quotationId);
+
+      return (
+        (pContractId && (pContractId === cId || pContractId === cSoHopDong)) ||
+        (pSoHopDong && (pSoHopDong === cSoHopDong || pSoHopDong === cId)) ||
+        (pSoDonHang && cSoDonHang && pSoDonHang === cSoDonHang) ||
+        (pQuotationId && cQuotationId && pQuotationId === cQuotationId)
+      );
+    });
+  }, [allPays, drawerContract]);
+
+  const dels = React.useMemo(() => {
+    if (!drawerContract) return [];
+    const cId = cleanDocCode(drawerContract.id);
+    const cSoHopDong = cleanDocCode(drawerContract.soHopDong);
+    const cSoDonHang = cleanDocCode(drawerContract.soDonHang);
+    const cQuotationId = cleanDocCode(drawerContract.quotationId);
+
+    return (allDels || []).filter((d: any) => {
+      const dContractId = cleanDocCode(d.contractId);
+      const dSoHopDong = cleanDocCode(d.soHopDong || d.contractCode);
+      const dSoDonHang = cleanDocCode(d.soDonHang);
+      const dQuotationId = cleanDocCode(d.quotationId);
+
+      return (
+        (dContractId && (dContractId === cId || dContractId === cSoHopDong)) ||
+        (dSoHopDong && (dSoHopDong === cSoHopDong || dSoHopDong === cId)) ||
+        (dSoDonHang && cSoDonHang && dSoDonHang === cSoDonHang) ||
+        (dQuotationId && cQuotationId && dQuotationId === cQuotationId)
+      );
+    });
+  }, [allDels, drawerContract]);
 
   // Math totals
-  const contractProg = reconcileContractFinancials(drawerContract, pays);
-  const totalContractAmount = contractProg.totalContractAmount;
-  const totalPaid = contractProg.totalPaid;
-  const pPct = contractProg.paymentPercentage;
-
-  const totalContractQty = drawerContract.products?.reduce((sum, p) => sum + (p.quantity || 0), 0) || drawerContract.slMay || 1;
+  const totalContractQty = drawerContract?.products?.reduce((sum, p) => sum + (p.quantity || 0), 0) || drawerContract?.slMay || 1;
   const totalDeliveredQty = dels
     .filter((d: Delivery) => d.ngayGiaoThucTe != null)
     .reduce((sum, d) => {
@@ -121,6 +155,17 @@ export function ContractDetailDrawer({
     }, 0);
   const dPct = Math.min(100, Math.round((totalDeliveredQty / totalContractQty) * 100));
 
+  const completionTimeline = React.useMemo(() => {
+    if (!drawerContract) return null;
+    return computeContractCompletionTimeline(drawerContract, pays, undefined, { deliveryPercentage: dPct, deliveries: dels });
+  }, [drawerContract, pays, dels, dPct]);
+
+  if (!drawerContract || !completionTimeline) return null;
+
+  const contractProg = reconcileContractFinancials(drawerContract, pays);
+  const totalContractAmount = contractProg.totalContractAmount;
+  const totalPaid = contractProg.totalPaid;
+  const pPct = contractProg.paymentPercentage;
   const isMachine = normalizeLoai(quotationDoc?.loai) === QUOTATION_LOAI.MAY;
   const lockResult = checkContractLock(drawerContract, pays, dels);
 
@@ -163,11 +208,6 @@ export function ContractDetailDrawer({
     </div>
   );
 
-  // 1. TỔNG QUAN TAB (OMNI-NEXUS COD 11.0)
-  const completionTimeline = React.useMemo(() => {
-    return computeContractCompletionTimeline(drawerContract, pays, undefined, { deliveryPercentage: dPct });
-  }, [drawerContract, pays, dPct]);
-
   const overviewPanel = (
     <div className="space-y-5 pt-1 pb-6">
       {/* 1. Active State Stream (WorkflowTimeline) */}
@@ -186,6 +226,37 @@ export function ContractDetailDrawer({
       {/* 2. Business Lock Warning */}
       <EntityBusinessLockWarning {...lockResult} />
 
+      {/* 2.5 Banner Bàn giao máy thực tế / Đặc cách giao trước trả sau */}
+      {(completionTimeline.isActuallyDelivered || completionTimeline.productionTrigger?.isPostDeliverySettlement) && (
+        <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 font-bold text-sm shadow-2xs">
+              ✓
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
+                  Đã bàn giao máy thực tế {(completionTimeline.earlyDeliveryWorkingDays || 0) > 0 ? `(Giao sớm ${completionTimeline.earlyDeliveryWorkingDays} ngày làm việc)` : ''}
+                </span>
+                {pPct >= 100 && (
+                  <span className="text-3xs font-mono font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
+                    Đã tất toán 100%
+                  </span>
+                )}
+              </div>
+              <p className="text-2xs text-emerald-800 mt-0.5 font-medium">
+                {completionTimeline.productionTrigger?.isPostDeliverySettlement
+                  ? 'Đơn hàng thực hiện theo diện bàn giao máy trước, khách hàng tất toán sau. Tiến độ chuẩn xác theo ngày bàn giao thực tế.'
+                  : `Đơn hàng hoàn tất giao máy thực tế vào ngày ${completionTimeline.completionDateFormatted}. SLA tiến độ xuất sắc.`}
+              </p>
+            </div>
+          </div>
+          <span className="font-currency font-black text-xs text-emerald-900 bg-white/90 px-3 py-1 rounded-lg border border-emerald-200">
+            {dPct}% Giao hàng • {pPct}% Thanh toán
+          </span>
+        </div>
+      )}
+
       {/* 3. Main Workspace: Asymmetric 70% Matrix / 30% Inspector */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         
@@ -203,7 +274,7 @@ export function ContractDetailDrawer({
               </div>
               <div className="flex items-center gap-2">
                 {completionTimeline.executionStageLabel && (
-                  <span className={`text-3xs uppercase font-black px-2 py-0.5 rounded-full border shadow-2xs ${completionTimeline.executionStageColor || 'text-purple-700 bg-purple-50 border-purple-200'}`}>
+                  <span className={`text-3xs uppercase font-black px-2 py-0.5 rounded-full border shadow-2xs ${completionTimeline.executionStageColor || 'text-blue-700 bg-blue-50 border-blue-200'}`}>
                     {completionTimeline.executionStageLabel}
                   </span>
                 )}
@@ -219,7 +290,7 @@ export function ContractDetailDrawer({
                 <span className="font-bold text-slate-800 flex items-center gap-1.5">
                   Thời gian hợp đồng: {completionTimeline.workingDaysTotal > 0 ? `${completionTimeline.workingDaysTotal} ngày làm việc` : 'Chưa xác định hạn'}
                   {completionTimeline.hasAddendumExtension && (
-                    <span className="px-1.5 py-0.2 rounded text-3xs font-black bg-indigo-100 text-indigo-700 border border-indigo-200">
+                    <span className="px-1.5 py-0.2 rounded text-3xs font-black bg-blue-100 text-blue-700 border border-blue-200">
                       +{completionTimeline.extendedWorkingDays} ngày (Phụ lục)
                     </span>
                   )}
@@ -230,17 +301,19 @@ export function ContractDetailDrawer({
                     {completionTimeline.completionDateFormatted}
                   </span>
                   <span className={completionTimeline.isDelayed ? 'text-rose-600 font-extrabold' : 'text-slate-600'}>
-                    {dPct >= 100 
-                      ? '(Đã giao xong toàn bộ)' 
-                      : completionTimeline.isDelayed 
-                        ? `(Trễ ${completionTimeline.delayedWorkingDays} ngày)` 
-                        : `(Còn lại ${completionTimeline.workingDaysRemaining} ngày)`}
+                    {completionTimeline.isActuallyDelivered
+                      ? `(Đã giao máy${(completionTimeline.earlyDeliveryWorkingDays || 0) > 0 ? ` sớm ${completionTimeline.earlyDeliveryWorkingDays} ngày` : ''})`
+                      : dPct >= 100 
+                        ? '(Đã giao xong toàn bộ)' 
+                        : completionTimeline.isDelayed 
+                          ? `(Trễ ${completionTimeline.delayedWorkingDays} ngày)` 
+                          : `(Còn lại ${completionTimeline.workingDaysRemaining} ngày)`}
                   </span>
                 </span>
               </div>
               <div className="h-2 bg-slate-200 rounded-full overflow-hidden mb-1.5">
                 <div 
-                  className={`h-full transition-all duration-500 ${dPct >= 100 ? 'bg-emerald-500' : completionTimeline.isDelayed ? 'bg-rose-500' : 'bg-blue-500'}`} 
+                  className={`h-full transition-all duration-500 ${completionTimeline.isActuallyDelivered || dPct >= 100 ? 'bg-emerald-500' : completionTimeline.isDelayed ? 'bg-rose-500' : 'bg-blue-500'}`} 
                   style={{ width: `${completionTimeline.timeProgressPercent}%` }} 
                 />
               </div>
@@ -248,7 +321,7 @@ export function ContractDetailDrawer({
                 <span className="font-semibold text-slate-600 flex items-center gap-1">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-600" />
                   Mốc tính: <strong className="text-slate-800 font-bold">{completionTimeline.baseDateLabel}</strong>
-                  <span className="text-slate-400 font-normal ml-0.5">(Trừ CN & Lễ/Tết VN)</span>
+                  <span className="text-slate-500 font-normal ml-0.5">(Trừ CN & Lễ/Tết VN)</span>
                 </span>
                 <span className="font-bold text-slate-700">
                   Tiến độ: {completionTimeline.timeProgressPercent}% (Đã qua {completionTimeline.workingDaysElapsed}/{completionTimeline.effectiveWorkingDays || completionTimeline.workingDaysTotal} ngày)
@@ -272,12 +345,12 @@ export function ContractDetailDrawer({
 
               {/* Thông tin Phụ lục Gia hạn (nếu có) */}
               {completionTimeline.hasAddendumExtension && (
-                <div className="mt-1.5 px-3 py-1.5 rounded-md text-3xs bg-indigo-50/70 border border-indigo-200 text-indigo-900 flex items-center justify-between">
+                <div className="mt-1.5 px-3 py-1.5 rounded-md text-3xs bg-blue-50/70 border border-blue-200 text-blue-900 flex items-center justify-between">
                   <span className="font-medium flex items-center gap-1">
                     <span>📜 <strong>Phụ lục gia hạn:</strong> +{completionTimeline.extendedWorkingDays} ngày làm việc</span>
-                    {completionTimeline.addendumReason && <span className="text-indigo-600">({completionTimeline.addendumReason})</span>}
+                    {completionTimeline.addendumReason && <span className="text-blue-600">({completionTimeline.addendumReason})</span>}
                   </span>
-                  <span className="font-mono text-indigo-500">Hạn gốc ban đầu: {completionTimeline.originalCompletionDateFormatted}</span>
+                  <span className="font-mono text-blue-700 font-bold">Hạn gốc ban đầu: {completionTimeline.originalCompletionDateFormatted}</span>
                 </div>
               )}
 
