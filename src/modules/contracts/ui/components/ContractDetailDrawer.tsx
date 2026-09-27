@@ -17,6 +17,7 @@ import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNex
 import { checkContractLock } from '@/src/domain/policy/lock.policy';
 import { EntityBusinessLockWarning } from '@/src/widgets/EntityBusinessLockWarning';
 import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
+import { DrawerHeaderCockpitHUD } from '@/src/widgets/DrawerHeaderCockpitHUD';
 import { reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
 import { computeContractCompletionTimeline, cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';
 
@@ -616,13 +617,12 @@ export function ContractDetailDrawer({
   );
 
   const horizonHud = (
-    <HorizonFlowHUD
+    <DrawerHeaderCockpitHUD
       currentType="contract"
       quotation={quotationDoc}
-      contract={drawerContract}
+      contracts={drawerContract ? [drawerContract] : []}
       deliveries={dels}
       payments={pays}
-      onOpenFlow={() => setActiveTab('flow')}
     />
   );
 

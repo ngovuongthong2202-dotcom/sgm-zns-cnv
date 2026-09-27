@@ -154,23 +154,23 @@ export function WorkflowTimeline({
         {steps.map((step, index) => {
           const isLast = index === steps.length - 1;
           const isActive = step.completed;
-          const iconBg = isActive ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-400 border-slate-200';
-          const lineClass = steps[index + 1]?.completed ? 'bg-blue-500' : 'bg-slate-200';
+          const iconBg = isActive ? 'bg-blue-100 text-blue-800 border-blue-300' : 'bg-slate-100 text-slate-500 border-slate-300';
+          const lineClass = steps[index + 1]?.completed ? 'bg-blue-600' : 'bg-slate-300';
           return (
             <React.Fragment key={step.id}>
               <div className="flex flex-col items-center min-w-[120px] shrink-0 text-center relative group">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 mb-2 z-10 transition-colors shadow-sm ${iconBg}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 mb-2 z-10 transition-colors shadow-xs ${iconBg}`}>
                   {step.icon}
                 </div>
                 
-                <span className={`text-xs uppercase tracking-wide font-bold mb-1 ${isActive ? 'text-slate-800' : 'text-slate-400'}`}>
+                <span className={`text-xs uppercase tracking-wide font-black mb-1 ${isActive ? 'text-slate-900' : 'text-slate-600'}`}>
                   {step.title}
                 </span>
 
                 {step.completed && step.docId ? (
                    <Button 
                      onClick={() => openDrawer(step.entityType, step.docId as string)}
-                     className="text-2xs font-mono font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-100 transition-colors mb-1 cursor-pointer"
+                     className="text-2xs font-mono font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200 transition-colors mb-1 cursor-pointer shadow-2xs"
                    >
                      {step.docNumber} ↗
                    </Button>

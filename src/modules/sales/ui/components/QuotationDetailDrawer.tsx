@@ -13,6 +13,7 @@ import { DetailDrawer } from '@/src/design-system/DetailDrawer';
 import { DocumentOmniFlowRibbon } from '@/src/widgets/DocumentOmniFlowRibbon';
 import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
 import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
+import { DrawerHeaderCockpitHUD } from '@/src/widgets/DrawerHeaderCockpitHUD';
 import { normalizeLegacyStatus, EntityZnsStatus } from '@/src/domain/enums/zns-status';
 import { QuotationDetailOverview } from './QuotationDetailOverview';
 import { QuotationDetailFooter } from './QuotationDetailFooter';
@@ -239,13 +240,12 @@ export function QuotationDetailDrawer({
   );
 
   const horizonHud = (
-    <HorizonFlowHUD
+    <DrawerHeaderCockpitHUD
       currentType="quotation"
       quotation={quotation}
-      contract={matchingContracts[0]}
+      contracts={matchingContracts}
       deliveries={matchingDeliveries}
       payments={matchingPayments}
-      onOpenFlow={() => setActiveTab('flow')}
     />
   );
 

@@ -14,6 +14,8 @@ import { DrawerProductList } from '@/src/widgets/DrawerProductList';
 import { DocumentOmniFlowRibbon } from '@/src/widgets/DocumentOmniFlowRibbon';
 import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
 import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
+import { DrawerHeaderCockpitHUD } from '@/src/widgets/DrawerHeaderCockpitHUD';
+import { parseVietnamAddressComplete } from '@/src/shared/services/vietnamAddressParser';
 import { ExportDeliveryPdf } from './ExportDeliveryPdf';
 
 import { Button } from '@/src/design-system/Button';
@@ -125,38 +127,44 @@ export function DeliveryDetailDrawer({
 
   const isCompleted = drawerDelivery ? !!drawerDelivery.ngayGiaoThucTe : false;
 
-  const smartAddress = useMemo(() => {
-    if (!drawerDelivery) return 'Hà Nội';
+  const smartAddressInfo = useMemo(() => {
+    if (!drawerDelivery) {
+      return {
+        fullAddress: 'Chưa cập nhật địa chỉ',
+        province: null,
+        district: null,
+        industrialZone: null,
+        logisticsRegion: 'Toàn Quốc' as const,
+        suggestedCarriers: []
+      };
+    }
     
-    const noteText = drawerDelivery.ghiChu || '';
-    const addressKeywords = [
-      /địa chỉ:\s*([^\n;.]+)/i,
-      /giao tại:\s*([^\n;.]+)/i,
-      /nơi giao:\s*([^\n;.]+)/i,
-      /giao đến:\s*([^\n;.]+)/i,
-      /ship to:\s*([^\n;.]+)/i
-    ];
-    for (const pattern of addressKeywords) {
-      const match = noteText.match(pattern);
-      if (match && match[1]?.trim()) {
-        return match[1].trim();
+    let rawAddr = (drawerDelivery as any).diaChiGiaoHang || (drawerDelivery as any).diaChi || '';
+    if (!rawAddr && drawerContract) {
+      rawAddr = drawerContract.diaChiGiaoHang || drawerContract.diaChi || '';
+    }
+    if (!rawAddr && drawerDelivery.ghiChu) {
+      const addressKeywords = [/địa chỉ:\s*([^\n;.]+)/i, /giao tại:\s*([^\n;.]+)/i, /nơi giao:\s*([^\n;.]+)/i, /giao đến:\s*([^\n;.]+)/i, /ship to:\s*([^\n;.]+)/i];
+      for (const p of addressKeywords) {
+        const m = drawerDelivery.ghiChu.match(p);
+        if (m && m[1]?.trim()) {
+          rawAddr = m[1].trim();
+          break;
+        }
       }
     }
-
-    if ((drawerDelivery as any).diaChiGiaoHang) return (drawerDelivery as any).diaChiGiaoHang;
-    if ((drawerDelivery as any).diaChi) return (drawerDelivery as any).diaChi;
-    if (drawerContract && (drawerContract.diaChiGiaoHang || drawerContract.diaChi)) return drawerContract.diaChiGiaoHang || drawerContract.diaChi;
-
-    const customerLabel = drawerDelivery.tenKhachHang || 'Hà Nội';
-    if (
-      customerLabel.toLowerCase().includes('việt nam') || 
-      customerLabel.toLowerCase().includes('hà nội') || 
-      customerLabel.toLowerCase().includes('hồ chí minh')
-    ) {
-      return customerLabel;
+    if (!rawAddr) {
+      rawAddr = drawerDelivery.tenKhachHang || 'Chưa cập nhật địa chỉ';
     }
-    return `${customerLabel}, Việt Nam`;
+
+    const parsed = parseVietnamAddressComplete(rawAddr);
+    return {
+      fullAddress: rawAddr,
+      ...parsed
+    };
   }, [drawerDelivery, drawerContract]);
+
+  const smartAddress = smartAddressInfo.fullAddress;
 
   const normalizeItemKey = (p: any) => {
     const code = (p.productId || '').trim().toLowerCase();
@@ -660,21 +668,78 @@ export function DeliveryDetailDrawer({
             </div>
 
             <div className="pt-2 border-t border-slate-100">
-              <span className="text-3xs uppercase font-bold text-slate-400 block mb-1.5 flex items-center gap-1">
-                <MapPin size={11} className="text-blue-600" /> Địa chỉ giao nhận chi tiết
-              </span>
-              <p className="font-medium text-slate-800 text-xs leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-150">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-3xs uppercase font-bold text-slate-700 flex items-center gap-1">
+                  <MapPin size={11} className="text-blue-600" /> Địa chỉ giao nhận chi tiết
+                </span>
+                {smartAddressInfo.logisticsRegion && (
+                  <span className="text-3xs font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                    Vùng: {smartAddressInfo.logisticsRegion}
+                  </span>
+                )}
+              </div>
+              <p className="font-medium text-slate-900 text-xs leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                 {(drawerDelivery as any).diaChiGiaoHang || (drawerDelivery as any).diaChi || smartAddress}
               </p>
+
+              {/* Bóc tách 3 cấp địa giới & KCN */}
+              {(smartAddressInfo.province || smartAddressInfo.district || smartAddressInfo.industrialZone) && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {smartAddressInfo.industrialZone && (
+                    <span className="text-3xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                      🏭 {smartAddressInfo.industrialZone}
+                    </span>
+                  )}
+                  {smartAddressInfo.district && (
+                    <span className="text-3xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+                      📍 {smartAddressInfo.district}
+                    </span>
+                  )}
+                  {smartAddressInfo.province && (
+                    <span className="text-3xs font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                      🏙️ {smartAddressInfo.province}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
+            {/* Gợi ý Chành xe chuyên tuyến cơ khí SGM */}
+            {smartAddressInfo.suggestedCarriers.length > 0 && (
+              <div className="pt-2 border-t border-slate-100 bg-blue-50/40 p-2.5 rounded-lg border border-blue-100 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-3xs font-black uppercase text-blue-900 tracking-wider flex items-center gap-1">
+                    <Truck size={10} className="text-blue-700" /> Gợi ý chành xe chuyên tuyến ({smartAddressInfo.logisticsRegion})
+                  </span>
+                  <span className="text-3xs text-blue-600 font-semibold italic">Chuyên máy công nghiệp</span>
+                </div>
+                <div className="space-y-1">
+                  {smartAddressInfo.suggestedCarriers.map((carrier, cIdx) => (
+                    <div key={cIdx} className="bg-white p-2 rounded border border-blue-200/80 text-2xs space-y-0.5 shadow-2xs">
+                      <div className="flex justify-between items-center">
+                        <strong className="text-slate-900 font-bold">{carrier.carrierName}</strong>
+                        <a 
+                          href={`tel:${carrier.hotline.replace(/[^0-9]/g, '')}`} 
+                          className="font-mono text-3xs font-black text-emerald-700 hover:text-emerald-900 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200"
+                        >
+                          ☎ {carrier.hotline}
+                        </a>
+                      </div>
+                      <p className="text-3xs text-slate-500 font-medium">Bãi TP.HCM: {carrier.depotHcm}</p>
+                      <p className="text-3xs text-slate-600 italic">Đặc tính: {carrier.notes}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="pt-2 border-t border-slate-100">
-              <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">Người nhận liên hệ</span>
+              <span className="text-3xs uppercase font-bold text-slate-700 block mb-1">Người nhận liên hệ</span>
               <p className="font-bold text-slate-900 text-xs">
                 {(drawerDelivery as any).nguoiLienHe || drawerDelivery.nguoiDaiDien || drawerDelivery.tenKhachHang || '---'}
               </p>
-              <p className="font-mono text-2xs text-slate-600 font-semibold mt-0.5 flex items-center gap-1">
-                <Phone size={11} className="text-slate-400" />
+              <p className="font-mono text-2xs text-slate-800 font-bold mt-0.5 flex items-center gap-1">
+                <Phone size={11} className="text-blue-600" />
                 {(drawerDelivery as any).sdtLienHe || drawerDelivery.sdt || 'Chưa có SĐT'}
               </p>
             </div>
@@ -963,15 +1028,14 @@ export function DeliveryDetailDrawer({
     />
   );
 
-  // Horizon HUD (Top Status Pulse)
+  // Horizon HUD (Omni-Sovereign Cockpit Matrix)
   const horizonHud = (
-    <HorizonFlowHUD
+    <DrawerHeaderCockpitHUD
       currentType="delivery"
       quotation={drawerQuotation}
-      contract={drawerContract}
+      contracts={drawerContract ? [drawerContract] : []}
       deliveries={[drawerDelivery]}
       payments={allPayments}
-      onOpenFlow={() => setActiveTab('flow')}
     />
   );
 

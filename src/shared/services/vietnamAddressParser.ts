@@ -1,18 +1,19 @@
 /**
- * SGM Vietnam Hierarchical Right-to-Left Geocoding Engine
- * Tự động nhận diện Tỉnh / Thành phố từ chuỗi địa chỉ chi tiết tiếng Việt
+ * SGM Vietnam Hierarchical Right-to-Left Geocoding & Logistics Intelligence Engine
+ * Tự động nhận diện Tỉnh/Thành, Quận/Huyện, Cụm Khu Công Nghiệp và Phân vùng Vận tải Chành xe
  * 
  * Đặc tính kỹ thuật:
  * 1. Phân tích phân cấp từ Phải-Sang-Trái (Right-to-Left Hierarchical Anchor).
  * 2. Loại trừ bẫy tên đường (Street Name Collision Avoidance - e.g. "Đường Hà Nội tại TP.HCM").
  * 3. Hỗ trợ đầy đủ alias, viết tắt (tphcm, sg, hn, đn, br-vt) và các KCN trọng điểm.
- * 4. Tự động ánh xạ và đối sánh chính xác với danh mục API (normalize & canonicalize).
+ * 4. Bóc tách 3 cấp độ: [Tỉnh/Thành] + [Quận/Huyện/Thị Xã] + [Cụm Khu Công Nghiệp].
+ * 5. Tự động ánh xạ Vùng Vận Tải Logistics & Gợi ý Chành xe chuyên tuyến cơ khí SGM.
  */
 
 import { normalizeProvinceName } from './vietnamProvincesApi';
 
 // Từ điển Alias & Viết tắt cấp Tỉnh / Thành phố
-const PROVINCE_ALIASES: Record<string, string[]> = {
+export const PROVINCE_ALIASES: Record<string, string[]> = {
   'TP Hồ Chí Minh': [
     'tp hồ chí minh', 'tp. hồ chí minh', 'thành phố hồ chí minh', 'tp.hồ chí minh',
     'tphcm', 'tp.hcm', 'tp hcm', 'tp-hcm', 'hcm', 'hcmc', 'ho chi minh',
@@ -113,6 +114,69 @@ const PROVINCE_ALIASES: Record<string, string[]> = {
   ]
 };
 
+// Từ điển Cụm Khu Công Nghiệp trọng điểm (Cơ khí & Chế tạo SGM)
+export const INDUSTRIAL_ZONES = [
+  { name: 'KCN VSIP 1 (Bình Dương)', aliases: ['vsip 1', 'vsip i', 'kcn vsip 1', 'kcn vsip thuận an'] },
+  { name: 'KCN VSIP 2 (Bình Dương)', aliases: ['vsip 2', 'vsip ii', 'kcn vsip 2', 'vsip bến cát'] },
+  { name: 'KCN Sóng Thần (Dĩ An)', aliases: ['sóng thần', 'song than', 'kcn sóng thần 1', 'kcn sóng thần 2'] },
+  { name: 'KCN Tân Bình (TP.HCM)', aliases: ['kcn tân bình', 'kcn tan binh'] },
+  { name: 'KCN Tân Tạo (Bình Tân)', aliases: ['kcn tân tạo', 'kcn tan tao'] },
+  { name: 'KCN Hiệp Phước (Nhà Bè)', aliases: ['kcn hiệp phước', 'kcn hiep phuoc'] },
+  { name: 'KCN Vĩnh Lộc (Bình Chánh)', aliases: ['kcn vĩnh lộc', 'kcn vinh loc'] },
+  { name: 'KCN Tây Bắc Củ Chi', aliases: ['kcn tây bắc củ chi', 'tây bắc củ chi'] },
+  { name: 'KCN Amata (Biên Hòa)', aliases: ['amata', 'kcn amata', 'khu công nghiệp amata'] },
+  { name: 'KCN Nhơn Trạch (Đồng Nai)', aliases: ['nhơn trạch', 'kcn nhơn trạch 1', 'kcn nhơn trạch 2', 'kcn nhơn trạch 3'] },
+  { name: 'KCN Long Thành (Đồng Nai)', aliases: ['kcn long thành', 'kcn long thanh'] },
+  { name: 'KCN Tân Đức (Đức Hòa - Long An)', aliases: ['kcn tân đức', 'tân đức đức hòa', 'tan duc'] },
+  { name: 'KCN Hải Sơn (Long An)', aliases: ['kcn hải sơn', 'hải sơn đức hòa'] },
+  { name: 'KCN Long Hậu (Cần Giuộc)', aliases: ['kcn long hậu', 'kcn long hau'] }
+];
+
+// Danh mục Quận/Huyện/Thị Xã trọng điểm
+export const DISTRICT_MAP: Record<string, string[]> = {
+  // TP.HCM
+  'Quận 1': ['quận 1', 'q1', 'q.1'],
+  'Quận 3': ['quận 3', 'q3', 'q.3'],
+  'Quận 5': ['quận 5', 'q5', 'q.5'],
+  'Quận 6': ['quận 6', 'q6', 'q.6'],
+  'Quận 7': ['quận 7', 'q7', 'q.7'],
+  'Quận 8': ['quận 8', 'q8', 'q.8'],
+  'Quận 10': ['quận 10', 'q10', 'q.10'],
+  'Quận 11': ['quận 11', 'q11', 'q.11'],
+  'Quận 12': ['quận 12', 'q12', 'q.12'],
+  'Bình Tân': ['bình tân', 'binh tan', 'phú lâm', 'an lạc'],
+  'Tân Bình': ['tân bình', 'tan binh'],
+  'Tân Phú': ['tân phú', 'tan phu'],
+  'Gò Vấp': ['gò vấp', 'go vap'],
+  'Bình Thạnh': ['bình thạnh', 'binh thanh'],
+  'Phú Nhuận': ['phú nhuận', 'phu nhuan'],
+  'TP Thủ Đức': ['thủ đức', 'thu duc', 'tp thủ đức', 'thảo điền'],
+  'Bình Chánh': ['bình chánh', 'binh chanh'],
+  'Hóc Môn': ['hóc môn', 'hoc mon'],
+  'Củ Chi': ['củ chi', 'cu chi'],
+  'Nhà Bè': ['nhà bè', 'nha be'],
+  'Cần Giờ': ['cần giờ', 'can gio'],
+  // Bình Dương
+  'TP Thủ Dầu Một': ['thủ dầu một', 'thu dau mot'],
+  'TP Thuận An': ['thuận an', 'thuan an'],
+  'TP Dĩ An': ['dĩ an', 'di an'],
+  'TP Bến Cát': ['bến cát', 'ben cat'],
+  'TP Tân Uyên': ['tân uyên', 'tan uyen'],
+  'Huyện Bàu Bàng': ['bàu bàng', 'bau bang'],
+  // Đồng Nai
+  'TP Biên Hòa': ['biên hòa', 'bien hoa'],
+  'TP Long Khánh': ['long khánh', 'long khanh'],
+  'Huyện Nhơn Trạch': ['nhơn trạch', 'nhon trach'],
+  'Huyện Long Thành': ['long thành', 'long thanh'],
+  'Huyện Trảng Bom': ['trảng bom', 'trang bom'],
+  // Long An
+  'Huyện Đức Hòa': ['đức hòa', 'duc hoa'],
+  'Huyện Bến Lức': ['bến lức', 'ben luc'],
+  'Huyện Cần Giuộc': ['cần giuộc', 'can giuoc'],
+  'Huyện Cần Đước': ['cần đước', 'can duoc'],
+  'TP Tân An': ['tân an', 'tan an']
+};
+
 /**
  * Chuẩn hóa chuỗi văn bản phục vụ so khớp không dấu và loại bỏ ký tự lạ
  */
@@ -150,7 +214,7 @@ function findCanonicalProvince(targetCanonicalName: string, provinceList: string
   const nonAccentMatch = provinceList.find(p => normalizeVietnameseString(p) === nonAccentTarget);
   if (nonAccentMatch) return nonAccentMatch;
 
-  // 4. Khớp bao hàm (vd: 'Thành phố Hồ Chí Minh' chứa 'Hồ Chí Minh')
+  // 4. Khớp bao hàm
   const partial = provinceList.find(p => {
     const pNorm = normalizeVietnameseString(p);
     return pNorm.includes(nonAccentTarget) || nonAccentTarget.includes(pNorm);
@@ -162,7 +226,6 @@ function findCanonicalProvince(targetCanonicalName: string, provinceList: string
 
 /**
  * Kiểm tra xem một từ khóa có bị rơi vào bẫy tên đường (Street Collision) hay không.
- * Vd: "Đường Hà Nội", "Phố Hà Nội", "Ngõ Hà Nội"
  */
 function isStreetNameCollision(rawAddress: string, matchKeyword: string): boolean {
   const normAddr = normalizeVietnameseString(rawAddress);
@@ -181,37 +244,29 @@ function isStreetNameCollision(rawAddress: string, matchKeyword: string): boolea
 /**
  * Thuật toán nhận diện Tỉnh / Thành phố từ chuỗi địa chỉ chi tiết
  * Quét phân cấp Phải-Sang-Trái (Right-to-Left Hierarchical Scanning)
- * 
- * @param address Chuỗi địa chỉ chi tiết người dùng nhập / dán (ví dụ: "310 Nguyễn Văn Luông, Phú Lâm, Tphcm")
- * @param provinceList Danh sách Tỉnh thành hợp lệ lấy từ API hoặc SWR
- * @returns Tên tỉnh thành chuẩn hóa khớp với provinceList, hoặc null nếu không nhận diện được
  */
 export function detectProvinceFromAddress(address: string, provinceList: string[] = []): string | null {
   if (!address || typeof address !== 'string') return null;
   const trimmed = address.trim();
   if (trimmed.length < 2) return null;
 
-  // 1. Phân rã chuỗi địa chỉ thành các phân đoạn (Segments) ngăn cách bởi dấu phẩy, gạch ngang, chấm phẩy
+  // 1. Phân rã chuỗi địa chỉ thành các phân đoạn (Segments)
   const rawSegments = trimmed
     .split(/[,;\-\n\t]+/)
     .map(s => s.trim())
     .filter(Boolean);
 
   // 2. ƯU TIÊN 1: Quét từ phân đoạn cuối cùng ngược về trước (Right-to-Left)
-  // Vì trong văn hóa Việt Nam, phân đoạn cuối luôn là Tỉnh/Thành hoặc Quận/Huyện
   for (let i = rawSegments.length - 1; i >= Math.max(0, rawSegments.length - 3); i--) {
     const segment = rawSegments[i];
     const normSegment = normalizeVietnameseString(segment);
 
-    // Kiểm tra trực tiếp với danh sách tỉnh thành chuẩn
     for (const [canonicalName, aliases] of Object.entries(PROVINCE_ALIASES)) {
       for (const alias of aliases) {
         const normAlias = normalizeVietnameseString(alias);
-        // Khớp trọn vẹn phân đoạn hoặc phân đoạn kết thúc bằng alias
         if (normSegment === normAlias || normSegment.endsWith(` ${normAlias}`) || normSegment.startsWith(`${normAlias} `)) {
-          // Kiểm tra xem phân đoạn này có phải là tên đường không
           if (isStreetNameCollision(segment, alias) && i < rawSegments.length - 1) {
-            continue; // Bỏ qua nếu là tên đường ở giữa
+            continue;
           }
           return findCanonicalProvince(canonicalName, provinceList);
         }
@@ -220,7 +275,6 @@ export function detectProvinceFromAddress(address: string, provinceList: string[
   }
 
   // 3. ƯU TIÊN 2: Quét toàn bộ chuỗi địa chỉ tìm các alias đặc thù với độ ưu tiên dài nhất
-  // Sắp xếp các alias theo độ dài giảm dần để ưu tiên cụm từ dài nhất (vd: 'tp hồ chí minh' trước 'hcm')
   const candidateMatches: { canonicalName: string; alias: string; matchIndex: number; isStreet: boolean }[] = [];
 
   for (const [canonicalName, aliases] of Object.entries(PROVINCE_ALIASES)) {
@@ -243,13 +297,9 @@ export function detectProvinceFromAddress(address: string, provinceList: string[
   }
 
   if (candidateMatches.length > 0) {
-    // Lọc các match không phải là tên đường (hoặc nếu tất cả đều là tên đường thì chọn match nằm gần cuối chuỗi nhất)
     const nonStreetMatches = candidateMatches.filter(m => !m.isStreet);
     const validMatches = nonStreetMatches.length > 0 ? nonStreetMatches : candidateMatches;
 
-    // Sắp xếp ưu tiên:
-    // a. Nằm càng về phía cuối chuỗi càng tốt (Right-to-Left: matchIndex lớn hơn)
-    // b. Độ dài alias càng dài càng chính xác
     validMatches.sort((a, b) => {
       const idxDiff = b.matchIndex - a.matchIndex;
       if (Math.abs(idxDiff) > 10) return idxDiff;
@@ -273,4 +323,140 @@ export function detectProvinceFromAddress(address: string, provinceList: string[
   }
 
   return null;
+}
+
+/**
+ * Nhận diện cấp Quận/Huyện/Thị xã từ chuỗi địa chỉ
+ */
+export function detectDistrictFromAddress(address: string): string | null {
+  if (!address || typeof address !== 'string') return null;
+  const normAddr = normalizeVietnameseString(address);
+
+  for (const [districtName, aliases] of Object.entries(DISTRICT_MAP)) {
+    for (const alias of aliases) {
+      const normAlias = normalizeVietnameseString(alias);
+      const regex = new RegExp(`\\b${normAlias}\\b`, 'i');
+      if (regex.test(normAddr) && !isStreetNameCollision(address, alias)) {
+        return districtName;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Nhận diện Cụm Khu Công Nghiệp trọng điểm từ chuỗi địa chỉ
+ */
+export function detectIndustrialZone(address: string): string | null {
+  if (!address || typeof address !== 'string') return null;
+  const normAddr = normalizeVietnameseString(address);
+
+  for (const zone of INDUSTRIAL_ZONES) {
+    for (const alias of zone.aliases) {
+      const normAlias = normalizeVietnameseString(alias);
+      if (normAddr.includes(normAlias)) {
+        return zone.name;
+      }
+    }
+  }
+  return null;
+}
+
+export type LogisticsRegion = 'Đông Nam Bộ' | 'Tây Nam Bộ' | 'Tây Nguyên' | 'Duyên Hải Miền Trung' | 'Bắc Bộ' | 'Toàn Quốc';
+
+/**
+ * Phân vùng logistics và tuyến vận chuyển
+ */
+export function resolveLogisticsRegion(provinceName: string | null): LogisticsRegion {
+  if (!provinceName) return 'Toàn Quốc';
+  const norm = normalizeVietnameseString(provinceName);
+
+  if (['ho chi minh', 'binh duong', 'dong nai', 'ba ria', 'vung tau', 'tay ninh', 'binh phuoc'].some(k => norm.includes(k))) {
+    return 'Đông Nam Bộ';
+  }
+  if (['long an', 'tien giang', 'ben tre', 'vinh long', 'tra vinh', 'hau giang', 'soc trang', 'dong thap', 'an giang', 'kien giang', 'bac lieu', 'ca mau', 'can tho'].some(k => norm.includes(k))) {
+    return 'Tây Nam Bộ';
+  }
+  if (['dak lak', 'daklak', 'gia lai', 'kon tum', 'dak nong', 'lam dong'].some(k => norm.includes(k))) {
+    return 'Tây Nguyên';
+  }
+  if (['da nang', 'quang nam', 'quang ngai', 'binh dinh', 'phu yen', 'khanh hoa', 'ninh thuan', 'binh thuan', 'hue', 'quang tri', 'quang binh', 'ha tinh', 'nghe an', 'thanh hoa'].some(k => norm.includes(k))) {
+    return 'Duyên Hải Miền Trung';
+  }
+  if (['ha noi', 'hai phong', 'quang ninh', 'bac ninh', 'bac giang', 'hung yen', 'hai duong', 'nam dinh', 'thai binh', 'ninh binh', 'vinh phuc', 'phu tho', 'thai nguyen'].some(k => norm.includes(k))) {
+    return 'Bắc Bộ';
+  }
+  return 'Toàn Quốc';
+}
+
+export interface LogisticsCarrierSuggestion {
+  carrierName: string;
+  hotline: string;
+  depotHcm: string;
+  notes: string;
+}
+
+/**
+ * Gợi ý Chành xe vận chuyển máy móc chuyên tuyến cơ khí SGM
+ */
+export function suggestLogisticsCarriers(region: LogisticsRegion): LogisticsCarrierSuggestion[] {
+  switch (region) {
+    case 'Đông Nam Bộ':
+      return [
+        { carrierName: 'Đội Xe Tải & Cẩu SGM Nội Thành', hotline: '0903.000.xxx (Nội bộ SGM)', depotHcm: 'Xưởng SGM Q.Bình Tân', notes: 'Giao trực tiếp trong ngày bằng xe tải/cẩu SGM' },
+        { carrierName: 'Chành Xe Vận Tải Trọng Tấn', hotline: '0945.74.74.77', depotHcm: 'Bãi xe Trọng Tấn Q.12', notes: 'Chuyên cẩu máy nặng, xe sàn thấp' }
+      ];
+    case 'Tây Nam Bộ':
+      return [
+        { carrierName: 'Chành Xe Tô Châu (Miền Tây)', hotline: '0898.800.700', depotHcm: 'Trạm Lê Hồng Phong Q.10 & Bình Tân', notes: 'Tuyến phủ 13 tỉnh Miền Tây, giao nhanh 24h' },
+        { carrierName: 'Vận Tải Phương Trang FUTA Express', hotline: '1900.6767', depotHcm: 'Bến xe Miền Tây', notes: 'Giao tận nơi máy vừa và nhỏ' },
+        { carrierName: 'Chành Xe Trọng Tấn Miền Tây', hotline: '0913.95.95.85', depotHcm: 'Kho Bãi Q.12', notes: 'Chuyên máy chế tạo nặng từ 1-5 tấn' }
+      ];
+    case 'Tây Nguyên':
+      return [
+        { carrierName: 'Vận Tải Phượng Hoàng (Tây Nguyên)', hotline: '1900.9369', depotHcm: 'QL1A Q.Bình Tân', notes: 'Chuyên tuyến Đắk Lắk, Gia Lai, Kon Tum, Lâm Đồng' },
+        { carrierName: 'Chành Xe Trọng Tấn Tây Nguyên', hotline: '0945.74.74.77', depotHcm: 'Bãi xe Q.12', notes: 'Hỗ trợ xe cẩu tự hành hạ máy tại vườn/xưởng' }
+      ];
+    case 'Duyên Hải Miền Trung':
+      return [
+        { carrierName: 'Vận Tải Á Châu (Bắc Nam)', hotline: '1900.1733', depotHcm: 'Bãi xe Á Châu Q.12', notes: 'Chuyên tuyến Đà Nẵng, Bình Định, Khánh Hòa' },
+        { carrierName: 'Chành Xe Trọng Tấn Miền Trung', hotline: '0912.79.79.49', depotHcm: 'Bãi xe Q.12', notes: 'Ghép hàng hoặc bao nguyên chuyến xe tải lớn' }
+      ];
+    case 'Bắc Bộ':
+      return [
+        { carrierName: 'Vận Tải Đường Sắt Bắc Nam (Ga Sóng Thần)', hotline: '0903.xxx.xxx', depotHcm: 'Ga Sóng Thần (Bình Dương)', notes: 'Chi phí tối ưu cho máy móc siêu trường siêu trọng' },
+        { carrierName: 'Vận Tải Á Châu Bắc Nam Express', hotline: '1900.1733', depotHcm: 'Bãi xe Á Châu Q.12', notes: 'Xe tải thùng kín chạy liên tục 48h tới Hà Nội' }
+      ];
+    default:
+      return [
+        { carrierName: 'Chành Xe Vận Tải Trọng Tấn (Toàn Quốc)', hotline: '0945.74.74.77', depotHcm: 'Bãi xe Q.12', notes: 'Mạng lưới 63 tỉnh thành' }
+      ];
+  }
+}
+
+export interface ParsedAddressInfo {
+  province: string | null;
+  district: string | null;
+  industrialZone: string | null;
+  logisticsRegion: LogisticsRegion;
+  suggestedCarriers: LogisticsCarrierSuggestion[];
+}
+
+/**
+ * Hàm phân tích toàn diện chuỗi địa chỉ
+ */
+export function parseVietnamAddressComplete(address: string, provinceList: string[] = []): ParsedAddressInfo {
+  const province = detectProvinceFromAddress(address, provinceList);
+  const district = detectDistrictFromAddress(address);
+  const industrialZone = detectIndustrialZone(address);
+  const logisticsRegion = resolveLogisticsRegion(province);
+  const suggestedCarriers = suggestLogisticsCarriers(logisticsRegion);
+
+  return {
+    province,
+    district,
+    industrialZone,
+    logisticsRegion,
+    suggestedCarriers
+  };
 }

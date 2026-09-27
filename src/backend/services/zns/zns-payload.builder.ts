@@ -186,11 +186,15 @@ export class ZnsPayloadBuilder {
             rendered.danh_sach_ma_may = p.products
                 .map((item: Record<string, unknown>) => item.productId || item.productName || item.productCode || item.model)
                 .filter(Boolean)
+                .map((s: any) => String(s).trim())
                 .join(' | ');
         } else if (Array.isArray(p.danhSachMaMay) && p.danhSachMaMay.length > 0) {
-            rendered.danh_sach_ma_may = p.danhSachMaMay.join(' | ');
+            rendered.danh_sach_ma_may = p.danhSachMaMay
+                .map((s: any) => String(s).trim())
+                .filter(Boolean)
+                .join(' | ');
         } else if (typeof p.danhSachMaMay === 'string') {
-            rendered.danh_sach_ma_may = p.danhSachMaMay;
+            rendered.danh_sach_ma_may = p.danhSachMaMay.trim();
         }
         if (isEmp(rendered.danh_sach_ma_may)) {
             rendered.danh_sach_ma_may = (p as any).maMay || (p as any).serial || 'Theo phiếu xuất kho';
@@ -211,10 +215,14 @@ export class ZnsPayloadBuilder {
       rendered.sl_may = String(p.slMay || p.soLuong || '1');
     }
     if (requiredVarsSet.has('nguoi_phu_trach') && isEmp(rendered.nguoi_phu_trach)) {
-      rendered.nguoi_phu_trach = (p.nguoiPhuTrach as string) || 'Bộ phận CSKH';
+      let pic = (p.nguoiPhuTrach as string) || 'Ngô Vương Thông';
+      if (pic.toLowerCase().includes('mạnh hùng')) pic = 'Ngô Vương Thông';
+      rendered.nguoi_phu_trach = pic;
     }
     if (requiredVarsSet.has('nhan_vien') && isEmp(rendered.nhan_vien)) {
-      rendered.nhan_vien = (p.nguoiPhuTrach as string) || (p.nhanVien as string) || 'Bộ phận CSKH';
+      let pic = (p.nguoiPhuTrach as string) || (p.nhanVien as string) || 'Ngô Vương Thông';
+      if (pic.toLowerCase().includes('mạnh hùng')) pic = 'Ngô Vương Thông';
+      rendered.nhan_vien = pic;
     }
     if (requiredVarsSet.has('ngay_ky') && isEmp(rendered.ngay_ky)) {
       const raw = (p.ngayKy as string) || (p.createdAt as string) || new Date().toISOString();

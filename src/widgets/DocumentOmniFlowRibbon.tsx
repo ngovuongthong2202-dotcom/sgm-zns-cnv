@@ -357,21 +357,44 @@ export function DocumentOmniFlowRibbon({
                 </div>
               </div>
 
-              {/* Financial Safety Gate Check */}
-              <div className="p-3 rounded-lg border mb-3 flex items-center justify-between gap-3 text-xs font-semibold bg-slate-50 border-slate-200">
+              {/* Financial Safety Gate Check with Sovereign Exception Protocol */}
+              <div className={`p-3 rounded-lg border mb-3 flex items-center justify-between gap-3 text-xs font-semibold ${
+                isDacCachGiaoTruoc 
+                  ? 'bg-amber-50/90 border-amber-300 text-amber-950'
+                  : paymentPct >= 30 
+                    ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950' 
+                    : 'bg-slate-50 border-slate-300 text-slate-800'
+              }`}>
                 <div className="flex items-center gap-2">
-                  <ShieldCheck size={16} className={paymentPct >= 30 ? 'text-emerald-700' : 'text-amber-700'} />
+                  <ShieldCheck size={16} className={isDacCachGiaoTruoc ? 'text-amber-700' : paymentPct >= 30 ? 'text-emerald-700' : 'text-amber-700'} />
                   <span>
-                    Điều kiện sản xuất: Đã thu <strong>{paymentPct}%</strong> (Cần tối thiểu <strong>30% Cọc chế tạo</strong>).
+                    {isDacCachGiaoTruoc ? (
+                      <>
+                        ⭐ <strong>ĐẶC CÁCH BAN GIÁM ĐỐC:</strong> Cho phép xuất xưởng & chế tạo máy trước dù cọc mới đạt <strong>{paymentPct}%</strong>.
+                      </>
+                    ) : (
+                      <>
+                        Điều kiện sản xuất SGM: Đã thu <strong>{paymentPct}%</strong> (Cần tối thiểu <strong>30% Cọc chế tạo</strong>).
+                      </>
+                    )}
                   </span>
                 </div>
-                {paymentPct < 30 && onCreatePayment && (
+                {paymentPct < 30 && !isDacCachGiaoTruoc && onCreatePayment && (
                   <button
                     type="button"
                     onClick={onCreatePayment}
                     className="text-xs font-bold text-amber-950 bg-amber-200 hover:bg-amber-300 px-3 py-1 rounded-md border border-amber-300 transition-colors cursor-pointer"
                   >
                     + Thu Cọc 30% Ngay
+                  </button>
+                )}
+                {isDacCachGiaoTruoc && onCreateDelivery && (
+                  <button
+                    type="button"
+                    onClick={onCreateDelivery}
+                    className="text-xs font-bold text-emerald-950 bg-emerald-200 hover:bg-emerald-300 px-3 py-1 rounded-md border border-emerald-300 transition-colors cursor-pointer"
+                  >
+                    + Cấp Lệnh Xuất Kho
                   </button>
                 )}
               </div>

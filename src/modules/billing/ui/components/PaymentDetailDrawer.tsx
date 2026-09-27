@@ -14,6 +14,7 @@ import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNex
 import { ContractHoverCard } from '@/src/modules/contracts/ui/components/ContractHoverCard';
 import { QuotationHoverCard } from '@/src/modules/sales/ui/components/QuotationHoverCard';
 import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
+import { DrawerHeaderCockpitHUD } from '@/src/widgets/DrawerHeaderCockpitHUD';
 import { RecordInstallmentModal } from './RecordInstallmentModal';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { notify } from '@/src/shared/utils/notify';
@@ -538,15 +539,14 @@ export function PaymentDetailDrawer({
   const pStatus = (payment.tinhTrangThanhToan || '').toLowerCase().trim();
   const isChuaTT = pStatus === 'chưa tt' || pStatus === 'chua tt' || pStatus === 'chưa thanh toán';
 
-  // Horizon HUD (Top Status Pulse)
+  // Horizon HUD (Omni-Sovereign Cockpit Matrix)
   const horizonHud = (
-    <HorizonFlowHUD
+    <DrawerHeaderCockpitHUD
       currentType="payment"
       quotation={_quotationDoc}
-      contract={contractDoc}
+      contracts={contractDoc ? [contractDoc] : []}
       deliveries={deliveries}
       payments={allRelatedPayments}
-      onOpenFlow={() => setActiveTab('flow')}
     />
   );
 
