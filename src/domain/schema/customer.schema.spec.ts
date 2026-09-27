@@ -35,7 +35,7 @@ describe('CustomerSchema legacy data tolerance', () => {
       maSoThue: null,
       tinhThanh: 'Thành phố Hồ Chí Minh',
       diaChi: null,
-      nguoiPhuTrach: 'Mạnh Hùng (Admin)',
+      nguoiPhuTrach: 'Ngô Vương Thông',
       sdt: null,
       contacts: [
         { nguoiDaiDien: 'Ngô Vương Thông', sdt: '0938384265', chucVu: null, chiNhanh: null }

@@ -13,7 +13,7 @@ export function useCustomerForm(
   onDirtyChange: ((isDirty: boolean) => void) | undefined,
   PROVINCES: string[],
   loaiKhachHangList: string[] = [],
-  currentUserName: string = 'Mạnh Hùng (Admin)'
+  currentUserName: string = 'Ngô Vương Thông'
 ) {
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [isAiFormatting, setIsAiFormatting] = useState(false);

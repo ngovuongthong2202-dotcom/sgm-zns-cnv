@@ -111,7 +111,7 @@ export function UserCreateModal({ onClose, onSuccess }: Props) {
               type="text"
               value={newDisplayName}
               onChange={(e) => setNewDisplayName(e.target.value)}
-              placeholder="Ví dụ: Nguyễn Mạnh Hùng"
+              placeholder="Ví dụ: Nguyễn Văn A"
               className="w-full h-10 px-3 border border-slate-200 bg-slate-50 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500 transition-all"
             />
           </div>

@@ -36,9 +36,10 @@ export function MachineCodeChipInput({ value = [], onChange, allContracts = [] }
 
   const addCodes = (rawText: string) => {
     if (!rawText) return;
-    // Tách theo dấu phẩy, chấm phẩy, xuống dòng hoặc khoảng trắng
+    // Tách theo dấu phẩy, chấm phẩy, xuống dòng hoặc khoảng trắng (hỗ trợ copy paste hàng loạt từ Excel)
     const parts = rawText
       .split(/[,;\n\r\t]+/)
+      .flatMap(p => (p.includes(' ') && !p.includes('-') && !p.includes('_')) ? p.split(/\s+/) : [p])
       .map(p => normalizeCode(p.trim()))
       .filter((p): p is string => Boolean(p && p.length > 0));
 
@@ -83,17 +84,17 @@ export function MachineCodeChipInput({ value = [], onChange, allContracts = [] }
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <div className="flex flex-wrap gap-2 p-2.5 border border-slate-200 rounded-lg min-h-[42px] bg-white focus-within:ring-2 focus-within:ring-slate-900/5 focus-within:border-slate-900 transition-all">
+      <div className="flex flex-wrap gap-2 p-2.5 border border-slate-300 rounded-lg min-h-[42px] bg-white focus-within:ring-2 focus-within:ring-slate-900/10 focus-within:border-slate-900 transition-all">
         {value.map((m, idx) => (
           <span 
             key={idx} 
-            className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-md bg-slate-100 text-2xs font-bold text-slate-800 font-mono tracking-wide border border-slate-200/80 shadow-sm transition-all hover:bg-slate-200 group"
+            className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-md bg-slate-100 text-2xs font-black text-slate-900 font-mono tracking-wide border border-slate-300 shadow-2xs transition-all hover:bg-slate-200 group"
           >
-            <span>{m}</span>
+            <span>#{m}</span>
             <button 
               type="button" 
               onClick={() => removeCode(idx)} 
-              className="text-slate-400 hover:text-red-600 transition-colors focus:outline-none font-bold text-xs leading-none"
+              className="text-slate-500 hover:text-red-700 transition-colors focus:outline-none font-bold text-xs leading-none cursor-pointer"
               title="Xóa tag này"
             >
               &times;

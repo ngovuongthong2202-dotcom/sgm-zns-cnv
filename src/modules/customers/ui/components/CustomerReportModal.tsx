@@ -886,7 +886,7 @@ export function CustomerReportModal({
                   <div className="font-bold text-slate-900">Phụ trách khách hàng</div>
                   <div className="text-3xs text-slate-400 italic mb-12">Ký và ghi rõ họ tên</div>
                   <div className="font-semibold text-slate-800 border-t border-dotted border-slate-300 pt-1">
-                    Mạnh Hùng (Admin)
+                    {customer.nguoiPhuTrach || 'Ngô Thị Mỹ Lệ'}
                   </div>
                 </div>
 

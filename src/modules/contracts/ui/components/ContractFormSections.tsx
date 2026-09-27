@@ -126,15 +126,38 @@ export function ContractDefinitionSection({ register, setValue, errors, estimate
         </div>
 
         <div className="space-y-1">
-          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Ngày Ký Kết HĐ <span className="text-red-650">*</span></label>
-          <input aria-label="Ngày Ký Kết" type="date" {...register('ngayKy')} className="premium-input w-full font-semibold h-8 rounded-lg font-mono border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white" />
+          <div className="flex items-center justify-between">
+            <label className="text-2xs font-bold uppercase tracking-wide text-slate-700">Ngày Ký Kết HĐ <span className="text-red-650">*</span></label>
+            <button
+              type="button"
+              onClick={() => setValue?.('ngayKy', new Date().toISOString().split('T')[0], { shouldDirty: true, shouldValidate: true })}
+              className="text-3xs font-bold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200 transition-colors cursor-pointer"
+            >
+              Hôm nay
+            </button>
+          </div>
+          <input aria-label="Ngày Ký Kết" type="date" {...register('ngayKy')} className="premium-input w-full font-bold h-8 rounded-lg font-mono border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white text-slate-900" />
         </div>
 
         <div className="space-y-1">
-          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Số ngày thực hiện</label>
+          <div className="flex items-center justify-between">
+            <label className="text-2xs font-bold uppercase tracking-wide text-slate-700">Số ngày thực hiện</label>
+            <div className="flex gap-1">
+              {[15, 30, 45, 60].map((days) => (
+                <button
+                  key={days}
+                  type="button"
+                  onClick={() => setValue?.('soNgayDuKienHoanThanh', days, { shouldDirty: true, shouldValidate: true })}
+                  className="text-3xs font-bold text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 px-1.5 py-0.5 rounded border border-slate-200 hover:border-blue-300 transition-colors cursor-pointer"
+                >
+                  {days}N
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="relative">
-            <input aria-label="Số ngày thực hiện" type="number" {...register('soNgayDuKienHoanThanh', { valueAsNumber: true })} className="premium-input w-full font-bold h-8 rounded-lg pr-12 font-mono border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white" />
-            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-2xs text-slate-500 font-extrabold font-mono">DAYS</span>
+            <input aria-label="Số ngày thực hiện" type="number" {...register('soNgayDuKienHoanThanh', { valueAsNumber: true })} className="premium-input w-full font-black h-8 rounded-lg pr-12 font-mono border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white text-slate-900" />
+            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-2xs text-slate-600 font-extrabold font-mono">DAYS</span>
           </div>
           {estimatedCompletionDate && (
             <span className="text-2xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1.5 mt-1 font-mono">
@@ -237,12 +260,12 @@ export function ContractFinanceSection({ subTotal, discountAmount, vatAmount, to
             <span className="font-mono font-bold text-slate-800">{new Intl.NumberFormat('vi-VN').format(vatAmount)} đ</span>
           </div>
         )}
-        <div className="space-y-1.5 pt-3 border-t border-slate-100 bg-blue-50/60 p-3 rounded-lg border border-blue-100">
+        <div className="space-y-1.5 pt-3 border-t border-slate-100 bg-blue-50/60 p-3.5 rounded-lg border border-blue-100">
           <span className="text-2xs font-bold text-blue-900 uppercase tracking-widest block">TỔNG THANH TOÁN (HỢP ĐỒNG)</span>
-          <strong className="text-lg font-mono text-blue-900 font-black block tracking-wide select-none">
+          <strong className="text-xl font-currency font-black text-slate-900 tabular-nums block tracking-wide select-none">
             {new Intl.NumberFormat('vi-VN').format(totalAmount)} đ
           </strong>
-          <div className="text-3xs italic text-slate-600 font-normal leading-tight pt-1 border-t border-blue-200/50">
+          <div className="text-3xs italic text-slate-700 font-semibold leading-tight pt-1 border-t border-blue-200/50">
             (Bằng chữ: {readVietnameseCurrency(totalAmount)})
           </div>
         </div>

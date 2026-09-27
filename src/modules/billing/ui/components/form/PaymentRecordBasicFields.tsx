@@ -585,7 +585,7 @@ export function PaymentRecordBasicFields({
               </div>
               
               <div className="flex items-center justify-between">
-                <span className="text-2xs text-slate-500 font-bold uppercase tracking-wide">Tỷ lệ thanh toán (%):</span>
+                <span className="text-2xs text-slate-700 font-bold uppercase tracking-wide">Tỷ lệ thanh toán (%):</span>
                 <div className="relative">
                     <input 
                       aria-label="Tỷ lệ %" 
@@ -595,7 +595,7 @@ export function PaymentRecordBasicFields({
                       placeholder="0" 
                       value={localRate}
                       disabled={isFree || disabled}
-                      className="w-20 premium-input h-8 pl-3 pr-6 text-right font-bold text-slate-900 bg-slate-50 border border-slate-200 focus:border-emerald-400 focus:ring-emerald-400/20 rounded-lg outline-none disabled:opacity-50"
+                      className="w-20 premium-input h-8 pl-3 pr-6 text-right font-black text-slate-900 bg-slate-50 border border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/20 rounded-lg outline-none disabled:opacity-50"
                       onChange={(e) => {
                         const valStr = e.target.value;
                         setLocalRate(valStr);
@@ -613,8 +613,66 @@ export function PaymentRecordBasicFields({
                         }
                       }}
                     />
-                    <span className="absolute right-2.5 top-1 text-slate-600 font-bold text-2xs leading-6">%</span>
+                    <span className="absolute right-2.5 top-1 text-slate-700 font-black text-2xs leading-6">%</span>
                 </div>
+              </div>
+
+              {/* Smart Quick Rate Pills */}
+              <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={isFree || disabled || totalAmountVal <= 0}
+                  onClick={() => {
+                    setLocalRate('30');
+                    const val = Math.round(totalAmountVal * 0.3);
+                    setValue('soTien', val, { shouldValidate: true, shouldDirty: true });
+                    syncStatusFromRate(30, val);
+                  }}
+                  className="px-2 py-1 bg-white border border-emerald-300 hover:border-emerald-600 rounded text-3xs font-black text-emerald-800 hover:bg-emerald-50 transition-colors shadow-2xs cursor-pointer"
+                >
+                  ⚡ 30% Cọc SX
+                </button>
+                <button
+                  type="button"
+                  disabled={isFree || disabled || totalAmountVal <= 0}
+                  onClick={() => {
+                    setLocalRate('50');
+                    const val = Math.round(totalAmountVal * 0.5);
+                    setValue('soTien', val, { shouldValidate: true, shouldDirty: true });
+                    syncStatusFromRate(50, val);
+                  }}
+                  className="px-2 py-1 bg-white border border-emerald-300 hover:border-emerald-600 rounded text-3xs font-black text-emerald-800 hover:bg-emerald-50 transition-colors shadow-2xs cursor-pointer"
+                >
+                  ⚡ 50% Xuất xưởng
+                </button>
+                <button
+                  type="button"
+                  disabled={isFree || disabled || totalAmountVal <= 0}
+                  onClick={() => {
+                    setLocalRate('100');
+                    setValue('soTien', totalAmountVal, { shouldValidate: true, shouldDirty: true });
+                    syncStatusFromRate(100, totalAmountVal);
+                  }}
+                  className="px-2 py-1 bg-white border border-emerald-300 hover:border-emerald-600 rounded text-3xs font-black text-emerald-800 hover:bg-emerald-50 transition-colors shadow-2xs cursor-pointer"
+                >
+                  ⚡ 100% Tất toán
+                </button>
+                {otherPaid > 0 && Math.max(0, totalAmountVal - otherPaid) > 0 && (
+                  <button
+                    type="button"
+                    disabled={isFree || disabled}
+                    onClick={() => {
+                      const remaining = Math.max(0, totalAmountVal - otherPaid);
+                      const rate = totalAmountVal > 0 ? (remaining / totalAmountVal) * 100 : 0;
+                      setLocalRate(rate.toFixed(1));
+                      setValue('soTien', remaining, { shouldValidate: true, shouldDirty: true });
+                      syncStatusFromRate(rate, remaining);
+                    }}
+                    className="px-2 py-1 bg-amber-50 border border-amber-300 hover:border-amber-600 rounded text-3xs font-black text-amber-900 hover:bg-amber-100 transition-colors shadow-2xs cursor-pointer"
+                  >
+                    💰 Thu nốt: {new Intl.NumberFormat('vi-VN').format(Math.max(0, totalAmountVal - otherPaid))}đ
+                  </button>
+                )}
               </div>
             </div>
           </div>

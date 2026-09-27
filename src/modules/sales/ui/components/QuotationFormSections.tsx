@@ -250,24 +250,50 @@ export function QuotationBasicInfoSection({
 
         {/* EFFECTIVE RANGE VALIDATOR */}
         <div className="grid grid-cols-2 gap-4 md:col-span-2 border border-slate-200 rounded-lg p-4 bg-white/70">
-          <div className="col-span-2 flex items-center gap-1.5 border-b border-slate-100 pb-1.5 mb-0.5">
-            <Clock size={14} className="text-slate-600" />
-            <span className="text-2xs font-medium uppercase tracking-wide text-slate-500">Hạn hiệu lực báo giá</span>
+          <div className="col-span-2 flex items-center justify-between border-b border-slate-100 pb-1.5 mb-0.5">
+            <div className="flex items-center gap-1.5">
+              <Clock size={14} className="text-slate-800" />
+              <span className="text-2xs font-bold uppercase tracking-wider text-slate-800">Hạn hiệu lực báo giá</span>
+            </div>
+            <span className="text-3xs text-slate-500 font-semibold italic">Chuẩn SGM 15-30 ngày</span>
           </div>
           <div>
-            <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 mb-1 block">Ngày lập phiếu</label>
-            <input type="date" {...register('ngayBaoGia')} className="h-8 px-3 text-sm border border-slate-200 rounded-lg w-full outline-none" />
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-2xs font-bold uppercase tracking-wide text-slate-700">Ngày lập phiếu</label>
+              <button
+                type="button"
+                onClick={() => setValue('ngayBaoGia', new Date().toISOString().split('T')[0], { shouldDirty: true, shouldValidate: true })}
+                className="text-3xs font-bold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200 transition-colors cursor-pointer"
+              >
+                Hôm nay
+              </button>
+            </div>
+            <input type="date" {...register('ngayBaoGia')} className="h-8 px-3 text-sm font-semibold border border-slate-200 rounded-lg w-full outline-none focus:border-blue-600 font-mono text-slate-900" />
           </div>
           <div>
-            <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 mb-1 block">Hiệu lực (Ngày)</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-2xs font-bold uppercase tracking-wide text-slate-700">Hiệu lực (Ngày)</label>
+              <div className="flex gap-1">
+                {[7, 15, 30, 60].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setValue('hieuLuc', d, { shouldDirty: true, shouldValidate: true })}
+                    className="text-3xs font-bold text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 px-1.5 py-0.5 rounded border border-slate-200 hover:border-blue-300 transition-colors cursor-pointer"
+                  >
+                    {d}N
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="relative">
-              <input type="number" {...register('hieuLuc', { valueAsNumber: true })} className="h-8 pl-3 pr-10 text-sm border border-slate-200 rounded-lg w-full outline-none font-mono" />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 uppercase">Ngày</span>
+              <input type="number" {...register('hieuLuc', { valueAsNumber: true })} className="h-8 pl-3 pr-10 text-sm font-bold border border-slate-200 rounded-lg w-full outline-none font-mono text-slate-900 focus:border-blue-600" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-2xs text-slate-600 font-bold uppercase">Ngày</span>
             </div>
           </div>
-          <div className="col-span-2 flex justify-between items-center bg-orange-50 p-2 rounded-lg border border-orange-100 mt-1">
-            <span className="text-2xs font-medium uppercase tracking-wide text-slate-500">Ngày hết hạn dự kiến</span>
-            <span className="font-mono text-sm text-orange-700">{ngayHetHan ? formatDate(ngayHetHan) : 'Chưa xác định'}</span>
+          <div className="col-span-2 flex justify-between items-center bg-orange-50/80 p-2.5 rounded-lg border border-orange-200 mt-1">
+            <span className="text-2xs font-bold uppercase tracking-wide text-orange-950">Ngày hết hạn dự kiến:</span>
+            <span className="font-mono text-sm font-black text-orange-900">{ngayHetHan ? formatDate(ngayHetHan) : 'Chưa xác định'}</span>
           </div>
         </div>
 

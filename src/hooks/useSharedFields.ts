@@ -16,7 +16,7 @@ export const DEFAULT_LOAI_KHACH_HANG = ['Cá nhân', 'Doanh nghiệp'];
 export const DEFAULT_LOAI_BAO_GIA = ['BG Máy', 'BG Vật tư', 'BG Dịch vụ'];
 export const DEFAULT_PHUONG_THUC_THANH_TOAN = ['Chuyển khoản', 'Tiền mặt'];
 export const DEFAULT_TINH_TRANG_THANH_TOAN = ['Tất toán', 'Công nợ', 'Chưa TT', 'Miễn phí'];
-export const DEFAULT_NGUOI_PHU_TRACH = ['Mạnh Hùng (Admin)'];
+export const DEFAULT_NGUOI_PHU_TRACH = ['Ngô Vương Thông', 'Ngô Thị Mỹ Lệ', 'Trần Thị Huyền Trang'];
 export const SWR_SYSTEM_RESOURCES_KEY = 'system_resources';
 
 import {
@@ -40,17 +40,20 @@ const fetchSystemResources = async () => {
   const sharedFieldsData = sharedFieldsDataRaw || {};
   const znsTemplatesList = znsTemplatesRaw.filter(d => !d.deletedAt);
 
-  // Extract users from users table
+  // Extract users from users table - lọc sạch tài khoản placeholder cũ
   let userAccountsList: string[] = [];
   const userRows = usersResult.data || [];
   if (userRows.length > 0) {
     userAccountsList = userRows
       .map((d: any) => ((d.display_name || d.displayName || d.data?.displayName || d.username || '') as string).trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter((name: string) => !name.toLowerCase().includes('mạnh hùng'));
   }
 
-  // Ensure default admin exists and deduplicate while keeping order
-  const combinedUsers = Array.from(new Set([...userAccountsList, ...DEFAULT_NGUOI_PHU_TRACH]));
+  // Ưu tiên nhân sự thực tế từ database, fallback danh sách cán bộ chuẩn SGM
+  const combinedUsers = userAccountsList.length > 0
+    ? Array.from(new Set(userAccountsList))
+    : DEFAULT_NGUOI_PHU_TRACH;
 
   const loaiKhachHangList = (Array.isArray(sharedFieldsData.loaiKhachHangList) && sharedFieldsData.loaiKhachHangList.length > 0)
     ? (sharedFieldsData.loaiKhachHangList as string[])

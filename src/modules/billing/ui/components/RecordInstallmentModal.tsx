@@ -290,8 +290,8 @@ export function RecordInstallmentModal({
                           <Percent size={11} className="text-blue-600" /> Tỷ lệ nợ:
                         </span>
                         {[
-                          { label: '25% (Tạm ứng)', ratio: 0.25 },
-                          { label: '50% (Trước xuất)', ratio: 0.5 },
+                          { label: '30% (Cọc sản xuất SGM)', ratio: 0.3 },
+                          { label: '50% (Trước xuất xưởng)', ratio: 0.5 },
                           { label: '70% (Bàn giao)', ratio: 0.7 },
                           { label: '100% (Tất toán)', ratio: 1.0 },
                         ].map(preset => (
@@ -351,10 +351,32 @@ export function RecordInstallmentModal({
                   {/* Grid 2 cột: Ngày thu & Phương thức */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-2xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                        <Calendar size={13} className="text-blue-700" />
-                        Ngày thực thu <span className="text-red-600">*</span>
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-2xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <Calendar size={13} className="text-blue-700" />
+                          Ngày thực thu <span className="text-red-600">*</span>
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setValue('ngayThu', new Date().toISOString().split('T')[0], { shouldDirty: true, shouldValidate: true })}
+                            className="text-3xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.2 rounded border border-blue-200 cursor-pointer"
+                          >
+                            Hôm nay
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const yesterday = new Date();
+                              yesterday.setDate(yesterday.getDate() - 1);
+                              setValue('ngayThu', yesterday.toISOString().split('T')[0], { shouldDirty: true, shouldValidate: true });
+                            }}
+                            className="text-3xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.2 rounded border border-slate-200 cursor-pointer"
+                          >
+                            Hôm qua
+                          </button>
+                        </div>
+                      </div>
                       <input 
                         type="date"
                         {...register('ngayThu')}

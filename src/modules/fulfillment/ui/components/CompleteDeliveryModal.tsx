@@ -78,7 +78,7 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
 
   const totalQuantity = (delivery.products || []).reduce((acc, p) => acc + (Number(p.quantity) || 1), 0);
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<CompleteFormValues>({
+  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<CompleteFormValues>({
     resolver: zodResolver(CompleteSchema),
     defaultValues: {
       ngayGiaoThucTe: delivery.ngayGiaoThucTe || delivery.ngayGiaoMay || new Date().toISOString().split('T')[0],
@@ -403,14 +403,36 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-2xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                          <Calendar size={12} className="text-blue-600" /> 
-                          Ngày bàn giao thực tế <span className="text-red-500">*</span>
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-2xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <Calendar size={12} className="text-blue-600" /> 
+                            Ngày bàn giao thực tế <span className="text-red-500">*</span>
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setValue('ngayGiaoThucTe', new Date().toISOString().split('T')[0], { shouldDirty: true })}
+                              className="text-3xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.2 rounded border border-blue-200 cursor-pointer"
+                            >
+                              Hôm nay
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const yesterday = new Date();
+                                yesterday.setDate(yesterday.getDate() - 1);
+                                setValue('ngayGiaoThucTe', yesterday.toISOString().split('T')[0], { shouldDirty: true });
+                              }}
+                              className="text-3xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.2 rounded border border-slate-200 cursor-pointer"
+                            >
+                              Hôm qua
+                            </button>
+                          </div>
+                        </div>
                         <input 
                           type="date" 
                           {...register('ngayGiaoThucTe')}
-                          className="h-9 px-3 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-100 outline-none bg-white" 
+                          className="h-9 px-3 border border-slate-300 rounded-lg text-xs font-bold text-slate-900 w-full focus:border-blue-600 outline-none bg-white" 
                         />
                         {errors.ngayGiaoThucTe && <p className="text-red-500 text-3xs font-medium">{errors.ngayGiaoThucTe.message}</p>}
                       </div>

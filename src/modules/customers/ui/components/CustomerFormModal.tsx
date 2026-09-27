@@ -38,7 +38,7 @@ export function CustomerForm({
   const { user, userData } = useAuth();
   const { tinhThanhList } = useSharedFields();
   const PROVINCES = tinhThanhList;
-  const currentUserName = (userData?.displayName || user?.displayName || userData?.username || user?.username || '').trim() || 'Mạnh Hùng (Admin)';
+  const currentUserName = (userData?.displayName || user?.displayName || userData?.username || user?.username || '').trim() || 'Ngô Vương Thông';
 
   const effectiveNguoiPhuTrachList = React.useMemo(() => {
     const list = [...(nguoiPhuTrachList || [])];

@@ -15,7 +15,7 @@ const defaultAdminAccount: UserAccount = {
   id: 'admin',
   username: 'admin',
   password: 'admin',
-  displayName: 'Mạnh Hùng (Admin)',
+  displayName: 'Ngô Vương Thông',
   department: 'Ban Giám Đốc',
   position: 'Administrator',
   role: 'Administrator',

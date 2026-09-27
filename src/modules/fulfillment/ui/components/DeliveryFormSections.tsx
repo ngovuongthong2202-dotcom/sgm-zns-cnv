@@ -1,9 +1,10 @@
 import React from 'react';
 import { UseFormRegister, FieldErrors, UseFormWatch, UseFormSetValue } from 'react-hook-form';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
-import { Truck, Package, Lock, Wrench, Phone } from 'lucide-react';
+import { Truck, Package, Lock, Wrench, Phone, MapPin } from 'lucide-react';
 import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
+import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressParser';
 
 interface DeliverySourceCardProps {
   soHopDong?: string;
@@ -268,7 +269,19 @@ export function DeliveryInfoSection({
         </div>
 
         <div className="space-y-1">
-          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="diaChiGiaoHang">Địa chỉ giao hàng</label>
+          <div className="flex items-center justify-between">
+            <label className="text-2xs font-bold uppercase tracking-wide text-slate-700 block" htmlFor="diaChiGiaoHang">Địa chỉ giao hàng</label>
+            {(() => {
+              const addr = watch?.('diaChiGiaoHang');
+              const detected = addr ? detectProvinceFromAddress(addr) : null;
+              if (!detected) return null;
+              return (
+                <span className="text-3xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200 flex items-center gap-1 animate-fadeIn">
+                  <MapPin size={10} className="text-blue-600" /> {detected}
+                </span>
+              );
+            })()}
+          </div>
           <input
             id="diaChiGiaoHang"
             {...register('diaChiGiaoHang')}
@@ -308,23 +321,65 @@ export function DeliveryInfoSection({
         </div>
 
         <div className="space-y-1">
-          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="ngayLapPgh">Ngày lập PGH <span className="text-red-700">*</span></label>
+          <div className="flex items-center justify-between">
+            <label className="text-2xs font-bold uppercase tracking-wide text-slate-700 block" htmlFor="ngayLapPgh">Ngày lập PGH <span className="text-red-700">*</span></label>
+            <button
+              type="button"
+              onClick={() => setValue?.('ngayLapPgh', new Date().toISOString().split('T')[0], { shouldDirty: true, shouldValidate: true })}
+              className="text-3xs font-bold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200 transition-colors cursor-pointer"
+            >
+              Hôm nay
+            </button>
+          </div>
           <input
             id="ngayLapPgh"
             type="date"
             {...register('ngayLapPgh' as any)}
-            className="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full font-bold font-mono text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
           {errors.ngayLapPgh && <p className="text-red-600 text-2xs font-medium mt-0.5">{errors.ngayLapPgh.message as string}</p>}
         </div>
 
         <div className="space-y-1">
-          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="ngayGiaoMay">Ngày dự kiến <span className="text-red-700">*</span></label>
+          <div className="flex items-center justify-between">
+            <label className="text-2xs font-bold uppercase tracking-wide text-slate-700 block" htmlFor="ngayGiaoMay">Ngày dự kiến <span className="text-red-700">*</span></label>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setValue?.('ngayGiaoMay', new Date().toISOString().split('T')[0], { shouldDirty: true, shouldValidate: true })}
+                className="text-3xs font-bold text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 px-1.5 py-0.5 rounded border border-slate-200 transition-colors cursor-pointer"
+              >
+                H.nay
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const d = new Date();
+                  d.setDate(d.getDate() + 1);
+                  setValue?.('ngayGiaoMay', d.toISOString().split('T')[0], { shouldDirty: true, shouldValidate: true });
+                }}
+                className="text-3xs font-bold text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 px-1.5 py-0.5 rounded border border-slate-200 transition-colors cursor-pointer"
+              >
+                +1N
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const d = new Date();
+                  d.setDate(d.getDate() + 3);
+                  setValue?.('ngayGiaoMay', d.toISOString().split('T')[0], { shouldDirty: true, shouldValidate: true });
+                }}
+                className="text-3xs font-bold text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 px-1.5 py-0.5 rounded border border-slate-200 transition-colors cursor-pointer"
+              >
+                +3N
+              </button>
+            </div>
+          </div>
           <input
             id="ngayGiaoMay"
             type="date"
             {...register('ngayGiaoMay' as any)}
-            className="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full font-bold font-mono text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
           {errors.ngayGiaoMay && <p className="text-red-600 text-2xs font-medium mt-0.5">{errors.ngayGiaoMay.message as string}</p>}
         </div>

@@ -8,6 +8,7 @@ import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 import { autoDetectBusinessName, STANDARDIZED_BUSINESS_TYPES } from './CustomerFormHelpers';
 
 import { sanitizeTaxCode, sanitizeText } from '@/src/shared/utils/inputSanitizer';
+import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressParser';
 
 interface ProfileSectionProps {
   register: UseFormRegister<any>;
@@ -245,13 +246,20 @@ export function CustomerFormProfileSection({
         )}
 
         <div className="space-y-1">
-          <label className="text-2xs font-medium uppercase text-slate-500" htmlFor="tinhThanh">
-            Tỉnh / Thành phố <span className="text-red-500">*</span>
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-2xs font-bold uppercase tracking-wider text-slate-700" htmlFor="tinhThanh">
+              Tỉnh / Thành phố <span className="text-red-500">*</span>
+            </label>
+            {watch('tinhThanh') && (
+              <span className="text-3xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1">
+                <Check size={10} className="text-emerald-700" /> Đã chọn
+              </span>
+            )}
+          </div>
           <select
             id="tinhThanh"
             {...register('tinhThanh')}
-            className="w-full bg-white h-8 border border-slate-200 rounded-lg px-3 text-sm text-slate-800"
+            className="w-full bg-white h-8 border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-500 rounded-lg px-3 text-sm font-medium text-slate-900"
           >
             <option value="">-- Chọn Tỉnh thành --</option>
             {PROVINCES.map((city) => (
@@ -261,33 +269,50 @@ export function CustomerFormProfileSection({
               <option value={watch('tinhThanh')}>{watch('tinhThanh')}</option>
             )}
           </select>
-          {errors.tinhThanh && <p className="text-xs text-red-650 mt-1">{errors.tinhThanh.message as string}</p>}
+          {errors.tinhThanh && <p className="text-xs text-red-650 mt-1 font-semibold">{errors.tinhThanh.message as string}</p>}
         </div>
 
         <div className="space-y-1">
-          <label className="text-2xs font-medium uppercase text-slate-500" htmlFor="diaChi">
+          <label className="text-2xs font-bold uppercase tracking-wider text-slate-700" htmlFor="diaChi">
             Địa chỉ chi tiết <span className="text-red-500">*</span>
           </label>
           <input
             id="diaChi"
             autoComplete="off"
             {...register('diaChi')}
+            onChange={(e) => {
+              register('diaChi').onChange(e);
+              const val = e.target.value;
+              const detected = detectProvinceFromAddress(val, PROVINCES);
+              if (detected && detected !== watch('tinhThanh')) {
+                setValue('tinhThanh', detected, { shouldDirty: true, shouldValidate: true });
+              }
+            }}
             onPaste={(e) => {
               const text = e.clipboardData.getData('text');
               if (text) {
                 e.preventDefault();
                 const clean = cleanProperVietnameseText(sanitizeText(text));
                 setValue('diaChi', clean, { shouldDirty: true, shouldValidate: true });
+                const detected = detectProvinceFromAddress(clean, PROVINCES);
+                if (detected && detected !== watch('tinhThanh')) {
+                  setValue('tinhThanh', detected, { shouldDirty: true, shouldValidate: true });
+                }
               }
             }}
             onBlur={(e) => {
               register('diaChi').onBlur(e);
-              setValue('diaChi', cleanProperVietnameseText(sanitizeText(e.target.value)), { shouldDirty: true });
+              const clean = cleanProperVietnameseText(sanitizeText(e.target.value));
+              setValue('diaChi', clean, { shouldDirty: true });
+              const detected = detectProvinceFromAddress(clean, PROVINCES);
+              if (detected && detected !== watch('tinhThanh')) {
+                setValue('tinhThanh', detected, { shouldDirty: true, shouldValidate: true });
+              }
             }}
-            className="w-full h-8 border border-slate-200 rounded-lg px-3 text-sm placeholder:text-slate-300"
-            placeholder="Số nhà, tên đường, khu công nghiệp..."
+            className="w-full h-8 border border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-500 rounded-lg px-3 text-sm font-medium text-slate-900 placeholder:text-slate-400"
+            placeholder="Số nhà, tên đường, khu công nghiệp, quận/huyện, tỉnh/thành..."
           />
-          {errors.diaChi && <p className="text-xs text-red-650 mt-1">{errors.diaChi.message as string}</p>}
+          {errors.diaChi && <p className="text-xs text-red-650 mt-1 font-semibold">{errors.diaChi.message as string}</p>}
         </div>
       </div>
     </div>
