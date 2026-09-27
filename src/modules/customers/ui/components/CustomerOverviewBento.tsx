@@ -11,6 +11,7 @@ import { useSWRConfig } from 'swr';
 import { t } from '@/src/i18n/vi';
 import { extractAvatarBadge } from '@/src/shared/utils/userProfile';
 import { reconcileEnterpriseReceivables } from '@/src/domain/services/financial-reconciler';
+import { cleanDuplicateAddress, formatCustomerRegionDisplay } from '@/src/shared/utils/vietnamRegionHelper';
 
 interface Props {
   customer: Customer;
@@ -328,9 +329,7 @@ export function CustomerOverviewBento({
               <MapPin size={11} className="text-blue-600" /> Trụ sở chính
             </span>
             <p className="font-medium text-slate-800 text-xs leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-150">
-              {customer.diaChi}
-              {customer.xaPhuong && `, ${customer.xaPhuong}`}
-              {customer.tinhThanh && `, ${customer.tinhThanh}`}
+              {cleanDuplicateAddress(customer.diaChi, customer.tinhThanh, customer.xaPhuong) || 'Chưa cập nhật địa chỉ'}
             </p>
           </div>
 
@@ -450,9 +449,9 @@ export function CustomerOverviewBento({
 
           <div className="pt-2 border-t border-slate-100">
             <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">Khu vực phân vùng</span>
-            <p className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-              <MapPin size={12} className="text-slate-400" />
-              {customer.tinhThanh || 'Toàn quốc'}
+            <p className="font-bold text-slate-800 text-xs flex items-center gap-1.5" title={customer.tinhThanh || undefined}>
+              <MapPin size={12} className="text-blue-600" />
+              {formatCustomerRegionDisplay(customer.tinhThanh)}
             </p>
           </div>
 

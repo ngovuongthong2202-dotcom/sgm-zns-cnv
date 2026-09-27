@@ -1665,6 +1665,57 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                           type="text"
                           value=""
                         />
+                        <div
+                          class="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-slate-100"
+                        >
+                          <span
+                            class="text-3xs font-bold text-slate-400 uppercase tracking-wider"
+                          >
+                            Gợi ý nhanh:
+                          </span>
+                          <button
+                            class="text-3xs font-medium bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-blue-200 transition-colors cursor-pointer"
+                            type="button"
+                          >
+                            + 
+                            VIP
+                          </button>
+                          <button
+                            class="text-3xs font-medium bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-blue-200 transition-colors cursor-pointer"
+                            type="button"
+                          >
+                            + 
+                            Xưởng mộc
+                          </button>
+                          <button
+                            class="text-3xs font-medium bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-blue-200 transition-colors cursor-pointer"
+                            type="button"
+                          >
+                            + 
+                            Cơ khí chế tạo
+                          </button>
+                          <button
+                            class="text-3xs font-medium bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-blue-200 transition-colors cursor-pointer"
+                            type="button"
+                          >
+                            + 
+                            Đại lý phân phối
+                          </button>
+                          <button
+                            class="text-3xs font-medium bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-blue-200 transition-colors cursor-pointer"
+                            type="button"
+                          >
+                            + 
+                            Nội thất & Decor
+                          </button>
+                          <button
+                            class="text-3xs font-medium bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-blue-200 transition-colors cursor-pointer"
+                            type="button"
+                          >
+                            + 
+                            Bảo hành định kỳ
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div
@@ -1856,17 +1907,21 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                     <div
                       class="space-y-1 sm:col-span-2"
                     >
-                      <label
-                        class="text-2xs font-medium uppercase tracking-wide text-slate-500"
-                        for="contact-name-0"
+                      <div
+                        class="flex items-center justify-between"
                       >
-                        Họ & Tên Người đại diện 
-                        <span
-                          class="text-red-500"
+                        <label
+                          class="text-2xs font-medium uppercase tracking-wide text-slate-500"
+                          for="contact-name-0"
                         >
-                          *
-                        </span>
-                      </label>
+                          Họ & Tên Người đại diện 
+                          <span
+                            class="text-red-500"
+                          >
+                            *
+                          </span>
+                        </label>
+                      </div>
                       <input
                         class="w-full h-8 border border-slate-200 rounded-lg px-3 bg-white text-sm placeholder:text-slate-300"
                         id="contact-name-0"

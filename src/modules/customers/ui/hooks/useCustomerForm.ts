@@ -8,12 +8,30 @@ import { notify } from '@/src/shared/utils/notify';
 import { autoDetectBusinessName, parseVietQRBusinessData } from '../components/CustomerFormHelpers';
 import { supabase } from '@/src/shared/config/supabase.client';
 
+export function extractSequentialCustomerNumber(code?: string | null): number {
+  if (!code) return 0;
+  const match = code.trim().match(/^KH(\d+)$/i);
+  if (!match) return 0;
+  const num = parseInt(match[1], 10);
+  return isNaN(num) ? 0 : num;
+}
+
+export function computeMaxCustomerSequence(customers: Array<{ maKh?: string | null }>): number {
+  let max = 0;
+  for (const c of customers) {
+    const seq = extractSequentialCustomerNumber(c?.maKh);
+    if (seq > max) max = seq;
+  }
+  return max;
+}
+
 export function useCustomerForm(
   customer: Customer | null,
   onDirtyChange: ((isDirty: boolean) => void) | undefined,
   PROVINCES: string[],
   loaiKhachHangList: string[] = [],
-  currentUserName: string = 'Ngô Vương Thông'
+  currentUserName: string = 'Ngô Vương Thông',
+  existingCustomers: Customer[] = []
 ) {
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [isAiFormatting, setIsAiFormatting] = useState(false);
@@ -113,24 +131,52 @@ export function useCustomerForm(
 
   const generateNextMaKh = async () => {
     try {
-      const fallbackCode = `KH${Math.floor(1000 + Math.random() * 9000)}`;
-      setValue('maKh', fallbackCode, { shouldValidate: true });
+      // 1. Tính toán sequence cao nhất từ danh sách khách hàng cục bộ hiện có
+      let highestSeq = computeMaxCustomerSequence(existingCustomers);
 
-      const session = (await supabase.auth.getSession()).data.session;
-      const token = session?.access_token || 'sgm_admin_dev_token';
-      const res = await fetch('/api/customers/generate-makh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (data.success && data.maKh) {
-        setValue('maKh', data.maKh, { shouldValidate: true });
-        return data.maKh;
+      // 2. Thử gọi API backend chính thức
+      try {
+        const session = (await supabase.auth.getSession()).data.session;
+        const token = session?.access_token || 'sgm_admin_dev_token';
+        const res = await fetch('/api/customers/generate-makh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.maKh) {
+            setValue('maKh', data.maKh, { shouldValidate: true });
+            return data.maKh;
+          }
+        }
+      } catch (err) {
+        logger.warn('Backend generate-makh API offline, synchronizing directly with Supabase/local state:', err);
       }
-      return fallbackCode;
+
+      // 3. Fallback Supabase: Lấy sequence cao nhất từ database trực tiếp
+      try {
+        const { data: dbCustomers } = await supabase
+          .from('customers')
+          .select('maKh')
+          .order('createdAt', { ascending: false })
+          .limit(100);
+
+        if (dbCustomers && Array.isArray(dbCustomers)) {
+          const dbMax = computeMaxCustomerSequence(dbCustomers);
+          if (dbMax > highestSeq) highestSeq = dbMax;
+        }
+      } catch (dbErr) {
+        logger.warn('Direct Supabase fetch for customer max sequence failed:', dbErr);
+      }
+
+      // Tự tăng tuần tự tuyệt đối (Zero Math.random())
+      const nextCode = `KH${String(highestSeq + 1).padStart(4, '0')}`;
+      setValue('maKh', nextCode, { shouldValidate: true });
+      return nextCode;
     } catch (err) {
       logger.error('Failed to generate maKh:', err);
-      const fallbackCode = `KH${Math.floor(1000 + Math.random() * 9000)}`;
+      const fallbackSeq = computeMaxCustomerSequence(existingCustomers);
+      const fallbackCode = `KH${String(fallbackSeq + 1).padStart(4, '0')}`;
       setValue('maKh', fallbackCode, { shouldValidate: true });
       return fallbackCode;
     }
@@ -221,6 +267,42 @@ export function useCustomerForm(
       setTimeout(() => nameInputRef.current?.focus(), 100);
     }
   }, [customer]);
+
+  // Live Auto-Sync for Personal Customer (10-second frictionless experience)
+  const watchedTenKhachHang = watch('tenKhachHang');
+  const watchedSdt = watch('sdt');
+  const watchedLoaiKh = watch('loaiKh');
+  const watchedLoaiHinh = watch('loaiHinhDoanhNghiep');
+  const isIndividualMode = watchedLoaiHinh === 'CÁ NHÂN' || watchedLoaiKh === 'Cá nhân';
+
+  useEffect(() => {
+    if (!isIndividualMode) return;
+    
+    // Auto sync tenKhachHang to nguoiDaiDien and contacts[0].nguoiDaiDien
+    if (watchedTenKhachHang) {
+      const currentDaiDien = getValues('nguoiDaiDien');
+      if (!currentDaiDien || currentDaiDien === watchedTenKhachHang || !customer?.id) {
+        setValue('nguoiDaiDien', watchedTenKhachHang, { shouldDirty: true });
+      }
+      const contacts = getValues('contacts') || [];
+      if (contacts.length > 0) {
+        if (!contacts[0].nguoiDaiDien || contacts[0].nguoiDaiDien === currentDaiDien || !customer?.id) {
+          setValue('contacts.0.nguoiDaiDien', watchedTenKhachHang, { shouldDirty: true });
+        }
+        if (!contacts[0].chucVu) {
+          setValue('contacts.0.chucVu', 'Chủ cơ sở', { shouldDirty: true });
+        }
+      }
+    }
+
+    // Auto sync sdt to contacts[0].sdt
+    if (watchedSdt) {
+      const contacts = getValues('contacts') || [];
+      if (contacts.length > 0 && (!contacts[0].sdt || !customer?.id)) {
+        setValue('contacts.0.sdt', watchedSdt, { shouldDirty: true });
+      }
+    }
+  }, [watchedTenKhachHang, watchedSdt, isIndividualMode, setValue, getValues, customer]);
 
   const taxCode = watch('maSoThue');
   const tags = watch('tags') || [];
@@ -326,11 +408,14 @@ export function useCustomerForm(
 
       const result = await response.json();
       if (result.code === '00' && result.data) {
-        const { loaiHinhDoanhNghiep, tenKhachHang, diaChi, tinhThanh } = parseVietQRBusinessData(result.data, PROVINCES);
+        const { loaiHinhDoanhNghiep, tenKhachHang, diaChi, tinhThanh, xaPhuong } = parseVietQRBusinessData(result.data, PROVINCES);
         
         setValue('loaiHinhDoanhNghiep', loaiHinhDoanhNghiep || 'CÔNG TY TNHH', { shouldDirty: true });
         setValue('tenKhachHang', tenKhachHang, { shouldDirty: true });
         setValue('diaChi', diaChi, { shouldDirty: true });
+        if (xaPhuong) {
+          setValue('xaPhuong', xaPhuong, { shouldDirty: true });
+        }
         const matchedLoaiKh = (loaiKhachHangList || []).find(
           (t) => t.toLowerCase() === 'doanh nghiệp'
         ) || 'Doanh nghiệp';

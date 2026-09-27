@@ -52,10 +52,10 @@ export function CustomerFormProfileSection({
           <button
             type="button"
             onClick={() => {
-              setValue('loaiHinhDoanhNghiep', 'CÔNG TY TNHH', { shouldDirty: true });
-              if (watch('loaiKh') === 'Cá nhân') {
-                setValue('loaiKh', 'Khách lẻ', { shouldDirty: true });
+              if (watch('loaiHinhDoanhNghiep') === 'CÁ NHÂN') {
+                setValue('loaiHinhDoanhNghiep', 'CÔNG TY TNHH', { shouldDirty: true });
               }
+              setValue('loaiKh', 'Doanh nghiệp', { shouldDirty: true });
             }}
             className={`px-2.5 py-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1 ${
               !isIndividual ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'
@@ -454,6 +454,21 @@ export function CustomerFormClassificationSection({
                 placeholder="Nhập tag rồi ấn Enter (Ví dụ: VIP, Xưởng mộc, ...)"
                 className="w-full h-8 text-sm outline-none px-1 placeholder:text-slate-300"
              />
+             <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-slate-100">
+               <span className="text-3xs font-bold text-slate-400 uppercase tracking-wider">Gợi ý nhanh:</span>
+               {['VIP', 'Xưởng mộc', 'Cơ khí chế tạo', 'Đại lý phân phối', 'Nội thất & Decor', 'Bảo hành định kỳ']
+                 .filter(s => !tags.includes(s))
+                 .map(s => (
+                   <button
+                     key={s}
+                     type="button"
+                     onClick={() => handleAddTag(s)}
+                     className="text-3xs font-medium bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-blue-200 transition-colors cursor-pointer"
+                   >
+                     + {s}
+                   </button>
+                 ))}
+             </div>
           </div>
         </div>
 

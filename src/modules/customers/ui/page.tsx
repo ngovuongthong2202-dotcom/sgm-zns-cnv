@@ -278,6 +278,7 @@ export default function CustomersFeature() {
         <CustomerForm
           key={drawerState.mode === 'edit' ? (drawerState.customer.id || drawerState.customer.maKh) : 'new'}
           customer={drawerState.mode === 'edit' ? drawerState.customer : null}
+          existingCustomers={customers}
           nguoiPhuTrachList={nguoiPhuTrachList}
           loaiKhachHangList={loaiKhachHangList}
           onClose={() => setDrawerState({ mode: 'closed' })}

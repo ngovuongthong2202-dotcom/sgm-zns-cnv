@@ -2,6 +2,7 @@ import { Customer } from '@/src/domain/schema/customer.schema';
 import { cleanProperVietnameseText, normalizeBusinessName, normalizePersonName, normalizeCode, squeezeSpaces } from '@/src/shared/utils/textFormatter';
 import { normalizePhoneVN } from '@/src/shared/utils/phone';
 import { sanitizeTaxCode } from '@/src/shared/utils/inputSanitizer';
+import { stripProvinceFromAddress } from '@/src/shared/utils/vietnamRegionHelper';
 
 /**
  * Danh sách Loại hình Doanh nghiệp chuẩn hóa (theo Luật Doanh nghiệp Việt Nam)
@@ -178,23 +179,34 @@ export function parseVietQRBusinessData(business: any, provinces: string[]): {
   tenKhachHang: string;
   diaChi: string;
   tinhThanh: string;
+  xaPhuong?: string;
 } {
   const { loaiHinh: loaiHinhDoanhNghiep, tenNgayNgan } = autoDetectBusinessName(business.name || '');
   const tenKhachHang = tenNgayNgan || normalizeBusinessName(business.name || '');
 
-  const diaChi = cleanProperVietnameseText(business.address || '');
+  const rawAddress = cleanProperVietnameseText(business.address || '');
   let tinhThanh = '';
   const detectedProvince = provinces.find((prov) => {
     const cleanProv = prov.toLowerCase()
       .replace(/thành phố|thành phó|tỉnh|tinh|tp\.?|tp\s+/gi, '')
       .trim();
-    return cleanProv.length >= 2 && diaChi.toLowerCase().includes(cleanProv);
+    return cleanProv.length >= 2 && rawAddress.toLowerCase().includes(cleanProv);
   });
   if (detectedProvince) {
     tinhThanh = detectedProvince;
   }
 
-  return { loaiHinhDoanhNghiep, tenKhachHang, diaChi, tinhThanh };
+  // Tách bỏ tỉnh/thành khỏi chuỗi địa chỉ chi tiết để tránh trùng lặp
+  const diaChi = detectedProvince ? stripProvinceFromAddress(rawAddress, detectedProvince) : rawAddress;
+
+  // Bóc tách phường/xã nếu có
+  let xaPhuong = '';
+  const wardMatch = diaChi.match(/(?:Phường|Xã|Thị trấn)\s+[^,]+/i);
+  if (wardMatch) {
+    xaPhuong = cleanProperVietnameseText(wardMatch[0]);
+  }
+
+  return { loaiHinhDoanhNghiep, tenKhachHang, diaChi, tinhThanh, xaPhuong };
 }
 
 export function normalizeCustomerFormValues(data: Customer): Customer {

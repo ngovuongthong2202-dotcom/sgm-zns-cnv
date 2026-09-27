@@ -2,7 +2,7 @@ import React from "react";
 import { useFieldArray, Control, UseFormRegister, FieldErrors, UseFormSetValue } from "react-hook-form";
 import { Customer } from "@/src/domain/schema/customer.schema";
 import { Button } from "@/src/design-system/Button";
-import { Plus, Trash, Contact } from "lucide-react";
+import { Plus, Trash, Contact, Users, Check } from "lucide-react";
 import { cleanProperVietnameseText } from "@/src/shared/utils/textFormatter";
 import { sanitizePhoneVN, sanitizeText } from "@/src/shared/utils/inputSanitizer";
 
@@ -11,9 +11,10 @@ interface CustomerContactsArrayProps {
   register: UseFormRegister<Customer>;
   errors: FieldErrors<Customer>;
   setValue: UseFormSetValue<Customer>;
+  isIndividual?: boolean;
 }
 
-export function CustomerContactsArray({ control, register, errors, setValue }: CustomerContactsArrayProps) {
+export function CustomerContactsArray({ control, register, errors, setValue, isIndividual }: CustomerContactsArrayProps) {
   const { fields, append, remove } = useFieldArray({
     control,
     name: "contacts"
@@ -37,6 +38,15 @@ export function CustomerContactsArray({ control, register, errors, setValue }: C
         </Button>
       </div>
 
+      {isIndividual && (
+        <div className="mx-5 p-2.5 bg-blue-50/70 border border-blue-200/80 rounded-lg flex items-center gap-2 text-2xs text-blue-900">
+          <Users size={13} className="text-blue-600 shrink-0" />
+          <span className="font-medium">
+            Chế độ Cá Nhân: Họ tên & SĐT đầu mối 1 tự động đồng bộ từ Profile. Không cần nhập lại.
+          </span>
+        </div>
+      )}
+
       <div className="space-y-4 flex-1 pb-4 px-5">
         {fields.map((field, index) => (
           <div
@@ -44,9 +54,16 @@ export function CustomerContactsArray({ control, register, errors, setValue }: C
             className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-slate-50/50 border border-slate-200/60 transition-all focus-within:border-slate-300 relative group"
           >
             <div className="space-y-1 sm:col-span-2">
-              <label className="text-2xs font-medium uppercase tracking-wide text-slate-500" htmlFor={"contact-name-" + index}>
-                Họ & Tên Người đại diện {index === 0 && <span className="text-red-500">*</span>}
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-2xs font-medium uppercase tracking-wide text-slate-500" htmlFor={"contact-name-" + index}>
+                  Họ & Tên Người đại diện {index === 0 && <span className="text-red-500">*</span>}
+                </label>
+                {index === 0 && isIndividual && (
+                  <span className="text-3xs font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 inline-flex items-center gap-1">
+                    <Check size={9} /> Đồng bộ Profile
+                  </span>
+                )}
+              </div>
               <input
                 id={"contact-name-" + index}
                 {...register("contacts." + index + ".nguoiDaiDien" as any, {

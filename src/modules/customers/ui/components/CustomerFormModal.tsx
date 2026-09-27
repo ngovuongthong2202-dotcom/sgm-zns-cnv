@@ -24,6 +24,7 @@ interface Props {
   onClose: () => void;
   onSave: (data: Customer, continueCreating?: boolean) => Promise<void>;
   onDirtyChange?: (isDirty: boolean) => void;
+  existingCustomers?: Customer[];
 }
 
 export function CustomerForm({
@@ -33,7 +34,8 @@ export function CustomerForm({
   onClose,
   onSave,
   hideShell = false,
-  onDirtyChange
+  onDirtyChange,
+  existingCustomers = []
 }: Props & { hideShell?: boolean }) {
   const { user, userData } = useAuth();
   const { tinhThanhList } = useSharedFields();
@@ -80,7 +82,7 @@ export function CustomerForm({
     checkDuplicates,
     handleTaxLookup,
     generateNextMaKh,
-  } = useCustomerForm(customer, onDirtyChange, PROVINCES, loaiKhachHangList, currentUserName);
+  } = useCustomerForm(customer, onDirtyChange, PROVINCES, loaiKhachHangList, currentUserName, existingCustomers);
   
   const { canEdit, reason: lockReason } = checkA5Policy(user, userData, customer);
 
@@ -187,7 +189,13 @@ export function CustomerForm({
 
           <div className="w-full lg:w-[380px] shrink-0 flex flex-col gap-6">
             <CustomerFormCrossCheckPanel watch={watch} currentUserName={currentUserName} />
-            <CustomerContactsArray control={control as any} register={register} errors={errors} setValue={setValue} />
+            <CustomerContactsArray 
+              control={control as any} 
+              register={register} 
+              errors={errors} 
+              setValue={setValue} 
+              isIndividual={watch('loaiHinhDoanhNghiep') === 'CÁ NHÂN' || watch('loaiKh') === 'Cá nhân'}
+            />
           </div>
         </div>
       </form>

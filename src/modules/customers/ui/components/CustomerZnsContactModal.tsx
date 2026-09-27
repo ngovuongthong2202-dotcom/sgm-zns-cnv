@@ -11,7 +11,11 @@ import {
   X, 
   ChevronDown, 
   ChevronUp, 
-  History
+  History,
+  Search,
+  Sparkles,
+  ShieldCheck,
+  Check
 } from 'lucide-react';
 import { notify } from '@/src/shared/utils/notify';
 import { sendZnsAndToast, nextAttempt } from '@/src/domain/zns-client';
@@ -37,9 +41,12 @@ export function CustomerZnsContactModal({
   const { userData } = useAuth();
   const [selectedPhones, setSelectedPhones] = useState<Set<string>>(new Set());
   const [isSending, setIsSending] = useState(false);
+  const [sendingSinglePhone, setSendingSinglePhone] = useState<string | null>(null);
   const [expandedPhone, setExpandedPhone] = useState<string | null>(null);
   const [contactMessages, setContactMessages] = useState<any[]>([]);
   const [filterMode, setFilterMode] = useState<'all' | 'sent' | 'unsent'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
 
   // Load message logs from zns_messages for this customer
   useEffect(() => {
@@ -140,7 +147,7 @@ export function CustomerZnsContactModal({
       });
     }
     setSelectedPhones(initial);
-  }, [isOpen, contactsList]);
+  }, [isOpen, contactsList, contactZnsMap]);
 
   if (!isOpen || !customer) return null;
 
@@ -178,6 +185,76 @@ export function CustomerZnsContactModal({
     setSelectedPhones(new Set());
   };
 
+  const handleCopyPhone = (phone: string) => {
+    navigator.clipboard.writeText(phone);
+    setCopiedPhone(phone);
+    setTimeout(() => setCopiedPhone(null), 1500);
+  };
+
+  // Gửi riêng lẻ 1 đầu mối tức thời (Single-contact direct dispatch)
+  const handleSendSingleContact = async (contact: ContactItem) => {
+    const phone = (contact.sdt || '').trim();
+    if (!phone) {
+      notify.error('Đầu mối này chưa có số điện thoại.');
+      return;
+    }
+    const customerId = customer.id || customer.maKh;
+    if (!customerId) return;
+
+    setSendingSinglePhone(phone);
+    try {
+      await sendZnsAndToast({
+        entityId: customerId,
+        entityType: 'CUSTOMER',
+        messageType: ZnsMessageType.CUSTOMER_PRE_QUOTE,
+        phone: phone,
+        payload: {
+          ...customer,
+          sdt: phone,
+          phone: phone,
+          nguoiDaiDien: contact.nguoiDaiDien || customer.nguoiDaiDien || '',
+          chucVu: contact.chucVu || ''
+        },
+        attemptBucket: nextAttempt(customer.trangThaiGuiTinQuangCao as string | undefined),
+        userRole: userData?.role,
+        forceResend: true
+      }, `Đang gửi tin ZNS đến ${contact.nguoiDaiDien || phone}...`);
+
+      const nowIso = new Date().toISOString();
+      const updatedContacts = Array.isArray(customer.contacts) ? [...customer.contacts] : [];
+      const foundIdx = updatedContacts.findIndex(c => (c.sdt || '').trim() === phone);
+      if (foundIdx >= 0) {
+        updatedContacts[foundIdx] = {
+          ...updatedContacts[foundIdx],
+          trangThaiZns: 'THANH_CONG',
+          ngayGuiZns: nowIso
+        };
+      }
+      const updatedHistory: Record<string, any> = { ...((customer as any).contactsZnsHistory || {}) };
+      updatedHistory[phone] = {
+        status: 'SUCCESS',
+        sentAt: nowIso,
+        nguoiDaiDien: contact.nguoiDaiDien,
+        chucVu: contact.chucVu
+      };
+
+      if (onUpdateCustomer) {
+        await onUpdateCustomer(customerId, {
+          contacts: updatedContacts,
+          contactsZnsHistory: updatedHistory,
+          trangThaiGuiTinQuangCao: 'THANH_CONG'
+        } as any);
+        await onRefresh?.();
+      }
+      notify.success(`Đã gửi thành công tin ZNS cho ${contact.nguoiDaiDien || phone}!`);
+    } catch (err) {
+      console.error(`Error sending ZNS to contact ${phone}:`, err);
+    } finally {
+      setSendingSinglePhone(null);
+    }
+  };
+
+  // Gửi hàng loạt các đầu mối được chọn (Batch dispatch)
   const handleSendSelected = async () => {
     const selectedContacts = contactsList.filter(ct => ct.sdt && selectedPhones.has(ct.sdt.trim()));
     if (selectedContacts.length === 0) {
@@ -263,16 +340,23 @@ export function CustomerZnsContactModal({
     if (successCount > 0) {
       notify.success(`Đã gửi thành công tin ZNS cho ${successCount} đầu mối liên hệ!`);
     }
-    if (failCount > 0) {
-      notify.error(`Có ${failCount} đầu mối gửi tin thất bại.`);
-    }
   };
 
+  // Filter contacts by tab and search query
   const filteredContacts = contactsList.filter(ct => {
     const ph = (ct.sdt || '').trim();
     const info = contactZnsMap.get(ph);
-    if (filterMode === 'sent') return info?.isSent;
-    if (filterMode === 'unsent') return !info?.isSent;
+    if (filterMode === 'sent' && !info?.isSent) return false;
+    if (filterMode === 'unsent' && info?.isSent) return false;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const name = (ct.nguoiDaiDien || '').toLowerCase();
+      const role = (ct.chucVu || '').toLowerCase();
+      const branch = (ct.chiNhanh || '').toLowerCase();
+      const phone = (ct.sdt || '').toLowerCase();
+      return name.includes(q) || role.includes(q) || branch.includes(q) || phone.includes(q);
+    }
     return true;
   });
 
@@ -280,118 +364,181 @@ export function CustomerZnsContactModal({
   const sentCount = contactsList.filter(ct => contactZnsMap.get((ct.sdt || '').trim())?.isSent).length;
   const unsentCount = totalCount - sentCount;
 
+  // Lấy avatar chữ cái đầu cho đầu mối
+  const getAvatarLetter = (name?: string, idx: number = 0) => {
+    if (!name) return `Đ${idx + 1}`;
+    const clean = name.trim().split(' ');
+    const lastWord = clean[clean.length - 1];
+    return lastWord ? lastWord.charAt(0).toUpperCase() : `Đ${idx + 1}`;
+  };
+
+  // Màu sắc avatar theo chức vụ
+  const getRoleBadgeColor = (role?: string) => {
+    if (!role) return 'bg-slate-100 text-slate-700 border-slate-200';
+    const r = role.toLowerCase();
+    if (r.includes('giám đốc') || r.includes('lãnh đạo') || r.includes('chủ')) {
+      return 'bg-purple-50 text-purple-700 border-purple-200';
+    }
+    if (r.includes('kế toán') || r.includes('tài chính')) {
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    }
+    if (r.includes('kỹ thuật') || r.includes('xưởng') || r.includes('vận hành')) {
+      return 'bg-blue-50 text-blue-700 border-blue-200';
+    }
+    if (r.includes('thu mua') || r.includes('kinh doanh')) {
+      return 'bg-amber-50 text-amber-700 border-amber-200';
+    }
+    return 'bg-slate-100 text-slate-700 border-slate-200';
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-blue-900 via-blue-800 to-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="space-y-1 min-w-0 pr-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-200 shrink-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+        
+        {/* ========================================================================= */}
+        {/* 1. EXECUTIVE HEADER (SLATE-950 SIÊU TƯƠNG PHẢN & ĐẲNG CẤP DOANH NGHIỆP) */}
+        {/* ========================================================================= */}
+        <div className="px-6 py-4 bg-slate-950 text-white border-b border-slate-800 flex items-center justify-between shrink-0 shadow-sm">
+          <div className="space-y-1.5 min-w-0 pr-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-cyan-300 shrink-0 shadow-inner">
                 <Send size={16} />
               </div>
-              <h2 className="text-base font-bold truncate">
-                Gửi Tin ZNS Theo Đầu Mối Liên Hệ
-              </h2>
+              <div>
+                <h2 className="text-base font-extrabold text-white tracking-tight leading-tight flex items-center gap-2">
+                  <span>Gửi Tin ZNS Theo Đầu Mối Liên Hệ</span>
+                  <span className="text-3xs font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    Studio
+                  </span>
+                </h2>
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-2xs text-blue-100 flex-wrap">
-              <span className="font-semibold text-white truncate max-w-xs">{customer.tenKhachHang}</span>
-              <span>•</span>
-              <span className="font-mono bg-blue-800/80 px-1.5 py-0.5 rounded border border-blue-700/50">{customer.maKh}</span>
+            
+            <div className="flex items-center gap-2 text-2xs text-slate-300 flex-wrap">
+              <span className="font-bold text-white truncate max-w-xs">{customer.tenKhachHang}</span>
+              <span className="text-slate-600">•</span>
+              <span className="font-mono bg-slate-800/90 text-cyan-300 px-2 py-0.5 rounded border border-slate-700 font-bold">
+                {customer.maKh}
+              </span>
               {customer.loaiKh && (
                 <>
-                  <span>•</span>
-                  <span className="bg-blue-700/50 px-1.5 py-0.5 rounded">{customer.loaiKh}</span>
+                  <span className="text-slate-600">•</span>
+                  <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700 font-medium">
+                    {customer.loaiKh}
+                  </span>
                 </>
               )}
             </div>
           </div>
+
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors shrink-0"
+            className="w-8 h-8 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 flex items-center justify-center transition-all cursor-pointer shrink-0"
             title="Đóng modal"
           >
             <X size={16} />
           </button>
         </div>
 
-        {/* Toolbar & Filter Tabs */}
-        <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setFilterMode('all')}
-              className={`px-2.5 py-1 rounded-lg text-2xs font-bold transition-all ${
-                filterMode === 'all'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              Tất cả ({totalCount})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterMode('unsent')}
-              className={`px-2.5 py-1 rounded-lg text-2xs font-bold transition-all ${
-                filterMode === 'unsent'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-white text-amber-700 border border-amber-200 hover:bg-amber-50'
-              }`}
-            >
-              Chưa gửi ({unsentCount})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterMode('sent')}
-              className={`px-2.5 py-1 rounded-lg text-2xs font-bold transition-all ${
-                filterMode === 'sent'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50'
-              }`}
-            >
-              Đã gửi ({sentCount})
-            </button>
+        {/* ========================================================================= */}
+        {/* 2. TOOLBAR & INSTANT SEARCH & FILTER TABS                                 */}
+        {/* ========================================================================= */}
+        <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+          {/* Ô tìm kiếm tức thời */}
+          <div className="relative flex-1 max-w-sm">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm theo tên, SĐT, chức vụ..."
+              className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all text-slate-800 placeholder:text-slate-400"
+            />
+            {searchQuery && (
+              <button 
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+              >
+                <X size={12} />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5 text-2xs">
-            <button
-              type="button"
-              onClick={handleSelectAll}
-              className="text-blue-700 hover:underline font-semibold px-2 py-0.5"
-            >
-              Chọn tất cả
-            </button>
-            <span>|</span>
-            <button
-              type="button"
-              onClick={handleSelectUnsent}
-              className="text-amber-700 hover:underline font-semibold px-2 py-0.5"
-            >
-              Chọn chưa gửi
-            </button>
-            <span>|</span>
-            <button
-              type="button"
-              onClick={handleDeselectAll}
-              className="text-slate-500 hover:underline font-medium px-2 py-0.5"
-            >
-              Bỏ chọn
-            </button>
+          {/* Bộ lọc trạng thái & Phím chọn nhanh */}
+          <div className="flex items-center justify-between sm:justify-end gap-2 flex-wrap">
+            <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setFilterMode('all')}
+                className={`px-2 py-1 rounded-md text-2xs font-bold transition-all cursor-pointer ${
+                  filterMode === 'all'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Tất cả ({totalCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode('unsent')}
+                className={`px-2 py-1 rounded-md text-2xs font-bold transition-all cursor-pointer ${
+                  filterMode === 'unsent'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-amber-700 hover:bg-amber-50'
+                }`}
+              >
+                Chưa gửi ({unsentCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode('sent')}
+                className={`px-2 py-1 rounded-md text-2xs font-bold transition-all cursor-pointer ${
+                  filterMode === 'sent'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-emerald-700 hover:bg-emerald-50'
+                }`}
+              >
+                Đã gửi ({sentCount})
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1 text-2xs">
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className="text-blue-700 hover:text-blue-800 font-semibold px-1.5 py-0.5 rounded hover:bg-blue-50 transition-colors cursor-pointer"
+              >
+                Chọn hết
+              </button>
+              <span className="text-slate-300">|</span>
+              <button
+                type="button"
+                onClick={handleDeselectAll}
+                className="text-slate-500 hover:text-slate-700 font-medium px-1.5 py-0.5 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Bỏ chọn
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Contacts List */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-3 min-h-0">
+        {/* ========================================================================= */}
+        {/* 3. DANH SÁCH ĐẦU MỐI LIÊN HỆ ĐA CHIỀU (SMART CONTACT CARDS)             */}
+        {/* ========================================================================= */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-2.5 min-h-0 bg-slate-50/50">
           {contactsList.length === 0 ? (
-            <div className="py-12 text-center text-slate-500 space-y-2">
-              <User size={32} className="mx-auto text-slate-300" />
-              <p className="text-sm font-semibold">Khách hàng chưa có đầu mối liên hệ</p>
+            <div className="py-12 text-center text-slate-500 space-y-2 bg-white rounded-xl border border-slate-200 p-8">
+              <User size={36} className="mx-auto text-slate-300" />
+              <p className="text-sm font-bold text-slate-700">Khách hàng chưa có đầu mối liên hệ</p>
               <p className="text-2xs text-slate-400">Vui lòng cập nhật thông tin người đại diện và số điện thoại trước khi gửi tin ZNS.</p>
             </div>
           ) : filteredContacts.length === 0 ? (
-            <div className="py-10 text-center text-slate-400 text-xs font-medium">
-              Không có đầu mối liên hệ nào phù hợp với bộ lọc.
+            <div className="py-12 text-center text-slate-500 space-y-2 bg-white rounded-xl border border-slate-200 p-8">
+              <Search size={28} className="mx-auto text-slate-300" />
+              <p className="text-xs font-semibold text-slate-600">Không tìm thấy đầu mối liên hệ nào phù hợp</p>
+              <p className="text-2xs text-slate-400">Thử tìm kiếm với từ khóa khác hoặc chuyển sang tab "Tất cả".</p>
             </div>
           ) : (
             filteredContacts.map((contact, idx) => {
@@ -400,44 +547,60 @@ export function CustomerZnsContactModal({
               const znsInfo = contactZnsMap.get(phone);
               const isSent = znsInfo?.isSent;
               const isExpanded = expandedPhone === phone;
+              const isPrimaryContact = idx === 0 || contact.nguoiDaiDien === customer.nguoiDaiDien;
+              const isCurrentlySendingSingle = sendingSinglePhone === phone;
 
               return (
                 <div
                   key={phone || idx}
                   className={`rounded-xl border transition-all ${
                     isSelected
-                      ? 'border-blue-400 bg-blue-50/20 shadow-xs'
+                      ? 'border-blue-400 bg-white shadow-xs ring-1 ring-blue-500/20'
                       : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
                 >
-                  <div className="p-3.5 flex items-start gap-3.5">
-                    {/* Checkbox */}
-                    <div className="pt-0.5">
+                  <div className="p-3.5 flex items-start gap-3">
+                    {/* Checkbox chọn hàng loạt */}
+                    <div className="pt-1">
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => handleToggleSelect(phone)}
-                        disabled={!phone}
-                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                        disabled={!phone || isSending}
+                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed"
                         id={`contact-check-${idx}`}
                       />
                     </div>
 
-                    {/* Details */}
-                    <label htmlFor={`contact-check-${idx}`} className="flex-1 min-w-0 cursor-pointer select-none space-y-1.5">
+                    {/* Avatar Chữ cái theo chức vụ */}
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 font-extrabold text-xs flex items-center justify-center border border-slate-200 shrink-0 font-mono">
+                      {getAvatarLetter(contact.nguoiDaiDien, idx)}
+                    </div>
+
+                    {/* Chi tiết Đầu Mối */}
+                    <label htmlFor={`contact-check-${idx}`} className="flex-1 min-w-0 cursor-pointer select-none space-y-1">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-bold text-sm text-slate-900">
                             {contact.nguoiDaiDien || `Đầu mối ${idx + 1}`}
                           </span>
+                          
+                          {/* Huy hiệu Người đại diện chính */}
+                          {isPrimaryContact && (
+                            <span className="inline-flex items-center gap-0.5 text-3xs font-extrabold bg-blue-50 text-blue-750 px-1.5 py-0.5 rounded border border-blue-200 uppercase">
+                              <ShieldCheck size={10} className="text-blue-600" /> Chính
+                            </span>
+                          )}
+
+                          {/* Chức vụ */}
                           {contact.chucVu && (
-                            <span className="text-3xs bg-slate-100 text-slate-700 font-semibold px-2 py-0.5 rounded border border-slate-200 uppercase tracking-wider">
+                            <span className={`text-3xs font-semibold px-2 py-0.5 rounded border uppercase tracking-wider ${getRoleBadgeColor(contact.chucVu)}`}>
                               {contact.chucVu}
                             </span>
                           )}
                         </div>
 
-                        {/* ZNS Status Badge */}
+                        {/* Huy hiệu Trạng Thái ZNS */}
                         <div className="flex items-center gap-1.5">
                           {isSent ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -453,44 +616,76 @@ export function CustomerZnsContactModal({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4 text-xs text-slate-600 flex-wrap">
-                        <div className="flex items-center gap-1.5 font-mono">
-                          <Phone size={13} className="text-slate-400 shrink-0" />
-                          <span className="font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/80">
+                      {/* Số điện thoại, Chi nhánh & Thời gian gửi gần nhất */}
+                      <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap pt-0.5">
+                        <div className="flex items-center gap-1 font-mono">
+                          <Phone size={11} className="text-slate-400 shrink-0" />
+                          <span className="font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/80 text-2xs">
                             {phone || 'Chưa có SĐT'}
                           </span>
+                          {phone && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleCopyPhone(phone);
+                              }}
+                              className="text-slate-400 hover:text-blue-600 p-0.5"
+                              title="Sao chép SĐT"
+                            >
+                              {copiedPhone === phone ? <Check size={11} className="text-emerald-600" /> : <span className="text-3xs text-slate-400 hover:underline">Copy</span>}
+                            </button>
+                          )}
                         </div>
+
                         {contact.chiNhanh && (
                           <div className="flex items-center gap-1 text-slate-500 text-2xs">
-                            <Building2 size={12} className="text-slate-400 shrink-0" />
+                            <Building2 size={11} className="text-slate-400 shrink-0" />
                             <span className="truncate max-w-xs">{contact.chiNhanh}</span>
                           </div>
                         )}
+
                         {znsInfo?.latestTime && (
-                          <div className="text-2xs text-slate-400 ml-auto">
-                            Lần gửi gần nhất: <strong className="text-slate-600">{new Date(znsInfo.latestTime).toLocaleString('vi-VN')}</strong>
+                          <div className="text-3xs text-slate-400 ml-auto">
+                            Gửi gần nhất: <strong className="text-slate-600">{new Date(znsInfo.latestTime).toLocaleString('vi-VN')}</strong>
                           </div>
                         )}
                       </div>
                     </label>
 
-                    {/* Expand History Button */}
-                    {znsInfo && znsInfo.messages.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExpandedPhone(isExpanded ? null : phone);
-                        }}
-                        className="p-1 text-slate-400 hover:text-slate-700 rounded hover:bg-slate-100 transition-colors"
-                        title="Xem lịch sử gửi tin của đầu mối này"
-                      >
-                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                      </button>
-                    )}
+                    {/* Cụm hành động nhanh: Nút gửi ngay + Mở lịch sử */}
+                    <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                      {phone && (
+                        <button
+                          type="button"
+                          onClick={() => handleSendSingleContact(contact)}
+                          disabled={isSending || isCurrentlySendingSingle}
+                          className="h-7 px-2.5 text-2xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
+                          title="Gửi riêng đầu mối này"
+                        >
+                          <Send size={11} className={isCurrentlySendingSingle ? 'animate-spin' : ''} />
+                          <span>{isCurrentlySendingSingle ? 'Đang gửi...' : 'Gửi ngay'}</span>
+                        </button>
+                      )}
+
+                      {znsInfo && znsInfo.messages.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedPhone(isExpanded ? null : phone);
+                          }}
+                          className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-colors"
+                          title="Xem lịch sử gửi tin của đầu mối này"
+                        >
+                          {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Expanded Contact History */}
+                  {/* Lịch sử gửi tin mở rộng */}
                   {isExpanded && znsInfo && (
                     <div className="border-t border-slate-100 bg-slate-50/70 p-3.5 space-y-2 text-xs">
                       <div className="flex items-center gap-1 text-2xs font-bold text-slate-500 uppercase tracking-wider">
@@ -530,10 +725,12 @@ export function CustomerZnsContactModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
-          <div className="text-xs text-slate-500">
-            Đã chọn: <strong className="text-blue-700 font-bold">{selectedPhones.size}</strong> / {contactsList.length} đầu mối
+        {/* ========================================================================= */}
+        {/* 4. FOOTER: BỘ ĐIỀU PHỐI HÀNH ĐỘNG GỬI HÀNG LOẠT (EXECUTIVE ACTION BAR)   */}
+        {/* ========================================================================= */}
+        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+          <div className="text-xs text-slate-600">
+            Đã chọn: <strong className="text-blue-700 font-bold text-sm">{selectedPhones.size}</strong> / {contactsList.length} đầu mối
           </div>
 
           <div className="flex items-center gap-2">
@@ -543,7 +740,7 @@ export function CustomerZnsContactModal({
               size="sm"
               onClick={onClose}
               disabled={isSending}
-              className="h-9 px-4 font-semibold"
+              className="h-9 px-4 font-semibold text-xs"
             >
               Đóng
             </Button>
@@ -555,9 +752,9 @@ export function CustomerZnsContactModal({
               onClick={handleSendSelected}
               isLoading={isSending}
               disabled={isSending || selectedPhones.size === 0}
-              className="h-9 px-4 font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm flex items-center gap-1.5"
+              className="h-9 px-4 font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm flex items-center gap-1.5 text-xs cursor-pointer"
             >
-              <Send size={14} />
+              <Send size={13} />
               <span>Gửi ZNS ({selectedPhones.size} đầu mối)</span>
             </Button>
           </div>

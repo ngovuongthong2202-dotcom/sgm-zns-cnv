@@ -4,6 +4,7 @@ import { useDrawerStack } from '@/src/contexts/DrawerStackContext';
 import { cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { resolveDeliveryDisplayCode, resolvePaymentDisplayCode } from '@/src/shared/utils/voucherResolver';
+import { resolveDocumentLifecycleBadge } from '@/src/domain/services/lifecycle-reconciler';
 
 export interface DrawerHeaderCockpitHUDProps {
   currentType: 'quotation' | 'contract' | 'payment' | 'delivery';
@@ -71,12 +72,18 @@ export function DrawerHeaderCockpitHUD({
     });
   }, [deliveries, matchedContract, qId, qSo]);
 
-  // 2. Tính toán tài chính nhanh
-  const contractTotal = Number(matchedContract?.totalAmount || quotation?.totalAmount || 0);
-  const totalPaid = matchedPayments.reduce((acc, p) => acc + (Number(p.soTien) || 0), 0);
-  const paidRatio = contractTotal > 0 ? (totalPaid / contractTotal) * 100 : 0;
-  const is30PercentSecured = paidRatio >= 29.5 || matchedPayments.some(p => p.tinhTrangThanhToan?.includes('Tất toán'));
-  const isExempted = Boolean(matchedContract?.dacCachGiaoTruoc || matchedDeliveries.some(d => d.dacCachGiaoTruoc));
+  // 2. Tính toán phân cấp vòng đời đơn hàng chuẩn mực (Sovereign Lifecycle Reconciler)
+  const lifecycleBadge = useMemo(() => {
+    return resolveDocumentLifecycleBadge({
+      quotation,
+      contract: matchedContract,
+      deliveries: matchedDeliveries,
+      payments: matchedPayments,
+    });
+  }, [quotation, matchedContract, matchedDeliveries, matchedPayments]);
+
+  const { totalPaid, paidRatio, isSpecialWaiver: isExempted } = lifecycleBadge;
+  const is30PercentSecured = paidRatio >= 29.5 || lifecycleBadge.isPaidFull;
 
   // Mã chứng từ hiển thị chuẩn
   const primaryPaymentDisplayCode = matchedPayments.length > 0 ? resolvePaymentDisplayCode(matchedPayments[0]) : '';
@@ -235,23 +242,31 @@ export function DrawerHeaderCockpitHUD({
           </div>
         </div>
 
-        {/* HUY HIỆU ĐẶC CÁCH HOẶC AN TOÀN TÀI CHÍNH */}
-        {isExempted ? (
-          <div className="ml-auto hidden xl:flex items-center gap-1.5 bg-amber-950/90 text-amber-200 border border-amber-600 px-2.5 py-1 rounded text-3xs font-black uppercase tracking-wider shrink-0 shadow-xs">
-            <Sparkles size={11} className="text-amber-400 animate-spin" />
-            <span>ĐẶC CÁCH BAN GIÁM ĐỐC</span>
-          </div>
-        ) : is30PercentSecured ? (
-          <div className="ml-auto hidden xl:flex items-center gap-1.5 bg-emerald-950/90 text-emerald-300 border border-emerald-700 px-2.5 py-1 rounded text-3xs font-black uppercase tracking-wider shrink-0">
-            <CheckCircle2 size={11} className="text-emerald-400" />
-            <span>ĐỦ ĐIỀU KIỆN SẢN XUẤT (≥30%)</span>
-          </div>
-        ) : (
-          <div className="ml-auto hidden xl:flex items-center gap-1.5 bg-slate-900 text-amber-300 border border-amber-800/80 px-2.5 py-1 rounded text-3xs font-bold shrink-0">
-            <AlertTriangle size={11} className="text-amber-300" />
-            <span>CHƯA ĐỦ CỌC 30% SẢN XUẤT</span>
-          </div>
-        )}
+        {/* HUY HIỆU ĐIỀU HÀNH VÒNG ĐỜI TOÀN NĂNG (OMNI-LIFECYCLE STATUS BADGE) */}
+        <div 
+          className={`ml-auto hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded text-3xs font-black uppercase tracking-wider shrink-0 shadow-xs transition-all ${
+            lifecycleBadge.variant === 'emerald'
+              ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-600 ring-1 ring-emerald-500/20'
+              : lifecycleBadge.variant === 'cyan'
+                ? 'bg-cyan-950/90 text-cyan-300 border border-cyan-600 ring-1 ring-cyan-500/20'
+                : lifecycleBadge.variant === 'blue'
+                  ? 'bg-blue-950/90 text-blue-300 border border-blue-600'
+                  : lifecycleBadge.variant === 'indigo'
+                    ? 'bg-indigo-950/90 text-indigo-300 border border-indigo-600'
+                    : lifecycleBadge.variant === 'amber'
+                      ? 'bg-amber-950/90 text-amber-200 border border-amber-600 ring-1 ring-amber-500/20'
+                      : 'bg-slate-900 text-amber-300 border border-amber-800/80'
+          }`}
+          title={lifecycleBadge.tooltip}
+        >
+          {lifecycleBadge.iconName === 'sparkles' && <Sparkles size={11} className="text-amber-400 animate-spin" />}
+          {lifecycleBadge.iconName === 'truck' && <Truck size={11} className="text-cyan-400" />}
+          {lifecycleBadge.iconName === 'wallet' && <Wallet size={11} className="text-emerald-400" />}
+          {lifecycleBadge.iconName === 'check-circle' && <CheckCircle2 size={11} className={lifecycleBadge.variant === 'emerald' ? 'text-emerald-400' : 'text-indigo-400'} />}
+          {lifecycleBadge.iconName === 'alert-triangle' && <AlertTriangle size={11} className="text-amber-300" />}
+          {lifecycleBadge.iconName === 'clock' && <Clock size={11} className="text-slate-400" />}
+          <span>{lifecycleBadge.label}</span>
+        </div>
 
       </div>
     </div>
