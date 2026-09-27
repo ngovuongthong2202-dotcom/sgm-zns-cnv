@@ -20,6 +20,7 @@ import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
 import { DrawerHeaderCockpitHUD } from '@/src/widgets/DrawerHeaderCockpitHUD';
 import { reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
 import { computeContractCompletionTimeline, cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';
+import { calculateMachineAllocation } from '@/src/shared/utils/voucherResolver';
 
 import { sendZnsAndToast, nextAttempt } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
@@ -153,6 +154,8 @@ export function ContractDetailDrawer({
       return sum + qtyInShipment;
     }, 0);
   const dPct = Math.min(100, Math.round((totalDeliveredQty / totalContractQty) * 100));
+
+  const allocGate = React.useMemo(() => calculateMachineAllocation(drawerContract, dels), [drawerContract, dels]);
 
   const completionTimeline = React.useMemo(() => {
     if (!drawerContract) return null;
@@ -567,14 +570,20 @@ export function ContractDetailDrawer({
                   <span className="font-mono font-bold text-slate-800 text-3xs">{dels.length} phiếu xuất kho</span>
                 </div>
                 {onCreateDelivery && (
-                  <Button 
-                    variant="subtle" 
-                    size="xs" 
-                    className="h-6 text-3xs font-bold" 
-                    onClick={() => onCreateDelivery(drawerContract)}
-                  >
-                    + Xuất kho
-                  </Button>
+                  allocGate.isFullyAllocated ? (
+                    <span className="text-3xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">
+                      ✓ Đã đủ máy xuất kho
+                    </span>
+                  ) : (
+                    <Button 
+                      variant="subtle" 
+                      size="xs" 
+                      className="h-6 text-3xs font-bold" 
+                      onClick={() => onCreateDelivery(drawerContract)}
+                    >
+                      + Xuất kho
+                    </Button>
+                  )
                 )}
               </div>
             </div>
@@ -683,9 +692,29 @@ export function ContractDetailDrawer({
           )}
 
           {onCreateDelivery && (
-            <Button id="btn-create-d" aria-label="Tạo phiếu giao" variant="subtle" size="sm" className="h-9 font-bold" onClick={() => onCreateDelivery(drawerContract)}>
-              + Phiếu giao
-            </Button>
+            allocGate.isFullyAllocated ? (
+              <Button
+                id="btn-create-d"
+                aria-label="Đã đủ máy xuất kho"
+                variant="secondary"
+                size="sm"
+                disabled
+                className="h-9 font-bold text-emerald-800 bg-emerald-50 border-emerald-300 opacity-90 cursor-not-allowed"
+              >
+                ✓ Đã đủ máy ({allocGate.totalAssignedMachines}/{allocGate.totalOrderMachines})
+              </Button>
+            ) : (
+              <Button
+                id="btn-create-d"
+                aria-label="Tạo phiếu giao"
+                variant="subtle"
+                size="sm"
+                className="h-9 font-bold text-cyan-800 bg-cyan-50 hover:bg-cyan-100 border border-cyan-300"
+                onClick={() => onCreateDelivery(drawerContract)}
+              >
+                + Phiếu giao
+              </Button>
+            )
           )}
 
           <Button aria-label="Đóng" variant="secondary" size="sm" className="h-9 font-bold" onClick={onClose}>Đóng</Button>

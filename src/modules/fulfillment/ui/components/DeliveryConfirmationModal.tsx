@@ -5,6 +5,7 @@ import { CheckCircle2, User, Calendar, FileText, Package, MapPin, RotateCcw, X, 
 import { formatDate } from '@/src/shared/utils/formatDate';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/src/design-system/Button';
+import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
 
 interface DeliveryConfirmationModalProps {
   delivery: Delivery;
@@ -76,7 +77,7 @@ export function DeliveryConfirmationModal({
                         </span>
                       </div>
                       <Dialog.Description className="text-xs text-slate-500 mt-1 font-medium">
-                        Biên bản bàn giao thực tế cho phiếu <strong className="font-mono text-slate-800">{delivery.deliveryId || delivery.id}</strong>
+                        Biên bản bàn giao thực tế cho phiếu <strong className="font-mono text-slate-800">{resolveDeliveryDisplayCode(delivery)}</strong>
                       </Dialog.Description>
                     </div>
                   </div>

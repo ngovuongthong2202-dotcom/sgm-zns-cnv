@@ -12,6 +12,7 @@ import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { getProductItemKey } from '@/src/shared/utils/product-key';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
+import { calculateMachineAllocation } from '@/src/shared/utils/voucherResolver';
 
 const ContractFormModal = React.lazy(() => import('./ContractFormModal').then(m => ({ default: m.ContractFormModal })));
 const PaymentFormDrawer = React.lazy(() => import('@/src/modules/billing/ui/components/PaymentFormDrawer').then(m => ({ default: m.PaymentFormDrawer })));
@@ -108,6 +109,11 @@ export function ContractModalsContainer({
           setPrefillPaymentContract(contract);
         }}
         onCreateDelivery={async (contract) => {
+          const allocGate = calculateMachineAllocation(contract, realtimeDeliveries);
+          if (allocGate.isFullyAllocated) {
+            notify.warning(`Hợp đồng ${contract.soHopDong || ''} đã điều phối đủ ${allocGate.totalAssignedMachines}/${allocGate.totalOrderMachines} máy xuất kho. Không thể tạo thêm phiếu giao!`);
+            return;
+          }
           const remaining = getRemainingProducts(contract, realtimeDeliveries);
           if (remaining.length === 0) {
             notify.warning("Hợp đồng này đã giao đầy đủ thiết bị, không cần tạo thêm phiếu giao!");

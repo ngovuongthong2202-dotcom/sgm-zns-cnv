@@ -69,6 +69,20 @@ export default function DeliveriesFeature() {
   // Tự động mở Modal lập phiếu giao hàng khi điều hướng từ Phiếu thu (Payment) hoặc Báo giá (Quotation)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
+    // Ưu tiên đón từ Hợp đồng (fromContract / contractId)
+    const fromContract = params.get('fromContract') || params.get('contractId') || (location.state as any)?.createFromContract;
+    const targetContractId = typeof fromContract === 'string' ? fromContract : fromContract?.id || fromContract?.contractId;
+    if (targetContractId && !isFormOpen) {
+      const fromPaymentParam = params.get('fromPayment') || params.get('paymentId');
+      setEditingDelivery({ 
+        contractId: targetContractId,
+        paymentId: fromPaymentParam || undefined
+      } as any);
+      setIsFormOpen(true);
+      window.history.replaceState({}, document.title, location.pathname);
+      return;
+    }
+
     const fromPayment = params.get('fromPayment') || params.get('paymentId') || (location.state as any)?.createFromPayment;
     const targetPaymentId = typeof fromPayment === 'string' ? fromPayment : fromPayment?.id || fromPayment?.paymentId;
     if (targetPaymentId && !isFormOpen) {

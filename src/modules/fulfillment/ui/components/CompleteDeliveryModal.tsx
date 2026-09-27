@@ -25,6 +25,7 @@ import { formatDate } from '@/src/shared/utils/formatDate';
 import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/src/design-system/Button';
+import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
 
 const CompleteSchema = z.object({
   ngayGiaoThucTe: z.string().min(1, 'Vui lòng chọn ngày giao'),
@@ -158,7 +159,10 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                         Xác nhận hoàn tất giao hàng & Bàn giao thiết bị
                       </Dialog.Title>
                       <Dialog.Description className="text-2xs text-blue-100/90 mt-0.5 font-medium">
-                        Phiếu giao: <strong className="font-mono text-white underline">{delivery.deliveryId}</strong>
+                        Phiếu giao: <strong className="font-mono text-white underline">{resolveDeliveryDisplayCode(delivery)}</strong>
+                        {delivery.soPhieuXuat && delivery.soPhieuXuat !== resolveDeliveryDisplayCode(delivery) && (
+                          <> | ERP: <strong className="font-mono text-amber-200">{delivery.soPhieuXuat}</strong></>
+                        )}
                         {delivery.soDonHang && (
                           <> | Đơn hàng: <strong className="font-mono text-white">{delivery.soDonHang}</strong></>
                         )}

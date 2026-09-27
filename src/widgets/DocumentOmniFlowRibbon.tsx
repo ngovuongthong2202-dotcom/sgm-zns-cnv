@@ -23,6 +23,12 @@ import {
 } from 'lucide-react';
 import { hasActualCashCollected } from '@/src/domain/enums/payment-status';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
+import {
+  resolveDeliveryDisplayCode,
+  resolvePaymentDisplayCode,
+  resolveDeliveryVoucherMeta,
+  calculateMachineAllocation,
+} from '@/src/shared/utils/voucherResolver';
 
 export interface DocumentOmniFlowRibbonProps {
   currentType: 'quotation' | 'contract' | 'payment' | 'delivery';
@@ -98,28 +104,19 @@ export function DocumentOmniFlowRibbon({
     totalContractVal > 0 ? Math.min(100, Math.round((totalPaid / totalContractVal) * 100)) : 0;
   const remainingDebt = Math.max(0, totalContractVal - totalPaid);
 
-  // Calculate delivery totals
-  const totalMachineQty = primaryContract
-    ? primaryContract.products?.reduce((s: number, p: any) => s + (p.quantity || 0), 0) ||
-      primaryContract.slMay ||
-      0
-    : primaryQuotation?.slMay || 0;
-
-  const deliveredQty = deliveries
-    .filter((d: any) => !!d.ngayGiaoThucTe)
-    .reduce((sum: number, d: any) => {
-      const q =
-        d.products?.reduce((s: number, p: any) => s + (p.quantity || 0), 0) ||
-        d.slMay ||
-        d.danhSachMaMay?.length ||
-        0;
-      return sum + q;
-    }, 0);
+  // Dynamic Machine Allocation Gate (M-IAG)
+  const allocGate = calculateMachineAllocation(primaryContract || primaryQuotation, deliveries);
+  const totalMachineQty = allocGate.totalOrderMachines;
+  const deliveredQty = allocGate.totalDeliveredMachines;
 
   const isDacCachGiaoTruoc =
     primaryContract?.dacCachGiaoTruoc ||
     payments.some((p: any) => p.dacCachGiaoTruoc) ||
     deliveries.some((d: any) => d.dacCachGiaoTruoc);
+
+  // Voucher Codes for Flight Deck Stepper
+  const primaryPaymentCode = payments.length > 0 ? resolvePaymentDisplayCode(payments[0]) : '';
+  const primaryDeliveryCode = deliveries.length > 0 ? resolveDeliveryDisplayCode(deliveries[0]) : '';
 
   // Chrono-Anchor Focus Effect
   useEffect(() => {
@@ -164,7 +161,11 @@ export function DocumentOmniFlowRibbon({
     {
       id: 'payment',
       title: 'Thanh Toán',
-      sub: `${paymentPct}% (${payments.length} phiếu)`,
+      sub: payments.length > 0
+        ? (payments.length === 1 
+            ? `${primaryPaymentCode} • ${paymentPct}%` 
+            : `${primaryPaymentCode} (+${payments.length - 1}) • ${paymentPct}%`)
+        : 'Chưa thanh toán',
       icon: <CreditCard size={13} />,
       isCurrent: currentType === 'payment',
       isCompleted: paymentPct === 100,
@@ -173,7 +174,13 @@ export function DocumentOmniFlowRibbon({
     {
       id: 'delivery',
       title: isService ? 'Nghiệm Thu' : 'Giao Hàng',
-      sub: isService ? (deliveredQty >= totalMachineQty ? 'Đã nghiệm thu' : 'Chờ') : `${deliveredQty}/${totalMachineQty} máy`,
+      sub: deliveries.length > 0
+        ? (isService 
+            ? (deliveredQty >= totalMachineQty ? `${primaryDeliveryCode} • Đã nghiệm thu` : `${primaryDeliveryCode} • Đang thực hiện`)
+            : (deliveries.length === 1
+                ? `${primaryDeliveryCode} • ${deliveredQty}/${totalMachineQty} máy`
+                : `${primaryDeliveryCode} (+${deliveries.length - 1}) • ${deliveredQty}/${totalMachineQty} máy`))
+        : (isService ? 'Chưa nghiệm thu' : 'Chưa xuất kho'),
       icon: <Truck size={13} />,
       isCurrent: currentType === 'delivery',
       isCompleted: totalMachineQty > 0 && deliveredQty >= totalMachineQty,
@@ -567,8 +574,8 @@ export function DocumentOmniFlowRibbon({
         }`}
       >
         <div className="flex items-center justify-between border-b border-slate-200 pb-2.5 mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-cyan-100 text-cyan-900 flex items-center justify-center font-bold text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="w-7 h-7 rounded-lg bg-cyan-100 text-cyan-900 flex items-center justify-center font-bold text-xs shrink-0">
               <Truck size={15} />
             </div>
             <h4 className="text-xs font-black text-slate-900 flex items-center gap-2">
@@ -582,23 +589,37 @@ export function DocumentOmniFlowRibbon({
             {totalMachineQty > 0 && (
               <span className={`text-2xs font-extrabold px-2.5 py-0.5 rounded-full ${
                 deliveredQty >= totalMachineQty
-                  ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                  : 'bg-amber-100 text-amber-900 border border-amber-200'
+                  ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                  : allocGate.isFullyAllocated
+                  ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                  : 'bg-amber-100 text-amber-900 border border-amber-300'
               }`}>
                 {deliveredQty >= totalMachineQty 
                   ? (isService ? '✓ Đã nghiệm thu' : '✓ Đã bàn giao đủ máy') 
-                  : `Đã giao ${deliveredQty}/${totalMachineQty} máy`}
+                  : allocGate.isFullyAllocated
+                  ? `Đang xuất kho đủ ${allocGate.totalAssignedMachines}/${totalMachineQty} máy`
+                  : `Đã giao ${deliveredQty}/${totalMachineQty} máy (Lập ${allocGate.totalAssignedMachines}/${totalMachineQty})`}
               </span>
             )}
           </div>
           {onCreateDelivery && (
-            <button
-              type="button"
-              onClick={onCreateDelivery}
-              className="text-xs font-bold text-cyan-900 hover:text-cyan-950 bg-cyan-100 px-3 py-1.5 rounded-lg border border-cyan-300 transition-colors cursor-pointer shadow-2xs"
-            >
-              {isService ? '+ Lập Biên Bản Nghiệm Thu' : '+ Lập Phiếu Xuất Kho'}
-            </button>
+            allocGate.isFullyAllocated ? (
+              <span
+                title="Đơn hàng/Hợp đồng đã điều phối đủ số lượng máy xuất kho. Không thể tạo thêm phiếu mới."
+                className="text-2xs font-extrabold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-300 shadow-2xs flex items-center gap-1.5 cursor-not-allowed select-none"
+              >
+                <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                <span>{isService ? '✓ Đã đủ biên bản nghiệm thu' : `✓ Đã đủ SL xuất kho (${allocGate.totalAssignedMachines}/${totalMachineQty} máy)`}</span>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={onCreateDelivery}
+                className="text-xs font-bold text-cyan-900 hover:text-cyan-950 bg-cyan-100 hover:bg-cyan-200 px-3 py-1.5 rounded-lg border border-cyan-300 transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5"
+              >
+                <span>{isService ? '+ Lập Biên Bản Nghiệm Thu' : allocGate.buttonLabel}</span>
+              </button>
+            )
           )}
         </div>
 
@@ -611,57 +632,82 @@ export function DocumentOmniFlowRibbon({
         ) : (
           <div className="space-y-2.5">
             {deliveries.map((del: any) => {
-              const isDelivered = !!del.ngayGiaoThucTe;
+              const meta = resolveDeliveryVoucherMeta(del);
               return (
                 <div
                   key={del.id}
                   onClick={() => openDrawer('delivery', del.id)}
-                  className="p-3 bg-slate-50 hover:bg-cyan-50/40 rounded-lg border border-slate-300 hover:border-cyan-400 transition-all cursor-pointer flex flex-col gap-2"
+                  className="p-3 bg-slate-50 hover:bg-cyan-50/40 rounded-lg border border-slate-300 hover:border-cyan-400 transition-all cursor-pointer flex flex-col gap-2.5"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold bg-white text-cyan-900 px-2 py-0.5 rounded border border-cyan-300">
-                        {del.soPhieuGiaoHang || del.id}
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs font-black bg-white text-cyan-950 px-2.5 py-0.5 rounded border border-cyan-400 shadow-2xs">
+                        {meta.displayCode}
                       </span>
+                      {meta.erpCode && (
+                        <span className="font-mono text-xs font-bold bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-300" title="Số Phiếu Xuất ERP">
+                          PXK: {meta.erpCode}
+                        </span>
+                      )}
                       <span
-                        className={`text-3xs px-2 py-0.5 rounded font-bold uppercase border ${
-                          isDelivered
+                        className={`text-3xs px-2 py-0.5 rounded font-extrabold uppercase border flex items-center gap-1 ${
+                          meta.isDelivered
                             ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
                             : 'bg-amber-100 text-amber-900 border-amber-300'
                         }`}
                       >
-                        {isDelivered 
+                        {meta.isDelivered && <CheckCircle2 size={10} className="text-emerald-700" />}
+                        {meta.isDelivered 
                           ? (isService ? '✓ Đã nghiệm thu' : '✓ Đã bàn giao thực tế') 
                           : (isService ? 'Đang triển khai' : 'Đang xử lý xuất kho')}
                       </span>
                     </div>
-                    <span className="text-xs font-semibold text-slate-700 font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                      {isDelivered
-                        ? `${isService ? 'N.Thu:' : 'Bàn giao:'} ${formatDate(del.ngayGiaoThucTe)}`
-                        : `Kế hoạch: ${formatDate(del.ngayGiaoMay)}`}
+                    <span className="text-xs font-semibold text-slate-800 font-mono bg-white px-2.5 py-0.5 rounded border border-slate-300 shadow-2xs">
+                      {meta.isDelivered
+                        ? `${isService ? 'N.Thu:' : 'Bàn giao:'} ${formatDate(meta.deliveredDate)}`
+                        : `Kế hoạch: ${formatDate(meta.plannedDate)}`}
                     </span>
                   </div>
+
+                  {/* Ký nhận / Xác nhận bàn giao thực tế Telemetry */}
+                  {meta.isDelivered ? (
+                    <div className="px-3 py-1.5 bg-emerald-50 rounded-lg border border-emerald-200 text-2xs text-emerald-950 flex items-center justify-between flex-wrap gap-2">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <ShieldCheck size={13} className="text-emerald-600 shrink-0" />
+                        XÁC NHẬN GIAO HÀNG: <span className="font-mono">{formatDate(meta.deliveredDate)}</span>
+                      </span>
+                      <span>Người ký nhận: <strong className="font-black text-slate-900">{meta.recipientName || 'Khách hàng'}</strong></span>
+                    </div>
+                  ) : (
+                    <div className="px-3 py-1.5 bg-amber-50/80 rounded-lg border border-amber-200 text-2xs text-amber-950 flex items-center justify-between flex-wrap gap-2">
+                      <span className="font-semibold flex items-center gap-1.5">
+                        <Clock size={12} className="text-amber-700 shrink-0" />
+                        Tiến độ xuất kho: <strong className="text-slate-900">{meta.plannedDate ? `Dự kiến giao ${formatDate(meta.plannedDate)}` : 'Đang chuẩn bị máy'}</strong>
+                      </span>
+                      <span className="text-amber-900 font-bold">Chưa xác nhận bàn giao thực tế</span>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-2xs text-slate-700 font-medium">
                     <div>
                       <span className="text-slate-500 font-bold">{isService ? 'Đơn vị thực hiện:' : 'Tài xế / Vận chuyển:'}</span>{' '}
-                      <strong className="text-slate-900">{del.tenNguoiGiao || del.donViVanChuyen || 'N/A'}</strong>
+                      <strong className="text-slate-900">{meta.carrierName || 'N/A'}</strong>
                     </div>
                     <div>
                       <span className="text-slate-500 font-bold">{isService ? 'Đại diện nghiệm thu:' : 'Người nhận máy:'}</span>{' '}
-                      <strong className="text-slate-900">{del.tenNguoiNhan || 'N/A'}</strong>
+                      <strong className="text-slate-900">{meta.recipientName || 'N/A'}</strong>
                     </div>
                     <div>
                       <span className="text-slate-500 font-bold">Kỹ thuật phụ trách:</span>{' '}
-                      <strong className="text-slate-900">{del.kyThuatBanGiao || del.nguoiPhuTrach || 'Đội kỹ thuật SGM'}</strong>
+                      <strong className="text-slate-900">{meta.technicianName || 'Đội kỹ thuật SGM'}</strong>
                     </div>
                   </div>
 
                   {/* Serial chips in delivery */}
-                  {del.danhSachMaMay && del.danhSachMaMay.length > 0 && (
+                  {meta.machineList && meta.machineList.length > 0 && (
                     <div className="flex items-center gap-1.5 flex-wrap pt-1.5 border-t border-slate-200">
                       <span className="text-2xs font-bold text-slate-700 uppercase">Mã máy bàn giao:</span>
-                      {del.danhSachMaMay.map((m: string, i: number) => (
+                      {meta.machineList.map((m: string, i: number) => (
                         <span
                           key={i}
                           className="font-mono text-xs font-bold bg-white text-slate-900 px-2 py-0.5 rounded border border-slate-300"

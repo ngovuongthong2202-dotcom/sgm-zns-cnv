@@ -259,9 +259,9 @@ export function QuotationDetailDrawer({
       relatedDeliveries={matchingDeliveries}
       relatedPayments={matchingPayments}
       focusTarget={flowFocusTarget}
-      onCreateContract={() => navigate(`/contracts/new?fromQuotation=${quotation.id}`)}
-      onCreatePayment={() => navigate(`/payments/new?fromQuotation=${quotation.id}`)}
-      onCreateDelivery={matchingContracts[0] ? () => navigate(`/deliveries/new?fromContract=${matchingContracts[0].id}`) : undefined}
+      onCreateContract={() => navigate(`/contracts?fromQuotation=${quotation.id}`)}
+      onCreatePayment={() => navigate(`/payments?fromQuotation=${quotation.id}`)}
+      onCreateDelivery={matchingContracts[0] ? () => navigate(`/deliveries?fromContract=${matchingContracts[0].id}`) : undefined}
     />
   );
 

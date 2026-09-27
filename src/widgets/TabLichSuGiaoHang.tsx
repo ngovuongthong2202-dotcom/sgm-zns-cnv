@@ -2,8 +2,9 @@ import React from "react";
 import { Button } from "@/src/design-system/Button";
 import { Delivery } from "@/src/domain/schema/delivery.schema";
 import { formatDate } from "@/src/shared/utils/formatDate";
-import { Truck, Calendar, CheckCircle2, Clock, MapPin, Package, ExternalLink, User } from "lucide-react";
+import { Truck, Calendar, CheckCircle2, Clock, MapPin, Package, ExternalLink, User, ShieldCheck } from "lucide-react";
 import { useDrawerStack } from "@/src/contexts/DrawerStackContext";
+import { resolveDeliveryVoucherMeta } from "@/src/shared/utils/voucherResolver";
 
 interface TabLichSuGiaoHangProps {
   matchingDeliveries: Partial<Delivery>[];
@@ -43,8 +44,8 @@ export function TabLichSuGiaoHang({ matchingDeliveries, showCreateButton, onNavi
 
       <div className="space-y-3.5">
         {matchingDeliveries.map(d => {
-          const displayDeliveryCode = (d as any).deliveryId || d.soPhieuXuat || (d as any).maGiaoHang || (d.id && !d.id.includes('-') ? d.id : 'Phiếu giao hàng');
-          const isDelivered = !!d.ngayGiaoThucTe;
+          const meta = resolveDeliveryVoucherMeta(d);
+          const isDelivered = meta.isDelivered;
           const products = (d as any).products || [];
 
           return (
@@ -54,14 +55,19 @@ export function TabLichSuGiaoHang({ matchingDeliveries, showCreateButton, onNavi
             >
               {/* Header */}
               <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <div className={`p-1.5 rounded-lg ${isDelivered ? 'bg-emerald-100/80 text-emerald-700' : 'bg-amber-100/80 text-amber-700'}`}>
                     <Truck size={15} />
                   </div>
-                  <div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-mono text-xs font-black text-slate-900 group-hover:text-cyan-700 transition-colors">
-                      {displayDeliveryCode}
+                      {meta.displayCode}
                     </span>
+                    {meta.erpCode && (
+                      <span className="font-mono text-xs font-bold bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-300" title="Số phiếu xuất ERP">
+                        PXK: {meta.erpCode}
+                      </span>
+                    )}
                     {(d as any).tenKhachHang && (
                       <span className="text-2xs text-slate-500 block truncate max-w-xs">{(d as any).tenKhachHang}</span>
                     )}

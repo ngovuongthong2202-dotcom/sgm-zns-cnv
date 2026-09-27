@@ -19,6 +19,10 @@ import { RecordInstallmentModal } from './RecordInstallmentModal';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { notify } from '@/src/shared/utils/notify';
 import { checkProductionTriggerThreshold, ProductionTriggerResult } from '@/src/shared/utils/vietnamBusinessDays';
+import { calculateMachineAllocation } from '@/src/shared/utils/voucherResolver';
+import { DeliveryFormModal } from '@/src/modules/fulfillment/ui/components/DeliveryFormModal';
+import { useSharedFields } from '@/src/hooks/useSharedFields';
+import { Truck } from 'lucide-react';
 
 import { Button } from '@/src/design-system/Button';
 
@@ -50,6 +54,8 @@ export function PaymentDetailDrawer({
   const [activeTab, setActiveTab] = useState<'overview' | 'flow' | 'nexus'>('overview');
   const [flowFocusTarget, setFlowFocusTarget] = useState<'quotation' | 'contract' | 'delivery' | 'payment'>('payment');
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+  const { nguoiPhuTrachList } = useSharedFields();
   const { confirm } = useConfirm();
 
   useEffect(() => {
@@ -539,6 +545,36 @@ export function PaymentDetailDrawer({
   const pStatus = (payment.tinhTrangThanhToan || '').toLowerCase().trim();
   const isChuaTT = pStatus === 'chưa tt' || pStatus === 'chua tt' || pStatus === 'chưa thanh toán';
 
+  // Dynamic Machine Allocation Gate
+  const allocGate = useMemo(
+    () => calculateMachineAllocation(contractDoc || _quotationDoc, deliveries),
+    [contractDoc, _quotationDoc, deliveries]
+  );
+
+  const handleCreateDelivery = () => {
+    const targetDoc = contractDoc || _quotationDoc;
+    if (!targetDoc) {
+      notify.warning('Hồ sơ thanh toán này chưa liên kết với Hợp đồng hoặc Báo giá.');
+      return;
+    }
+    if (allocGate.isFullyAllocated) {
+      notify.warning(`Đơn hàng/Hợp đồng này đã điều phối đủ ${allocGate.totalAssignedMachines}/${allocGate.totalOrderMachines} máy xuất kho. Không thể tạo thêm phiếu!`);
+      return;
+    }
+    setIsDeliveryModalOpen(true);
+  };
+
+  const handleSaveDelivery = async (data: any) => {
+    try {
+      const deliveryRepo = repositoryFactory.get<any>('deliveries');
+      await deliveryRepo.create(data);
+      notify.success('Lập phiếu xuất kho thành công!');
+      setIsDeliveryModalOpen(false);
+    } catch (err: any) {
+      notify.error(err.message || 'Không thể tạo phiếu xuất kho');
+    }
+  };
+
   // Horizon HUD (Omni-Sovereign Cockpit Matrix)
   const horizonHud = (
     <DrawerHeaderCockpitHUD
@@ -554,156 +590,213 @@ export function PaymentDetailDrawer({
     <>
       <DetailDrawer
         isOpen={isOpen}
-      onClose={onClose}
-      modal={modal}
-      className={className}
-      title={`XÁC NHẬN THANH TOÁN: ${payment.paymentId || 'N/A'}`}
-      subTitle={
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-slate-600 text-xs font-semibold">
-            {payment.tinhTrangThanhToan || '---'}
-          </span>
-        </div>
-      }
-      entityId={paymentId}
-      entityType="payment"
-      icon={<CreditCard size={16} />}
-      size="studio"
-      horizonHud={horizonHud}
-      tabs={
-        <div className="flex items-center gap-6 border-b border-slate-100 pb-px -mb-[9px] select-none pl-1 overflow-x-auto scrollbar-hide">
-          {(
-            [
-              { id: 'overview', label: 'Tổng quan' },
-              { id: 'flow', label: 'Dòng chảy 360°', count: (_quotationDoc ? 1 : 0) + (contractDoc ? 1 : 0) + allRelatedPayments.length + deliveries.length, loading: dLoading || pLoading },
-              { id: 'nexus', label: 'Nhật ký & Hoạt động' },
-            ] as const
-          ).map((tab) => {
-            const isTabActive = activeTab === tab.id;
-            return (
-              <button
-                type="button"
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`pb-2.5 text-xs font-semibold relative outline-none transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 border-0 bg-transparent ${
-                  isTabActive ? 'text-blue-700 font-bold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {tab.label}
-                {'count' in tab && (
-                  <span className={`text-3xs px-1.5 h-3.5 rounded-full ml-0.5 inline-flex items-center justify-center font-bold ${isTabActive ? 'bg-blue-100 text-blue-700' : 'bg-slate-150 text-slate-700'}`}>
-                    {tab.loading ? '...' : tab.count}
-                  </span>
-                )}
-                {isTabActive && (
-                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-700 rounded-t-full" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      }
-      footer={
-        <div className="flex w-full select-none items-center justify-between">
-          <div>
-            {onDelete && (
-              <Button
-                aria-label="Xoá"
-                variant="danger"
-                size="sm"
-                className="h-9 font-bold"
-                onClick={() => {
-                  confirm({
-                    title: 'Xóa giao dịch',
-                    message: 'Bạn có chắc chắn muốn xóa giao dịch thanh toán này? Hành động này không thể hoàn tác.',
-                    confirmText: 'Xóa',
-                    variant: 'danger'
-                  }).then((confirmed) => {
-                    if (confirmed) onDelete(payment);
-                  });
-                }}
-              >
-                Xoá
-              </Button>
-            )}
+        onClose={onClose}
+        modal={modal}
+        className={className}
+        title={`XÁC NHẬN THANH TOÁN: ${payment.paymentId || 'N/A'}`}
+        subTitle={
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-slate-600 text-xs font-semibold">
+              {payment.tinhTrangThanhToan || '---'}
+            </span>
           </div>
-          <div className="flex gap-2 justify-end">
-            <Button aria-label="Đóng" variant="secondary" size="sm" onClick={onClose} className="h-9 font-bold">
-              Đóng
-            </Button>
-
-            {onSendZns && (
-              <Button
-                aria-label="Gửi tin Zalo"
-                variant="subtle"
-                size="sm"
-                onClick={() => onSendZns(payment)}
-                className="h-9 font-bold"
-                leftIcon={<Send size={12} />}
-              >
-                Gửi tin Zalo
-              </Button>
-            )}
-
-            {onEdit && (
-              <Button
-                aria-label="Chỉnh sửa"
-                variant="dark"
-                size="sm"
-                onClick={() => {
-                  onEdit(payment);
-                  onClose();
-                }}
-                className="h-9 font-bold"
-                leftIcon={<Edit size={12} />}
-              >
-                Chỉnh sửa
-              </Button>
-            )}
+        }
+        entityId={paymentId}
+        entityType="payment"
+        icon={<CreditCard size={16} />}
+        size="studio"
+        horizonHud={horizonHud}
+        tabs={
+          <div className="flex items-center gap-6 border-b border-slate-100 pb-px -mb-[9px] select-none pl-1 overflow-x-auto scrollbar-hide">
+            {(
+              [
+                { id: 'overview', label: 'Tổng quan' },
+                { id: 'flow', label: 'Dòng chảy 360°', count: (_quotationDoc ? 1 : 0) + (contractDoc ? 1 : 0) + allRelatedPayments.length + deliveries.length, loading: dLoading || pLoading },
+                { id: 'nexus', label: 'Nhật ký & Hoạt động' },
+              ] as const
+            ).map((tab) => {
+              const isTabActive = activeTab === tab.id;
+              return (
+                <button
+                  type="button"
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`pb-2.5 text-xs font-semibold relative outline-none transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 border-0 bg-transparent ${
+                    isTabActive ? 'text-blue-700 font-bold' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {tab.label}
+                  {'count' in tab && (
+                    <span className={`text-3xs px-1.5 h-3.5 rounded-full ml-0.5 inline-flex items-center justify-center font-bold ${isTabActive ? 'bg-blue-100 text-blue-700' : 'bg-slate-150 text-slate-700'}`}>
+                      {tab.loading ? '...' : tab.count}
+                    </span>
+                  )}
+                  {isTabActive && (
+                    <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-700 rounded-t-full" />
+                  )}
+                </button>
+              );
+            })}
           </div>
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        {activeTab === 'overview' && overviewPanel}
-        {activeTab === 'flow' && (
-          <DocumentOmniFlowRibbon
-            currentType="payment"
-            currentDoc={payment}
-            relatedQuotations={_quotationDoc ? [_quotationDoc] : []}
-            relatedContracts={contractDoc ? [contractDoc] : []}
-            relatedDeliveries={deliveries}
-            relatedPayments={allRelatedPayments}
-            focusTarget={flowFocusTarget}
-            onCreateDelivery={contractDoc ? () => navigate(`/deliveries/new?fromContract=${contractDoc.id}`) : undefined}
-          />
-        )}
-        {activeTab === 'nexus' && (
-          <UnifiedActivityAuditNexus
-            entityId={paymentId}
-            entityType="payment"
-            documentCode={payment.paymentId || (payment as any).soPhieuThu || (payment as any).soChungTu}
-            documentTypeLabel="chứng từ thanh toán"
-            creatorOrOfficer={payment.nguoiPhuTrach}
-            statusLabel={payment.tinhTrangThanhToan || 'Tất toán'}
-            statusColor={payment.tinhTrangThanhToan === 'Tất toán' ? 'text-emerald-700' : 'text-amber-700'}
-            createdAt={payment.createdAt || payment.ngayThanhToan}
-            updatedAt={(payment as any).updatedAt || (payment as any).ngayCapNhat}
-            customerName={payment.tenKhachHang}
-          />
-        )}
-      </div>
-    </DetailDrawer>
+        }
+        footer={
+          <div className="flex w-full select-none items-center justify-between">
+            <div>
+              {onDelete && (
+                <Button
+                  aria-label="Xoá"
+                  variant="danger"
+                  size="sm"
+                  className="h-9 font-bold bg-white text-red-700 border-red-200 hover:bg-red-50"
+                  onClick={() => {
+                    confirm({
+                      title: 'Xóa giao dịch',
+                      message: 'Bạn có chắc chắn muốn xóa giao dịch thanh toán này? Hành động này không thể hoàn tác.',
+                      confirmText: 'Xóa',
+                      variant: 'danger'
+                    }).then((confirmed) => {
+                      if (confirmed) onDelete(payment);
+                    });
+                  }}
+                >
+                  Xoá
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2 justify-end items-center">
+              {/* Nút Tạo Phiếu Giao / Khóa khi đủ máy */}
+              {(contractDoc || _quotationDoc) && (
+                allocGate.isFullyAllocated ? (
+                  <Button
+                    aria-label="Đã đủ SL máy xuất kho"
+                    variant="secondary"
+                    size="sm"
+                    disabled
+                    className="h-9 font-bold text-emerald-800 bg-emerald-50 border-emerald-300 opacity-90 cursor-not-allowed"
+                  >
+                    ✓ Đã đủ máy ({allocGate.totalAssignedMachines}/{allocGate.totalOrderMachines})
+                  </Button>
+                ) : (
+                  <Button
+                    aria-label="Tạo phiếu giao"
+                    variant="subtle"
+                    size="sm"
+                    onClick={handleCreateDelivery}
+                    className="h-9 font-bold text-cyan-800 bg-cyan-50 hover:bg-cyan-100 border border-cyan-300"
+                    leftIcon={<Truck size={12} />}
+                  >
+                    + Phiếu giao
+                  </Button>
+                )
+              )}
 
-    {isRecordModalOpen && (
-      <RecordInstallmentModal
-        isOpen={isRecordModalOpen}
-        onClose={() => setIsRecordModalOpen(false)}
-        payment={payment}
-        defaultPayerName={payerName}
-        onSave={handleSaveInstallment}
-      />
-    )}
-  </>
+              <Button aria-label="Đóng" variant="secondary" size="sm" onClick={onClose} className="h-9 font-bold">
+                Đóng
+              </Button>
+
+              {onSendZns && (
+                <Button
+                  aria-label="Gửi tin Zalo"
+                  variant="subtle"
+                  size="sm"
+                  onClick={() => onSendZns(payment)}
+                  className="h-9 font-bold"
+                  leftIcon={<Send size={12} />}
+                >
+                  Gửi tin Zalo
+                </Button>
+              )}
+
+              {onEdit && (
+                <Button
+                  aria-label="Chỉnh sửa"
+                  variant="dark"
+                  size="sm"
+                  onClick={() => {
+                    onEdit(payment);
+                    onClose();
+                  }}
+                  className="h-9 font-bold"
+                  leftIcon={<Edit size={12} />}
+                >
+                  Chỉnh sửa
+                </Button>
+              )}
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {activeTab === 'overview' && overviewPanel}
+          {activeTab === 'flow' && (
+            <DocumentOmniFlowRibbon
+              currentType="payment"
+              currentDoc={payment}
+              relatedQuotations={_quotationDoc ? [_quotationDoc] : []}
+              relatedContracts={contractDoc ? [contractDoc] : []}
+              relatedDeliveries={deliveries}
+              relatedPayments={allRelatedPayments}
+              focusTarget={flowFocusTarget}
+              onCreateDelivery={contractDoc || _quotationDoc ? handleCreateDelivery : undefined}
+            />
+          )}
+          {activeTab === 'nexus' && (
+            <UnifiedActivityAuditNexus
+              entityId={paymentId}
+              entityType="payment"
+              documentCode={payment.paymentId || (payment as any).soPhieuThu || (payment as any).soChungTu}
+              documentTypeLabel="chứng từ thanh toán"
+              creatorOrOfficer={payment.nguoiPhuTrach}
+              statusLabel={payment.tinhTrangThanhToan || 'Tất toán'}
+              statusColor={payment.tinhTrangThanhToan === 'Tất toán' ? 'text-emerald-700' : 'text-amber-700'}
+              createdAt={payment.createdAt || payment.ngayThanhToan}
+              updatedAt={(payment as any).updatedAt || (payment as any).ngayCapNhat}
+              customerName={payment.tenKhachHang}
+            />
+          )}
+        </div>
+      </DetailDrawer>
+
+      {isRecordModalOpen && (
+        <RecordInstallmentModal
+          isOpen={isRecordModalOpen}
+          onClose={() => setIsRecordModalOpen(false)}
+          payment={payment}
+          defaultPayerName={payerName}
+          onSave={handleSaveInstallment}
+        />
+      )}
+
+      {isDeliveryModalOpen && (
+        <DeliveryFormModal
+          delivery={{
+            contractId: contractDoc?.id,
+            paymentId: payment.id,
+            quotationId: _quotationDoc?.id,
+            customerId: payment.customerId,
+            tenKhachHang: payment.tenKhachHang,
+            sdt: payment.sdt,
+            diaChiGiaoHang: (payment as any).diaChiGiaoHang || contractDoc?.diaChiGiaoHang || (payment as any).diaChi || '',
+            soHopDong: contractDoc?.soHopDong || payment.soHopDong,
+            soBaoGia: _quotationDoc?.soPhieuBaoGia,
+            soPhieuBaoGia: _quotationDoc?.soPhieuBaoGia,
+            ngayBaoGia: _quotationDoc?.ngayBaoGia,
+            giaTriHopDong: contractDoc?.totalAmount || (payment as any).tongGiaTri || (payment as any).totalAmount || payment.soTien || 0,
+            tinhTrangThanhToan: payment.tinhTrangThanhToan,
+            nguoiPhuTrach: payment.nguoiPhuTrach,
+            products: contractDoc?.products || _quotationDoc?.products || [],
+            slMay: allocGate.remainingMachines,
+          }}
+          payments={allRelatedPayments}
+          contracts={contractDoc ? [contractDoc] : []}
+          quotations={_quotationDoc ? [_quotationDoc] : []}
+          customers={customerDoc ? [customerDoc] : []}
+          deliveries={deliveries}
+          nguoiPhuTrachList={nguoiPhuTrachList}
+          onClose={() => setIsDeliveryModalOpen(false)}
+          onSave={handleSaveDelivery}
+        />
+      )}
+    </>
   );
 }

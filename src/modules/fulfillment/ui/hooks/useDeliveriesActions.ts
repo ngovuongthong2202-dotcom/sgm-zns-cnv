@@ -12,6 +12,7 @@ import { handleDatabaseError, OperationType } from '@/src/shared/errors/database
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { useEntityLifecycle } from '@/src/hooks/useEntityLifecycle';
 import { DeliveryStatusVO } from '@/src/domain/value-objects/DeliveryStatusVO';
+import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
 
 import { auditLogsRepo } from '@/src/data/repositories/system.repo';
 
@@ -37,7 +38,7 @@ export function useDeliveriesActions(
     if (!del.id) return;
     const ok = await confirm({
       title: 'Hủy xác nhận giao hàng',
-      message: `Bạn có chắc chắn muốn xóa/hủy thông tin xác nhận giao hàng của phiếu "${del.deliveryId || del.id}"? Phiếu sẽ quay về trạng thái "Đang giao", xóa ngày giao thực tế và cho phép chỉnh sửa hoặc xóa chứng từ.`,
+      message: `Bạn có chắc chắn muốn xóa/hủy thông tin xác nhận giao hàng của phiếu "${resolveDeliveryDisplayCode(del)}"? Phiếu sẽ quay về trạng thái "Đang giao", xóa ngày giao thực tế và cho phép chỉnh sửa hoặc xóa chứng từ.`,
       variant: 'warning',
       confirmText: 'Xác nhận hủy',
       cancelText: 'Quay lại'
@@ -116,11 +117,11 @@ export function useDeliveriesActions(
     const isAdmin = roleLower === 'admin' || roleLower === 'administrator' || roleLower === 'ban_giam_doc';
 
     let confirmTitle = 'Xóa phiếu giao';
-    let confirmMessage = `Bạn có chắc chắn muốn xóa phiếu giao hàng ${del.deliveryId || del.id}?`;
+    let confirmMessage = `Bạn có chắc chắn muốn xóa phiếu giao hàng ${resolveDeliveryDisplayCode(del)}?`;
 
     if (isCompleted) {
       confirmTitle = 'Xóa phiếu giao đã xác nhận thành công';
-      confirmMessage = `Phiếu giao hàng ${del.deliveryId || del.id} đã hoàn tất bàn giao thực tế (ngày ${del.ngayGiaoThucTe ? formatDate(del.ngayGiaoThucTe) : '---'}). Bạn có chắc chắn muốn HỦY XÁC NHẬN GIAO HÀNG và XÓA phiếu này không? Số lượng bàn giao sẽ được hoàn lại cho Hợp đồng / Báo giá liên quan.`;
+      confirmMessage = `Phiếu giao hàng ${resolveDeliveryDisplayCode(del)} đã hoàn tất bàn giao thực tế (ngày ${del.ngayGiaoThucTe ? formatDate(del.ngayGiaoThucTe) : '---'}). Bạn có chắc chắn muốn HỦY XÁC NHẬN GIAO HÀNG và XÓA phiếu này không? Số lượng bàn giao sẽ được hoàn lại cho Hợp đồng / Báo giá liên quan.`;
     }
 
     if (await confirm({ 
@@ -196,7 +197,7 @@ export function useDeliveriesActions(
         if (err.blockingDocuments?.length || err.detailedBlocks?.length) {
           showBlockingModal({
             title: 'Không thể xóa phiếu giao',
-            entityName: `Phiếu giao: ${del.deliveryId || del.id}`,
+            entityName: `Phiếu giao: ${resolveDeliveryDisplayCode(del)}`,
             reason: err.message,
             blockingDocuments: err.blockingDocuments,
             detailedBlocks: err.detailedBlocks

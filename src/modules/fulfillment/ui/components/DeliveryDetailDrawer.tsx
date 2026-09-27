@@ -17,6 +17,7 @@ import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
 import { DrawerHeaderCockpitHUD } from '@/src/widgets/DrawerHeaderCockpitHUD';
 import { parseVietnamAddressComplete } from '@/src/shared/services/vietnamAddressParser';
 import { ExportDeliveryPdf } from './ExportDeliveryPdf';
+import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
 
 import { Button } from '@/src/design-system/Button';
 
@@ -1017,7 +1018,7 @@ export function DeliveryDetailDrawer({
     <UnifiedActivityAuditNexus
       entityId={drawerDelivery?.id || ""}
       entityType="delivery"
-      documentCode={drawerDelivery?.deliveryId || drawerDelivery?.soPhieuXuat}
+      documentCode={resolveDeliveryDisplayCode(drawerDelivery)}
       documentTypeLabel="phiếu giao hàng"
       creatorOrOfficer={drawerDelivery?.nguoiPhuTrach}
       statusLabel={isCompleted ? 'Đã hoàn tất bàn giao' : 'Đang xử lý giao hàng'}
@@ -1045,10 +1046,18 @@ export function DeliveryDetailDrawer({
       onClose={onClose}
       modal={modal}
       className={className}
-      title={`XUẤT KHO VẬN CHUYỂN: ${drawerDelivery.soPhieuXuat || 'N/A'}`}
+      title={`XUẤT KHO VẬN CHUYỂN: ${drawerDelivery.soPhieuXuat || resolveDeliveryDisplayCode(drawerDelivery)}`}
       subTitle={
         <div className="flex items-center gap-2">
-          <span className="font-mono">{drawerDelivery.deliveryId}</span>
+          <span className="font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+            {resolveDeliveryDisplayCode(drawerDelivery)}
+          </span>
+          {drawerDelivery.soPhieuXuat && drawerDelivery.soPhieuXuat !== resolveDeliveryDisplayCode(drawerDelivery) && (
+            <>
+              •
+              <span className="text-slate-600 font-mono">ERP: {drawerDelivery.soPhieuXuat}</span>
+            </>
+          )}
           •
           <span className="text-slate-600">HĐ: {drawerDelivery.soHopDong || 'N/A'}</span>
           •

@@ -12,6 +12,11 @@ import { useConfirm } from '@/src/design-system/Confirm';
 import { useManualZnsBypass } from '@/src/hooks/useManualZnsBypass';
 import { toast } from 'react-hot-toast';
 import { cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';
+import { 
+  resolveDeliveryDisplayCode, 
+  resolvePaymentDisplayCode, 
+  calculateMachineAllocation 
+} from '@/src/shared/utils/voucherResolver';
 
 interface WorkflowTimelineProps {
   quotation: Quotation;
@@ -80,6 +85,11 @@ export function WorkflowTimeline({
   const relatedPayments = (payments || []).filter(isDocRelated);
   const relatedDeliveries = (deliveries || []).filter(isDocRelated);
 
+  const primaryContract = relatedContracts[0] || contracts[0];
+  const allocGate = primaryContract 
+    ? calculateMachineAllocation(primaryContract, relatedDeliveries)
+    : { isFullyAllocated: false, remainingMachines: 999, totalOrderMachines: 0, totalAssignedMachines: 0, buttonLabel: '+ Phiếu giao', allocationBadgeText: '' };
+
   // ZNS Status extractors
   const hasZnsSuccess = (doc: any) => normalizeLegacyStatus(doc?.trangThaiZns || doc?.trangThaiGuiTinBaoGia || doc?.trangThaiGuiTinHopDong || doc?.trangThaiGuiTinThanhToan || doc?.trangThaiGuiTinGiaoHang) === EntityZnsStatus.THANH_CONG;
   
@@ -124,7 +134,7 @@ export function WorkflowTimeline({
     title: 'Thanh Toán',
     type: 'Thanh toán',
     docId: payment?.id,
-    docNumber: payment?.paymentId,
+    docNumber: payment ? resolvePaymentDisplayCode(payment) : undefined,
     icon: <Wallet size={16} />,
     completed: !!payment,
     znsSuccess: payment ? hasZnsSuccess(payment) : false,
@@ -140,7 +150,7 @@ export function WorkflowTimeline({
     title: isService ? 'Nghiệm Thu' : 'Giao Hàng',
     type: isService ? 'Nghiệm thu' : 'Giao hàng',
     docId: delivery?.id,
-    docNumber: delivery?.deliveryId,
+    docNumber: delivery ? resolveDeliveryDisplayCode(delivery) : undefined,
     icon: isService ? <CheckCircle2 size={16} /> : <Truck size={16} />,
     completed: !!delivery,
     znsSuccess: delivery ? hasZnsSuccess(delivery) : false,
@@ -192,13 +202,22 @@ export function WorkflowTimeline({
                        + Phiếu thu
                      </button>
                    ) : step.id === 'delivery' && onCreateDelivery && (!isMachine || (relatedContracts.length > 0 && relatedPayments.length > 0)) ? (
-                     <button
-                       type="button"
-                       onClick={onCreateDelivery}
-                       className="text-3xs font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 px-2 py-0.5 rounded transition-all cursor-pointer shadow-2xs hover:shadow-xs mb-1"
-                     >
-                       + Phiếu giao
-                     </button>
+                      allocGate.isFullyAllocated ? (
+                        <span 
+                          className="text-3xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded cursor-not-allowed mb-1"
+                          title="Hợp đồng đã điều phối đủ số lượng máy xuất kho"
+                        >
+                          ✓ Đã đủ máy
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={onCreateDelivery}
+                          className="text-3xs font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 px-2 py-0.5 rounded transition-all cursor-pointer shadow-2xs hover:shadow-xs mb-1"
+                        >
+                          + Phiếu giao
+                        </button>
+                      )
                    ) : (
                      <span className="text-2xs text-slate-400 mb-1">{step.id === 'payment' && isMachine && relatedContracts.length === 0 ? 'Cần HĐ trước' : (step.id === 'delivery' && isMachine ? 'Cần TT trước' : 'Chưa tạo')}</span>
                    )

@@ -4,6 +4,7 @@ import { templateRendererService } from './template-renderer.service';
 import { z } from 'zod';
 import { formatDate } from '../../../shared/utils/formatDate';
 import { addVietnamWorkingDays } from '../../../shared/utils/vietnamBusinessDays';
+import { resolveDeliveryDisplayCode } from '../../../shared/utils/voucherResolver';
 
 export const ZnsBasePayloadSchema = z.object({
   tinhTrangThanhToan: z.string().optional(),
@@ -166,7 +167,7 @@ export class ZnsPayloadBuilder {
         rendered.time = p.time || p.ngayThanhToan || (p.createdAt ? formatDate(p.createdAt as string) : formatDate(new Date().toISOString()));
     }
     if (requiredVarsSet.has('so_phieu_xuat') && isEmp(rendered.so_phieu_xuat)) {
-        const spFallback = p.soPhieuXuat || (p as any).soPhieuGiaoHang || (p as any).deliveryCode || (p as any).id || 'PXK-AUTO';
+        const spFallback = p.soPhieuXuat || (p as any).soPhieuGiaoHang || (p as any).deliveryCode || resolveDeliveryDisplayCode(p) || 'PXK-AUTO';
         rendered.so_phieu_xuat = spFallback;
     }
     if (requiredVarsSet.has('ngay_giao_may') && isEmp(rendered.ngay_giao_may)) {
