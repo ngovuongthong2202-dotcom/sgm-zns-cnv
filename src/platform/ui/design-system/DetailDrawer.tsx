@@ -59,8 +59,8 @@ export function DetailDrawer({
     lg: 'sm:max-w-[480px] sm:w-[480px] w-full',
     xl: 'sm:max-w-[640px] sm:w-[640px] w-full',
     full: 'sm:max-w-[840px] sm:w-[840px] w-full',
-    docked: 'sm:max-w-[760px] lg:max-w-[860px] w-full',
-    studio: 'sm:max-w-[1140px] 2xl:max-w-[1440px] w-full',
+    docked: 'w-full sm:max-w-[min(65vw,960px)]',
+    studio: 'w-full sm:max-w-[min(94vw,1440px)]',
     screen: 'w-screen max-w-none'
   };
 

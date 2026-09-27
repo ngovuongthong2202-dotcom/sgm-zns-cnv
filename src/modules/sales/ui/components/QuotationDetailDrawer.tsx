@@ -10,13 +10,8 @@ import { swrColFetcher } from '@/src/data/swr-fetchers';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { Customer } from '@/src/domain/schema/customer.schema';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
-import { TabHopDongLienQuan } from "@/src/widgets/TabHopDongLienQuan";
-import { TabLichSuThanhToan } from "@/src/widgets/TabLichSuThanhToan";
-import { TabLichSuGiaoHang } from "@/src/widgets/TabLichSuGiaoHang";
-import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
-import { DocumentLifecycleTimeline } from "@/src/widgets/DocumentLifecycleTimeline";
-import { EntityAuditMetadataCard } from "@/src/widgets/EntityAuditMetadataCard";
-import { TabLienKet } from "@/src/widgets/TabLienKet";
+import { DocumentOmniFlowRibbon } from '@/src/widgets/DocumentOmniFlowRibbon';
+import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
 import { normalizeLegacyStatus, EntityZnsStatus } from '@/src/domain/enums/zns-status';
 import { QuotationDetailOverview } from './QuotationDetailOverview';
 import { QuotationDetailFooter } from './QuotationDetailFooter';
@@ -71,8 +66,16 @@ export function QuotationDetailDrawer({
   const navigate = useNavigate();
   const [isZnsLocked, setIsZnsLocked] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'contracts' | 'payments' | 'deliveries' | 'zns' | 'links' | 'audit' | 'revisions'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'flow' | 'nexus' | 'revisions'>('overview');
+  const [flowFocusTarget, setFlowFocusTarget] = useState<'quotation' | 'contract' | 'delivery' | 'payment'>('quotation');
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (quotation?.id) {
+      setActiveTab('overview');
+      setFlowFocusTarget('quotation');
+    }
+  }, [quotation?.id]);
 
   const handleOwnerChange = async (newOwner: string) => {
     if (!quotation?.id) return;
@@ -181,22 +184,20 @@ export function QuotationDetailDrawer({
     (d.soHopDong && matchingContractSos.has(d.soHopDong))
   );
 
-  // CUSTOM TABS CONTROLLERS
+  // CUSTOM TABS CONTROLLERS - Kiến trúc Tam Điểm (The Sovereign Triad)
+  const totalFlowDocs = 1 + matchingContracts.length + matchingPayments.length + matchingDeliveries.length;
+  const tabsConfig = [
+    { id: 'overview', label: 'Tổng quan' },
+    { id: 'flow', label: 'Dòng chảy 360°', count: totalFlowDocs },
+    { id: 'nexus', label: 'Nhật ký & Hoạt động' },
+  ];
+  if ((quotation.revisions?.length || 0) > 0) {
+    tabsConfig.push({ id: 'revisions', label: 'Phiên bản giá', count: quotation.revisions?.length } as any);
+  }
+
   const customTabsList = (
     <div className="flex items-center gap-6 border-b border-slate-100 pb-px -mb-[9px] select-none pl-1 overflow-x-auto scrollbar-hide">
-      {(
-        [
-          { id: 'overview', label: 'Tổng quan' },
-          { id: 'revisions', label: 'Phiên bản giá' },
-          { id: 'activity', label: 'Hoạt động' },
-          { id: 'contracts', label: 'Hợp đồng', count: matchingContracts.length },
-          { id: 'payments', label: 'Thanh toán', count: matchingPayments.length },
-          { id: 'deliveries', label: 'Giao hàng', count: matchingDeliveries.length },
-          { id: 'links', label: 'Liên kết' },
-          { id: 'zns', label: 'ZNS' },
-          { id: 'audit', label: 'Nhật ký' },
-        ] as const
-      ).map((tab) => {
+      {tabsConfig.map((tab) => {
         const isTabActive = activeTab === tab.id;
         return (
           <button
@@ -204,17 +205,17 @@ export function QuotationDetailDrawer({
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={`pb-2.5 text-xs font-semibold relative outline-none transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 border-0 bg-transparent ${
-              isTabActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+              isTabActive ? 'text-blue-700 font-bold' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             {tab.label}
             {'count' in tab && (
-              <span className={`text-3xs px-1.5 h-3.5 rounded-full ml-0.5 inline-flex items-center justify-center font-bold ${isTabActive ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
+              <span className={`text-3xs px-1.5 h-3.5 rounded-full ml-0.5 inline-flex items-center justify-center font-bold ${isTabActive ? 'bg-blue-100 text-blue-700' : 'bg-slate-150 text-slate-700'}`}>
                 {tab.count}
               </span>
             )}
             {isTabActive && (
-              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600 rounded-t-full" />
+              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-700 rounded-t-full" />
             )}
           </button>
         );
@@ -268,35 +269,25 @@ export function QuotationDetailDrawer({
     </div>
   );
 
-  // 2. HOẠT ĐỘNG TIMELINE PANEL
-  const timelinePanel = (
-    <DocumentLifecycleTimeline
+  // 2. DÒNG CHẢY 360° PANEL (DocumentOmniFlowRibbon)
+  const flowPanel = (
+    <DocumentOmniFlowRibbon
       currentType="quotation"
       currentDoc={quotation}
+      relatedQuotations={[quotation]}
       relatedContracts={matchingContracts}
-      relatedPayments={matchingPayments}
       relatedDeliveries={matchingDeliveries}
+      relatedPayments={matchingPayments}
+      focusTarget={flowFocusTarget}
+      onCreateContract={() => navigate(`/contracts/new?fromQuotation=${quotation.id}`)}
+      onCreatePayment={() => navigate(`/payments/new?fromQuotation=${quotation.id}`)}
+      onCreateDelivery={matchingContracts[0] ? () => navigate(`/deliveries/new?fromContract=${matchingContracts[0].id}`) : undefined}
     />
   );
 
-  // 3. HỢP ĐỒNG PANEL
-  const contractsPanel = <TabHopDongLienQuan matchingContracts={matchingContracts} showCreateButton={normalizeLegacyStatus(quotation.trangThaiGuiTinBaoGia) === EntityZnsStatus.THANH_CONG && normalizeLoai(quotation.loai) === QUOTATION_LOAI.MAY} onNavigateNew={() => navigate(`/contracts/new?fromQuotation=${quotation.id}`)} />;
-
-  // 4. THANH TOÁN PANEL
-  const paymentsPanel = <TabLichSuThanhToan matchingPayments={matchingPayments} showCreateButton={normalizeLegacyStatus(quotation.trangThaiGuiTinBaoGia) === EntityZnsStatus.THANH_CONG && normalizeLoai(quotation.loai) !== QUOTATION_LOAI.MAY} onNavigateNew={() => navigate(`/payments/new?fromQuotation=${quotation.id}`)} />;
-
-  // 5. GIAO HÀNG PANEL
-  const deliveriesPanel = <TabLichSuGiaoHang matchingDeliveries={matchingDeliveries} />;
-
-  // 6. ZNS HISTORY PANEL
-  const znsPanel = <TabLichSuZNS entityId={quotation.id || ""} entityType="quotation" />;
-
-  // 7. LIÊN KẾT TAB PANEL
-  const linksPanel = <TabLienKet entityId={quotation.id || ""} entityType="quotation" />;
-
-  // 8. AUDIT PANEL
-  const auditPanel = (
-    <EntityAuditMetadataCard
+  // 3. NHẬT KÝ & HOẠT ĐỘNG PANEL (UnifiedActivityAuditNexus)
+  const nexusPanel = (
+    <UnifiedActivityAuditNexus
       entityId={quotation.id || ""}
       entityType="quotation"
       documentCode={quotation.soPhieuBaoGia}
@@ -306,7 +297,7 @@ export function QuotationDetailDrawer({
       statusColor={(quotation as any).trangThaiBaoGia === 'Đã duyệt' ? 'text-emerald-700' : 'text-blue-700'}
       createdAt={(quotation as any).createdAt || quotation.ngayBaoGia}
       updatedAt={(quotation as any).updatedAt || (quotation as any).ngayCapNhat}
-      customerName={quotation.tenKhachHang}
+      customerName={customer?.tenKhachHang || quotation.tenKhachHang}
     />
   );
 
@@ -381,13 +372,8 @@ export function QuotationDetailDrawer({
                   notify.info('Vui lòng chọn khách hàng mới cho báo giá này.');
               }}
           />}
-          {activeTab === 'activity' && timelinePanel}
-          {activeTab === 'contracts' && contractsPanel}
-          {activeTab === 'payments' && paymentsPanel}
-          {activeTab === 'deliveries' && deliveriesPanel}
-          {activeTab === 'links' && linksPanel}
-          {activeTab === 'zns' && znsPanel}
-          {activeTab === 'audit' && auditPanel}
+          {activeTab === 'flow' && flowPanel}
+          {activeTab === 'nexus' && nexusPanel}
         </div>
       </DetailDrawer>
       {isSaveModalOpen && (

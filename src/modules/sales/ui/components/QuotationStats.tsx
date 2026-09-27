@@ -56,10 +56,8 @@ export function QuotationStats({
     };
 
     const formatCurrency = (val: number | null | undefined) => {
-      if (val === null || val === undefined || isNaN(val)) return '0 đ';
-      if (val >= 1000000000) return (val / 1000000000).toFixed(1).replace(/\.0$/, '') + ' tỷ';
-      if (val >= 1000000) return (val / 1000000).toFixed(1).replace(/\.0$/, '') + ' tr';
-      return val.toLocaleString('vi-VN');
+      if (val === null || val === undefined || isNaN(val)) return '0 ₫';
+      return new Intl.NumberFormat('vi-VN').format(val) + ' ₫';
     };
 
     const calcStats = (type: string | null) => {
@@ -188,11 +186,11 @@ export function QuotationStats({
             <div className="grid grid-cols-2 gap-x-1.5 gap-y-1 mt-0.5">
               <div className="flex flex-col min-w-0">
                 <span className="text-3xs text-slate-500 font-medium truncate">SL / Giá trị</span>
-                <span className="text-xs font-semibold text-slate-900 truncate">{stat.count} / {stat.totalValue}</span>
+                <span className="text-xs font-semibold font-currency tabular-nums text-slate-900 truncate">{stat.count} / {stat.totalValue}</span>
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-3xs text-slate-500 font-medium truncate">DS Chốt</span>
-                <span className="text-xs font-semibold text-emerald-600 truncate">{stat.totalPayment}</span>
+                <span className="text-xs font-semibold font-currency tabular-nums text-emerald-700 truncate">{stat.totalPayment}</span>
               </div>
               <div className="flex flex-col col-span-2">
                 <span className="text-3xs text-slate-500 font-medium">Tỷ lệ chốt HĐ</span>

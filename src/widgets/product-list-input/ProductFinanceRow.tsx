@@ -6,6 +6,7 @@ import { ProductBaoHanhFields } from './ProductBaoHanhFields';
 import { FinancialEngine } from '@/src/shared/utils/financialEngine';
 import { computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
+import { parseFinancialInput } from '@/src/platform/ui/forms/useSmartFormInput';
 
 interface ProductFinanceRowProps {
   key?: React.Key;
@@ -52,7 +53,9 @@ export function ProductFinanceRow({
            <div className="flex flex-col gap-1.5 focus-within:ring-1 focus-within:ring-blue-100 rounded-md">
               <div className="flex items-center gap-2">
                 <input type="text" placeholder="Mã SP"
-                  value={p.productId || ''} onChange={e => onUpdate(idx, 'productId', e.target.value)}
+                  value={p.productId || ''} 
+                  onChange={e => onUpdate(idx, 'productId', e.target.value)}
+                  onBlur={e => onUpdate(idx, 'productId', e.target.value.trim().toUpperCase())}
                   readOnly={readOnly || disabled}
                   className="w-28 text-xs font-mono font-bold text-blue-700 bg-blue-50/70 border border-blue-200/80 rounded px-2 py-0.5 outline-none focus:border-blue-400 placeholder:text-blue-300"
                 />
@@ -63,12 +66,16 @@ export function ProductFinanceRow({
                 )}
               </div>
               <input type="text" placeholder="Tên sản phẩm / quy cách..."
-                value={p.productName || ''} onChange={e => onUpdate(idx, 'productName', e.target.value)}
+                value={p.productName || ''} 
+                onChange={e => onUpdate(idx, 'productName', e.target.value)}
+                onBlur={e => onUpdate(idx, 'productName', e.target.value.trim())}
                 readOnly={readOnly || disabled}
                 className="w-full text-xs font-bold text-slate-900 border border-slate-200 hover:border-slate-300 focus:border-blue-400 focus:bg-white rounded px-2 py-1 outline-none transition-all placeholder:text-slate-400 bg-white"
               />
               <input type="text" placeholder="Ghi chú thêm..."
-                value={p.ghiChu || ''} onChange={e => onUpdate(idx, 'ghiChu', e.target.value)}
+                value={p.ghiChu || ''} 
+                onChange={e => onUpdate(idx, 'ghiChu', e.target.value)}
+                onBlur={e => onUpdate(idx, 'ghiChu', e.target.value.trim())}
                 readOnly={readOnly || disabled}
                 className="w-full text-2xs italic text-slate-500 border border-slate-100 hover:border-slate-200 focus:border-blue-400 focus:bg-white rounded px-2 py-0.5 outline-none transition-all placeholder:text-slate-300 bg-white/70"
               />
@@ -101,7 +108,9 @@ export function ProductFinanceRow({
                 className="w-full text-xs font-bold text-center text-slate-800 border border-slate-200 rounded p-1 outline-none focus:border-blue-400 bg-white font-mono"
               />
               <input type="text" placeholder="ĐVT"
-                value={p.unit} onChange={e => onUpdate(idx, 'unit', e.target.value)}
+                value={p.unit} 
+                onChange={e => onUpdate(idx, 'unit', e.target.value)}
+                onBlur={e => onUpdate(idx, 'unit', e.target.value.trim())}
                 readOnly={readOnly || disabled}
                 className="w-full text-2xs font-medium text-center text-slate-500 border border-slate-200 rounded p-0.5 outline-none focus:border-blue-400 bg-white"
               />
@@ -116,6 +125,15 @@ export function ProductFinanceRow({
                 onChange={(e) => {
                   const val = FinancialEngine.toInteger(e.target.value);
                   onUpdate(idx, 'price', val);
+                }}
+                onBlur={(e) => {
+                  const resolved = parseFinancialInput(e.target.value);
+                  onUpdate(idx, 'price', resolved);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
                 }}
                 readOnly={readOnly || disabled}
                 className="w-full text-xs font-bold text-right text-slate-800 border border-slate-200 rounded p-1.5 outline-none focus:border-blue-400 bg-white pr-2 font-mono"

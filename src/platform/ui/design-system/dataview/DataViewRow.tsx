@@ -60,7 +60,7 @@ export const DataViewRow = React.memo(({
       tabIndex={0}
       data-index={typedVirtualRow.index}
       ref={measureElement}
-      className={`absolute top-0 left-0 min-w-full flex flex-col border-b border-slate-150/60 transition-all duration-150 cursor-pointer group/row outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 hover:bg-blue-50/70 hover:text-blue-950 ${bgClass}`}
+      className={`absolute top-0 left-0 min-w-full flex flex-col border-b border-slate-200 transition-all duration-150 cursor-pointer group/row outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 hover:bg-blue-50/70 hover:text-blue-950 ${bgClass}`}
       style={{
         transform: `translateY(${typedVirtualRow.start}px)`,
         height: 'auto', // Always use 'auto' to allow dynamic natural height measurement & prevent circular layout cache lock!
@@ -189,7 +189,7 @@ export const DataViewRow = React.memo(({
                         e.stopPropagation();
                       }
                     }}
-                    className={`px-4 ${pyClass} flex-shrink-0 flex items-center ${alignClass} ${isSticky ? `sticky left-0 z-10 shadow-[inset_-1px_0_0_#e2e8f0] bg-inherit` : ''} ${stickRight ? `sticky right-0 z-10 shadow-[inset_1px_0_0_#e2e8f0] bg-inherit max-xl:opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity` : ''} ${hiddenOnTablet ? 'hidden xl:flex' : 'flex'}`}
+                    className={`px-4 ${pyClass} flex-shrink-0 flex items-center border-r border-slate-200/60 last:border-r-0 ${alignClass} ${isSticky ? `sticky left-0 z-10 shadow-[inset_-1px_0_0_#e2e8f0] bg-inherit` : ''} ${stickRight ? `sticky right-0 z-10 shadow-[inset_1px_0_0_#e2e8f0] bg-inherit max-xl:opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity` : ''} ${hiddenOnTablet ? 'hidden xl:flex' : 'flex'}`}
                     style={{ width: index === 0 ? `calc(var(--col-${typedCell.column.id}) + ${depthPadding}px)` : `calc(var(--col-${typedCell.column.id}) + 0px)`, paddingLeft: index === 0 ? `${16 + depthPadding}px` : undefined }}
                   >
                     <div 

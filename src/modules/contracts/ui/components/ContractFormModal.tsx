@@ -150,7 +150,17 @@ export function ContractFormModal({ contract, contracts, quotations, nguoiPhuTra
         {/* 1-Screen Scrollable Body */}
         <form 
           id="contractForm" 
-          onKeyDown={handleEnterToTab}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              handleSubmit(onSubmitForm, (err) => {
+                notify.error("Vui lòng kiểm tra lại các trường bắt buộc.");
+                console.warn("Contract form validation failures:", err);
+              })();
+              return;
+            }
+            handleEnterToTab(e);
+          }}
           onSubmit={handleSubmit(onSubmitForm, (err) => {
             notify.error("Vui lòng kiểm tra lại các trường bắt buộc.");
             console.warn("Contract form validation failures:", err);
@@ -173,6 +183,7 @@ export function ContractFormModal({ contract, contracts, quotations, nguoiPhuTra
               />
               <ContractDefinitionSection
                 register={register}
+                setValue={setValue}
                 errors={errors}
                 estimatedCompletionDate={estimatedCompletionDate}
                 nguoiPhuTrachList={effectiveNguoiPhuTrachList}

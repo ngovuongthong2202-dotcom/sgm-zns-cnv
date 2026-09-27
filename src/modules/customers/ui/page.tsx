@@ -108,7 +108,7 @@ export default function CustomersFeature() {
       canSendZns ? handleSendZns : undefined,
       undefined,
       sendingZnsIds,
-      (c) => setDrawerState({ mode: 'view', customer: c, initialTab: 'quotes' })
+      (c) => setDrawerState({ mode: 'view', customer: c, initialTab: 'flow' })
     );
   }, [handleDeleteCustomer, handleSendZns, sendingZnsIds, setDrawerState, userData?.role, quotations]);
 

@@ -180,7 +180,27 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
         {/* 2-Column desktop design for information density */}
         <form 
           id="quotationForm"
-          onKeyDown={handleEnterToTab}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              handleSubmit(async (data: import('@/src/domain/schema/quotation.schema').Quotation) => {
+                if (!data.customerId) {
+                  notify.error("Vui lòng chọn đối tác khách hàng pháp nhân trước khi lưu.");
+                  return;
+                }
+                if (!data.products || data.products.length === 0) {
+                  notify.error("Vui lòng khai báo danh mục sản phẩm thiết bị.");
+                  return;
+                }
+                await submitForm(data);
+              }, (err) => {
+                notify.error("Vui lòng rà soát lại các trường thông tin bắt buộc còn thiếu.");
+                console.warn("Quotation validation error:", err);
+              })();
+              return;
+            }
+            handleEnterToTab(e);
+          }}
           onSubmit={handleSubmit(async (data: import('@/src/domain/schema/quotation.schema').Quotation) => {
             if (!data.customerId) {
               notify.error("Vui lòng chọn đối tác khách hàng pháp nhân trước khi lưu.");

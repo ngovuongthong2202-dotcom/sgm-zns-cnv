@@ -6,6 +6,7 @@ import { formatDate } from '@/src/shared/utils/formatDate';
 import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
+import { useSmartFormInput } from '@/src/platform/ui/forms/useSmartFormInput';
 
 export function ContractBasisSection({
   watch,
@@ -85,9 +86,10 @@ export function ContractBasisSection({
   );
 }
 
-export function ContractDefinitionSection({ register, errors, estimatedCompletionDate, nguoiPhuTrachList, businessLock, watch }: any) {
+export function ContractDefinitionSection({ register, setValue, errors, estimatedCompletionDate, nguoiPhuTrachList, businessLock, watch }: any) {
   const { user, userData } = useAuth();
   const isAdmin = isAdministratorRole(userData, user);
+  const { handleBlurUppercase, handleBlurTrim } = useSmartFormInput();
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
       <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -100,13 +102,26 @@ export function ContractDefinitionSection({ register, errors, estimatedCompletio
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
           <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Số Hợp Đồng <span className="text-red-650">*</span></label>
-          <input aria-label="Số Hợp Đồng" disabled={businessLock.locked} {...register('soHopDong')} className="premium-input w-full font-mono font-bold text-slate-900 h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white disabled:bg-slate-100 disabled:opacity-75" placeholder="HD-XXXX/SGM" />
+          <input 
+            aria-label="Số Hợp Đồng" 
+            disabled={businessLock.locked} 
+            {...register('soHopDong')} 
+            onBlur={(e) => handleBlurUppercase(e, (val) => setValue?.('soHopDong', val, { shouldDirty: true }))}
+            className="premium-input w-full font-mono font-bold text-slate-900 h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white disabled:bg-slate-100 disabled:opacity-75" 
+            placeholder="HD-XXXX/SGM" 
+          />
           {errors.soHopDong && <p className="text-red-600 text-xs font-medium mt-1">{errors.soHopDong.message as string}</p>}
         </div>
 
         <div className="space-y-1">
           <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Số Đơn Hàng PO/ĐH <span className="text-red-650">*</span></label>
-          <input aria-label="Số Đơn Hàng PO" {...register('soDonHang')} className="premium-input w-full font-semibold h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white" placeholder="PO-XXXX" />
+          <input 
+            aria-label="Số Đơn Hàng PO" 
+            {...register('soDonHang')} 
+            onBlur={(e) => handleBlurUppercase(e, (val) => setValue?.('soDonHang', val, { shouldDirty: true }))}
+            className="premium-input w-full font-semibold h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white" 
+            placeholder="PO-XXXX" 
+          />
           {errors.soDonHang && <p className="text-red-600 text-xs font-medium mt-1">{errors.soDonHang.message as string}</p>}
         </div>
 
@@ -139,12 +154,24 @@ export function ContractDefinitionSection({ register, errors, estimatedCompletio
 
         <div className="space-y-1">
           <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Lý do gia hạn tiến độ</label>
-          <input aria-label="Lý do gia hạn" {...register('lyDoGiaHan')} className="premium-input w-full h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white" placeholder="Khách sửa khuôn máy, trễ móng xưởng..." />
+          <input 
+            aria-label="Lý do gia hạn" 
+            {...register('lyDoGiaHan')} 
+            onBlur={(e) => handleBlurTrim(e, (val) => setValue?.('lyDoGiaHan', val, { shouldDirty: true }))}
+            className="premium-input w-full h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white" 
+            placeholder="Khách sửa khuôn máy, trễ móng xưởng..." 
+          />
         </div>
 
         <div className="space-y-1">
           <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Người Đại Diện Ký Hợp Đồng</label>
-          <input aria-label="Người Đại Diện Ký" {...register('nguoiDaiDien')} className="premium-input w-full h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white" placeholder="Họ tên đại diện ký..." />
+          <input 
+            aria-label="Người Đại Diện Ký" 
+            {...register('nguoiDaiDien')} 
+            onBlur={(e) => handleBlurTrim(e, (val) => setValue?.('nguoiDaiDien', val, { shouldDirty: true }))}
+            className="premium-input w-full h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white" 
+            placeholder="Họ tên đại diện ký..." 
+          />
         </div>
 
         <div className="space-y-1">

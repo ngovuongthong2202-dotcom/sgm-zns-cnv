@@ -11,6 +11,7 @@ import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai
 import { ContractHoverCard } from '@/src/modules/contracts/ui/components/ContractHoverCard';
 import { QuotationHoverCard } from '@/src/modules/sales/ui/components/QuotationHoverCard';
 import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
+import { useSmartFormInput } from '@/src/platform/ui/forms/useSmartFormInput';
 
 interface PaymentRecordBasicFieldsProps {
   register: any;
@@ -45,6 +46,7 @@ export function PaymentRecordBasicFields({
 }: PaymentRecordBasicFieldsProps) {
   const { user, userData } = useAuth();
   const isAdmin = isAdministratorRole(userData, user);
+  const { handleBlurTrim, handleBlurUppercase } = useSmartFormInput();
   const watchAll = watch();
   const sourceVal = watchAll.sourceValue || '';
   const [selectedDoc, setSelectedDoc] = React.useState<any>(null);
@@ -420,9 +422,23 @@ export function PaymentRecordBasicFields({
                           {isContract ? 'Số Hợp Đồng' : 'Số Phiếu Báo Giá'}
                         </label>
                         {isContract ? (
-                          <input aria-label="Số hợp đồng" disabled={disabled} {...register('soHopDong')} className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" placeholder="HD..."/>
+                          <input 
+                            aria-label="Số hợp đồng" 
+                            disabled={disabled} 
+                            {...register('soHopDong')} 
+                            onBlur={(e) => handleBlurUppercase(e, (val) => setValue('soHopDong', val, { shouldDirty: true }))}
+                            className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" 
+                            placeholder="HD..."
+                          />
                         ) : (
-                          <input aria-label="Số phiếu báo giá" disabled={disabled} {...register('soPhieuBaoGia')} className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" placeholder="BG..."/>
+                          <input 
+                            aria-label="Số phiếu báo giá" 
+                            disabled={disabled} 
+                            {...register('soPhieuBaoGia')} 
+                            onBlur={(e) => handleBlurUppercase(e, (val) => setValue('soPhieuBaoGia', val, { shouldDirty: true }))}
+                            className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" 
+                            placeholder="BG..."
+                          />
                         )}
                     </div>
                     <div className="space-y-1">
@@ -433,6 +449,7 @@ export function PaymentRecordBasicFields({
                           aria-label="Số đơn hàng" 
                           disabled={disabled || isContract} 
                           {...register('soDonHang')} 
+                          onBlur={(e) => handleBlurUppercase(e, (val) => setValue('soDonHang', val, { shouldDirty: true }))}
                           className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" 
                           placeholder={isContract ? (watchAll.soDonHang ? watchAll.soDonHang : "Tự động kế thừa từ HĐ") : "Nhập số đơn hàng..."}
                         />
@@ -543,7 +560,13 @@ export function PaymentRecordBasicFields({
               <FileText size={14} /> 3. GHI CHÚ
             </h3>
             <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block">Ghi Chú & Mã UNC</label>
-            <textarea aria-label="Ghi chú" {...register('ghiChu')} className="premium-input w-full min-h-[80px] rounded-lg border border-slate-200 p-3 text-sm focus:border-slate-950 outline-none bg-white" placeholder="Paste link chứng từ, mã giao dịch NH..." />
+            <textarea 
+              aria-label="Ghi chú" 
+              {...register('ghiChu')} 
+              onBlur={(e) => handleBlurTrim(e, (val) => setValue('ghiChu', val, { shouldDirty: true }))}
+              className="premium-input w-full min-h-[80px] rounded-lg border border-slate-200 p-3 text-sm focus:border-slate-950 outline-none bg-white" 
+              placeholder="Paste link chứng từ, mã giao dịch NH..." 
+            />
         </div>
       </div>
 

@@ -12,12 +12,8 @@ import { swrColFetcher, swrDocFetcher } from '@/src/data/swr-fetchers';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { DrawerProductList } from '@/src/widgets/DrawerProductList';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
-import { TabLichSuThanhToan } from "@/src/widgets/TabLichSuThanhToan";
-import { TabLichSuGiaoHang } from "@/src/widgets/TabLichSuGiaoHang";
-import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
-import { DocumentLifecycleTimeline } from "@/src/widgets/DocumentLifecycleTimeline";
-import { EntityAuditMetadataCard } from "@/src/widgets/EntityAuditMetadataCard";
-import { TabLienKet } from "@/src/widgets/TabLienKet";
+import { DocumentOmniFlowRibbon } from '@/src/widgets/DocumentOmniFlowRibbon';
+import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
 import { checkContractLock } from '@/src/domain/policy/lock.policy';
 import { EntityBusinessLockWarning } from '@/src/widgets/EntityBusinessLockWarning';
 import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
@@ -64,11 +60,13 @@ export function ContractDetailDrawer({
   className,
 }: ContractDetailDrawerProps) {
   const { confirm } = useConfirm();
-  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'payments' | 'deliveries' | 'zns' | 'links' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'flow' | 'nexus'>('overview');
+  const [flowFocusTarget, setFlowFocusTarget] = useState<'quotation' | 'contract' | 'delivery' | 'payment'>('contract');
   
   useEffect(() => {
     if (drawerContract?.id) {
       setActiveTab('overview');
+      setFlowFocusTarget('contract');
     }
   }, [drawerContract?.id]);
 
@@ -169,18 +167,15 @@ export function ContractDetailDrawer({
   const isMachine = normalizeLoai(quotationDoc?.loai) === QUOTATION_LOAI.MAY;
   const lockResult = checkContractLock(drawerContract, pays, dels);
 
-  // TABS HEADERS
+  // TABS HEADERS - Kiến trúc Tam Điểm (The Sovereign Triad: 3 Tab chuẩn)
+  const totalFlowDocs = (quotationDoc ? 1 : 0) + 1 + dels.length + pays.length;
   const customTabsList = (
     <div className="flex items-center gap-6 border-b border-slate-100 pb-px -mb-[9px] select-none pl-1 overflow-x-auto scrollbar-hide">
       {(
         [
           { id: 'overview', label: 'Tổng quan' },
-          { id: 'activity', label: 'Hoạt động' },
-          { id: 'payments', label: 'Thanh toán', count: pays.length },
-          { id: 'deliveries', label: 'Giao hàng', count: dels.length },
-          { id: 'links', label: 'Liên kết' },
-          { id: 'zns', label: 'ZNS' },
-          { id: 'audit', label: 'Nhật ký' },
+          { id: 'flow', label: 'Dòng chảy 360°', count: totalFlowDocs },
+          { id: 'nexus', label: 'Nhật ký & Hoạt động' },
         ] as const
       ).map((tab) => {
         const isTabActive = activeTab === tab.id;
@@ -200,7 +195,7 @@ export function ContractDetailDrawer({
               </span>
             )}
             {isTabActive && (
-              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600 rounded-t-full" />
+              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-700 rounded-t-full" />
             )}
           </button>
         );
@@ -558,7 +553,10 @@ export function ContractDetailDrawer({
                       variant="subtle" 
                       size="xs" 
                       className="h-6 text-3xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200" 
-                      onClick={() => setActiveTab('payments')}
+                      onClick={() => {
+                        setFlowFocusTarget('payment');
+                        setActiveTab('flow');
+                      }}
                     >
                       Xem tình trạng TT ↗
                     </Button>
@@ -599,32 +597,24 @@ export function ContractDetailDrawer({
     </div>
   );
 
-  // 2. HOẠT ĐỘNG TIMELINE PANEL
-  const timelinePanel = (
-    <DocumentLifecycleTimeline
+  // 2. DÒNG CHẢY 360° PANEL (DocumentOmniFlowRibbon)
+  const flowPanel = (
+    <DocumentOmniFlowRibbon
       currentType="contract"
       currentDoc={drawerContract}
       relatedQuotations={quotationDoc ? [quotationDoc] : []}
-      relatedPayments={pays}
+      relatedContracts={[drawerContract]}
       relatedDeliveries={dels}
+      relatedPayments={pays}
+      focusTarget={flowFocusTarget}
+      onCreatePayment={onCreatePayment ? () => onCreatePayment(drawerContract) : undefined}
+      onCreateDelivery={onCreateDelivery ? () => onCreateDelivery(drawerContract) : undefined}
     />
   );
 
-  // 3. THANH TOÁN (PAYMENTS) PANEL
-  const paymentsPanel = <TabLichSuThanhToan matchingPayments={pays} showCreateButton={pays.length === 0 && !!onCreatePayment} onNavigateNew={() => onCreatePayment?.(drawerContract)} />;
-
-  // 4. GIAO HÀNG (DELIVERIES) PANEL
-  const deliveriesPanel = <TabLichSuGiaoHang matchingDeliveries={dels} showCreateButton={!!onCreateDelivery} onNavigateNew={() => onCreateDelivery?.(drawerContract)} />;
-
-  // 5. ZNS OA PANEL
-  const znsPanel = <TabLichSuZNS entityId={(drawerContract?.id || "")} entityType="contract" />;
-
-  // 6. LIÊN KẾT PANEL
-  const linksPanel = <TabLienKet entityId={(drawerContract?.id || "")} entityType="contract" />;
-
-  // 7. AUDIT PANEL
-  const auditPanel = (
-    <EntityAuditMetadataCard
+  // 3. NHẬT KÝ & HOẠT ĐỘNG PANEL (UnifiedActivityAuditNexus)
+  const nexusPanel = (
+    <UnifiedActivityAuditNexus
       entityId={drawerContract?.id || ""}
       entityType="contract"
       documentCode={drawerContract?.soHopDong}
@@ -715,7 +705,10 @@ export function ContractDetailDrawer({
                 variant="subtle" 
                 size="sm" 
                 className="h-9 font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200" 
-                onClick={() => setActiveTab('payments')}
+                onClick={() => {
+                  setFlowFocusTarget('payment');
+                  setActiveTab('flow');
+                }}
               >
                 Xem tình trạng thanh toán ↗
               </Button>
@@ -739,12 +732,8 @@ export function ContractDetailDrawer({
     >
       <div className="space-y-4">
         {activeTab === 'overview' && overviewPanel}
-        {activeTab === 'activity' && timelinePanel}
-        {activeTab === 'payments' && paymentsPanel}
-        {activeTab === 'deliveries' && deliveriesPanel}
-        {activeTab === 'links' && linksPanel}
-        {activeTab === 'zns' && znsPanel}
-        {activeTab === 'audit' && auditPanel}
+        {activeTab === 'flow' && flowPanel}
+        {activeTab === 'nexus' && nexusPanel}
       </div>
     </DetailDrawer>
   );

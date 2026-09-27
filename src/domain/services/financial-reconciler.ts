@@ -204,6 +204,113 @@ export function getPaymentRemainingBalance(p: Payment): number {
   return Math.max(0, fullAmount - collected);
 }
 
+export interface EnterpriseReceivablesReconciliation {
+  contractDebt: number;
+  standaloneDebt: number;
+  totalDebt: number;
+  contractPaid: number;
+  totalPaid: number;
+  contractTotalValue: number;
+}
+
+/**
+ * Động cơ Đối Soát Bút Toán Kép Tự Phục Hồi (Self-Healing Double-Entry Cross-Reconciler)
+ * Single Source of Truth cho toàn bộ chỉ số công nợ doanh nghiệp.
+ * Đảm bảo:
+ * 1. Nợ Hợp Đồng khớp 100% từng đồng giữa trang Hợp Đồng và Thanh Toán.
+ * 2. Nợ Bán Lẻ chỉ tính cho các phiếu thu độc lập không gắn contractId.
+ * 3. Tự phục hồi dữ liệu thiếu (Self-healing) nếu phiếu thu thiếu totalAmount bằng cách tra cứu Quotation gốc.
+ * 4. Loại bỏ 100% rủi ro tính trùng công nợ (No Double-Counting).
+ */
+export function reconcileEnterpriseReceivables(
+  payments: Payment[],
+  contracts: Contract[] = [],
+  quotations: any[] = []
+): EnterpriseReceivablesReconciliation {
+  // 1. Phân vùng Hợp Đồng (Contract-Governed Receivables)
+  const contractStats = reconcileContractStats(contracts || [], payments || []);
+  const contractDebt = contractStats.totalUnpaidValue;
+  const contractPaid = contractStats.totalPaidValue;
+  const contractTotalValue = contractStats.totalValue;
+
+  // 2. Phân vùng Bán Lẻ Thuần Túy (Standalone Non-Contract Receivables)
+  const validContractIds = new Set((contracts || []).map(c => c.id).filter(Boolean));
+  const validContractCodes = new Set((contracts || []).map(c => c.soHopDong).filter(Boolean));
+  
+  const quoMap = new Map<string, any>();
+  (quotations || []).forEach(q => {
+    if (q?.id) quoMap.set(q.id, q);
+    if (q?.soPhieuBaoGia) quoMap.set(q.soPhieuBaoGia, q);
+    if (q?.soBaoGia) quoMap.set(q.soBaoGia, q);
+  });
+
+  const standalonePayments = (payments || []).filter(p => {
+    if (!p) return false;
+    const pAny = p as any;
+    if (pAny.deletedAt || pAny.deleted_at || pAny.isDeleted) return false;
+    if (isPaymentCancelled(p.tinhTrangThanhToan)) return false;
+    
+    // Nếu phiếu có contractId hoặc soHopDong khớp với hợp đồng hợp lệ thì đã nằm trong contractStats!
+    if (p.contractId && validContractIds.has(p.contractId)) return false;
+    const pCode = p.soHopDong || pAny.contractCode;
+    if (pCode && validContractCodes.has(pCode)) return false;
+
+    return true;
+  });
+
+  let standaloneDebt = 0;
+  let standalonePaid = 0;
+
+  standalonePayments.forEach(p => {
+    const status = normalizePaymentStatus(p.tinhTrangThanhToan);
+    const collected = Number(p.soTien || 0);
+
+    if (hasActualCashCollected(p.tinhTrangThanhToan)) {
+      standalonePaid += collected;
+    }
+
+    if (status === PaymentCanonicalStatus.PAID_FULL || status === PaymentCanonicalStatus.CANCELLED) {
+      return;
+    }
+
+    const pAny = p as any;
+    let fullAmount = Number(
+      p.totalAmount !== undefined && p.totalAmount !== null
+        ? p.totalAmount
+        : (pAny.tongTienThanhToan !== undefined && pAny.tongTienThanhToan !== null
+        ? pAny.tongTienThanhToan
+        : 0)
+    );
+
+    // Self-healing: Nếu phiếu thu lẻ thiếu totalAmount, tự tra cứu sang Quotation gốc!
+    if (!fullAmount && p.quotationId && quoMap.has(p.quotationId)) {
+      const qDoc = quoMap.get(p.quotationId);
+      fullAmount = Number(qDoc?.totalAmount || qDoc?.tongGiaTri || qDoc?.tongTien || 0);
+    }
+    if (!fullAmount) {
+      fullAmount = collected;
+    }
+
+    if (status === PaymentCanonicalStatus.UNPAID) {
+      standaloneDebt += Math.max(0, fullAmount);
+    } else if (status === PaymentCanonicalStatus.PAID_PARTIAL) {
+      standaloneDebt += Math.max(0, fullAmount - collected);
+    }
+  });
+
+  const totalDebt = contractDebt + standaloneDebt;
+  const totalPaid = contractPaid + standalonePaid;
+
+  return {
+    contractDebt,
+    standaloneDebt,
+    totalDebt,
+    contractPaid,
+    totalPaid,
+    contractTotalValue
+  };
+}
+
 /**
  * Đối soát KPI toàn diện cho Module Thanh Toán (Billing)
  */

@@ -8,12 +8,9 @@ import { Payment, PaymentInstallment } from '@/src/domain/schema/payment.schema'
 import { CreditCard, Calendar, Clock, Send, DollarSign, Edit, Package, User, FileText, Plus } from 'lucide-react';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { StatusPill } from '@/src/widgets/StatusPill';
-import { TabLichSuGiaoHang } from "@/src/widgets/TabLichSuGiaoHang";
-import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
-import { TabLienKet } from "@/src/widgets/TabLienKet";
 import { DrawerProductList } from '@/src/widgets/DrawerProductList';
-import { DocumentLifecycleTimeline } from "@/src/widgets/DocumentLifecycleTimeline";
-import { EntityAuditMetadataCard } from "@/src/widgets/EntityAuditMetadataCard";
+import { DocumentOmniFlowRibbon } from '@/src/widgets/DocumentOmniFlowRibbon';
+import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
 import { ContractHoverCard } from '@/src/modules/contracts/ui/components/ContractHoverCard';
 import { QuotationHoverCard } from '@/src/modules/sales/ui/components/QuotationHoverCard';
 import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
@@ -49,13 +46,15 @@ export function PaymentDetailDrawer({
   modal,
   className,
 }: PaymentDetailDrawerProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'deliveries' | 'zns' | 'links' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'flow' | 'nexus'>('overview');
+  const [flowFocusTarget, setFlowFocusTarget] = useState<'quotation' | 'contract' | 'delivery' | 'payment'>('payment');
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const { confirm } = useConfirm();
 
   useEffect(() => {
     if (isOpen) {
       setActiveTab('overview');
+      setFlowFocusTarget('payment');
     }
   }, [isOpen, payment?.id]);
 
@@ -529,20 +528,9 @@ export function PaymentDetailDrawer({
     </div>
   );
 
-  // 3. GIAO HÀNG TRONG HỢP ĐỒNG LIÊN KẾT (TT-GH constraints)
   const navigate = useNavigate();
   const pStatus = (payment.tinhTrangThanhToan || '').toLowerCase().trim();
   const isChuaTT = pStatus === 'chưa tt' || pStatus === 'chua tt' || pStatus === 'chưa thanh toán';
-  const deliveriesPanel = (
-    <TabLichSuGiaoHang 
-      matchingDeliveries={deliveries} 
-      showCreateButton={!isChuaTT} 
-      onNavigateNew={() => {
-        onClose();
-        navigate('/deliveries', { state: { createFromPayment: payment } });
-      }} 
-    />
-  );
 
   // Horizon HUD (Top Status Pulse)
   const horizonHud = (
@@ -606,11 +594,8 @@ export function PaymentDetailDrawer({
           {(
             [
               { id: 'overview', label: 'Tổng quan' },
-              { id: 'activity', label: 'Hoạt động' },
-              { id: 'deliveries', label: 'Giao hàng', count: deliveries.length, loading: dLoading },
-              { id: 'links', label: 'Liên kết' },
-              { id: 'zns', label: 'ZNS' },
-              { id: 'audit', label: 'Nhật ký' },
+              { id: 'flow', label: 'Dòng chảy 360°', count: (_quotationDoc ? 1 : 0) + (contractDoc ? 1 : 0) + 1 + deliveries.length, loading: dLoading },
+              { id: 'nexus', label: 'Nhật ký & Hoạt động' },
             ] as const
           ).map((tab) => {
             const isTabActive = activeTab === tab.id;
@@ -630,7 +615,7 @@ export function PaymentDetailDrawer({
                   </span>
                 )}
                 {isTabActive && (
-                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600 rounded-t-full" />
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-700 rounded-t-full" />
                 )}
               </button>
             );
@@ -700,20 +685,20 @@ export function PaymentDetailDrawer({
     >
       <div className="space-y-4">
         {activeTab === 'overview' && overviewPanel}
-        {activeTab === 'activity' && (
-          <DocumentLifecycleTimeline
+        {activeTab === 'flow' && (
+          <DocumentOmniFlowRibbon
             currentType="payment"
             currentDoc={payment}
             relatedQuotations={_quotationDoc ? [_quotationDoc] : []}
             relatedContracts={contractDoc ? [contractDoc] : []}
             relatedDeliveries={deliveries}
+            relatedPayments={[payment]}
+            focusTarget={flowFocusTarget}
+            onCreateDelivery={contractDoc ? () => navigate(`/deliveries/new?fromContract=${contractDoc.id}`) : undefined}
           />
         )}
-        {activeTab === 'deliveries' && deliveriesPanel}
-        {activeTab === 'links' && <TabLienKet entityId={paymentId} entityType="payment" />}
-        {activeTab === 'zns' && <TabLichSuZNS entityId={paymentId} entityType="payment" />}
-        {activeTab === 'audit' && (
-          <EntityAuditMetadataCard
+        {activeTab === 'nexus' && (
+          <UnifiedActivityAuditNexus
             entityId={paymentId}
             entityType="payment"
             documentCode={payment.paymentId || (payment as any).soPhieuThu || (payment as any).soChungTu}

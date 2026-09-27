@@ -10,12 +10,10 @@ import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
 import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, ShieldCheck, Clock, RotateCcw, ChevronDown, ChevronUp, Wrench, Info } from 'lucide-react';
 import { StatusPill } from '@/src/widgets/StatusPill';
-import { TabLichSuZNS } from "@/src/widgets/TabLichSuZNS";
-import { TabLichSuHoatDong } from "@/src/widgets/TabLichSuHoatDong";
-import { TabLichSuHeThong } from "@/src/widgets/TabLichSuHeThong";
-import { TabLienKet } from "@/src/widgets/TabLienKet";
-import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
 import { DrawerProductList } from '@/src/widgets/DrawerProductList';
+import { DocumentOmniFlowRibbon } from '@/src/widgets/DocumentOmniFlowRibbon';
+import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
+import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
 import { ExportDeliveryPdf } from './ExportDeliveryPdf';
 
 import { Button } from '@/src/design-system/Button';
@@ -67,18 +65,26 @@ export function DeliveryDetailDrawer({
     if (!rawPaymentData) return null;
     return Array.isArray(rawPaymentData) ? rawPaymentData[0] : rawPaymentData;
   }, [rawPaymentData]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'links' | 'zns' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'flow' | 'nexus'>('overview');
+  const [flowFocusTarget, setFlowFocusTarget] = useState<'quotation' | 'contract' | 'delivery' | 'payment'>('delivery');
   const [showMismatchDetails, setShowMismatchDetails] = useState(false);
+
+  React.useEffect(() => {
+    if (drawerDelivery?.id) {
+      setActiveTab('overview');
+      setFlowFocusTarget('delivery');
+    }
+  }, [drawerDelivery?.id]);
+
+  const totalFlowDocs = (drawerQuotation ? 1 : 0) + (drawerContract ? 1 : 0) + 1 + (paymentDoc ? 1 : 0);
 
   const customTabsList = (
     <div className="flex items-center gap-6 border-b border-slate-100 pb-px -mb-[9px] select-none pl-1 overflow-x-auto scrollbar-hide">
       {(
         [
           { id: 'overview', label: 'Tổng quan' },
-          { id: 'activity', label: 'Hoạt động' },
-          { id: 'links', label: 'Liên kết' },
-          { id: 'zns', label: 'ZNS' },
-          { id: 'audit', label: 'Nhật ký' },
+          { id: 'flow', label: 'Dòng chảy 360°', count: totalFlowDocs },
+          { id: 'nexus', label: 'Nhật ký & Hoạt động' },
         ] as const
       ).map((tab) => {
         const isTabActive = activeTab === tab.id;
@@ -92,8 +98,13 @@ export function DeliveryDetailDrawer({
             }`}
           >
             {tab.label}
+            {'count' in tab && (
+              <span className={`text-3xs px-1.5 h-3.5 rounded-full ml-0.5 inline-flex items-center justify-center font-bold ${isTabActive ? 'bg-blue-100 text-blue-700' : 'bg-slate-150 text-slate-700'}`}>
+                {tab.count}
+              </span>
+            )}
             {isTabActive && (
-              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600 rounded-t-full" />
+              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-700 rounded-t-full" />
             )}
           </button>
         );
@@ -920,49 +931,36 @@ export function DeliveryDetailDrawer({
           </div>
         </div>
       </div>
-
-      <TabLichSuHoatDong entityId={drawerDelivery.id || ""} entityType="delivery" />
     </div>
   );
 
-  // 3. ZNS OA PANEL
-  const znsPanel = <TabLichSuZNS entityId={drawerDelivery.id || ""} entityType="delivery" />;
+  // 2. DÒNG CHẢY 360° PANEL (DocumentOmniFlowRibbon)
+  const flowPanel = (
+    <DocumentOmniFlowRibbon
+      currentType="delivery"
+      currentDoc={drawerDelivery}
+      relatedQuotations={drawerQuotation ? [drawerQuotation] : []}
+      relatedContracts={drawerContract ? [drawerContract] : []}
+      relatedDeliveries={[drawerDelivery]}
+      relatedPayments={paymentDoc ? [paymentDoc] : []}
+      focusTarget={flowFocusTarget}
+    />
+  );
 
-  // 4. LIÊN KẾT PANEL
-  const linksPanel = <TabLienKet entityId={drawerDelivery.id || ""} entityType="delivery" />;
-
-  // 5. AUDIT PANEL (Nhật ký hệ thống)
-  const auditPanel = (
-    <div className="space-y-4 pt-2">
-      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-        <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 mb-3 flex items-center gap-2 border-b border-slate-100 pb-2">
-          <ShieldCheck size={14} className="text-emerald-600" />
-          Hồ sơ kiểm toán chứng từ (System Audit Metadata)
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
-            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Mã hồ sơ hệ thống</span>
-            <span className="font-mono text-2xs font-bold text-slate-800 select-all">{drawerDelivery.id || '---'}</span>
-          </div>
-          <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
-            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Số hiệu phiếu giao</span>
-            <span className="font-mono text-2xs font-bold text-blue-700">{drawerDelivery.deliveryId || '---'}</span>
-          </div>
-          <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
-            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Người lập / Phụ trách</span>
-            <span className="font-semibold text-slate-800">{drawerDelivery.nguoiPhuTrach || '---'}</span>
-          </div>
-          <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
-            <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Trạng thái hồ sơ</span>
-            <span className={`font-bold ${isCompleted ? 'text-emerald-700' : 'text-blue-700'}`}>
-              {isCompleted ? 'Đã hoàn tất bàn giao' : 'Đang xử lý giao hàng'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <TabLichSuHeThong entityId={drawerDelivery.id || ""} entityType="delivery" />
-    </div>
+  // 3. NHẬT KÝ & HOẠT ĐỘNG PANEL (UnifiedActivityAuditNexus)
+  const nexusPanel = (
+    <UnifiedActivityAuditNexus
+      entityId={drawerDelivery?.id || ""}
+      entityType="delivery"
+      documentCode={drawerDelivery?.deliveryId || drawerDelivery?.soPhieuXuat}
+      documentTypeLabel="phiếu giao hàng"
+      creatorOrOfficer={drawerDelivery?.nguoiPhuTrach}
+      statusLabel={isCompleted ? 'Đã hoàn tất bàn giao' : 'Đang xử lý giao hàng'}
+      statusColor={isCompleted ? 'text-emerald-700' : 'text-blue-700'}
+      createdAt={(drawerDelivery as any)?.createdAt || drawerDelivery?.ngayGiaoMay}
+      updatedAt={(drawerDelivery as any)?.updatedAt || (drawerDelivery as any)?.ngayCapNhat}
+      customerName={drawerDelivery?.tenKhachHang}
+    />
   );
 
   // Horizon HUD (Top Status Pulse)
@@ -1078,10 +1076,8 @@ export function DeliveryDetailDrawer({
     >
       <div className="space-y-4">
         {activeTab === 'overview' && overviewPanel}
-        {activeTab === 'activity' && timelinePanel}
-        {activeTab === 'links' && linksPanel}
-        {activeTab === 'zns' && znsPanel}
-        {activeTab === 'audit' && auditPanel}
+        {activeTab === 'flow' && flowPanel}
+        {activeTab === 'nexus' && nexusPanel}
       </div>
     </DetailDrawer>
   );

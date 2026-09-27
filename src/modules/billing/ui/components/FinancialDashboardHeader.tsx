@@ -7,6 +7,8 @@ interface FinancialDashboardHeaderProps {
   collectedThisMonth: number;
   collectedThisYear: number;
   totalDebt: number;
+  contractDebt?: number;
+  standaloneDebt?: number;
   statsByStatus: {
     'Miễn phí': { contracts: number, customers: number },
     'Chưa TT': { contracts: number, customers: number },
@@ -33,6 +35,8 @@ export function FinancialDashboardHeader({
   collectedThisMonth, 
   collectedThisYear,
   totalDebt,
+  contractDebt,
+  standaloneDebt,
   statsByStatus,
   statsByType,
   activeTab,
@@ -126,9 +130,17 @@ export function FinancialDashboardHeader({
               <span className="text-3xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                 <AlertCircle size={13} className="text-amber-600 shrink-0" /> Công Nợ Tổng Cần Thu
               </span>
-              <span className="text-sm font-black font-currency text-amber-800 tracking-tight whitespace-nowrap tabular-nums mt-0.5">
-                {formatMoney(totalDebt)}
-              </span>
+              <div className="flex items-baseline gap-2 flex-wrap mt-0.5">
+                <span className="text-sm font-black font-currency text-amber-800 tracking-tight whitespace-nowrap tabular-nums">
+                  {formatMoney(totalDebt)}
+                </span>
+                {(contractDebt !== undefined || standaloneDebt !== undefined) && (
+                  <span className="text-3xs font-semibold text-slate-600 font-currency tabular-nums bg-amber-50/90 px-1.5 py-0.5 rounded border border-amber-200/80 inline-flex items-center gap-1" title={`Khớp 100% với Hợp đồng: ${formatMoney(contractDebt || 0)} | Nợ Bán Lẻ: ${formatMoney(standaloneDebt || 0)}`}>
+                    <span>Nợ HĐ:</span> <strong className="text-amber-900 font-bold">{formatMoney(contractDebt || 0)}</strong>
+                    {standaloneDebt ? <><span>• Lẻ:</span> <strong className="text-amber-900 font-bold">{formatMoney(standaloneDebt)}</strong></> : null}
+                  </span>
+                )}
+              </div>
             </div>
             {activeTab === 'PENDING' ? (
               <span className="text-3xs bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded font-bold">Đang lọc</span>

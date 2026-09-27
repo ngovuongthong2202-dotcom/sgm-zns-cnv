@@ -7,19 +7,12 @@ import { CustomerOverviewBento } from './CustomerOverviewBento';
 import { CustomerActivityTimeline } from './CustomerActivityTimeline';
 import { CustomerNotesPanel } from './CustomerNotesPanel';
 import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
-import { EntityZnsHistory } from '@/src/widgets/EntityZnsHistory';
-import { EntityAuditLogs } from '@/src/widgets/EntityAuditLogs';
+import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
 import { Button } from '@/src/design-system/Button';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
 import { ArrowLeft, ArrowRight, Trash2, Send, Edit, Printer } from 'lucide-react';
 import { CustomerReportModal } from './CustomerReportModal';
 import { CustomerOmniFlowStream } from './CustomerOmniFlowStream';
-import {
-  QuotesTabContent,
-  ContractsTabContent,
-  PaymentsTabContent,
-  DeliveriesTabContent,
-} from './CustomerDetailTabsContent';
 
 interface CustomerDetailDrawerProps {
   isOpen: boolean;
@@ -32,7 +25,7 @@ interface CustomerDetailDrawerProps {
   onEdit: () => void;
   onSendZns: (customer: Customer) => void;
   onDeleteCustomer: (customer: Customer) => void;
-  initialTab?: 'overview' | 'flow' | 'activity' | 'quotes' | 'contracts' | 'payments' | 'deliveries' | 'zns' | 'audit';
+  initialTab?: 'overview' | 'flow' | 'nexus';
   modal?: boolean;
   className?: string;
 }
@@ -52,7 +45,7 @@ export function CustomerDetailDrawer({
   modal,
   className,
 }: CustomerDetailDrawerProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'flow' | 'activity' | 'quotes' | 'contracts' | 'payments' | 'deliveries' | 'zns' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'flow' | 'nexus'>('overview');
   const [isReportOpen, setIsReportOpen] = useState(false);
 
   // Reset tab to overview or initialTab when drawer opens for a new customer
@@ -306,14 +299,8 @@ export function CustomerDetailDrawer({
           {(
             [
               { id: 'overview', label: 'Tổng quan' },
-              { id: 'flow', label: 'Dòng chảy 360°', count: drawerQuotations.length, loading: qLoading },
-              { id: 'activity', label: 'Hoạt động' },
-              { id: 'quotes', label: 'Báo giá', count: drawerQuotations.length, loading: qLoading },
-              { id: 'contracts', label: 'Hợp đồng', count: drawerContracts.length, loading: cLoading },
-              { id: 'payments', label: 'Thanh toán', count: drawerPayments.length, loading: pLoading },
-              { id: 'deliveries', label: 'Giao hàng', count: drawerDeliveries.length, loading: dLoading },
-              { id: 'zns', label: 'ZNS' },
-              { id: 'audit', label: 'Nhật ký' },
+              { id: 'flow', label: 'Dòng chảy 360°', count: drawerQuotations.length + drawerContracts.length + drawerPayments.length + drawerDeliveries.length, loading: qLoading || cLoading || pLoading || dLoading },
+              { id: 'nexus', label: 'Nhật ký & Hoạt động' },
             ] as const
           ).map((tab) => {
             const isTabActive = activeTab === tab.id;
@@ -323,17 +310,17 @@ export function CustomerDetailDrawer({
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`pb-2.5 text-xs font-semibold relative outline-none transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 bg-transparent border-0 ${
-                  isTabActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-900'
+                  isTabActive ? 'text-blue-700 font-bold' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 {tab.label}
                 {'count' in tab && (
-                  <span className={`text-3xs px-1.5 h-3.5 rounded-full ml-0.5 inline-flex items-center justify-center font-bold ${isTabActive ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
+                  <span className={`text-3xs px-1.5 h-3.5 rounded-full ml-0.5 inline-flex items-center justify-center font-bold ${isTabActive ? 'bg-blue-100 text-blue-700' : 'bg-slate-150 text-slate-700'}`}>
                     {tab.loading ? '...' : tab.count}
                   </span>
                 )}
                 {isTabActive && (
-                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-600 rounded-t-full" />
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-700 rounded-t-full" />
                 )}
               </button>
             );
@@ -431,49 +418,20 @@ export function CustomerDetailDrawer({
           </div>
         )}
 
-        {/* Dynamic Activity Feed Tab */}
-        {activeTab === 'activity' && (
-          <div className="bg-slate-50/50 rounded-xl p-4 md:p-6 shadow-sm border border-slate-100">
-            <CustomerNotesPanel customerId={customerId} />
-            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm mt-6">
-              <h3 className="font-bold text-slate-800 uppercase tracking-widest text-xs mb-4">Lịch sử tương tác timeline</h3>
-              <CustomerActivityTimeline customerId={customerId} />
-            </div>
-          </div>
-        )}
-
-        {/* Lazy Loaded Proposals Tab */}
-        {activeTab === 'quotes' && (
-          <QuotesTabContent loading={qLoading} quotations={drawerQuotations} />
-        )}
-
-        {/* Lazy Loaded Contracts Tab */}
-        {activeTab === 'contracts' && (
-          <ContractsTabContent loading={cLoading} contracts={drawerContracts} />
-        )}
-
-        {/* Lazy Loaded Payments Transaction Tab */}
-        {activeTab === 'payments' && (
-          <PaymentsTabContent loading={pLoading} payments={drawerPayments} />
-        )}
-
-        {/* Brand New Deliveries Tab */}
-        {activeTab === 'deliveries' && (
-          <DeliveriesTabContent loading={dLoading} deliveries={drawerDeliveries} />
-        )}
-
-        {/* Lazy ZNS History Tab */}
-        {activeTab === 'zns' && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-            <EntityZnsHistory entityId={customerId} entityType="customer" />
-          </div>
-        )}
-
-        {/* Lazy Audit System Tab */}
-        {activeTab === 'audit' && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-            <EntityAuditLogs entityId={customerId} entityType="customer" />
-          </div>
+        {/* Unified Activity Audit Nexus Tab */}
+        {activeTab === 'nexus' && (
+          <UnifiedActivityAuditNexus
+            entityId={customerId}
+            entityType="customer"
+            documentCode={customer?.maKh}
+            documentTypeLabel="hồ sơ khách hàng"
+            creatorOrOfficer={customer?.nguoiPhuTrach}
+            statusLabel={customer?.loaiKh || 'Doanh nghiệp'}
+            statusColor="text-emerald-700"
+            createdAt={(customer as any)?.createdAt}
+            updatedAt={(customer as any)?.updatedAt}
+            customerName={customer?.tenKhachHang}
+          />
         )}
       </div>
 

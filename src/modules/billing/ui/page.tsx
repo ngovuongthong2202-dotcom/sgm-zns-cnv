@@ -105,7 +105,7 @@ export default function PaymentsFeature() {
   const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'OVERDUE' | 'PAID'>('ALL');
   const { filteredPayments, selectedTinhTrangThanhToan, setSelectedTinhTrangThanhToan, selectedPhanLoai, setSelectedPhanLoai, selectedTinhThanh, setSelectedTinhThanh, selectedZns, setSelectedZns, selectedNguoiPhuTrach, setSelectedNguoiPhuTrach, selectedDateRange, setSelectedDateRange } = usePaymentsFilters(payments, customers, activeTab);
   
-  const kpiMetrics = usePaymentKpiMetrics(payments);
+  const kpiMetrics = usePaymentKpiMetrics(payments, contracts, quotations);
   const columns = usePaymentsColumns(updatePaymentWithTransaction as any, refresh, confirm, handleSendZns as any, contracts, quotations, deliveries, customers);
   
   const handlePrefetchPayment = (payment: Payment) => {
@@ -221,6 +221,8 @@ export default function PaymentsFeature() {
           collectedThisMonth={kpiMetrics.collectedThisMonth}
           collectedThisYear={kpiMetrics.collectedThisYear}
           totalDebt={kpiMetrics.totalDebt}
+          contractDebt={kpiMetrics.contractDebt}
+          standaloneDebt={kpiMetrics.standaloneDebt}
           statsByStatus={kpiMetrics.statsByStatus}
           statsByType={kpiMetrics.statsByType}
           activeTab={activeTab}

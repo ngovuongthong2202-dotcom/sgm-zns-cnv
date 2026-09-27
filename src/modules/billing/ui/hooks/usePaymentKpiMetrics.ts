@@ -1,12 +1,16 @@
 import { useMemo } from 'react';
 import { format, startOfWeek, startOfMonth } from 'date-fns';
 import { Payment } from '@/src/domain/schema/payment.schema';
-import { getPaymentRemainingBalance } from '@/src/domain/services/financial-reconciler';
+import { reconcileEnterpriseReceivables } from '@/src/domain/services/financial-reconciler';
 import { hasActualCashCollected } from '@/src/domain/enums/payment-status';
 
 import { resolvePaymentLoai } from '../../domain/resolvePaymentLoai';
 
-export function usePaymentKpiMetrics(payments: Payment[]) {
+export function usePaymentKpiMetrics(
+  payments: Payment[],
+  contracts: any[] = [],
+  quotations: any[] = []
+) {
   return useMemo(() => {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const startOfWeekVal = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -17,7 +21,6 @@ export function usePaymentKpiMetrics(payments: Payment[]) {
     let collectedThisWeek = 0;
     let collectedThisMonth = 0;
     let collectedThisYear = 0;
-    let totalDebt = 0;
 
     const statsByStatus = {
       'Miễn phí': { contracts: new Set<string>(), customers: new Set<string>() },
@@ -67,8 +70,6 @@ export function usePaymentKpiMetrics(payments: Payment[]) {
          if (p.customerId) statsByStatus[statusKey as keyof typeof statsByStatus].customers.add(p.customerId);
       }
 
-      totalDebt += getPaymentRemainingBalance(p);
-
       if (amt > 0 && hasActualCashCollected(p.tinhTrangThanhToan) && p.ngayThanhToan) {
         try {
           const d = new Date(p.ngayThanhToan);
@@ -92,12 +93,20 @@ export function usePaymentKpiMetrics(payments: Payment[]) {
       }
     });
 
+    // Double-Entry Cross-Reconciled Debt (Khớp 100% từng đồng với trang Hợp Đồng)
+    const enterpriseRec = reconcileEnterpriseReceivables(payments, contracts, quotations);
+    const totalDebt = enterpriseRec.totalDebt;
+
     return { 
       collectedToday, 
       collectedThisWeek, 
       collectedThisMonth, 
       collectedThisYear,
       totalDebt,
+      contractDebt: enterpriseRec.contractDebt,
+      standaloneDebt: enterpriseRec.standaloneDebt,
+      contractPaid: enterpriseRec.contractPaid,
+      contractTotalValue: enterpriseRec.contractTotalValue,
       statsByStatus: {
         'Miễn phí': { contracts: statsByStatus['Miễn phí'].contracts.size, customers: statsByStatus['Miễn phí'].customers.size },
         'Chưa TT': { contracts: statsByStatus['Chưa TT'].contracts.size, customers: statsByStatus['Chưa TT'].customers.size },
@@ -117,5 +126,5 @@ export function usePaymentKpiMetrics(payments: Payment[]) {
         'KHÁC': { count: 0, customers: 0 },
       }
     };
-  }, [payments]);
+  }, [payments, contracts, quotations]);
 }

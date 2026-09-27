@@ -129,7 +129,7 @@ interface DataViewProps<T> {
                   return (
                     <div
                       key={header.id}
-                      className={`px-4 py-3 text-2xs font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap relative group select-none flex-shrink-0 items-center ${alignClass} ${isSticky ? 'sticky left-0 bg-slate-50/95 z-30 shadow-[inset_-1px_0_0_#e2e8f0]' : ''} ${stickRight ? 'sticky right-0 bg-slate-50/95 z-30 shadow-[inset_1px_0_0_#e2e8f0]' : ''} ${hiddenOnTablet ? 'hidden xl:flex' : 'flex'}`}
+                      className={`px-4 py-3 text-2xs font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap relative group select-none flex-shrink-0 items-center border-r border-slate-200/70 last:border-r-0 ${alignClass} ${isSticky ? 'sticky left-0 bg-slate-50/95 z-30 shadow-[inset_-1px_0_0_#e2e8f0]' : ''} ${stickRight ? 'sticky right-0 bg-slate-50/95 z-30 shadow-[inset_1px_0_0_#e2e8f0]' : ''} ${hiddenOnTablet ? 'hidden xl:flex' : 'flex'}`}
                       style={{ width: `calc(var(--col-${header.column.id}) + 0px)` }}
                     >
                       <div className={`flex items-center gap-2 cursor-pointer ${alignClass} w-full truncate`} onClick={header.column.getToggleSortingHandler()}>

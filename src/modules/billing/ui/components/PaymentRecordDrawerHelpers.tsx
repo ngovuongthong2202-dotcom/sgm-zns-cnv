@@ -5,22 +5,45 @@ import { Payment } from '@/src/domain/schema/payment.schema';
 
 import { EntityZnsStatus, normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 
-// 1. MoneyInput Component
+import { parseFinancialInput } from '@/src/platform/ui/forms/useSmartFormInput';
+
+// 1. MoneyInput Component with Financial Shortcuts & In-Place Math Engine
 export const MoneyInput = React.forwardRef<HTMLInputElement, any>(({ value, onChange, placeholder, readOnly, ...props }, ref) => {
   const [displayValue, setDisplayValue] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+
   useEffect(() => {
-    if (value !== undefined && value !== null && !isNaN(value)) {
-       setDisplayValue(new Intl.NumberFormat('vi-VN').format(value) + ' ₫');
-    } else {
-       setDisplayValue('');
+    if (!isEditing) {
+      if (value !== undefined && value !== null && !isNaN(value) && value !== '') {
+        setDisplayValue(new Intl.NumberFormat('vi-VN').format(Number(value)) + ' ₫');
+      } else {
+        setDisplayValue('');
+      }
     }
-  }, [value]);
+  }, [value, isEditing]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = e.target.value.replace(/[^0-9]/g, '');
-    const num = rawValue ? Number(rawValue) : undefined;
-    setDisplayValue(num !== undefined ? new Intl.NumberFormat('vi-VN').format(num) + ' ₫' : '');
-    onChange?.(num);
+    setDisplayValue(e.target.value);
+  };
+
+  const handleFocus = () => {
+    setIsEditing(true);
+    if (value !== undefined && value !== null && !isNaN(value) && Number(value) > 0) {
+      setDisplayValue(String(value));
+    }
+  };
+
+  const commitValue = () => {
+    setIsEditing(false);
+    const resolved = parseFinancialInput(displayValue);
+    setDisplayValue(resolved > 0 ? new Intl.NumberFormat('vi-VN').format(resolved) + ' ₫' : (resolved === 0 ? '0 ₫' : ''));
+    onChange?.(resolved);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    }
   };
 
   if (readOnly) {
@@ -33,8 +56,17 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, any>(({ value, onCh
 
   return (
     <div className="relative">
-      <input aria-label="Nhập thông tin" 
-        ref={ref} type="text" value={displayValue} onChange={handleChange} placeholder={placeholder} {...props} 
+      <input 
+        aria-label="Nhập thông tin" 
+        ref={ref} 
+        type="text" 
+        value={displayValue} 
+        onChange={handleChange} 
+        onFocus={handleFocus}
+        onBlur={commitValue}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder || 'Nhập tiền (VD: 15m, 500k, 1.5ty, 15m*3)'} 
+        {...props} 
         className="premium-input w-full font-bold text-slate-900 text-lg pr-4 text-right font-mono tabular-nums focus:ring-slate-950 focus:border-slate-950 bg-white" 
       />
     </div>

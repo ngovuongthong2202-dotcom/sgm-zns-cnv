@@ -10,7 +10,7 @@ import { filterCustomersList } from '../utils/customer-filter';
 import { useCustomerActions } from './useCustomerActions';
 
 
-export type DrawerState = { mode: 'closed' } | { mode: 'new' } | { mode: 'view'; customer: Customer; initialTab?: 'overview' | 'activity' | 'quotes' | 'contracts' | 'payments' | 'zns' | 'audit' } | { mode: 'edit'; customer: Customer };
+export type DrawerState = { mode: 'closed' } | { mode: 'new' } | { mode: 'view'; customer: Customer; initialTab?: 'overview' | 'flow' | 'nexus' } | { mode: 'edit'; customer: Customer };
 
 export function useCustomersPage() {
   const { user, userData } = useAuth();

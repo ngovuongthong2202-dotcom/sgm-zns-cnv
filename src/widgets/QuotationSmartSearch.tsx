@@ -2,6 +2,7 @@ import React from 'react';
 import { AsyncSearchableSelect } from '../design-system';
 import { QuotationHoverCard } from '@/src/modules/sales/ui/components/QuotationHoverCard';
 import { formatDate } from '@/src/shared/utils/formatDate';
+import { normalizeLoai, QUOTATION_LOAI } from '@/src/domain/enums/quotation-loai';
 
 interface QuotationSmartSearchProps {
   value: string;
@@ -33,10 +34,18 @@ export function QuotationSmartSearch({
       disabled={disabled}
       placeholder="🔍 Tìm theo số BG, tên KH, mã KH..."
       error={error}
-      renderOption={(q: any) => ({
-        label: `⭐ ${q.soPhieuBaoGia} — ${q.tenKhachHang}`,
-        subLabel: `📅 ${q.ngayBaoGia ? formatDate(q.ngayBaoGia) : 'N/A'} • ${q.slMay || 0} máy • Phụ trách: ${q.nguoiPhuTrach || 'N/A'}`
-      })}
+      renderOption={(q: any) => {
+        const isMachine = normalizeLoai(q.loai) === QUOTATION_LOAI.MAY;
+        const totalAmount = Number(q.totalAmount || q.tongTien || q.tongGiaTri || 0);
+        const moneyFormatted = totalAmount > 0 ? `${new Intl.NumberFormat('vi-VN').format(totalAmount)} ₫` : '---';
+        const typeBadge = isMachine ? '⭐ [MÁY]' : '📦 [L/K & DV]';
+        const qtyStr = `${q.slMay || q.products?.length || 0} máy/mục`;
+
+        return {
+          label: `${typeBadge} ${q.soPhieuBaoGia} — ${q.tenKhachHang || 'Khách hàng'}`,
+          subLabel: `📅 ${q.ngayBaoGia ? formatDate(q.ngayBaoGia) : 'N/A'} • ${qtyStr} • 💰 ${moneyFormatted} • Phụ trách: ${q.nguoiPhuTrach || 'N/A'}`
+        };
+      }}
       filterOption={(q: any) => {
         if (excludeQuoIds.includes(q.id as string)) return false;
         if (filterOption && !filterOption(q)) return false;
