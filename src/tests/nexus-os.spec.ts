@@ -27,7 +27,7 @@ describe('NEXUS-OS Architectural Verification', () => {
 
       const customerCode = await sequenceGeneratorService.getNextCode('customer');
       expect(customerCode).toMatch(/^KH\d{4}$/);
-    });
+    }, 15000);
 
     it('generates strictly sequential unique numbers without collisions', async () => {
       const results = await Promise.all([

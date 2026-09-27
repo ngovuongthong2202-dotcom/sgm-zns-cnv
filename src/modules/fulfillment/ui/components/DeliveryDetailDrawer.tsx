@@ -13,7 +13,7 @@ import { StatusPill } from '@/src/widgets/StatusPill';
 import { DrawerProductList } from '@/src/widgets/DrawerProductList';
 import { DocumentOmniFlowRibbon } from '@/src/widgets/DocumentOmniFlowRibbon';
 import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
-import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
+import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
 import { ExportDeliveryPdf } from './ExportDeliveryPdf';
 
 import { Button } from '@/src/design-system/Button';
@@ -299,17 +299,6 @@ export function DeliveryDetailDrawer({
   // 1. TỔNG QUAN PANEL (OMNI-NEXUS COD 11.0: 70% Left Logistics Matrix / 30% Right Inspector)
   const overviewPanel = (
     <div className="space-y-5 pt-1">
-      {/* Workflow Progress Display */}
-      {drawerQuotation && (
-        <WorkflowTimeline 
-          quotation={drawerQuotation}
-          contracts={drawerContract ? [drawerContract] : []}
-          payments={paymentDoc ? [paymentDoc] : []}
-          deliveries={[drawerDelivery]}
-          className="shadow-2xs border border-slate-200/80 rounded-xl"
-        />
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* ===================== CỘT TRỌNG TÂM (70%): LOGISTICS & FULFILLMENT MATRIX ===================== */}
         <div className="lg:col-span-8 space-y-5">
@@ -965,50 +954,14 @@ export function DeliveryDetailDrawer({
 
   // Horizon HUD (Top Status Pulse)
   const horizonHud = (
-    <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-      <div className="flex items-center gap-3">
-        <span className="font-mono font-black text-blue-900 bg-white px-2.5 py-1 rounded-md border border-blue-200 shadow-2xs">
-          {drawerDelivery.deliveryId || drawerDelivery.soPhieuXuat || 'N/A'}
-        </span>
-        <span className={`px-2 py-0.5 rounded text-3xs font-bold border ${
-          isCompleted 
-            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-            : 'bg-amber-50 text-amber-800 border-amber-200'
-        }`}>
-          {isCompleted ? '✓ Đã bàn giao' : 'Đang giao hàng'}
-        </span>
-        {drawerDelivery.soHopDong && (
-          <span className="font-mono text-3xs font-semibold text-slate-700 bg-white/80 px-2 py-0.5 rounded border border-slate-200">
-            HĐ: {drawerDelivery.soHopDong}
-          </span>
-        )}
-        {drawerDelivery.soPhieuXuat && (
-          <span className="font-mono text-3xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-            PX: {drawerDelivery.soPhieuXuat}
-          </span>
-        )}
-      </div>
-
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-1.5">
-          <span className="text-3xs text-slate-500 uppercase font-bold">Dự kiến giao:</span>
-          <span className="font-mono font-bold text-amber-800">
-            {drawerDelivery.ngayGiaoMay ? formatDate(drawerDelivery.ngayGiaoMay) : '---'}
-          </span>
-        </div>
-        {drawerDelivery.ngayGiaoThucTe && (
-          <>
-            <div className="h-3.5 w-px bg-slate-200 hidden sm:block" />
-            <div className="flex items-center gap-1.5">
-              <span className="text-3xs text-slate-500 uppercase font-bold">Thực giao:</span>
-              <span className="font-mono font-bold text-emerald-800">
-                {formatDate(drawerDelivery.ngayGiaoThucTe)}
-              </span>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+    <HorizonFlowHUD
+      currentType="delivery"
+      quotation={drawerQuotation}
+      contract={drawerContract}
+      deliveries={[drawerDelivery]}
+      payments={paymentDoc ? [paymentDoc] : []}
+      onOpenFlow={() => setActiveTab('flow')}
+    />
   );
 
   return (

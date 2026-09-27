@@ -6,7 +6,6 @@ import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { Customer } from '@/src/domain/schema/customer.schema';
 import { CustomerHoverCard } from '@/src/modules/customers';
 import { DrawerProductList } from '@/src/widgets/DrawerProductList';
-import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
 import { EntityBusinessLockWarning } from '@/src/widgets/EntityBusinessLockWarning';
 import { checkQuotationLock } from '@/src/domain/policy/lock.policy';
 import { User, ShieldCheck, MapPin, Calendar, FileText, ArrowUpRight, Zap, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
@@ -79,28 +78,7 @@ export function QuotationDetailOverview({
 
   return (
     <div className="flex flex-col gap-5 pb-6 pt-1">
-      {/* 1. Active State Machine Stream */}
-      <WorkflowTimeline 
-        quotation={quotation} 
-        contracts={matchingContracts} 
-        payments={matchingPayments} 
-        deliveries={matchingDeliveries}
-        onCreateContract={() => {
-          onClose?.();
-          navigate(`/contracts/new?fromQuotation=${quotation.id}`);
-        }}
-        onCreatePayment={!isBgMay ? () => {
-          onClose?.();
-          navigate(`/payments/new?fromQuotation=${quotation.id}`);
-        } : undefined}
-        onCreateDelivery={!isBgMay ? () => {
-          onClose?.();
-          navigate(`/deliveries?fromQuotation=${quotation.id}`);
-        } : undefined}
-        className="shadow-xs border border-slate-200"
-      />
-
-      {/* 2. Business Lock Warning (if applicable) */}
+      {/* 1. Business Lock Warning (if applicable) */}
       <EntityBusinessLockWarning {...lockResult} />
 
       {/* 3. Main Workspace: Asymmetric 72% Matrix / 28% Inspector */}

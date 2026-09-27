@@ -16,7 +16,7 @@ import { DocumentOmniFlowRibbon } from '@/src/widgets/DocumentOmniFlowRibbon';
 import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
 import { checkContractLock } from '@/src/domain/policy/lock.policy';
 import { EntityBusinessLockWarning } from '@/src/widgets/EntityBusinessLockWarning';
-import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
+import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
 import { reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
 import { computeContractCompletionTimeline, cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';
 
@@ -205,20 +205,7 @@ export function ContractDetailDrawer({
 
   const overviewPanel = (
     <div className="space-y-5 pt-1 pb-6">
-      {/* 1. Active State Stream (WorkflowTimeline) */}
-      {quotationDoc && (
-        <WorkflowTimeline 
-          quotation={quotationDoc}
-          contracts={[drawerContract]}
-          payments={pays}
-          deliveries={dels}
-          onCreatePayment={() => onCreatePayment?.(drawerContract)}
-          onCreateDelivery={() => onCreateDelivery?.(drawerContract)}
-          className="shadow-xs border border-slate-200"
-        />
-      )}
-
-      {/* 2. Business Lock Warning */}
+      {/* 1. Business Lock Warning */}
       <EntityBusinessLockWarning {...lockResult} />
 
       {/* 2.5 Banner Bàn giao máy thực tế / Đặc cách giao trước trả sau */}
@@ -629,38 +616,14 @@ export function ContractDetailDrawer({
   );
 
   const horizonHud = (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-      <div className="flex items-center gap-2.5 flex-wrap">
-        <span className="font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-xs font-bold border border-emerald-200">
-          {drawerContract.soHopDong}
-        </span>
-        {drawerContract.soDonHang && (
-          <span className="font-mono text-2xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-            ĐH: #{drawerContract.soDonHang}
-          </span>
-        )}
-        <span className="text-slate-300 font-sans">|</span>
-        <span className="text-slate-600 font-medium">
-          Ký ngày: <strong className="text-slate-800 font-mono">{formatDate(drawerContract.ngayKy)}</strong>
-        </span>
-        <span className="text-slate-300 font-sans">|</span>
-        <span className="px-2 py-0.5 rounded text-3xs font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
-          {drawerContract.tinhTrangHopDong || 'Mới'}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-2xs">
-          <span className="text-3xs uppercase font-bold text-slate-500 tracking-wider">Giá trị HĐ:</span>
-          <span className="font-currency text-sm font-black text-emerald-800">
-            {new Intl.NumberFormat('vi-VN').format(totalContractAmount)} ₫
-          </span>
-          <span className="text-3xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 ml-1">
-            Đã thu {pPct}%
-          </span>
-        </div>
-      </div>
-    </div>
+    <HorizonFlowHUD
+      currentType="contract"
+      quotation={quotationDoc}
+      contract={drawerContract}
+      deliveries={dels}
+      payments={pays}
+      onOpenFlow={() => setActiveTab('flow')}
+    />
   );
 
   return (

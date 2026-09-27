@@ -13,7 +13,7 @@ import { DocumentOmniFlowRibbon } from '@/src/widgets/DocumentOmniFlowRibbon';
 import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
 import { ContractHoverCard } from '@/src/modules/contracts/ui/components/ContractHoverCard';
 import { QuotationHoverCard } from '@/src/modules/sales/ui/components/QuotationHoverCard';
-import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
+import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
 import { RecordInstallmentModal } from './RecordInstallmentModal';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { notify } from '@/src/shared/utils/notify';
@@ -195,17 +195,6 @@ export function PaymentDetailDrawer({
   // 1. TỔNG QUAN TAB (OMNI-NEXUS COD 11.0)
   const overviewPanel = (
     <div className="space-y-5 pt-1 pb-6">
-      {/* Workflow Progress Display */}
-      {_quotationDoc && (
-        <WorkflowTimeline 
-          quotation={_quotationDoc}
-          contracts={contractDoc ? [contractDoc] : []}
-          payments={[payment]}
-          deliveries={deliveries}
-          className="shadow-xs border border-slate-200"
-        />
-      )}
-
       {/* Executive Waiver Debt Reminder Banner */}
       {(() => {
         const waiverDelivery = (deliveries || []).find((d: any) => d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU');
@@ -534,39 +523,14 @@ export function PaymentDetailDrawer({
 
   // Horizon HUD (Top Status Pulse)
   const horizonHud = (
-    <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-      <div className="flex items-center gap-3">
-        <span className="font-mono font-black text-emerald-800 bg-white px-2.5 py-1 rounded-md border border-emerald-200 shadow-2xs">
-          {payment.paymentId || 'N/A'}
-        </span>
-        <span className={`px-2 py-0.5 rounded text-3xs font-bold border ${
-          isChuaTT ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-        }`}>
-          {payment.tinhTrangThanhToan || 'Tất toán'}
-        </span>
-        {payment.soHopDong && (
-          <span className="font-mono text-3xs font-semibold text-slate-700 bg-white/80 px-2 py-0.5 rounded border border-slate-200">
-            HĐ: {payment.soHopDong}
-          </span>
-        )}
-      </div>
-
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-1.5">
-          <span className="text-3xs text-slate-700 uppercase font-bold">Thực thu:</span>
-          <span className="font-currency font-black text-emerald-800">
-            {formatCurrency(payment.soTien || 0)}
-          </span>
-        </div>
-        <div className="h-3.5 w-px bg-slate-200 hidden sm:block" />
-        <div className="flex items-center gap-1.5">
-          <span className="text-3xs text-slate-700 uppercase font-bold">Còn nợ:</span>
-          <span className={`font-currency font-bold ${remainingDebt > 0 ? 'text-amber-800' : 'text-emerald-800'}`}>
-            {remainingDebt > 0 ? formatCurrency(remainingDebt) : '0 ₫ (Xong)'}
-          </span>
-        </div>
-      </div>
-    </div>
+    <HorizonFlowHUD
+      currentType="payment"
+      quotation={_quotationDoc}
+      contract={contractDoc}
+      deliveries={deliveries}
+      payments={[payment]}
+      onOpenFlow={() => setActiveTab('flow')}
+    />
   );
 
   return (

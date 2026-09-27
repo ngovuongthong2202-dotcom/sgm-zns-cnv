@@ -6,7 +6,8 @@ import { Customer } from '@/src/domain/schema/customer.schema';
 import { CustomerOverviewBento } from './CustomerOverviewBento';
 import { CustomerActivityTimeline } from './CustomerActivityTimeline';
 import { CustomerNotesPanel } from './CustomerNotesPanel';
-import { WorkflowTimeline } from '@/src/widgets/WorkflowTimeline';
+import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
+import { reconcileEnterpriseReceivables } from '@/src/domain/services/financial-reconciler';
 import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
 import { Button } from '@/src/design-system/Button';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
@@ -90,80 +91,82 @@ export function CustomerDetailDrawer({
     { revalidateOnFocus: false }
   );
 
-  const [selectedQuotationId, setSelectedQuotationId] = React.useState<string | null>(null);
+  const latestQuote = React.useMemo(() => {
+    if (!drawerQuotations || drawerQuotations.length === 0) return undefined;
+    return [...drawerQuotations].sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.ngayCapNhat || 0).getTime();
+      const timeB = new Date(b.createdAt || b.ngayCapNhat || 0).getTime();
+      return timeB - timeA;
+    })[0];
+  }, [drawerQuotations]);
 
-  // Set the default to the latest quotation when drawerQuotations changes
-  React.useEffect(() => {
-    if (drawerQuotations.length > 0) {
-      const sorted = [...drawerQuotations].sort((a, b) => {
-        const timeA = new Date(a.createdAt || a.ngayCapNhat || 0).getTime();
-        const timeB = new Date(b.createdAt || b.ngayCapNhat || 0).getTime();
-        return timeB - timeA;
-      });
-      if (!selectedQuotationId || !drawerQuotations.some(q => q.id === selectedQuotationId)) {
-        setSelectedQuotationId(sorted[0].id || null);
-      }
-    } else {
-      setSelectedQuotationId(null);
-    }
-  }, [drawerQuotations, selectedQuotationId]);
+  const latestContract = React.useMemo(() => {
+    if (!drawerContracts || drawerContracts.length === 0) return undefined;
+    return [...drawerContracts].sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.ngayCapNhat || a.ngayKy || 0).getTime();
+      const timeB = new Date(b.createdAt || b.ngayCapNhat || b.ngayKy || 0).getTime();
+      return timeB - timeA;
+    })[0];
+  }, [drawerContracts]);
 
   // Compute realtime financial summary for Horizon HUD
   const { ltv, debt } = React.useMemo(() => {
     if (!customer) return { ltv: 0, debt: 0 };
-    const paid = drawerPayments.reduce((sum, p) => sum + (Number(p.soTien) || 0), 0);
-    const contractVal = drawerContracts.reduce((sum, c) => {
-      const prodSum = Array.isArray(c.products) ? c.products.reduce((s: number, prod: any) => s + (Number(prod.total) || 0), 0) : 0;
-      return sum + (Number(c.totalAmount) || Number(c.giaTriHopDong) || prodSum || 0);
-    }, 0);
-    const nonMayVal = drawerQuotations
-      .filter(q => String(q.loai || '').toUpperCase().includes('VẬT TƯ') || String(q.loai || '').toUpperCase().includes('DỊCH VỤ'))
-      .reduce((sum, q) => {
-        const prodSum = Array.isArray(q.products) ? q.products.reduce((s: number, prod: any) => s + (Number(prod.total) || 0), 0) : 0;
-        return sum + (Number(q.totalAmount) || Number(q.tongTien) || prodSum || 0);
-      }, 0);
-    const totalOrderVal = Math.max(contractVal + nonMayVal, paid);
-    const calculatedDebt = Math.max(0, totalOrderVal - paid);
+    const reconciled = reconcileEnterpriseReceivables(drawerPayments, drawerContracts, drawerQuotations);
     return {
-      ltv: customer.ltv || paid || 0,
-      debt: (customer.totalDebt !== undefined && customer.totalDebt > 0) ? customer.totalDebt : calculatedDebt,
+      ltv: customer.ltv || reconciled.totalPaid || 0,
+      debt: (customer.totalDebt !== undefined && customer.totalDebt > 0) ? customer.totalDebt : reconciled.totalDebt,
     };
   }, [customer, drawerPayments, drawerContracts, drawerQuotations]);
 
   if (!customer) return null;
 
-  // Horizon HUD (Top Status Pulse)
+  // Horizon HUD (Top Status Pulse + HorizonFlowHUD)
   const horizonHud = (
-    <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-      <div className="flex items-center gap-2.5">
-        <span className="font-mono font-black text-blue-900 bg-white px-2.5 py-1 rounded-md border border-blue-200 shadow-2xs">
-          {customer.maKh || 'KH-NA'}
-        </span>
-        <span className="text-3xs bg-blue-50 text-blue-750 font-extrabold px-2 py-0.5 rounded border border-blue-100 uppercase tracking-wider">
-          {customer.loaiKh || 'CHƯA PHÂN LOẠI'}
-        </span>
-        {customer.isArchived && (
-          <span className="text-3xs bg-slate-100 text-slate-500 font-extrabold px-2 py-0.5 rounded border border-slate-200 uppercase">
-            ĐÃ LƯU TRỮ
+    <div className="flex flex-col gap-2 w-full">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2.5">
+          <span className="font-mono font-black text-blue-900 bg-white px-2.5 py-1 rounded-md border border-blue-200 shadow-2xs">
+            {customer.maKh || 'KH-NA'}
           </span>
-        )}
-      </div>
+          <span className="text-3xs bg-blue-50 text-blue-750 font-extrabold px-2 py-0.5 rounded border border-blue-100 uppercase tracking-wider">
+            {customer.loaiKh || 'CHƯA PHÂN LOẠI'}
+          </span>
+          {customer.isArchived && (
+            <span className="text-3xs bg-slate-100 text-slate-500 font-extrabold px-2 py-0.5 rounded border border-slate-200 uppercase">
+              ĐÃ LƯU TRỮ
+            </span>
+          )}
+        </div>
 
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-1.5">
-          <span className="text-3xs text-slate-500 uppercase font-bold">LTV Tích lũy:</span>
-          <span className="font-mono font-black text-emerald-800">
-            {formatCurrency(ltv)}
-          </span>
-        </div>
-        <div className="h-3.5 w-px bg-slate-200 hidden sm:block" />
-        <div className="flex items-center gap-1.5">
-          <span className="text-3xs text-slate-500 uppercase font-bold">Công nợ:</span>
-          <span className={`font-mono font-bold ${debt > 0 ? 'text-red-700' : 'text-emerald-800'}`}>
-            {debt > 0 ? formatCurrency(debt) : '0 ₫ (Không nợ)'}
-          </span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <span className="text-3xs text-slate-500 uppercase font-bold">LTV Tích lũy:</span>
+            <span className="font-mono font-black text-emerald-800">
+              {formatCurrency(ltv)}
+            </span>
+          </div>
+          <div className="h-3.5 w-px bg-slate-200 hidden sm:block" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-3xs text-slate-500 uppercase font-bold">Công nợ:</span>
+            <span className={`font-mono font-bold ${debt > 0 ? 'text-red-700' : 'text-emerald-800'}`}>
+              {debt > 0 ? formatCurrency(debt) : '0 ₫ (Không nợ)'}
+            </span>
+          </div>
         </div>
       </div>
+      {(drawerQuotations.length > 0 || drawerContracts.length > 0) && (
+        <div className="pt-2 border-t border-slate-100">
+          <HorizonFlowHUD
+            currentType="customer"
+            quotation={latestQuote}
+            contract={latestContract}
+            deliveries={drawerDeliveries}
+            payments={drawerPayments}
+            onOpenFlow={() => setActiveTab('flow')}
+          />
+        </div>
+      )}
     </div>
   );
 
@@ -331,70 +334,6 @@ export function CustomerDetailDrawer({
       <div className="space-y-4">
         {activeTab === 'overview' && (
           <div className="pt-2 flex flex-col gap-4">
-            {drawerQuotations.length > 0 && (
-              <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-                {/* Header cùng 1 hàng: Tiêu đề TIẾN TRÌNH PHIẾU + Capsule Selector Pills */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                    <h4 className="text-2xs uppercase font-black tracking-widest text-slate-700 whitespace-nowrap">
-                      TIẾN TRÌNH PHIẾU
-                    </h4>
-                    <span className="px-1.5 py-0.2 text-3xs font-extrabold bg-blue-50 text-blue-700 rounded-full border border-blue-200 whitespace-nowrap">
-                      {drawerQuotations.length} Báo Giá
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none flex-1 justify-start sm:justify-end min-w-0">
-                    {[...drawerQuotations].sort((a, b) => {
-                      const timeA = new Date(a.createdAt || a.ngayCapNhat || 0).getTime();
-                      const timeB = new Date(b.createdAt || b.ngayCapNhat || 0).getTime();
-                      return timeB - timeA;
-                    }).map((quote, idx) => {
-                      const isSelected = selectedQuotationId === quote.id;
-                      const dateStr = quote.createdAt || quote.ngayCapNhat ? new Date(quote.createdAt || quote.ngayCapNhat).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '';
-                      return (
-                        <button
-                          key={quote.id}
-                          type="button"
-                          onClick={() => setSelectedQuotationId(quote.id || null)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-bold border shrink-0 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs ${
-                            isSelected
-                              ? 'bg-blue-600 text-white border-blue-600 ring-2 ring-blue-600/20'
-                              : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                          }`}
-                        >
-                          <span className="font-mono text-2xs tracking-tight">{quote.soPhieuBaoGia || `BG #${idx + 1}`}</span>
-                          <span className={`text-3xs font-semibold px-1 py-0.2 rounded ${isSelected ? 'bg-blue-700/80 text-blue-100' : 'bg-slate-200/80 text-slate-600'}`}>
-                            {quote.loai || 'MÁY'}
-                          </span>
-                          {dateStr && (
-                            <span className={`text-3xs font-normal tabular-nums ${isSelected ? 'text-blue-100' : 'text-slate-500'}`}>
-                              {dateStr}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {(() => {
-                  const activeQuote = drawerQuotations.find(q => q.id === selectedQuotationId) || drawerQuotations[0];
-                  if (!activeQuote) return null;
-                  return (
-                    <React.Fragment key={activeQuote.id}>
-                      <WorkflowTimeline 
-                        quotation={activeQuote} 
-                        contracts={drawerContracts}
-                        payments={drawerPayments}
-                        deliveries={drawerDeliveries}
-                      />
-                    </React.Fragment>
-                  );
-                })()}
-              </div>
-            )}
             <CustomerOverviewBento
               customer={customer}
               onEdit={onEdit}

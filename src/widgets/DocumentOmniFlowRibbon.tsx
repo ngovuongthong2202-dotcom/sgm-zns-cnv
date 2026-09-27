@@ -209,6 +209,18 @@ export function DocumentOmniFlowRibbon({
               <div className="text-3xs text-slate-500 font-medium mt-0.5 truncate">
                 {primaryContract?.ngayKy ? `Ký: ${formatDate(primaryContract.ngayKy)}` : 'Đang đàm phán'}
               </div>
+              {onCreateContract && !primaryContract && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCreateContract();
+                  }}
+                  className="mt-1.5 w-full py-0.5 px-1.5 text-3xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors flex items-center justify-center gap-1 border-0 cursor-pointer shadow-2xs"
+                >
+                  + Tạo Hợp Đồng
+                </button>
+              )}
             </div>
           </div>
 
@@ -242,6 +254,18 @@ export function DocumentOmniFlowRibbon({
                     : `Dự kiến: ${formatDate(deliveries[0].ngayGiaoMay)}`
                   : 'Chưa xuất kho'}
               </div>
+              {onCreateDelivery && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCreateDelivery();
+                  }}
+                  className="mt-1.5 w-full py-0.5 px-1.5 text-3xs font-bold text-cyan-850 bg-cyan-100/90 hover:bg-cyan-200/90 rounded transition-colors flex items-center justify-center gap-1 border-0 cursor-pointer"
+                >
+                  + Xuất kho
+                </button>
+              )}
             </div>
           </div>
 
@@ -273,6 +297,18 @@ export function DocumentOmniFlowRibbon({
                   ? `Còn nợ: ${formatMoney(totalContractVal - totalPaid)}`
                   : '✓ Tất toán 100%'}
               </div>
+              {onCreatePayment && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCreatePayment();
+                  }}
+                  className="mt-1.5 w-full py-0.5 px-1.5 text-3xs font-bold text-amber-900 bg-amber-100/90 hover:bg-amber-200/90 rounded transition-colors flex items-center justify-center gap-1 border-0 cursor-pointer"
+                >
+                  + Thu tiền
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -347,19 +383,57 @@ export function DocumentOmniFlowRibbon({
             </div>
           </div>
 
-          {/* Serial Chips */}
+          {/* Serial Chips & Status Reconciliation */}
           {primaryContract.danhSachMaMay && primaryContract.danhSachMaMay.length > 0 && (
             <div className="pt-2 border-t border-slate-100 flex items-center gap-2 flex-wrap">
-              <span className="text-3xs font-bold text-slate-500 uppercase">Mã máy / Serial:</span>
-              {primaryContract.danhSachMaMay.map((serial: string, idx: number) => (
-                <span
-                  key={idx}
-                  className="font-mono text-3xs font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200"
-                >
-                  #{serial}
-                </span>
-              ))}
+              <span className="text-3xs font-bold text-slate-500 uppercase">Đối soát Serial máy:</span>
+              {primaryContract.danhSachMaMay.map((serial: string, idx: number) => {
+                const isDelivered = deliveries.some(d => 
+                  d.ngayGiaoThucTe && Array.isArray(d.danhSachMaMay) && d.danhSachMaMay.includes(serial)
+                );
+                return (
+                  <span
+                    key={idx}
+                    className={`font-mono text-3xs font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${
+                      isDelivered 
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                        : 'bg-amber-50 text-amber-800 border-amber-300'
+                    }`}
+                  >
+                    <span>{isDelivered ? '✓' : '⏳'}</span>
+                    <span>#{serial}</span>
+                    <span className="text-3xs font-normal">({isDelivered ? 'Đã giao' : 'Chờ xuất'})</span>
+                  </span>
+                );
+              })}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Placeholder nếu chưa có Hợp Đồng */}
+      {!primaryContract && (
+        <div
+          ref={contractRef}
+          className="bg-white rounded-xl border border-dashed border-slate-300 p-4 shadow-2xs transition-all duration-300 flex items-center justify-between gap-4"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-sm">
+              <FileSignature size={16} />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-slate-700">Chưa ký kết hợp đồng kinh tế</h4>
+              <p className="text-3xs text-slate-500 mt-0.5">Báo giá này chưa được chuyển đổi thành Hợp Đồng chính thức.</p>
+            </div>
+          </div>
+          {onCreateContract && (
+            <button
+              type="button"
+              onClick={onCreateContract}
+              className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-colors border-0 cursor-pointer shadow-2xs flex items-center gap-1.5 shrink-0"
+            >
+              + Tạo Hợp Đồng Ngay
+            </button>
           )}
         </div>
       )}
@@ -377,6 +451,17 @@ export function DocumentOmniFlowRibbon({
             <h4 className="text-xs font-bold text-slate-800">
               LỊCH SỬ XUẤT KHO & BÀN GIAO THỰC TẾ ({deliveries.length} phiếu)
             </h4>
+            {totalMachineQty > 0 && (
+              <span className={`text-3xs font-bold px-2 py-0.5 rounded-full ${
+                deliveredQty >= totalMachineQty
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-amber-100 text-amber-800'
+              }`}>
+                {deliveredQty >= totalMachineQty 
+                  ? '✓ Đã giao đủ máy' 
+                  : `Đã giao ${deliveredQty}/${totalMachineQty} máy (Còn thiếu ${totalMachineQty - deliveredQty})`}
+              </span>
+            )}
           </div>
           {onCreateDelivery && (
             <button

@@ -138,7 +138,7 @@ export class ZnsPayloadBuilder {
         rendered.so_don_hang = robustDonHangFallback;
     }
     if ((requiredVarsSet.has('so_hop_dong') || requiredVarsSet.has('So_hop_dong')) && isEmp(rendered.so_hop_dong) && isEmp(rendered.So_hop_dong)) {
-        const robustFallback = p.soHopDong || 'Không có';
+        const robustFallback = p.soHopDong || (p as any).contractCode || (p as any).contractId || (p as any).soPhieuBaoGia || 'Không có';
         rendered.So_hop_dong = robustFallback;
         rendered.so_hop_dong = robustFallback;
     }
@@ -163,14 +163,15 @@ export class ZnsPayloadBuilder {
     }
 
     if (requiredVarsSet.has('time') && isEmp(rendered.time)) {
-        rendered.time = p.time || p.ngayThanhToan || '';
+        rendered.time = p.time || p.ngayThanhToan || (p.createdAt ? formatDate(p.createdAt as string) : formatDate(new Date().toISOString()));
     }
     if (requiredVarsSet.has('so_phieu_xuat') && isEmp(rendered.so_phieu_xuat)) {
-        const spFallback = p.soPhieuXuat || 'Không có';
+        const spFallback = p.soPhieuXuat || (p as any).soPhieuGiaoHang || (p as any).deliveryCode || (p as any).id || 'PXK-AUTO';
         rendered.so_phieu_xuat = spFallback;
     }
     if (requiredVarsSet.has('ngay_giao_may') && isEmp(rendered.ngay_giao_may)) {
-        rendered.ngay_giao_may = p.ngayGiaoMay || p.ngayGiao || 'Không có';
+        const rawDate = p.ngayGiaoMay || p.ngayGiao || p.ngayGiaoThucTe || p.createdAt;
+        rendered.ngay_giao_may = rawDate ? formatDate(rawDate as string) : formatDate(new Date().toISOString());
     }
     if (!isEmp((p as any).thoGiaoMay)) {
         rendered.tho_giao_may = (p as any).thoGiaoMay;
@@ -183,13 +184,16 @@ export class ZnsPayloadBuilder {
         // user requirement: danh_sach_ma_may = productId separated by |
         if (p.products && p.products.length > 0) {
             rendered.danh_sach_ma_may = p.products
-                .map((item: Record<string, unknown>) => item.productId || item.productName)
+                .map((item: Record<string, unknown>) => item.productId || item.productName || item.productCode || item.model)
                 .filter(Boolean)
                 .join(' | ');
         } else if (Array.isArray(p.danhSachMaMay) && p.danhSachMaMay.length > 0) {
             rendered.danh_sach_ma_may = p.danhSachMaMay.join(' | ');
         } else if (typeof p.danhSachMaMay === 'string') {
             rendered.danh_sach_ma_may = p.danhSachMaMay;
+        }
+        if (isEmp(rendered.danh_sach_ma_may)) {
+            rendered.danh_sach_ma_may = (p as any).maMay || (p as any).serial || 'Theo phiếu xuất kho';
         }
     }
 
