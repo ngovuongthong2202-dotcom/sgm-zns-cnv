@@ -14,6 +14,7 @@ import { extractAvatarBadge } from '@/src/shared/utils/userProfile';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
+import { hasActualCashCollected } from '@/src/domain/enums/payment-status';
 import { differenceInDays, differenceInHours } from 'date-fns';
 
 interface QuotationDetailOverviewProps {
@@ -44,7 +45,9 @@ export function QuotationDetailOverview({
   const isBgMay = normalizeLoai(quotation.loai) === QUOTATION_LOAI.MAY;
 
   // Realtime calculated financial lineage
-  const totalPaid = (matchingPayments || []).reduce((sum, p) => sum + (Number(p.soTien) || 0), 0);
+  const totalPaid = (matchingPayments || [])
+    .filter((p) => !p.deletedAt && !p.isDeleted && hasActualCashCollected(p.tinhTrangThanhToan))
+    .reduce((sum, p) => sum + (Number(p.soTien) || 0), 0);
   const paymentPct = totalValue > 0 ? Math.min(100, Math.round((totalPaid / totalValue) * 100)) : 0;
   const remainingDebt = Math.max(0, totalValue - totalPaid);
 

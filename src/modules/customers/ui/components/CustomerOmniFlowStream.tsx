@@ -15,8 +15,11 @@ import {
   ExternalLink,
   Layers,
   Sparkles,
-  Info
+  Info,
+  Award
 } from 'lucide-react';
+import { hasActualCashCollected } from '@/src/domain/enums/payment-status';
+import { cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';
 
 interface CustomerOmniFlowStreamProps {
   quotations: any[];
@@ -111,7 +114,7 @@ export function CustomerOmniFlowStream({
               </span>
             </h3>
             <p className="text-slate-500 text-2xs mt-0.5">
-              Tự động gom nhóm toàn diện: [Báo giá] ➔ [Hợp đồng] ➔ [Giao hàng] ➔ [Thanh toán]. Xem trọn vẹn thông tin trực diện mà không cần click mở thêm.
+              Tự động gom nhóm toàn diện: Máy ([Báo giá] ➔ [Hợp đồng] ➔ [Thanh toán] ➔ [Giao hàng]) và Vật tư/Dịch vụ ([Báo giá] ➔ [Thanh toán] ➔ [Giao hàng / Nghiệm thu]).
             </p>
           </div>
         </div>
@@ -120,21 +123,41 @@ export function CustomerOmniFlowStream({
       {/* Danh sách từng Pod Báo Giá */}
       {sortedQuotes.map((quote) => {
         const typeMeta = getQuotationTypeMeta(quote.loai);
+        const isService = (quote.loai || '').toUpperCase().includes('DỊCH VỤ') || (quote.loai || '').toUpperCase().includes('DICH VU') || (quote.loai || '').toUpperCase().includes('BẢO TRÌ');
 
-        // Tìm các hợp đồng liên quan
-        const matchedContracts = contracts.filter(
-          (c) => (quote.id && c.quotationId === quote.id) || (quote.contractId && c.id === quote.contractId)
-        );
+        // Tìm các hợp đồng liên quan (2 chiều: ID và Mã số)
+        const matchedContracts = contracts.filter((c) => {
+          if (c.deletedAt || c.isDeleted) return false;
+          const qIdMatch = quote.id && (c.quotationId === quote.id || c.baoGiaId === quote.id);
+          const qCodeMatch = quote.soPhieuBaoGia && c.soBaoGia && cleanDocCode(c.soBaoGia) === cleanDocCode(quote.soPhieuBaoGia);
+          const cIdMatch = quote.contractId && c.id === quote.contractId;
+          const cCodeMatch = quote.soHopDong && c.soHopDong && cleanDocCode(quote.soHopDong) === cleanDocCode(c.soHopDong);
+          return qIdMatch || qCodeMatch || cIdMatch || cCodeMatch;
+        });
 
-        // Tìm các phiếu giao hàng liên quan (qua quotationId hoặc contractId)
-        const matchedDeliveries = deliveries.filter(
-          (d) => (quote.id && d.quotationId === quote.id) || matchedContracts.some((c) => c.id === d.contractId)
-        );
+        // Tìm các phiếu thanh toán liên quan (2 chiều: ID và Mã số qua quote hoặc contract)
+        const matchedPayments = payments.filter((p) => {
+          if (p.deletedAt || p.isDeleted) return false;
+          const qMatch = (quote.id && (p.quotationId === quote.id || p.baoGiaId === quote.id)) ||
+                         (quote.soPhieuBaoGia && p.soBaoGia && cleanDocCode(p.soBaoGia) === cleanDocCode(quote.soPhieuBaoGia));
+          const cMatch = matchedContracts.some((c) => 
+            (c.id && (p.contractId === c.id || p.hopDongId === c.id)) ||
+            (c.soHopDong && p.soHopDong && cleanDocCode(p.soHopDong) === cleanDocCode(c.soHopDong))
+          );
+          return qMatch || cMatch;
+        });
 
-        // Tìm các phiếu thanh toán liên quan (qua quotationId hoặc contractId)
-        const matchedPayments = payments.filter(
-          (p) => (quote.id && p.quotationId === quote.id) || matchedContracts.some((c) => c.id === p.contractId)
-        );
+        // Tìm các phiếu giao hàng liên quan (2 chiều: ID và Mã số qua quote hoặc contract)
+        const matchedDeliveries = deliveries.filter((d) => {
+          if (d.deletedAt || d.isDeleted) return false;
+          const qMatch = (quote.id && (d.quotationId === quote.id || d.baoGiaId === quote.id)) ||
+                         (quote.soPhieuBaoGia && d.soBaoGia && cleanDocCode(d.soBaoGia) === cleanDocCode(quote.soPhieuBaoGia));
+          const cMatch = matchedContracts.some((c) => 
+            (c.id && (d.contractId === c.id || d.hopDongId === c.id)) ||
+            (c.soHopDong && d.soHopDong && cleanDocCode(d.soHopDong) === cleanDocCode(c.soHopDong))
+          );
+          return qMatch || cMatch;
+        });
 
         // Tính toán các chỉ số của Pod này
         const quoteTotal = Number(quote.totalAmount || quote.tongTien || quote.triGiaBaoGia || 0);
@@ -145,19 +168,27 @@ export function CustomerOmniFlowStream({
           ? Number(firstContract.giaTriHopDong || firstContract.tongGiaTri || firstContract.totalAmount || 0)
           : 0;
 
-        // Thanh toán
-        const totalPaid = matchedPayments.reduce((sum, p) => {
-          const isPaid = p.tinhTrangThanhToan?.toLowerCase().includes('tất toán') || p.tinhTrangThanhToan?.toLowerCase().includes('đã thanh toán');
-          return sum + (isPaid ? Number(p.soTien || 0) : 0);
-        }, 0);
+        // Thanh toán - dùng hasActualCashCollected để tính đúng 100% mọi phiếu cọc và đợt thu
+        const totalPaid = matchedPayments
+          .filter((p) => !p.deletedAt && !p.isDeleted && hasActualCashCollected(p.tinhTrangThanhToan))
+          .reduce((sum, p) => sum + Number(p.soTien || 0), 0);
         const effectiveTotal = contractTotal || quoteTotal;
         const paymentPercent = effectiveTotal > 0 ? Math.min(100, Math.round((totalPaid / effectiveTotal) * 100)) : (matchedPayments.length > 0 ? 100 : 0);
         const debtRemaining = Math.max(0, effectiveTotal - totalPaid);
 
-        // Giao hàng
+        // Giao hàng / Nghiệm thu
         const hasDelivered = matchedDeliveries.some((d) => !!d.ngayGiaoThucTe);
         const allDeliveriesCount = matchedDeliveries.length;
         const completedDeliveriesCount = matchedDeliveries.filter((d) => !!d.ngayGiaoThucTe).length;
+
+        // Đơn đặc cách
+        const isDacCach = Boolean(
+          quote.dacCachGiaoTruoc ||
+          firstContract?.dacCachGiaoTruoc ||
+          firstContract?.isPostDeliverySettlement ||
+          matchedPayments.some((p) => p.dacCachGiaoTruoc) ||
+          matchedDeliveries.some((d) => d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU')
+        );
 
         // Sản phẩm
         const displayProducts = (firstContract?.products && firstContract.products.length > 0)
@@ -198,9 +229,9 @@ export function CustomerOmniFlowStream({
               </div>
             </div>
 
-            {/* 2. Visual 4-Stage Ribbon Pipeline */}
+            {/* 2. Visual Pipeline (Tự động thích ứng: Máy = 4 chặng; Vật tư/Dịch vụ = 3 chặng) */}
             <div className="p-4 bg-slate-50/30 border-b border-slate-100">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+              <div className={`grid gap-2.5 ${typeMeta.isMachine ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
                 {/* Chặng 1: Báo giá */}
                 <div 
                   onClick={() => quote.id && openDrawer('quotation', quote.id)}
@@ -224,93 +255,48 @@ export function CustomerOmniFlowStream({
                   </div>
                 </div>
 
-                {/* Chặng 2: Hợp đồng */}
-                <div 
-                  onClick={() => firstContract?.id && openDrawer('contract', firstContract.id)}
-                  className={`p-2.5 rounded-lg border transition-all flex flex-col justify-between shadow-2xs ${
-                    firstContract 
-                      ? 'bg-white border-slate-200 hover:border-blue-400 cursor-pointer group' 
-                      : 'bg-slate-50/60 border-dashed border-slate-200 cursor-default'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-3xs font-bold uppercase text-slate-400 flex items-center gap-1">
-                      <FileSignature size={12} className={firstContract ? 'text-blue-600' : 'text-slate-400'} /> 2. Hợp Đồng
-                    </span>
-                    {firstContract ? (
-                      <span className="text-3xs font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                        {firstContract.tinhTrangHopDong || 'Đã ký'}
+                {/* Chặng 2: Hợp đồng (Chỉ hiện khi là Báo Giá Máy) */}
+                {typeMeta.isMachine && (
+                  <div 
+                    onClick={() => firstContract?.id && openDrawer('contract', firstContract.id)}
+                    className={`p-2.5 rounded-lg border transition-all flex flex-col justify-between shadow-2xs ${
+                      firstContract 
+                        ? 'bg-white border-slate-200 hover:border-blue-400 cursor-pointer group' 
+                        : 'bg-slate-50/60 border-dashed border-slate-200 cursor-default'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-3xs font-bold uppercase text-slate-400 flex items-center gap-1">
+                        <FileSignature size={12} className={firstContract ? 'text-blue-600' : 'text-slate-400'} /> 2. Hợp Đồng
                       </span>
-                    ) : (
-                      <span className="text-3xs text-slate-400 font-medium">
-                        {typeMeta.isMachine ? 'Chưa lập HĐ' : 'Không cần HĐ'}
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    {firstContract ? (
-                      <>
-                        <span className="font-mono font-bold text-xs text-slate-800 group-hover:text-blue-600 truncate block">
-                          {firstContract.soHopDong}
+                      {firstContract ? (
+                        <span className="text-3xs font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                          {firstContract.tinhTrangHopDong || 'Đã ký'}
                         </span>
-                        <span className="font-currency font-bold text-2xs text-slate-600 tabular-nums mt-0.5 block">
-                          {formatMoney(contractTotal)}
+                      ) : (
+                        <span className="text-3xs text-slate-400 font-medium">Chưa lập HĐ</span>
+                      )}
+                    </div>
+                    <div>
+                      {firstContract ? (
+                        <>
+                          <span className="font-mono font-bold text-xs text-slate-800 group-hover:text-blue-600 truncate block">
+                            {firstContract.soHopDong}
+                          </span>
+                          <span className="font-currency font-bold text-2xs text-slate-600 tabular-nums mt-0.5 block">
+                            {formatMoney(contractTotal)}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-3xs text-slate-400 italic block">
+                          Chờ chốt ký hợp đồng máy
                         </span>
-                      </>
-                    ) : (
-                      <span className="text-3xs text-slate-400 italic block">
-                        {typeMeta.isMachine ? 'Chờ chốt ký hợp đồng' : 'Xuất kho trực tiếp theo BG'}
-                      </span>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Chặng 3: Giao hàng */}
-                <div 
-                  onClick={() => matchedDeliveries[0]?.id && openDrawer('delivery', matchedDeliveries[0].id)}
-                  className={`p-2.5 rounded-lg border transition-all flex flex-col justify-between shadow-2xs ${
-                    matchedDeliveries.length > 0
-                      ? 'bg-white border-slate-200 hover:border-cyan-400 cursor-pointer group'
-                      : 'bg-slate-50/60 border-dashed border-slate-200 cursor-default'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-3xs font-bold uppercase text-slate-400 flex items-center gap-1">
-                      <Truck size={12} className={matchedDeliveries.length > 0 ? 'text-cyan-600' : 'text-slate-400'} /> 3. Giao Hàng
-                    </span>
-                    {hasDelivered ? (
-                      <span className="text-3xs font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                        Đã giao ({completedDeliveriesCount}/{allDeliveriesCount})
-                      </span>
-                    ) : matchedDeliveries.length > 0 ? (
-                      <span className="text-3xs font-bold text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                        Đang giao ({allDeliveriesCount} phiếu)
-                      </span>
-                    ) : (
-                      <span className="text-3xs text-slate-400 font-medium">Chưa xuất kho</span>
-                    )}
-                  </div>
-                  <div>
-                    {matchedDeliveries.length > 0 ? (
-                      <>
-                        <span className="font-mono font-bold text-xs text-slate-800 group-hover:text-cyan-600 truncate block">
-                          {matchedDeliveries[0].soPhieuXuat || matchedDeliveries[0].deliveryId || 'Phiếu xuất kho'}
-                        </span>
-                        <span className="text-3xs text-slate-500 font-mono mt-0.5 block">
-                          {matchedDeliveries[0].ngayGiaoThucTe 
-                            ? `Giao: ${formatDate(matchedDeliveries[0].ngayGiaoThucTe)}` 
-                            : `Hạn: ${formatDate(matchedDeliveries[0].ngayGiaoMay)}`}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-3xs text-slate-400 italic block">
-                        Chưa lập phiếu xuất kho
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Chặng 4: Thanh toán */}
+                {/* Chặng Kế Tiếp: Thanh toán (Đứng trước Giao Hàng theo đúng thứ tự logic) */}
                 <div 
                   onClick={() => matchedPayments[0]?.id && openDrawer('payment', matchedPayments[0].id)}
                   className={`p-2.5 rounded-lg border transition-all flex flex-col justify-between shadow-2xs ${
@@ -321,7 +307,7 @@ export function CustomerOmniFlowStream({
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-3xs font-bold uppercase text-slate-400 flex items-center gap-1">
-                      <CreditCard size={12} className={matchedPayments.length > 0 ? 'text-emerald-600' : 'text-slate-400'} /> 4. Thanh Toán
+                      <CreditCard size={12} className={matchedPayments.length > 0 ? 'text-emerald-600' : 'text-slate-400'} /> {typeMeta.isMachine ? '3. Thanh Toán' : '2. Thanh Toán'}
                     </span>
                     <span className={`text-3xs font-bold px-1.5 py-0.2 rounded border ${
                       paymentPercent === 100 
@@ -354,7 +340,65 @@ export function CustomerOmniFlowStream({
                     )}
                   </div>
                 </div>
+
+                {/* Chặng Cuối: Giao hàng / Nghiệm thu dịch vụ */}
+                <div 
+                  onClick={() => matchedDeliveries[0]?.id && openDrawer('delivery', matchedDeliveries[0].id)}
+                  className={`p-2.5 rounded-lg border transition-all flex flex-col justify-between shadow-2xs ${
+                    matchedDeliveries.length > 0
+                      ? 'bg-white border-slate-200 hover:border-cyan-400 cursor-pointer group'
+                      : 'bg-slate-50/60 border-dashed border-slate-200 cursor-default'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-3xs font-bold uppercase text-slate-400 flex items-center gap-1">
+                      <Truck size={12} className={matchedDeliveries.length > 0 ? 'text-cyan-600' : 'text-slate-400'} /> {typeMeta.isMachine ? '4. Giao Hàng' : isService ? '3. Nghiệm Thu' : '3. Giao Hàng'}
+                    </span>
+                    {hasDelivered ? (
+                      <span className="text-3xs font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                        {isService ? 'Đã nghiệm thu' : `Đã giao (${completedDeliveriesCount}/${allDeliveriesCount})`}
+                      </span>
+                    ) : matchedDeliveries.length > 0 ? (
+                      <span className="text-3xs font-bold text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                        {isService ? 'Đang thực hiện' : `Đang giao (${allDeliveriesCount} phiếu)`}
+                      </span>
+                    ) : (
+                      <span className="text-3xs text-slate-400 font-medium">
+                        {isService ? 'Chờ triển khai' : 'Chưa xuất kho'}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    {matchedDeliveries.length > 0 ? (
+                      <>
+                        <span className="font-mono font-bold text-xs text-slate-800 group-hover:text-cyan-600 truncate block">
+                          {matchedDeliveries[0].soPhieuXuat || matchedDeliveries[0].deliveryId || 'Phiếu xuất kho'}
+                        </span>
+                        <span className="text-3xs text-slate-500 font-mono mt-0.5 block">
+                          {matchedDeliveries[0].ngayGiaoThucTe 
+                            ? `${isService ? 'N.Thu:' : 'Giao:'} ${formatDate(matchedDeliveries[0].ngayGiaoThucTe)}` 
+                            : `Hạn: ${formatDate(matchedDeliveries[0].ngayGiaoMay)}`}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-3xs text-slate-400 italic block">
+                        {isService ? 'Chưa lập biên bản nghiệm thu' : 'Chưa lập phiếu xuất kho'}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
+
+              {/* Banner Đặc cách Ban Giám Đốc nếu có */}
+              {isDacCach && (
+                <div className="mt-2.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between text-3xs font-medium text-amber-900 animate-in fade-in">
+                  <span className="flex items-center gap-1.5">
+                    <Award size={13} className="text-amber-600 shrink-0" />
+                    <strong>Đơn hàng Đặc Cách BGĐ:</strong> Bàn giao trước theo cam kết chỉ đạo, tất toán công nợ sau.
+                  </span>
+                  <span className="text-amber-800 font-bold font-mono">Đặc cách kích hoạt</span>
+                </div>
+              )}
             </div>
 
             {/* 3. Operational Dossier (Dữ liệu cốt lõi 100% trực diện) */}
@@ -398,48 +442,14 @@ export function CustomerOmniFlowStream({
                 </div>
               )}
 
-              {/* Tóm tắt Giao hàng & Thanh toán đồng thời nếu có */}
+              {/* Tóm tắt Thanh toán & Giao hàng đồng thời nếu có (Thanh toán trước Giao hàng) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Khối Giao hàng */}
-                {matchedDeliveries.length > 0 && (
-                  <div className="bg-slate-50/70 rounded-lg p-3 border border-slate-200/80 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-3xs font-bold uppercase text-slate-500 flex items-center gap-1">
-                        <Truck size={12} className="text-cyan-600" /> Chi tiết giao hàng
-                      </span>
-                      {matchedDeliveries[0]?.id && (
-                        <button
-                          type="button"
-                          onClick={() => openDrawer('delivery', matchedDeliveries[0].id)}
-                          className="text-3xs text-cyan-700 font-bold hover:underline flex items-center gap-0.5 bg-transparent border-0 cursor-pointer p-0"
-                        >
-                          <span>Mở phiếu</span> <ExternalLink size={10} />
-                        </button>
-                      )}
-                    </div>
-                    {matchedDeliveries.map((del) => (
-                      <div key={del.id} className="text-2xs space-y-0.5 pt-1 border-t border-slate-200/60">
-                        <div className="flex justify-between items-center font-mono font-bold text-slate-800">
-                          <span>{del.soPhieuXuat || del.deliveryId}</span>
-                          <span className={`text-3xs px-1.5 py-0.2 rounded ${del.ngayGiaoThucTe ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                            {del.ngayGiaoThucTe ? 'Đã giao' : 'Đang giao'}
-                          </span>
-                        </div>
-                        <div className="text-3xs text-slate-500 flex justify-between">
-                          <span>Ký nhận: <strong className="text-slate-700">{del.kyNhan || 'Chưa ký'}</strong></span>
-                          <span>{del.ngayGiaoThucTe ? formatDate(del.ngayGiaoThucTe) : `Dự kiến: ${formatDate(del.ngayGiaoMay)}`}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
                 {/* Khối Thanh toán */}
                 {matchedPayments.length > 0 && (
                   <div className="bg-slate-50/70 rounded-lg p-3 border border-slate-200/80 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="text-3xs font-bold uppercase text-slate-500 flex items-center gap-1">
-                        <CreditCard size={12} className="text-emerald-600" /> Chi tiết thanh toán
+                        <CreditCard size={12} className="text-emerald-600" /> Sổ cái thanh toán ({matchedPayments.length} phiếu)
                       </span>
                       {matchedPayments[0]?.id && (
                         <button
@@ -462,6 +472,40 @@ export function CustomerOmniFlowStream({
                         <div className="text-3xs text-slate-500 flex justify-between">
                           <span>Tình trạng: <strong className="text-slate-700">{pay.tinhTrangThanhToan}</strong></span>
                           <span>{pay.ngayThanhToan ? formatDate(pay.ngayThanhToan) : '—'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Khối Giao hàng / Nghiệm thu */}
+                {matchedDeliveries.length > 0 && (
+                  <div className="bg-slate-50/70 rounded-lg p-3 border border-slate-200/80 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-3xs font-bold uppercase text-slate-500 flex items-center gap-1">
+                        <Truck size={12} className="text-cyan-600" /> {isService ? 'Biên bản nghiệm thu' : 'Chi tiết giao hàng'} ({matchedDeliveries.length} phiếu)
+                      </span>
+                      {matchedDeliveries[0]?.id && (
+                        <button
+                          type="button"
+                          onClick={() => openDrawer('delivery', matchedDeliveries[0].id)}
+                          className="text-3xs text-cyan-700 font-bold hover:underline flex items-center gap-0.5 bg-transparent border-0 cursor-pointer p-0"
+                        >
+                          <span>Mở phiếu</span> <ExternalLink size={10} />
+                        </button>
+                      )}
+                    </div>
+                    {matchedDeliveries.map((del) => (
+                      <div key={del.id} className="text-2xs space-y-0.5 pt-1 border-t border-slate-200/60">
+                        <div className="flex justify-between items-center font-mono font-bold text-slate-800">
+                          <span>{del.soPhieuXuat || del.deliveryId}</span>
+                          <span className={`text-3xs px-1.5 py-0.2 rounded ${del.ngayGiaoThucTe ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                            {del.ngayGiaoThucTe ? (isService ? 'Đã nghiệm thu' : 'Đã giao') : (isService ? 'Đang triển khai' : 'Đang giao')}
+                          </span>
+                        </div>
+                        <div className="text-3xs text-slate-500 flex justify-between">
+                          <span>{isService ? 'Ký nghiệm thu:' : 'Ký nhận:'} <strong className="text-slate-700">{del.kyNhan || 'Chưa ký'}</strong></span>
+                          <span>{del.ngayGiaoThucTe ? formatDate(del.ngayGiaoThucTe) : `Dự kiến: ${formatDate(del.ngayGiaoMay)}`}</span>
                         </div>
                       </div>
                     ))}

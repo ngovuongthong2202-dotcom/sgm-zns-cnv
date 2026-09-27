@@ -86,6 +86,23 @@ export function PaymentDetailDrawer({
     { revalidateOnFocus: false }
   );
 
+  const { data: siblingPayments = [], isLoading: pLoading } = useSWR<any[]>(
+    isOpen && filterKey
+      ? `payments:500:${filterKey}`
+      : null,
+    swrColFetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const allRelatedPayments = useMemo(() => {
+    const map = new Map<string, any>();
+    if (payment?.id) map.set(payment.id, payment);
+    (siblingPayments || []).forEach((p) => {
+      if (p.id) map.set(p.id, p);
+    });
+    return Array.from(map.values());
+  }, [payment, siblingPayments]);
+
   const totalPayable = payment ? (payment.totalAmount || (payment as any).tongTienCanThanhToan || payment.soTien || 0) : 0;
   const remainingDebt = payment ? Math.max(0, totalPayable - (payment.soTien || 0)) : 0;
 
@@ -528,7 +545,7 @@ export function PaymentDetailDrawer({
       quotation={_quotationDoc}
       contract={contractDoc}
       deliveries={deliveries}
-      payments={[payment]}
+      payments={allRelatedPayments}
       onOpenFlow={() => setActiveTab('flow')}
     />
   );
@@ -558,7 +575,7 @@ export function PaymentDetailDrawer({
           {(
             [
               { id: 'overview', label: 'Tổng quan' },
-              { id: 'flow', label: 'Dòng chảy 360°', count: (_quotationDoc ? 1 : 0) + (contractDoc ? 1 : 0) + 1 + deliveries.length, loading: dLoading },
+              { id: 'flow', label: 'Dòng chảy 360°', count: (_quotationDoc ? 1 : 0) + (contractDoc ? 1 : 0) + allRelatedPayments.length + deliveries.length, loading: dLoading || pLoading },
               { id: 'nexus', label: 'Nhật ký & Hoạt động' },
             ] as const
           ).map((tab) => {
@@ -656,7 +673,7 @@ export function PaymentDetailDrawer({
             relatedQuotations={_quotationDoc ? [_quotationDoc] : []}
             relatedContracts={contractDoc ? [contractDoc] : []}
             relatedDeliveries={deliveries}
-            relatedPayments={[payment]}
+            relatedPayments={allRelatedPayments}
             focusTarget={flowFocusTarget}
             onCreateDelivery={contractDoc ? () => navigate(`/deliveries/new?fromContract=${contractDoc.id}`) : undefined}
           />

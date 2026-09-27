@@ -4,7 +4,7 @@ import { formatDate } from '@/src/shared/utils/formatDate';
 import { computeContractCompletionTimeline, parseSafeDate } from '@/src/shared/utils/vietnamBusinessDays';
 import React, { useMemo, useState } from 'react';
 import useSWR from 'swr';
-import { swrDocFetcher } from '@/src/data/swr-fetchers';
+import { swrDocFetcher, swrColFetcher } from '@/src/data/swr-fetchers';
 import { PaymentHoverCard } from '@/src/modules/billing/ui/components/PaymentHoverCard';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
@@ -53,18 +53,29 @@ export function DeliveryDetailDrawer({
   setCompletingDelivery,
   onCompleteDeliverySubmit,
 }: DeliveryDetailDrawerProps) {
-  const paymentQueryKey = drawerDelivery?.paymentId 
-    ? `payments:${drawerDelivery.paymentId}` 
-    : drawerContract?.paymentId 
-    ? `payments:${drawerContract.paymentId}` 
-    : drawerContract?.id 
-    ? `payments:50:contractId:${drawerContract.id}` 
-    : null;
-  const { data: rawPaymentData } = useSWR<any>(paymentQueryKey, swrDocFetcher);
-  const paymentDoc = useMemo(() => {
-    if (!rawPaymentData) return null;
-    return Array.isArray(rawPaymentData) ? rawPaymentData[0] : rawPaymentData;
-  }, [rawPaymentData]);
+  const singlePaymentId = drawerDelivery?.paymentId || drawerContract?.paymentId;
+  const contractIdForPayment = drawerContract?.id;
+
+  const { data: singlePaymentDoc } = useSWR<any>(
+    singlePaymentId ? `payments:${singlePaymentId}` : null,
+    swrDocFetcher
+  );
+
+  const { data: contractPayments = [] } = useSWR<any[]>(
+    contractIdForPayment ? `payments:50:contractId:${contractIdForPayment}` : null,
+    swrColFetcher
+  );
+
+  const allPayments = useMemo(() => {
+    const map = new Map<string, any>();
+    if (singlePaymentDoc?.id) map.set(singlePaymentDoc.id, singlePaymentDoc);
+    (contractPayments || []).forEach((p) => {
+      if (p.id) map.set(p.id, p);
+    });
+    return Array.from(map.values());
+  }, [singlePaymentDoc, contractPayments]);
+
+  const paymentDoc = allPayments[0] || null;
   const [activeTab, setActiveTab] = useState<'overview' | 'flow' | 'nexus'>('overview');
   const [flowFocusTarget, setFlowFocusTarget] = useState<'quotation' | 'contract' | 'delivery' | 'payment'>('delivery');
   const [showMismatchDetails, setShowMismatchDetails] = useState(false);
@@ -76,7 +87,7 @@ export function DeliveryDetailDrawer({
     }
   }, [drawerDelivery?.id]);
 
-  const totalFlowDocs = (drawerQuotation ? 1 : 0) + (drawerContract ? 1 : 0) + 1 + (paymentDoc ? 1 : 0);
+  const totalFlowDocs = (drawerQuotation ? 1 : 0) + (drawerContract ? 1 : 0) + 1 + allPayments.length;
 
   const customTabsList = (
     <div className="flex items-center gap-6 border-b border-slate-100 pb-px -mb-[9px] select-none pl-1 overflow-x-auto scrollbar-hide">
@@ -931,7 +942,7 @@ export function DeliveryDetailDrawer({
       relatedQuotations={drawerQuotation ? [drawerQuotation] : []}
       relatedContracts={drawerContract ? [drawerContract] : []}
       relatedDeliveries={[drawerDelivery]}
-      relatedPayments={paymentDoc ? [paymentDoc] : []}
+      relatedPayments={allPayments}
       focusTarget={flowFocusTarget}
     />
   );
@@ -959,7 +970,7 @@ export function DeliveryDetailDrawer({
       quotation={drawerQuotation}
       contract={drawerContract}
       deliveries={[drawerDelivery]}
-      payments={paymentDoc ? [paymentDoc] : []}
+      payments={allPayments}
       onOpenFlow={() => setActiveTab('flow')}
     />
   );

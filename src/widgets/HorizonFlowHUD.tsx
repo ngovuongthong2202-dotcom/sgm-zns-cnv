@@ -13,6 +13,7 @@ import {
 import { cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
+import { hasActualCashCollected } from '@/src/domain/enums/payment-status';
 
 export interface HorizonFlowHUDProps {
   currentType: 'quotation' | 'contract' | 'delivery' | 'payment' | 'customer';
@@ -35,6 +36,8 @@ export function HorizonFlowHUD({
 }: HorizonFlowHUDProps) {
   // Determine whether this flow requires a Contract (Machines) or can skip (Retail / Services)
   const isRetail = quotation && normalizeLoai(quotation.loai) !== QUOTATION_LOAI.MAY;
+  const isService = quotation && normalizeLoai(quotation.loai) === QUOTATION_LOAI.DICH_VU;
+  const isDacCach = Boolean(contract?.dacCachGiaoTruoc || contract?.isPostDeliverySettlement || quotation?.dacCachGiaoTruoc);
 
   // 1. Stage Quotation
   const hasQuote = Boolean(quotation?.id || quotation?.soPhieuBaoGia);
@@ -44,7 +47,16 @@ export function HorizonFlowHUD({
   const hasContract = Boolean(contract?.id || contract?.soHopDong);
   const contractNumber = contract?.soHopDong || '---';
 
-  // 3. Stage Delivery
+  // 3. Stage Payment (Thu tiền cọc / đợt 1 / tất toán)
+  const targetTotal = Number(contract?.totalAmount || contract?.giaTriHopDong || quotation?.totalAmount || 0);
+  const totalPaid = (payments || [])
+    .filter((p: any) => !p.deletedAt && !p.isDeleted && hasActualCashCollected(p.tinhTrangThanhToan))
+    .reduce((sum: number, p: any) => sum + (Number(p.soTien) || 0), 0);
+  const isPaidFull = targetTotal > 0 && totalPaid >= targetTotal;
+  const isPaidPartial = totalPaid > 0 && totalPaid < targetTotal;
+  const hasPayments = payments.length > 0;
+
+  // 4. Stage Delivery / Acceptance (Xuất kho bàn giao hoặc Nghiệm thu dịch vụ)
   const totalContractQty = contract?.slMay || contract?.products?.reduce((s: number, p: any) => s + (Number(p.quantity) || 0), 0) || quotation?.slMay || 1;
   const deliveredQty = (deliveries || []).reduce((acc: number, d: any) => {
     if (d.trangThai === 'DA_GIAO' || d.trangThai === 'HOAN_TAT' || d.ngayGiaoThucTe) {
@@ -56,13 +68,6 @@ export function HorizonFlowHUD({
   const isDeliveryPartial = deliveredQty > 0 && deliveredQty < totalContractQty;
   const hasDeliveries = deliveries.length > 0;
 
-  // 4. Stage Payment
-  const targetTotal = Number(contract?.totalAmount || contract?.giaTriHopDong || quotation?.totalAmount || 0);
-  const totalPaid = (payments || []).reduce((sum: number, p: any) => sum + (Number(p.soTien) || 0), 0);
-  const isPaidFull = targetTotal > 0 && totalPaid >= targetTotal;
-  const isPaidPartial = totalPaid > 0 && totalPaid < targetTotal;
-  const hasPayments = payments.length > 0;
-
   // Compute Overall Progress & Health Label
   let progressPct = 0;
   let statusSummary = '';
@@ -70,26 +75,30 @@ export function HorizonFlowHUD({
   if (isRetail) {
     let score = 0;
     if (hasQuote) score += 34;
-    if (isDeliveryDone) score += 33; else if (hasDeliveries) score += 15;
     if (isPaidFull) score += 33; else if (isPaidPartial) score += 15;
+    if (isDeliveryDone) score += 33; else if (hasDeliveries) score += 15;
     progressPct = Math.min(100, score);
   } else {
     let score = 0;
     if (hasQuote) score += 25;
     if (hasContract) score += 25;
+    if (isPaidFull) score += 25; else if (isPaidPartial) score += 15;
     if (isDeliveryDone) score += 25; else if (hasDeliveries) score += 12;
-    if (isPaidFull) score += 25; else if (isPaidPartial) score += 12;
     progressPct = Math.min(100, score);
   }
 
   if (progressPct >= 100) {
     statusSummary = 'Giao dịch hoàn tất 100%';
-  } else if (hasContract && !isDeliveryDone && isPaidPartial) {
-    statusSummary = 'Đang triển khai & thu cọc';
-  } else if (isDeliveryDone && !isPaidFull) {
+  } else if (isDacCach) {
+    statusSummary = '⭐ Đặc cách BGĐ (Giao trước trả sau)';
+  } else if (isDeliveryDone && isPaidPartial) {
     statusSummary = 'Đã giao máy - Chờ quyết toán nợ';
-  } else if (hasContract && !hasDeliveries) {
-    statusSummary = 'Đã ký HĐ - Chờ xuất xưởng';
+  } else if (isPaidFull && !isDeliveryDone) {
+    statusSummary = isService ? 'Đã tất toán - Chờ nghiệm thu' : 'Đã tất toán - Chờ xuất xưởng';
+  } else if (hasContract && isPaidPartial && !isDeliveryDone) {
+    statusSummary = 'Đã cọc - Đang chuẩn bị xuất xưởng';
+  } else if (hasContract && !hasPayments) {
+    statusSummary = 'Đã ký HĐ - Chờ khách cọc';
   } else if (hasQuote && !hasContract && !isRetail) {
     statusSummary = 'Đang đàm phán hợp đồng';
   } else {
@@ -112,7 +121,7 @@ export function HorizonFlowHUD({
         </span>
       </div>
 
-      {/* CENTER: 4 Micro-Station Pills */}
+      {/* CENTER: Micro-Station Pills (Thu trước Giao hàng) */}
       <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto py-0.5 max-w-full">
         {/* 1. Báo Giá */}
         <div 
@@ -130,7 +139,7 @@ export function HorizonFlowHUD({
 
         <span className="text-slate-300 font-bold text-2xs select-none">→</span>
 
-        {/* 2. Hợp Đồng (ẩn nếu là Bán lẻ không qua HĐ) */}
+        {/* 2. Hợp Đồng (ẩn nếu là Bán lẻ / Dịch vụ không qua HĐ) */}
         {!isRetail && (
           <>
             <div 
@@ -149,25 +158,7 @@ export function HorizonFlowHUD({
           </>
         )}
 
-        {/* 3. Giao Hàng */}
-        <div 
-          className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-2xs font-medium transition-colors ${
-            isDeliveryDone 
-              ? 'bg-teal-50 text-teal-800 border-teal-200'
-              : isDeliveryPartial
-              ? 'bg-amber-50 text-amber-800 border-amber-200'
-              : 'bg-slate-100 text-slate-500 border-slate-200'
-          }`}
-          title={hasDeliveries ? `Đã giao: ${deliveredQty}/${totalContractQty} máy` : 'Chưa giao máy'}
-        >
-          <Truck className="w-3 h-3 text-teal-600" />
-          <span className="font-semibold">Giao:</span>
-          <span className="font-mono">{hasDeliveries ? `${deliveredQty}/${totalContractQty}` : 'Chờ giao'}</span>
-        </div>
-
-        <span className="text-slate-300 font-bold text-2xs select-none">→</span>
-
-        {/* 4. Thanh Toán */}
+        {/* 3. Thanh Toán (Thu tiền cọc / đợt 1 / thanh toán) */}
         <div 
           className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-2xs font-medium transition-colors ${
             isPaidFull 
@@ -182,6 +173,28 @@ export function HorizonFlowHUD({
           <span className="font-semibold">Thu:</span>
           <span className="font-mono">
             {isPaidFull ? 'Tất toán' : isPaidPartial ? `${Math.round((totalPaid / (targetTotal || 1)) * 100)}%` : '0%'}
+          </span>
+        </div>
+
+        <span className="text-slate-300 font-bold text-2xs select-none">→</span>
+
+        {/* 4. Giao Hàng / Nghiệm Thu */}
+        <div 
+          className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-2xs font-medium transition-colors ${
+            isDeliveryDone 
+              ? 'bg-teal-50 text-teal-800 border-teal-200'
+              : isDeliveryPartial
+              ? 'bg-amber-50 text-amber-800 border-amber-200'
+              : 'bg-slate-100 text-slate-500 border-slate-200'
+          }`}
+          title={hasDeliveries ? `Đã giao: ${deliveredQty}/${totalContractQty} máy` : isService ? 'Chưa nghiệm thu' : 'Chưa giao máy'}
+        >
+          {isService ? <CheckCircle2 className="w-3 h-3 text-teal-600" /> : <Truck className="w-3 h-3 text-teal-600" />}
+          <span className="font-semibold">{isService ? 'N.Thu:' : 'Giao:'}</span>
+          <span className="font-mono">
+            {hasDeliveries 
+              ? (isService ? (isDeliveryDone ? 'Đã NT' : 'Đang NT') : `${deliveredQty}/${totalContractQty}`) 
+              : (isService ? 'Chờ NT' : 'Chờ giao')}
           </span>
         </div>
       </div>
