@@ -8,6 +8,7 @@ import { formatDate } from '@/src/shared/utils/formatDate';
 import { normalizeCode, normalizePersonName, readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
+import { QuickCustomerModal } from '@/src/modules/customers/ui/components/QuickCustomerModal';
 
 // -- Các Component Con --
 
@@ -17,6 +18,7 @@ export function QuotationBasicInfoSection({
   const { user, userData } = useAuth();
   const isAdmin = isAdministratorRole(userData, user);
   const watchAll = watch();
+  const [isQuickCustomerOpen, setIsQuickCustomerOpen] = React.useState(false);
   
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
@@ -101,21 +103,33 @@ export function QuotationBasicInfoSection({
         {/* ASYNC CUSTOMER CHOOSER */}
         <div className="md:col-span-2 bg-slate-50/70 p-4 border border-slate-200 rounded-lg space-y-3">
           <div>
-            <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 mb-1 block flex justify-between items-center">
-              <span>Khách hàng Pháp nhân Nhận Báo giá <span className="text-red-500">*</span></span>
-              {(() => {
-                const selectedCustomerId = watch('customerId');
-                const selectedCustomer = customers.find((c: any) => c.id === selectedCustomerId);
-                if (!selectedCustomer) return null;
-                return (
-                  <CustomerHoverCard customer={selectedCustomer}>
-                    <span className="text-blue-600 hover:text-blue-700 font-bold text-2xs cursor-pointer bg-blue-50 px-2 py-0.5 rounded border border-blue-200 flex items-center gap-1">
-                      Xem thông tin KH 🛈
-                    </span>
-                  </CustomerHoverCard>
-                );
-              })()}
-            </label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 flex items-center gap-1.5">
+                <span>Khách hàng Pháp nhân Nhận Báo giá <span className="text-red-500">*</span></span>
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={businessLock?.locked}
+                  onClick={() => setIsQuickCustomerOpen(true)}
+                  className="text-2xs font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-0.5 rounded transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-2xs"
+                >
+                  <span className="text-xs font-black leading-none">+</span> Tạo nhanh Khách Hàng
+                </button>
+                {(() => {
+                  const selectedCustomerId = watch('customerId');
+                  const selectedCustomer = customers.find((c: any) => c.id === selectedCustomerId);
+                  if (!selectedCustomer) return null;
+                  return (
+                    <CustomerHoverCard customer={selectedCustomer}>
+                      <span className="text-blue-600 hover:text-blue-700 font-bold text-2xs cursor-pointer bg-blue-50 px-2 py-0.5 rounded border border-blue-200 flex items-center gap-1">
+                        Xem thông tin KH 🛈
+                      </span>
+                    </CustomerHoverCard>
+                  );
+                })()}
+              </div>
+            </div>
             <AsyncSearchableSelect
                collection="customers"
                options={customers}
@@ -330,6 +344,21 @@ export function QuotationBasicInfoSection({
           )}
         </div>
       </div>
+
+      <QuickCustomerModal
+        isOpen={isQuickCustomerOpen}
+        onClose={() => setIsQuickCustomerOpen(false)}
+        defaultOfficer={getValues('nguoiPhuTrach') || ''}
+        onCustomerCreated={(newCust: any) => {
+          setValue('customerId', newCust.id, { shouldValidate: true, shouldDirty: true });
+          setValue('maKh', newCust.maKh || '', { shouldDirty: true });
+          setValue('tenKhachHang', newCust.tenKhachHang || '', { shouldDirty: true });
+          setValue('sdt', newCust.sdt || '', { shouldDirty: true });
+          setValue('nguoiDaiDien', newCust.nguoiDaiDien || '', { shouldDirty: true });
+          setValue('phanLoaiKhach', newCust.loaiKh || '', { shouldDirty: true });
+          if (newCust.diaChi) setValue('diaChi', newCust.diaChi, { shouldDirty: true });
+        }}
+      />
     </div>
   );
 }

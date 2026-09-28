@@ -22,6 +22,7 @@ import { checkA5Policy } from '@/src/modules/iam';
 import { useAuth } from '@/src/modules/iam';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { formatUserOfficer } from '@/src/shared/utils/userProfile';
+import { generateDeterministicNextCode } from '@/src/shared/utils/voucherResolver';
 
 import { PaymentRecordBasicFields } from './form/PaymentRecordBasicFields';
 import { PaymentRecordProductsSection } from './form/PaymentRecordProductsSection';
@@ -73,17 +74,27 @@ export function PaymentRecordDrawer({
     return checkPaymentLock(payment as any, myDeliveries);
   }, [payment, allDeliveries]);
 
+  const allPaymentsList = useMemo(() => {
+    const map = new Map<string, any>();
+    (payments || []).forEach(p => p?.id && map.set(p.id, p));
+    try {
+      const cached = entityCachePool.getAll<any>('payments');
+      if (cached) cached.forEach(p => p?.id && map.set(p.id, p));
+    } catch {}
+    return Array.from(map.values());
+  }, [payments]);
+
   const PaymentFormSchema = useMemo(() => PaymentSchema.extend({ 
     sourceValue: z.string().optional(),
-    paymentId: z.string().optional().transform(v => (v && v.trim() && v !== '---') ? v : `PT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`)
-  }).strip(), []);
+    paymentId: z.string().optional().transform(v => (v && v.trim() && v !== '---') ? v : generateDeterministicNextCode('PT', allPaymentsList))
+  }).strip(), [allPaymentsList]);
 
   const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Payment & { sourceValue: string }>('payments', payment?.id || 'new');
 
   const { register, handleSubmit, watch, setValue, control, reset, getValues, formState: { isSubmitting } } = useForm<Payment & { sourceValue: string }>({
     resolver: zodResolver(PaymentFormSchema) as any,
     defaultValues: draft ? { ...draft, nguoiPhuTrach: draft.nguoiPhuTrach || defaultOfficer } : (payment ? { ...payment, nguoiPhuTrach: payment.nguoiPhuTrach || defaultOfficer, sourceValue: payment.contractId ? `CONTRACT:${payment.contractId}` : payment.quotationId ? `QUOTATION:${payment.quotationId}` : '' } : { 
-      paymentId: `PT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      paymentId: generateDeterministicNextCode('PT', allPaymentsList),
       trangThaiGuiTinThanhToan: EntityZnsStatus.CHUA_GUI, 
       tinhTrangThanhToan: 'Chưa TT', 
       phuongThucThanhToan: 'Chuyển khoản', 
@@ -113,7 +124,7 @@ export function PaymentRecordDrawer({
 
     if (hasInitializedRef.current) return;
 
-    const currentPaymentId = getValues('paymentId') || draft?.paymentId || (payment?.paymentId ? payment.paymentId : `PT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+    const currentPaymentId = getValues('paymentId') || draft?.paymentId || (payment?.paymentId ? payment.paymentId : generateDeterministicNextCode('PT', allPaymentsList));
 
     if (draft) {
       reset({
@@ -222,8 +233,8 @@ export function PaymentRecordDrawer({
     }
     const currentId = getValues('paymentId') || '';
     if (isNew && (!currentId || currentId === '---')) {
-      // 1. Gán fallback code tức thì để UI không trống
-      const fallbackCode = `PT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      // 1. Gán fallback code tức thì để UI không trống (Zero Math.random)
+      const fallbackCode = generateDeterministicNextCode('PT', allPaymentsList);
       setValue('paymentId', fallbackCode, { shouldValidate: true, shouldDirty: true });
 
       if (!hasGeneratedCodeRef.current) {
@@ -300,7 +311,7 @@ export function PaymentRecordDrawer({
     data.tenKhachHang = data.tenKhachHang ? sanitizeText(cleanProperVietnameseText(data.tenKhachHang)) : '';
     data.paymentId = sanitizeCode(data.paymentId);
     if (!data.paymentId || data.paymentId === '---' || data.paymentId === 'N/A') {
-      data.paymentId = `PT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      data.paymentId = generateDeterministicNextCode('PT', allPaymentsList);
     }
     if (data.soHopDong) data.soHopDong = sanitizeCode(data.soHopDong);
     if (data.soDonHang) data.soDonHang = sanitizeCode(data.soDonHang);

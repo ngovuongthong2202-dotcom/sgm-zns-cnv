@@ -227,3 +227,52 @@ export function calculateMachineAllocation(
     buttonLabel,
   };
 }
+
+/**
+ * Tính toán sequence lớn nhất trong năm hiện tại cho các loại chứng từ
+ * Loại bỏ 100% Math.random(), đảm bảo số chứng từ luôn tăng tuần tự
+ */
+export function computeMaxDocSequence(list: any[] = [], prefix: 'HD' | 'PT' | 'PGH' | 'QUOTE'): number {
+  const currentYear = new Date().getFullYear();
+  let maxSeq = 0;
+  const regex = new RegExp(`(?:^|[^a-zA-Z0-9])${prefix}-(\\d{4})-(\\d+)`, 'i');
+
+  for (const item of list) {
+    if (!item) continue;
+    const candidates = [
+      item.id,
+      item.code,
+      item.soHopDong,
+      item.paymentId,
+      item.deliveryId,
+      item.soDonHang,
+      item.soPhieuThu,
+      item.soBaoGia,
+      item.soPhieuXuat,
+    ];
+
+    for (const val of candidates) {
+      if (typeof val === 'string') {
+        const match = val.match(regex);
+        if (match) {
+          const year = parseInt(match[1], 10);
+          const seq = parseInt(match[2], 10);
+          if (year === currentYear && !isNaN(seq) && seq > maxSeq) {
+            maxSeq = seq;
+          }
+        }
+      }
+    }
+  }
+  return maxSeq;
+}
+
+/**
+ * Sinh mã chứng từ kế tiếp tuần tự tuyệt đối (Zero Math.random())
+ */
+export function generateDeterministicNextCode(prefix: 'HD' | 'PT' | 'PGH', list: any[] = []): string {
+  const currentYear = new Date().getFullYear();
+  const maxSeq = computeMaxDocSequence(list, prefix);
+  const nextSeq = maxSeq + 1;
+  return `${prefix}-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
+}

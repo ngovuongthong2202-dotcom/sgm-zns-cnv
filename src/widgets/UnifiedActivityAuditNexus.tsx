@@ -31,6 +31,7 @@ export type NexusFilterType = 'all' | 'notes' | 'zns' | 'audit' | 'links';
 export interface UnifiedActivityAuditNexusProps {
   entityId: string;
   entityType: 'customer' | 'quotation' | 'contract' | 'payment' | 'delivery';
+  additionalEntityIds?: string[];
   documentCode?: string;
   documentTypeLabel?: string;
   creatorOrOfficer?: string;
@@ -45,6 +46,7 @@ export interface UnifiedActivityAuditNexusProps {
 export function UnifiedActivityAuditNexus({
   entityId,
   entityType,
+  additionalEntityIds = [],
   documentCode,
   documentTypeLabel = 'chứng từ',
   creatorOrOfficer,
@@ -69,15 +71,24 @@ export function UnifiedActivityAuditNexus({
     if (!entityId) return;
 
     let isMounted = true;
+    const unsubs: (() => void)[] = [];
+    const allIds = Array.from(new Set([entityId, ...additionalEntityIds])).filter(Boolean);
+    const auditMap = new Map<string, any[]>();
 
-    // 1. Audit logs
-    const unsubAudit = auditLogsRepo.subscribe(
-      { fkField: 'entityId', fkId: entityId, limit: 100 },
-      (data) => {
-        if (isMounted) setAuditLogs(data || []);
-      },
-      () => {}
-    );
+    // 1. Audit logs across all target entities
+    allIds.forEach((id) => {
+      const unsub = auditLogsRepo.subscribe(
+        { fkField: 'entityId', fkId: id, limit: 100 },
+        (data) => {
+          if (isMounted) {
+            auditMap.set(id, data || []);
+            setAuditLogs(Array.from(auditMap.values()).flat());
+          }
+        },
+        () => {}
+      );
+      unsubs.push(unsub);
+    });
 
     // 2. ZNS messages
     const unsubZns = znsMessagesRepo.subscribe(
@@ -87,26 +98,25 @@ export function UnifiedActivityAuditNexus({
       },
       () => {}
     );
+    unsubs.push(unsubZns);
 
     // 3. Customer notes (if customer)
-    let unsubNotes = () => {};
     if (entityType === 'customer') {
-      unsubNotes = repositoryFactory.get('customerNotes').subscribe(
+      const unsubNotes = repositoryFactory.get('customerNotes').subscribe(
         { fkField: 'customerId', fkId: entityId, limit: 100 },
         (data) => {
           if (isMounted) setCustomerNotes(data || []);
         },
         () => {}
       );
+      unsubs.push(unsubNotes);
     }
 
     return () => {
       isMounted = false;
-      unsubAudit();
-      unsubZns();
-      unsubNotes();
+      unsubs.forEach((u) => u());
     };
-  }, [entityId, entityType]);
+  }, [entityId, entityType, JSON.stringify(additionalEntityIds)]);
 
   // Compute counts
   const counts = useMemo(() => {
@@ -347,7 +357,7 @@ export function UnifiedActivityAuditNexus({
                 <Clock size={13} className="text-blue-600" />
                 Dòng sự kiện & Kiểm toán chi tiết
               </h4>
-              <EntityAuditLogs entityId={entityId} entityType={entityType} />
+              <EntityAuditLogs entityId={entityId} entityType={entityType} additionalEntityIds={additionalEntityIds} />
             </div>
           </div>
         )}
@@ -387,7 +397,7 @@ export function UnifiedActivityAuditNexus({
                 <MessageSquare size={13} className="text-blue-600" />
                 Nhật ký chỉ đạo & ghi chú hệ thống
               </h4>
-              <EntityAuditLogs entityId={entityId} entityType={entityType} />
+              <EntityAuditLogs entityId={entityId} entityType={entityType} additionalEntityIds={additionalEntityIds} />
             </div>
           </div>
         )}

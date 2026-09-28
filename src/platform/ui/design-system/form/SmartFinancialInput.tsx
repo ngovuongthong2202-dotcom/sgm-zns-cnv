@@ -108,7 +108,64 @@ export const SmartFinancialInput = forwardRef<SmartFinancialInputRef, SmartFinan
     }, [displayValue, isFocused, value]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setDisplayValue(e.target.value);
+      const inputEl = e.target;
+      const rawInput = inputEl.value;
+      const cursorPos = inputEl.selectionStart || 0;
+
+      // Check if user is typing shortcuts or math: e.g. "10tr", "500k", "10*2", "tỷ"
+      const hasShortcutOrMath = /[kmbtrpt+*/-]|\s*(?:tỷ|triệu|nghìn|ngàn|đ|vnd)/i.test(rawInput);
+
+      if (hasShortcutOrMath) {
+        setDisplayValue(rawInput);
+        try {
+          const parsed = parseFinancialInput(rawInput);
+          if (parsed >= 0 && !isNaN(parsed)) {
+            onChange(parsed);
+          }
+        } catch {
+          // ignore incomplete expression
+        }
+        return;
+      }
+
+      // Pure numeric input: format live with dots (e.g. 1000000 -> 1.000.000)
+      const digitsOnly = rawInput.replace(/[^\d]/g, '');
+      if (!digitsOnly) {
+        setDisplayValue('');
+        onChange(0);
+        return;
+      }
+
+      // Count digits before cursor in raw input to preserve cursor position
+      const digitsBeforeCursor = rawInput.slice(0, cursorPos).replace(/[^\d]/g, '').length;
+
+      const numVal = parseInt(digitsOnly, 10);
+      let clamped = numVal;
+      if (max !== undefined && clamped > max) clamped = max;
+      if (min !== undefined && clamped < min) clamped = min;
+
+      const formatted = FinancialEngine.formatVND(clamped);
+      setDisplayValue(formatted);
+      onChange(clamped);
+
+      // Restore caret position in next animation frame
+      if (typeof window !== 'undefined' && window.requestAnimationFrame) {
+        window.requestAnimationFrame(() => {
+          if (!inputRef.current) return;
+          let count = 0;
+          let newPos = formatted.length;
+          for (let i = 0; i < formatted.length; i++) {
+            if (/\d/.test(formatted[i])) {
+              count++;
+              if (count === digitsBeforeCursor) {
+                newPos = i + 1;
+                break;
+              }
+            }
+          }
+          inputRef.current.setSelectionRange(newPos, newPos);
+        });
+      }
     };
 
     const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -136,7 +193,7 @@ export const SmartFinancialInput = forwardRef<SmartFinancialInputRef, SmartFinan
       onChange(clamped);
 
       const formatted = FinancialEngine.formatVND(clamped);
-      setDisplayValue(currencySuffix ? `${formatted} ${currencySuffix}` : formatted);
+      setDisplayValue(currencySuffix && !compact ? `${formatted} ${currencySuffix}` : formatted);
     };
 
     const handleInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {

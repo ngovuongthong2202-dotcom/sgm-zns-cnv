@@ -50,8 +50,8 @@ export function detectItemType(
   const norm = (productName || '').trim().toLowerCase();
   if (!norm) return defaultType;
 
-  // 1. Nhận diện Dịch vụ (ưu tiên cao vì thường có từ khóa rõ ràng)
-  if (/lắp đặt|vận hành|bảo dưỡng|bảo trì|cân chỉnh|chuyển giao|vận chuyển|nhân công|dịch vụ|thi công|hướng dẫn/i.test(norm)) {
+  // 1. Nhận diện Dịch vụ & Phụ phí vận chuyển (ưu tiên cao vì thường có từ khóa rõ ràng)
+  if (/lắp đặt|vận hành|bảo dưỡng|bảo trì|cân chỉnh|chuyển giao|vận chuyển|cước xe|cước vận chuyển|chi phí vận chuyển|xe cẩu|xe tải|đầu kéo|bốc xếp|giao nhận|phí ship|chở hàng|nhân công|dịch vụ|thi công|hướng dẫn/i.test(norm)) {
     return 'SERVICE';
   }
 

@@ -384,7 +384,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                           setSourceMode('contract');
                           if (!watch('dacCachGiaoTruoc')) {
                             setValue('dacCachGiaoTruoc', true, { shouldDirty: true });
-                            if (!watch('nguoiPheDuyetDacCach')) setValue('nguoiPheDuyetDacCach', 'Ban Giám Đốc', { shouldDirty: true });
+                            if (!watch('nguoiPheDuyetDacCach')) setValue('nguoiPheDuyetDacCach', (lanhDaoPheDuyetList && lanhDaoPheDuyetList[0]) || '', { shouldDirty: true });
                           }
                         }}
                         className={`flex-1 py-1.5 px-2.5 rounded-md text-2xs font-bold transition-all cursor-pointer ${
@@ -511,7 +511,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                               setValue('dacCachGiaoTruoc', e.target.checked, { shouldDirty: true });
                               if (e.target.checked) {
                                 if (!watch('nguoiPheDuyetDacCach')) {
-                                  setValue('nguoiPheDuyetDacCach', 'Ban Giám Đốc', { shouldDirty: true });
+                                  setValue('nguoiPheDuyetDacCach', (lanhDaoPheDuyetList && lanhDaoPheDuyetList[0]) || '', { shouldDirty: true });
                                 }
                                 if (!watch('paymentId')) {
                                   setSourceMode('contract');

@@ -142,7 +142,8 @@ export function CustomerOmniFlowStream({
         return qMatch || cMatch;
       });
 
-      // Tính toán tài chính
+      // Tính toán tài chính theo Chuẩn Mực Kế Toán Thương Mại:
+      // Báo giá đơn thuần (chưa có HĐ và chưa giao hàng/thu tiền) KHÔNG sinh công nợ
       const quoteTotal = Number(quote.totalAmount || quote.tongTien || quote.triGiaBaoGia || 0);
       const firstContract = matchedContracts[0] || null;
       const contractTotal = firstContract 
@@ -153,9 +154,10 @@ export function CustomerOmniFlowStream({
         .filter((p) => !p.deletedAt && !p.isDeleted && hasActualCashCollected(p.tinhTrangThanhToan))
         .reduce((sum, p) => sum + Number(p.soTien || 0), 0);
 
-      const effectiveTotal = contractTotal || quoteTotal;
+      const hasCommercialCommitment = matchedContracts.length > 0 || matchedDeliveries.length > 0 || matchedPayments.length > 0;
+      const effectiveTotal = contractTotal > 0 ? contractTotal : quoteTotal;
       const paymentPercent = effectiveTotal > 0 ? Math.min(100, Math.round((totalPaid / effectiveTotal) * 100)) : (matchedPayments.length > 0 ? 100 : 0);
-      const debtRemaining = Math.max(0, effectiveTotal - totalPaid);
+      const debtRemaining = hasCommercialCommitment ? Math.max(0, effectiveTotal - totalPaid) : 0;
 
       // Giao hàng
       const hasDelivered = matchedDeliveries.some((d) => !!d.ngayGiaoThucTe);
@@ -190,6 +192,7 @@ export function CustomerOmniFlowStream({
         totalPaid,
         paymentPercent,
         debtRemaining,
+        hasCommercialCommitment,
         hasDelivered,
         allDeliveriesCount,
         completedDeliveriesCount,
@@ -206,10 +209,12 @@ export function CustomerOmniFlowStream({
     const supplyQuotes = enrichedFlows.filter(f => f.typeMeta.key === 'VAT_TU').length;
     const serviceQuotes = enrichedFlows.filter(f => f.typeMeta.key === 'DICH_VU').length;
 
-    const totalLtv = enrichedFlows.reduce((sum, f) => sum + f.effectiveTotal, 0);
+    // Doanh số thực tế ký kết / phát sinh
+    const committedFlows = enrichedFlows.filter(f => f.hasCommercialCommitment);
+    const totalLtv = committedFlows.reduce((sum, f) => sum + f.effectiveTotal, 0);
     const totalCollected = enrichedFlows.reduce((sum, f) => sum + f.totalPaid, 0);
-    const totalDebt = Math.max(0, totalLtv - totalCollected);
-    const collectionRate = totalLtv > 0 ? Math.round((totalCollected / totalLtv) * 100) : 0;
+    const totalDebt = enrichedFlows.reduce((sum, f) => sum + f.debtRemaining, 0);
+    const collectionRate = totalLtv > 0 ? Math.round((totalCollected / totalLtv) * 100) : (totalCollected > 0 ? 100 : 0);
 
     return {
       totalQuotes,
@@ -552,11 +557,15 @@ export function CustomerOmniFlowStream({
                           {formatMoney(f.totalPaid)}
                         </span>
                       </div>
-                      {f.debtRemaining > 0 && (
+                      {f.debtRemaining > 0 ? (
                         <span className="text-3xs text-amber-800 font-semibold block">
                           Nợ: {formatMoney(f.debtRemaining)}
                         </span>
-                      )}
+                      ) : !f.hasCommercialCommitment ? (
+                        <span className="text-3xs text-blue-700 font-semibold italic block">
+                          Dự toán chào hàng
+                        </span>
+                      ) : null}
                     </td>
                     <td className="py-2.5 px-3">
                       {f.hasDelivered ? (
@@ -732,6 +741,15 @@ export function CustomerOmniFlowStream({
                             )}
                           </span>
                         </>
+                      ) : !f.hasCommercialCommitment ? (
+                        <div className="space-y-0.5">
+                          <span className="text-2xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-bold block">
+                            📋 Dự toán (Chờ ký HĐ)
+                          </span>
+                          <span className="text-3xs text-slate-500 font-medium italic block">
+                            Chưa phát sinh công nợ
+                          </span>
+                        </div>
                       ) : (
                         <span className="text-2xs text-slate-600 italic block">
                           Chưa phát sinh phiếu thu

@@ -7,6 +7,7 @@ import { getProductItemKey } from '@/src/shared/utils/product-key';
 import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { addVietnamWorkingDays } from '@/src/shared/utils/vietnamBusinessDays';
+import { generateDeterministicNextCode } from '@/src/shared/utils/voucherResolver';
 
 export const FormSchema = ContractSchema.extend({
   ngayKy: z.string().min(1, 'Ngày ký hợp đồng là bắt buộc'),
@@ -50,7 +51,7 @@ export function getInitialContractFormValues(contract: any, draft: any): any {
   return {
     trangThaiGuiTinHopDong: EntityZnsStatus.CHUA_GUI,
     ngayKy: new Date().toISOString().split('T')[0],
-    soHopDong: `HD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+    soHopDong: generateDeterministicNextCode('HD'),
     soNgayDuKienHoanThanh: 30,
     soNgayGiaHan: 0,
     lyDoGiaHan: '',

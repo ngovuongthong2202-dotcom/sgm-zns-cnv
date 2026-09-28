@@ -113,22 +113,22 @@ export const SmartPhoneInput = forwardRef<HTMLInputElement, SmartPhoneInputProps
             disabled={disabled}
             readOnly={readOnly}
             className={twMerge(
-              'w-full pl-9 pr-24 py-2 font-mono text-sm text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all',
+              'w-full pl-9 pr-36 sm:pr-40 py-2 font-mono text-sm text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all',
               'focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500',
               error && 'border-red-400 focus:border-red-500 focus:ring-red-200/30 text-red-700',
               (disabled || readOnly) && 'bg-slate-50 text-slate-500 cursor-not-allowed border-slate-200',
-              compact && 'py-1.5 text-xs',
+              compact && 'py-1.5 text-xs pr-28',
               className
             )}
             {...props}
           />
 
-          <div className="absolute right-2 flex items-center gap-1.5">
+          <div className="absolute right-2 flex items-center gap-1.5 pointer-events-none">
             {/* Carrier badge */}
             {showCarrierBadge && carrier && (
               <span
                 className={twMerge(
-                  'px-1.5 py-0.5 text-3xs font-bold rounded border uppercase tracking-wider',
+                  'px-1.5 py-0.5 text-3xs font-bold rounded border uppercase tracking-wider select-none pointer-events-none',
                   carrier.badgeBg
                 )}
               >
@@ -138,11 +138,11 @@ export const SmartPhoneInput = forwardRef<HTMLInputElement, SmartPhoneInputProps
 
             {/* Quick Actions: Call / Zalo */}
             {showQuickActions && isValidVNPhone && !disabled && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 pointer-events-auto">
                 <a
                   href={`tel:${cleanPhone}`}
                   title="Gọi ngay"
-                  className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                  className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
                 >
                   <Phone size={12} />
                 </a>
@@ -151,7 +151,7 @@ export const SmartPhoneInput = forwardRef<HTMLInputElement, SmartPhoneInputProps
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Nhắn Zalo"
-                  className="px-1 py-0.5 text-3xs font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 rounded transition-colors"
+                  className="px-1.5 py-0.5 text-3xs font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 rounded transition-colors cursor-pointer border border-sky-200"
                 >
                   Zalo
                 </a>

@@ -391,15 +391,15 @@ export function checkProductionTriggerThreshold(
     }
   }
 
-  // Kiểm tra nghiệp vụ Giao hàng trước - Thanh toán sau (Post-Delivery Settlement)
+  // Kiểm tra nghiệp vụ Giao hàng trước - Thanh toán sau (Post-Delivery Settlement) & Đặc cách
   let isPostDeliverySettlement = false;
-  if (options?.isDacCachGiaoTruoc) {
+  if (options?.isDacCachGiaoTruoc || payments.some(p => p?.dacCachGiaoTruoc || p?.isExempted)) {
     isPostDeliverySettlement = true;
   } else if (options?.deliveries && Array.isArray(options.deliveries) && options.deliveries.length > 0) {
     let earliestDeliveryTime = Infinity;
     for (const d of options.deliveries) {
       if (!d) continue;
-      if (d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU') {
+      if (d.dacCachGiaoTruoc || d.isExempted || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU') {
         isPostDeliverySettlement = true;
         break;
       }
@@ -417,7 +417,7 @@ export function checkProductionTriggerThreshold(
     }
   }
 
-  const isTriggered = reqAmount > 0 ? runningSum >= reqAmount : runningSum > 0;
+  const isTriggered = isPostDeliverySettlement || (reqAmount > 0 ? runningSum >= reqAmount : runningSum > 0);
 
   let triggerType: 'FULL_INSTALLMENT_1' | 'PERCENT_THRESHOLD' | 'FIRST_PAYMENT' | 'CONTRACT_SIGNING' | 'POST_DELIVERY_SETTLEMENT';
   let statusLabel: string;
@@ -438,7 +438,7 @@ export function checkProductionTriggerThreshold(
 
   return {
     isTriggered,
-    triggerDate: isTriggered ? triggerDate : (entries[0]?.ngayThu || null),
+    triggerDate: isTriggered ? (triggerDate || entries[0]?.ngayThu || null) : (entries[0]?.ngayThu || null),
     triggerType,
     totalPaid: runningSum,
     requiredThresholdAmount: reqAmount,

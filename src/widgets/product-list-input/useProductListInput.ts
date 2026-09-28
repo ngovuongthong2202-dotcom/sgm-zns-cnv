@@ -127,7 +127,7 @@ export function useProductListInput({
 
     newProducts[index] = { ...newProducts[index], [field]: val };
 
-    // Realtime reactive warranty expiration calculation
+    // Realtime reactive warranty expiration calculation (Bidirectional)
     if (field === 'soNgayBaoHanh') {
       const days = Number(val);
       if (days > 0) {
@@ -136,6 +136,18 @@ export function useProductListInput({
         newProducts[index].ngayHetHanBaoHanh = exp.toISOString().split('T')[0];
       } else {
         newProducts[index].ngayHetHanBaoHanh = undefined;
+      }
+    } else if (field === 'ngayHetHanBaoHanh') {
+      if (val && typeof val === 'string') {
+        const targetDate = new Date(val);
+        const base = baseDateForBaoHanh ? new Date(baseDateForBaoHanh) : new Date();
+        if (!isNaN(targetDate.getTime()) && !isNaN(base.getTime())) {
+          const diffMs = targetDate.getTime() - base.getTime();
+          const diffDays = Math.max(0, Math.round(diffMs / (24 * 60 * 60 * 1000)));
+          newProducts[index].soNgayBaoHanh = diffDays;
+        }
+      } else {
+        newProducts[index].soNgayBaoHanh = undefined;
       }
     }
     

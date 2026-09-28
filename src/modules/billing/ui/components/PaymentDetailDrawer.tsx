@@ -20,6 +20,7 @@ import { repositoryFactory } from '@/src/data/repositories/factory';
 import { notify } from '@/src/shared/utils/notify';
 import { checkProductionTriggerThreshold, ProductionTriggerResult } from '@/src/shared/utils/vietnamBusinessDays';
 import { calculateMachineAllocation } from '@/src/shared/utils/voucherResolver';
+import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { DeliveryFormModal } from '@/src/modules/fulfillment/ui/components/DeliveryFormModal';
 import { useSharedFields } from '@/src/hooks/useSharedFields';
 import { Truck } from 'lucide-react';
@@ -85,13 +86,43 @@ export function PaymentDetailDrawer({
     isOpen && quotationId ? `quotations:${quotationId}` : null,
     swrDocFetcher
   );
-  const { data: deliveries = [], isLoading: dLoading } = useSWR<any[]>(
+  const { data: rawDeliveries = [], isLoading: dLoading } = useSWR<any[]>(
     isOpen && filterKey
       ? `deliveries:500:${filterKey}`
       : null,
     swrColFetcher,
     { revalidateOnFocus: false }
   );
+
+  const deliveries = useMemo(() => {
+    const map = new Map<string, any>();
+    (rawDeliveries || []).forEach((d) => {
+      if (d && d.id) map.set(d.id, d);
+    });
+
+    try {
+      const cached = entityCachePool.getAll<any>('deliveries');
+      if (cached && Array.isArray(cached)) {
+        cached.forEach((d) => {
+          if (!d || !d.id) return;
+          const matchPaymentId = d.paymentId && d.paymentId === payment?.id;
+          const matchContractId = (contractId && d.contractId === contractId) || (contractDoc?.id && d.contractId === contractDoc.id);
+          const matchSoHopDong = (payment?.soHopDong && (d.soHopDong === payment.soHopDong || d.contractSoHopDong === payment.soHopDong)) ||
+                                 (contractDoc?.soHopDong && d.soHopDong === contractDoc.soHopDong);
+          const matchSoDonHang = payment?.soDonHang && (d.soDonHang === payment.soDonHang || d.soChungTuThamChieu === payment.soDonHang);
+          const matchQuotationId = quotationId && d.quotationId === quotationId;
+
+          if (matchPaymentId || matchContractId || matchSoHopDong || matchSoDonHang || matchQuotationId) {
+            map.set(d.id, { ...map.get(d.id), ...d });
+          }
+        });
+      }
+    } catch {
+      // ignore
+    }
+
+    return Array.from(map.values());
+  }, [rawDeliveries, payment, contractId, contractDoc, quotationId]);
 
   const { data: siblingPayments = [], isLoading: pLoading } = useSWR<any[]>(
     isOpen && filterKey
@@ -167,8 +198,18 @@ export function PaymentDetailDrawer({
         isPostDeliverySettlement: false,
       };
     }
-    return checkProductionTriggerThreshold([payment], totalPayable, 30, { deliveries });
-  }, [payment, totalPayable, deliveries]);
+    const isSpecialWaiver = Boolean(
+      payment.dacCachGiaoTruoc || 
+      payment.isExempted || 
+      contractDoc?.dacCachGiaoTruoc || 
+      contractDoc?.isExempted ||
+      deliveries.some((d: any) => d.dacCachGiaoTruoc || d.isExempted || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU')
+    );
+    return checkProductionTriggerThreshold([payment], totalPayable, 30, { 
+      deliveries,
+      isDacCachGiaoTruoc: isSpecialWaiver,
+    });
+  }, [payment, totalPayable, deliveries, contractDoc]);
 
   const triggerInstallmentIdx = useMemo(() => {
     if (!triggerThresholdInfo.isTriggered || !triggerThresholdInfo.triggerInstallmentNumber) {
@@ -333,9 +374,9 @@ export function PaymentDetailDrawer({
                   <h4 className="text-2xs font-black uppercase tracking-wider text-slate-700">
                     Lịch sử các đợt thu ({effectiveInstallments.length} đợt)
                   </h4>
-                  {triggerThresholdInfo.isPostDeliverySettlement ? (
+                  {(triggerThresholdInfo.isPostDeliverySettlement || payment.dacCachGiaoTruoc || payment.isExempted || contractDoc?.dacCachGiaoTruoc || deliveries.some((d: any) => d.dacCachGiaoTruoc || d.isExempted)) ? (
                     <span className="text-3xs font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs">
-                      <span>✓</span> Tất toán 100% sau khi nhận máy (Giao trước - Thanh toán sau)
+                      <span>⚡</span> Đặc cách BGĐ (Tất toán sau khi nhận máy)
                     </span>
                   ) : triggerThresholdInfo.isTriggered ? (
                     <span className="text-3xs font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs">
@@ -643,6 +684,11 @@ export function PaymentDetailDrawer({
             <span className="font-mono text-slate-600 text-xs font-semibold">
               {payment.tinhTrangThanhToan || '---'}
             </span>
+            {(payment.dacCachGiaoTruoc || payment.isExempted || triggerThresholdInfo.isPostDeliverySettlement || deliveries.some((d: any) => d.dacCachGiaoTruoc || d.isExempted)) && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                ⚡ ĐẶC CÁCH BAN GIÁM ĐỐC
+              </span>
+            )}
           </div>
         }
         entityId={paymentId}
@@ -788,6 +834,7 @@ export function PaymentDetailDrawer({
             <UnifiedActivityAuditNexus
               entityId={paymentId}
               entityType="payment"
+              additionalEntityIds={deliveries.map((d: any) => d.id).filter(Boolean)}
               documentCode={payment.paymentId || (payment as any).soPhieuThu || (payment as any).soChungTu}
               documentTypeLabel="chứng từ thanh toán"
               creatorOrOfficer={payment.nguoiPhuTrach}

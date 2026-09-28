@@ -247,20 +247,40 @@ function FieldChanges({ before = {}, after = {} }: { before?: Record<string, unk
   );
 }
 
-export function EntityAuditLogs({ entityId, entityType }: { entityId: string, entityType: string }) {
+export function EntityAuditLogs({ 
+  entityId, 
+  entityType,
+  additionalEntityIds = [],
+}: { 
+  entityId: string; 
+  entityType: string;
+  additionalEntityIds?: string[];
+}) {
   const [docItemsRaw, setDocItemsRaw] = useState<AuditLogItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = auditLogsRepo.subscribe({ fkField: 'entityId', fkId: entityId, limit: 100 }, (data) => {
-      setDocItemsRaw(data as unknown as AuditLogItem[]);
-      setLoading(false);
-    }, (err) => {
-      console.error(err);
-      setLoading(false);
+    const unsubs: (() => void)[] = [];
+    const allIds = Array.from(new Set([entityId, ...additionalEntityIds])).filter(Boolean);
+    const itemMap = new Map<string, AuditLogItem[]>();
+
+    allIds.forEach((id) => {
+      const unsub = auditLogsRepo.subscribe({ fkField: 'entityId', fkId: id, limit: 100 }, (data) => {
+        itemMap.set(id, (data || []) as unknown as AuditLogItem[]);
+        const combined = Array.from(itemMap.values()).flat();
+        setDocItemsRaw(combined);
+        setLoading(false);
+      }, (err) => {
+        console.error(err);
+        setLoading(false);
+      });
+      unsubs.push(unsub);
     });
-    return () => unsub();
-  }, [entityId]);
+
+    return () => {
+      unsubs.forEach((u) => u());
+    };
+  }, [entityId, JSON.stringify(additionalEntityIds)]);
 
   const typeLower = entityType.toLowerCase();
   
@@ -270,11 +290,14 @@ export function EntityAuditLogs({ entityId, entityType }: { entityId: string, en
                     ['ZNS_SEND', 'ZNS_CALLBACK', 'VENDOR_WEBHOOK_PROCESSED', 'WORKFLOW_ZNS_TRIGGERED', 'ZNS_PRE_FLIGHT_BLOCKED'].includes(log.action);
       if (isZns) return false;
       
-      // Match entityType (singular/plural, case-insensitive)
+      // Match entityType (singular/plural, case-insensitive) or linked documents
       const logType = String(log.entityType || '').toLowerCase();
-      return logType === typeLower || 
+      const isDirectMatch = logType === typeLower || 
              logType === typeLower + 's' || 
              typeLower === logType + 's';
+      const isLinkedMatch = additionalEntityIds.length > 0 && 
+             ['delivery', 'deliveries', 'payment', 'payments', 'contract', 'contracts'].includes(logType);
+      return isDirectMatch || isLinkedMatch;
   }).sort((a, b) => {
       const tA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
       const tB = b.timestamp ? new Date(b.timestamp).getTime() : 0;

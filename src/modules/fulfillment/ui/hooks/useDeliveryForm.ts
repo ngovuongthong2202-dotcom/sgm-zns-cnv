@@ -10,6 +10,8 @@ import { formatUserOfficer } from '@/src/shared/utils/userProfile';
 import { notify } from '@/src/shared/utils/notify';
 import { settingsRepo } from '@/src/data/repositories/settings.repo';
 import { calculateActualMachineCount, smartAllocateSerials } from '@/src/widgets/product-list-input/useProductItemSemantic';
+import { useSharedFields } from '@/src/hooks/useSharedFields';
+import { generateDeterministicNextCode } from '@/src/shared/utils/voucherResolver';
 
 export function useDeliveryForm(
   delivery: any,
@@ -23,6 +25,8 @@ export function useDeliveryForm(
   const [isLookingUpExportSale, setIsLookingUpExportSale] = useState(false);
   const { user, userData } = useAuth();
   const defaultOfficer = formatUserOfficer(userData, user);
+  const { lanhDaoPheDuyetList } = useSharedFields();
+  const defaultLeader = (lanhDaoPheDuyetList && lanhDaoPheDuyetList.length > 0) ? lanhDaoPheDuyetList[0] : '';
   const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Delivery>('deliveries', delivery?.id || 'new');
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -39,7 +43,7 @@ export function useDeliveryForm(
       nguoiPhuTrach: delivery.nguoiPhuTrach || defaultOfficer,
       ngayLapPgh: delivery.ngayLapPgh || todayStr,
       ngayGiaoMay: delivery.ngayGiaoMay || todayStr,
-      nguoiPheDuyetDacCach: delivery.nguoiPheDuyetDacCach || 'Ban Giám Đốc',
+      nguoiPheDuyetDacCach: delivery.nguoiPheDuyetDacCach || defaultLeader,
     } : { 
       trangThaiGuiTinGiaoHang: EntityZnsStatus.CHUA_GUI,
       ngayLapPgh: todayStr,
@@ -63,7 +67,7 @@ export function useDeliveryForm(
       soPhieuXuat: '',
       dacCachGiaoTruoc: false,
       lyDoDacCach: '',
-      nguoiPheDuyetDacCach: 'Ban Giám Đốc'
+      nguoiPheDuyetDacCach: defaultLeader
     })
   });
 
@@ -95,10 +99,10 @@ export function useDeliveryForm(
         ghiChuNoiBo: delivery.ghiChuNoiBo || delivery.ghiChu || '',
         dacCachGiaoTruoc: Boolean((delivery as any).dacCachGiaoTruoc),
         lyDoDacCach: (delivery as any).lyDoDacCach || '',
-        nguoiPheDuyetDacCach: (delivery as any).nguoiPheDuyetDacCach || 'Ban Giám Đốc'
+        nguoiPheDuyetDacCach: (delivery as any).nguoiPheDuyetDacCach || defaultLeader
       });
     }
-  }, [delivery, reset, defaultOfficer, todayStr]);
+  }, [delivery, reset, defaultOfficer, todayStr, defaultLeader]);
 
   const watchAll = watch();
   
@@ -111,13 +115,13 @@ export function useDeliveryForm(
 
   const isCreating = !delivery?.id;
 
-  // Auto Generate Delivery ID (PGH-YYYY-XXXX) từ Universal Sequence Engine
+  // Auto Generate Delivery ID (PGH-YYYY-XXXX) từ Universal Sequence Engine (Zero Math.random)
   useEffect(() => {
     let isCancelled = false;
     if (isCreating && !draft?.deliveryId) {
       const currentCode = watch('deliveryId');
       if (!currentCode) {
-        const fallbackCode = `PGH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const fallbackCode = generateDeterministicNextCode('PGH', deliveries);
         setValue('deliveryId', fallbackCode, { shouldValidate: true });
 
         if (typeof fetch === 'function') {
@@ -186,7 +190,7 @@ export function useDeliveryForm(
     if ((p as any).dacCachGiaoTruoc) {
       setValue('dacCachGiaoTruoc', true);
       setValue('lyDoDacCach', (p as any).lyDoDacCach || '');
-      setValue('nguoiPheDuyetDacCach', (p as any).nguoiPheDuyetDacCach || 'Ban Giám Đốc');
+      setValue('nguoiPheDuyetDacCach', (p as any).nguoiPheDuyetDacCach || defaultLeader);
     }
 
     // Tự động lấy tên người liên hệ, SĐT liên hệ, Địa chỉ giao hàng từ Khách hàng
@@ -351,10 +355,10 @@ export function useDeliveryForm(
     setValue('totalAmount', c.totalAmount || 0);
     setValue('nguoiPhuTrach', defaultOfficer);
 
-    // Kích hoạt Đặc cách Ban Giám Đốc cho xuất kho trước thanh toán
+    // Kích hoạt Đặc cách Lãnh đạo cho xuất kho trước thanh toán
     setValue('dacCachGiaoTruoc', true);
-    setValue('lyDoDacCach', c.lyDoDacCach || 'Giao hàng trước thanh toán theo phê duyệt của Ban Giám Đốc');
-    setValue('nguoiPheDuyetDacCach', 'Ban Giám Đốc');
+    setValue('lyDoDacCach', c.lyDoDacCach || 'Giao hàng trước thanh toán theo phê duyệt của Lãnh đạo');
+    setValue('nguoiPheDuyetDacCach', c.nguoiPheDuyetDacCach || defaultLeader);
     setValue('tinhTrangThanhToan', 'CHƯA THANH TOÁN');
 
     // Snapshot quotation lineage nếu có

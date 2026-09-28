@@ -59,6 +59,7 @@ export const PaymentSchema = z.object({
 
   // Executive waiver (Đặc cách Ban Giám Đốc)
   dacCachGiaoTruoc: z.boolean().optional().default(false),
+  isExempted: z.boolean().optional(),
   lyDoDacCach: z.string().optional(),
   nguoiPheDuyetDacCach: z.string().optional(),
   

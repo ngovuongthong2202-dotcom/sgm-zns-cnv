@@ -16,6 +16,7 @@ import {
 import { useAuth } from '@/src/modules/iam';
 import { formatUserOfficer } from '@/src/shared/utils/userProfile';
 import { calculateActualMachineCount } from '@/src/widgets/product-list-input/useProductItemSemantic';
+import { generateDeterministicNextCode } from '@/src/shared/utils/voucherResolver';
 
 export function useContractForm(
   contract: Contract | null,
@@ -62,7 +63,7 @@ export function useContractForm(
     if (!contract && !draft) {
       const currentCode = watch('soHopDong');
       if (!currentCode) {
-        const fallbackCode = `HD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const fallbackCode = generateDeterministicNextCode('HD', contracts);
         setValue('soHopDong', fallbackCode, { shouldValidate: true });
 
         fetch('/api/workflow/next-code/contract', { method: 'POST' })

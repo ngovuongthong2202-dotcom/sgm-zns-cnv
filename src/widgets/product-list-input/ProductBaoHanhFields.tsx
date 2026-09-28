@@ -31,15 +31,10 @@ export function ProductBaoHanhFields({ product, viewType = 'card', disabled, bas
 
   const handleDaysChange = (days: number | null) => {
     onChange('soNgayBaoHanh', days);
-    if (days && days > 0) {
-      const base = baseDateForBaoHanh ? new Date(baseDateForBaoHanh) : new Date();
-      if (!isNaN(base.getTime())) {
-        const exp = new Date(base.getTime() + days * 86400000);
-        onChange('ngayHetHanBaoHanh', exp.toISOString().split('T')[0]);
-      }
-    } else {
-      onChange('ngayHetHanBaoHanh', null);
-    }
+  };
+
+  const handleDateChange = (dateStr: string) => {
+    onChange('ngayHetHanBaoHanh', dateStr || null);
   };
 
   const warrantyPresets = [
@@ -92,12 +87,16 @@ export function ProductBaoHanhFields({ product, viewType = 'card', disabled, bas
          </div>
       </div>
       <div className="space-y-1">
-         <label className="text-2xs font-bold text-slate-700 uppercase tracking-tight">Hết hạn (Dự kiến)</label>
-         <input aria-label="Nhập thông tin"
+         <div className="flex items-center justify-between">
+           <label className="text-2xs font-bold text-slate-700 uppercase tracking-tight">Hết hạn (Dự kiến)</label>
+           <span className="text-3xs text-slate-400 font-medium">Chọn ngày trên lịch</span>
+         </div>
+         <input aria-label="Chọn ngày hết hạn bảo hành"
            type="date"
-           readOnly={true}
-           value={displayExpiry}
-           className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded p-1.5 outline-none font-mono"
+           disabled={disabled}
+           value={displayExpiry || ''}
+           onChange={(e) => handleDateChange(e.target.value)}
+           className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded p-1.5 outline-none focus:border-blue-400 font-mono cursor-pointer"
          />
          <p className="text-3xs text-slate-600 font-medium italic pt-1">
            {displayExpiry ? `Kích hoạt đến ${new Date(displayExpiry).toLocaleDateString('vi-VN')}` : 'Chưa xác định mốc hạn'}

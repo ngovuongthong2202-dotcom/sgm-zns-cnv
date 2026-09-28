@@ -131,6 +131,7 @@ export function resolveDocumentLifecycleBadge(input: ReconcileLifecycleInput): L
     contract?.isExempted ||
     quotation?.dacCachGiaoTruoc || 
     quotation?.isExempted ||
+    (payments || []).some((p: any) => p && !p.deletedAt && !p.isDeleted && (p.dacCachGiaoTruoc || p.isExempted)) ||
     validDeliveries.some((d: any) => d.dacCachGiaoTruoc || d.isExempted)
   );
 
