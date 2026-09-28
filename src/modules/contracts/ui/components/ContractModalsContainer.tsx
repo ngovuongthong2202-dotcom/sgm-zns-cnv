@@ -13,6 +13,7 @@ import { getProductItemKey } from '@/src/shared/utils/product-key';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
 import { calculateMachineAllocation } from '@/src/shared/utils/voucherResolver';
+import { calculateActualMachineCount, smartAllocateSerials } from '@/src/widgets/product-list-input/useProductItemSemantic';
 
 const ContractFormModal = React.lazy(() => import('./ContractFormModal').then(m => ({ default: m.ContractFormModal })));
 const PaymentFormDrawer = React.lazy(() => import('@/src/modules/billing/ui/components/PaymentFormDrawer').then(m => ({ default: m.PaymentFormDrawer })));
@@ -329,7 +330,7 @@ export function ContractModalsContainer({
                 giaTriHopDong: prefillDeliveryContract.totalAmount || 0,
                 products: getRemainingProducts(prefillDeliveryContract, (realtimeDeliveries || []).filter((d: any) => d.contractId === prefillDeliveryContract.id || d.soHopDong === prefillDeliveryContract.soHopDong)),
                 danhSachMaMay: prefillDeliveryContract.danhSachMaMay || [],
-                slMay: getRemainingProducts(prefillDeliveryContract, (realtimeDeliveries || []).filter((d: any) => d.contractId === prefillDeliveryContract.id || d.soHopDong === prefillDeliveryContract.soHopDong)).reduce((acc: number, p: any) => acc + (p.quantity || 0), 0) || 1,
+                slMay: calculateActualMachineCount(getRemainingProducts(prefillDeliveryContract, (realtimeDeliveries || []).filter((d: any) => d.contractId === prefillDeliveryContract.id || d.soHopDong === prefillDeliveryContract.soHopDong))) || 1,
                 nguoiPhuTrach: prefillDeliveryContract.nguoiPhuTrach || '',
                 diaChiGiaoHang: (prefillDeliveryContract as any).diaChiGiaoHang || (prefillDeliveryContract as any).diaChi || '',
                 nguoiLienHe: (prefillDeliveryContract as any).nguoiLienHe || (prefillDeliveryContract as any).nguoiDaiDien || '',
@@ -385,8 +386,9 @@ export function ContractModalsContainer({
 
                       if (deliveryData.dacCachGiaoTruoc && !deliveryData.paymentId && prefillDeliveryContract) {
                         try {
-                          const healedContractProducts = (prefillDeliveryContract.products || []).map(computeLineItem);
-                          const contractAggs = aggregateProducts(healedContractProducts);
+                          const rawContractProducts = (prefillDeliveryContract.products || []).map(computeLineItem);
+                          const allocatedContractProducts = smartAllocateSerials(rawContractProducts, prefillDeliveryContract.danhSachMaMay || []);
+                          const contractAggs = aggregateProducts(allocatedContractProducts);
                           const uncollectedPayment = await apiCreateEntity('payment', {
                             contractId: prefillDeliveryContract.id,
                             quotationId: prefillDeliveryContract.quotationId || '',
@@ -400,10 +402,13 @@ export function ContractModalsContainer({
                             soDonHang: prefillDeliveryContract.soDonHang || '',
                             totalAmount: Number(prefillDeliveryContract.totalAmount) || contractAggs.totalAfterTax || 0,
                             soTien: 0,
-                            products: healedContractProducts,
-                            slMay: prefillDeliveryContract.slMay || healedContractProducts.reduce((sum: number, p: any) => sum + (Number(p.quantity) || 0), 0),
-                            loai: prefillDeliveryContract.loai || (healedContractProducts[0]?.productName || 'Máy'),
-                            dvt: prefillDeliveryContract.dvt || (healedContractProducts[0]?.unit || 'Máy'),
+                            products: allocatedContractProducts,
+                            danhSachMaMay: prefillDeliveryContract.danhSachMaMay || [],
+                            soNgayBaoHanh: (prefillDeliveryContract as any).soNgayBaoHanh || allocatedContractProducts[0]?.soNgayBaoHanh || 365,
+                            ngayHetHanBaoHanh: (prefillDeliveryContract as any).ngayHetHanBaoHanh || allocatedContractProducts[0]?.ngayHetHanBaoHanh,
+                            slMay: calculateActualMachineCount(allocatedContractProducts) || prefillDeliveryContract.slMay || 1,
+                            loai: prefillDeliveryContract.loai || (allocatedContractProducts[0]?.productName || 'Máy'),
+                            dvt: prefillDeliveryContract.dvt || (allocatedContractProducts[0]?.unit || 'Máy'),
                             nguoiPhuTrach: prefillDeliveryContract.nguoiPhuTrach || '',
                             vatRate: prefillDeliveryContract.vatRate || 0,
                             discountRate: prefillDeliveryContract.discountRate || 0,

@@ -8,6 +8,7 @@ import { parseFinancialInput } from '@/src/platform/ui/forms/useSmartFormInput';
 import { computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
 import { SmartFinancialInput } from '@/src/design-system';
+import { detectItemType, ITEM_SEMANTIC_CONFIG, ItemSemanticType } from './useProductItemSemantic';
 
 interface ProductFinanceCardProps {
   key?: React.Key;
@@ -45,6 +46,15 @@ export function ProductFinanceCard({
   const computed = React.useMemo(() => computeLineItem(p), [p]);
   const isPromo = computed.price === 0 && Boolean(computed.productName || computed.productId);
 
+  const itemType: ItemSemanticType = (p.itemType as ItemSemanticType) || detectItemType(p.productName);
+  const nextType: Record<ItemSemanticType, ItemSemanticType> = {
+    MACHINE: 'MATERIAL',
+    MATERIAL: 'SERVICE',
+    SERVICE: 'MACHINE'
+  };
+  const semConfig = ITEM_SEMANTIC_CONFIG[itemType] || ITEM_SEMANTIC_CONFIG.MACHINE;
+  const isMachine = itemType === 'MACHINE';
+
   return (
     <div className="group relative bg-white border border-slate-200 rounded-xl mb-3 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] overflow-hidden lg:hidden">
       {!readOnly && !hideAddRemove && !disabled && (
@@ -64,7 +74,7 @@ export function ProductFinanceCard({
 
       {/* Mobile Card Layout */}
       <div className="p-3 bg-slate-50/50 border-b border-slate-100">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className="shrink-0 px-2 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded font-mono">
             #{p.stt || idx + 1}
           </span>
@@ -73,23 +83,64 @@ export function ProductFinanceCard({
             value={p.productId}
             onChange={(e) => onUpdate(idx, 'productId', e.target.value)}
             readOnly={(readOnly && !allowEditProductId) || disabled}
-            className="w-1/3 text-xs font-mono font-bold text-blue-600 bg-white border border-slate-200 rounded p-1.5 outline-none focus:border-blue-400"
+            className="w-24 text-xs font-mono font-bold text-blue-600 bg-white border border-slate-200 rounded p-1.5 outline-none focus:border-blue-400"
           />
-          <div className="w-2/3 flex items-center gap-1.5">
-            <input type="text"
-              placeholder="Tên sản phẩm"
-              value={p.productName}
-              onChange={(e) => onUpdate(idx, 'productName', e.target.value)}
-              readOnly={readOnly || disabled}
-              className="w-full text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded p-1.5 outline-none focus:border-blue-400"
-            />
-            {isPromo && (
-              <span className="shrink-0 px-1 py-0.5 bg-emerald-50 text-emerald-700 text-3xs font-bold rounded border border-emerald-200 uppercase tracking-wider">
-                Tặng
-              </span>
-            )}
-          </div>
+          
+          {/* Micro-Interactive Semantic Toggle Badge */}
+          <button
+            type="button"
+            disabled={readOnly || disabled}
+            onClick={() => onUpdate(idx, 'itemType', nextType[itemType])}
+            title={`Định danh: ${semConfig.label}. Bấm để chuyển đổi.`}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-3xs font-extrabold border shadow-2xs transition-all cursor-pointer select-none ${semConfig.badgeClass}`}
+          >
+            <span>{semConfig.icon}</span>
+            <span>{semConfig.shortLabel}</span>
+          </button>
+
+          {isPromo && (
+            <span className="shrink-0 px-1 py-0.5 bg-emerald-50 text-emerald-700 text-3xs font-bold rounded border border-emerald-200 uppercase tracking-wider">
+              Tặng
+            </span>
+          )}
         </div>
+
+        <div className="mt-2">
+          <input type="text"
+            placeholder="Tên sản phẩm"
+            value={p.productName}
+            onChange={(e) => {
+              onUpdate(idx, 'productName', e.target.value);
+              if (!p.itemType) {
+                const detected = detectItemType(e.target.value);
+                if (detected !== 'MACHINE') onUpdate(idx, 'itemType', detected);
+              }
+            }}
+            readOnly={readOnly || disabled}
+            className="w-full text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded p-1.5 outline-none focus:border-blue-400"
+          />
+        </div>
+
+        {!isMachine && itemType === 'MATERIAL' && (
+          <div className="mt-1.5">
+            <input type="text" placeholder="Quy cách vật tư (khổ, độ dày, mác thép...)"
+              value={p.quyCach || ''} 
+              onChange={e => onUpdate(idx, 'quyCach', e.target.value)}
+              readOnly={readOnly || disabled}
+              className="w-full text-2xs text-amber-900 bg-amber-50/60 border border-amber-200/80 rounded px-2 py-1 outline-none placeholder:text-amber-400 font-medium"
+            />
+          </div>
+        )}
+        {!isMachine && itemType === 'SERVICE' && (
+          <div className="mt-1.5">
+            <input type="text" placeholder="Phạm vi công việc / địa điểm thi công..."
+              value={p.phamViCongViec || ''} 
+              onChange={e => onUpdate(idx, 'phamViCongViec', e.target.value)}
+              readOnly={readOnly || disabled}
+              className="w-full text-2xs text-purple-900 bg-purple-50/60 border border-purple-200/80 rounded px-2 py-1 outline-none placeholder:text-purple-400 font-medium"
+            />
+          </div>
+        )}
         <div className="flex gap-2 mt-2">
           <input type="number"
             placeholder="SL"
@@ -180,10 +231,10 @@ export function ProductFinanceCard({
             <span className="text-3xs font-bold text-slate-600 uppercase">Còn lại: {maxQ}</span>
           </div>
         )}
-        {showBaoHanh && (
+        {showBaoHanh && isMachine && (
           <ProductBaoHanhFields product={p} baseDateForBaoHanh={baseDateForBaoHanh} viewType="card" disabled={disabled} onChange={(field, val) => onUpdate(idx, field, val === null ? undefined : val as any)} />
         )}
-        {showSerial && (
+        {showSerial && isMachine && (
           <div className="mt-3 pt-2.5 border-t border-slate-100">
             <span className="text-3xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
               Mã máy / Serial ({p.danhSachMaMay?.length || 0}/{p.quantity || 0} {p.unit || 'Máy'}):

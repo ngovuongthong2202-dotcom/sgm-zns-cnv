@@ -2671,7 +2671,7 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
                     class="text-2xs font-medium uppercase tracking-wide text-slate-500 block mb-1 flex justify-between items-center"
                   >
                     <span>
-                      Chứng từ Thanh toán tham chiếu 
+                      Căn cứ xuất kho tham chiếu 
                       <span
                         class="text-red-700"
                       >
@@ -2679,6 +2679,28 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
                       </span>
                     </span>
                   </label>
+                  <div
+                    class="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200/80 mb-2"
+                  >
+                    <button
+                      class="flex-1 py-1.5 px-2.5 rounded-md text-2xs font-bold transition-all cursor-pointer bg-white text-blue-700 shadow-xs border border-slate-200/80"
+                      type="button"
+                    >
+                      💰 Căn cứ Phiếu Thu
+                    </button>
+                    <button
+                      class="flex-1 py-1.5 px-2.5 rounded-md text-2xs font-bold transition-all cursor-pointer text-slate-600 hover:text-slate-900"
+                      type="button"
+                    >
+                      📜 Hợp Đồng (Giao trước)
+                    </button>
+                    <button
+                      class="flex-1 py-1.5 px-2.5 rounded-md text-2xs font-bold transition-all cursor-pointer text-slate-600 hover:text-slate-900"
+                      type="button"
+                    >
+                      📋 Căn cứ Báo Giá
+                    </button>
+                  </div>
                   <div
                     class="relative w-full "
                   >

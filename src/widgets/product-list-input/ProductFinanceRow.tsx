@@ -9,6 +9,8 @@ import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/Mach
 import { parseFinancialInput } from '@/src/platform/ui/forms/useSmartFormInput';
 import { SmartFinancialInput } from '@/src/design-system';
 
+import { detectItemType, ITEM_SEMANTIC_CONFIG, ItemSemanticType } from './useProductItemSemantic';
+
 interface ProductFinanceRowProps {
   key?: React.Key;
   product: ProductItem;
@@ -43,6 +45,15 @@ export function ProductFinanceRow({
   const computed = React.useMemo(() => computeLineItem(p), [p]);
   const isPromo = computed.price === 0 && Boolean(computed.productName || computed.productId);
 
+  const itemType: ItemSemanticType = (p.itemType as ItemSemanticType) || detectItemType(p.productName);
+  const nextType: Record<ItemSemanticType, ItemSemanticType> = {
+    MACHINE: 'MATERIAL',
+    MATERIAL: 'SERVICE',
+    SERVICE: 'MACHINE'
+  };
+  const semConfig = ITEM_SEMANTIC_CONFIG[itemType] || ITEM_SEMANTIC_CONFIG.MACHINE;
+  const isMachine = itemType === 'MACHINE';
+
   return (
     <React.Fragment>
       <tr className="group bg-white hover:bg-slate-50/70 transition-colors border-b border-slate-100">
@@ -62,6 +73,19 @@ export function ProductFinanceRow({
                   readOnly={readOnly || disabled}
                   className="w-28 text-xs font-mono font-bold text-blue-700 bg-blue-50/70 border border-blue-200/80 rounded px-2 py-0.5 outline-none focus:border-blue-400 placeholder:text-blue-300"
                 />
+                
+                {/* Micro-Interactive Semantic Toggle Badge */}
+                <button
+                  type="button"
+                  disabled={readOnly || disabled}
+                  onClick={() => onUpdate(idx, 'itemType', nextType[itemType])}
+                  title={`Định danh: ${semConfig.label}. Nhấp để chuyển đổi nhanh (Máy -> Vật tư -> Dịch vụ)`}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-3xs font-extrabold border shadow-2xs transition-all cursor-pointer select-none ${semConfig.badgeClass}`}
+                >
+                  <span>{semConfig.icon}</span>
+                  <span>{semConfig.shortLabel}</span>
+                </button>
+
                 {isPromo && (
                   <span className="shrink-0 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 text-3xs font-bold rounded border border-emerald-200 uppercase tracking-wider">
                     Tặng kèm
@@ -70,7 +94,13 @@ export function ProductFinanceRow({
               </div>
               <input type="text" placeholder="Tên sản phẩm / quy cách..."
                 value={p.productName || ''} 
-                onChange={e => onUpdate(idx, 'productName', e.target.value)}
+                onChange={e => {
+                  onUpdate(idx, 'productName', e.target.value);
+                  if (!p.itemType) {
+                    const detected = detectItemType(e.target.value);
+                    if (detected !== 'MACHINE') onUpdate(idx, 'itemType', detected);
+                  }
+                }}
                 onBlur={e => onUpdate(idx, 'productName', e.target.value.trim())}
                 readOnly={readOnly || disabled}
                 className="w-full text-xs font-bold text-slate-900 border border-slate-200 hover:border-slate-300 focus:border-blue-400 focus:bg-white rounded px-2 py-1 outline-none transition-all placeholder:text-slate-400 bg-white"
@@ -82,11 +112,30 @@ export function ProductFinanceRow({
                 readOnly={readOnly || disabled}
                 className="w-full text-2xs italic text-slate-500 border border-slate-100 hover:border-slate-200 focus:border-blue-400 focus:bg-white rounded px-2 py-0.5 outline-none transition-all placeholder:text-slate-300 bg-white/70"
               />
+
+              {!isMachine && itemType === 'MATERIAL' && (
+                <input type="text" placeholder="Quy cách vật tư (khổ, độ dày, mác thép...)"
+                  value={p.quyCach || ''} 
+                  onChange={e => onUpdate(idx, 'quyCach', e.target.value)}
+                  readOnly={readOnly || disabled}
+                  className="w-full text-2xs text-amber-900 bg-amber-50/60 border border-amber-200/80 rounded px-2 py-1 outline-none placeholder:text-amber-400 font-medium"
+                />
+              )}
+              {!isMachine && itemType === 'SERVICE' && (
+                <input type="text" placeholder="Phạm vi công việc / địa điểm thi công..."
+                  value={p.phamViCongViec || ''} 
+                  onChange={e => onUpdate(idx, 'phamViCongViec', e.target.value)}
+                  readOnly={readOnly || disabled}
+                  className="w-full text-2xs text-purple-900 bg-purple-50/60 border border-purple-200/80 rounded px-2 py-1 outline-none placeholder:text-purple-400 font-medium"
+                />
+              )}
            </div>
-           {showBaoHanh && (
-             <ProductBaoHanhFields product={p} baseDateForBaoHanh={baseDateForBaoHanh} viewType="table" disabled={disabled} onChange={(f, v) => onUpdate(idx, f, v === null ? undefined : v as any)} />
+
+           {/* Chỉ dòng Máy mới có Quản lý Bảo hành và Serial */}
+           {showBaoHanh && isMachine && (
+             <ProductBaoHanhFields product={p} baseDateForBaoHanh={baseDateForBaoHanh} viewType="table" disabled={disabled} onChange={(f, v) => onUpdate(idx, f as any, v === null ? undefined : v as any)} />
            )}
-           {showSerial && (
+           {showSerial && isMachine && (
              <div className="mt-2 pt-2 border-t border-slate-100">
                <div className="flex items-center justify-between mb-1">
                  <span className="text-3xs font-bold text-slate-600 uppercase tracking-wider">

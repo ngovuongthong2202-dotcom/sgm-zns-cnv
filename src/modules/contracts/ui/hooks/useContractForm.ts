@@ -15,6 +15,7 @@ import {
 
 import { useAuth } from '@/src/modules/iam';
 import { formatUserOfficer } from '@/src/shared/utils/userProfile';
+import { calculateActualMachineCount } from '@/src/widgets/product-list-input/useProductItemSemantic';
 
 export function useContractForm(
   contract: Contract | null,
@@ -93,10 +94,22 @@ export function useContractForm(
   }, [selectedQuoId, activeQuotationDoc, contract, setValue]);
 
   useEffect(() => {
-    const totalQty = products.reduce((sum: number, p: any) => sum + (Number(p.quantity) || 0), 0); 
-    if (getValues('slMay') !== totalQty) {
-      setValue('slMay', totalQty);
+    const machineCount = calculateActualMachineCount(products); 
+    if (getValues('slMay') !== machineCount) {
+      setValue('slMay', machineCount);
     }
+
+    // Auto-sync root serials from line item machine serials
+    const lineSerials = Array.from(
+      new Set(products.flatMap((p: any) => (Array.isArray(p.danhSachMaMay) ? p.danhSachMaMay : [])))
+    ).filter(Boolean);
+    if (lineSerials.length > 0) {
+      const curRootSerials = getValues('danhSachMaMay') || [];
+      if (curRootSerials.length !== lineSerials.length || !lineSerials.every(s => curRootSerials.includes(s))) {
+        setValue('danhSachMaMay', lineSerials, { shouldDirty: true });
+      }
+    }
+
     if (products.length > 0) {
       if (!getValues('loai')) {
         setValue('loai', products[0].productName || '');

@@ -299,7 +299,7 @@ export function PaymentRecordDrawer({
     data.maKh = data.maKh ? sanitizeCode(data.maKh) : '';
     data.tenKhachHang = data.tenKhachHang ? sanitizeText(cleanProperVietnameseText(data.tenKhachHang)) : '';
     data.paymentId = sanitizeCode(data.paymentId);
-    if (!data.paymentId || data.paymentId === '---') {
+    if (!data.paymentId || data.paymentId === '---' || data.paymentId === 'N/A') {
       data.paymentId = `PT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
     if (data.soHopDong) data.soHopDong = sanitizeCode(data.soHopDong);

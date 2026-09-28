@@ -28,6 +28,7 @@ import { PageHeader } from '@/src/design-system/PageHeader';
 import { useContractsActions } from './hooks/useContractsActions';
 
 import { useSharedFields } from '@/src/hooks/useSharedFields';
+import { smartAllocateSerials } from '@/src/widgets/product-list-input/useProductItemSemantic';
  
 
 import { PageSkeleton } from '@/src/design-system/skeletons/PageSkeleton';
@@ -195,7 +196,7 @@ export default function ContractsFeature() {
 
   const getRemainingProducts = (contract: Contract, deliveries: any[]) => {
     const contractDels = deliveries.filter(d => d.contractId === contract.id);
-    return (contract.products || []).map(p => {
+    const raw = (contract.products || []).map(p => {
       const delivered = contractDels.reduce((sum, d) => {
         const dp = d.products?.find((x: any) => (x.productId && x.productId === p.productId) || (x.productName === p.productName));
         return sum + (dp?.quantity || 0);
@@ -207,6 +208,7 @@ export default function ContractsFeature() {
         total: remaining * (p.price || 0)
       };
     }).filter(p => p.quantity > 0);
+    return smartAllocateSerials(raw, contract.danhSachMaMay || []);
   };
 
   if (loading) return <PageSkeleton />;

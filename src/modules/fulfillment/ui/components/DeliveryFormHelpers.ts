@@ -34,6 +34,15 @@ export function normalizeDeliveryFormValues(data: any) {
       soNgayBaoHanh: p.soNgayBaoHanh !== undefined && p.soNgayBaoHanh !== null ? Math.max(0, Number(p.soNgayBaoHanh)) : 0,
       danhSachMaMay: Array.isArray(p.danhSachMaMay) ? p.danhSachMaMay.map(sanitizeCode).filter(Boolean) : undefined,
     }));
+
+    // Auto sync root serials from machine line-items
+    const collectedLineSerials = Array.from(
+      new Set(data.products.flatMap((p: any) => (Array.isArray(p.danhSachMaMay) ? p.danhSachMaMay : [])))
+    ).filter(Boolean);
+
+    if (collectedLineSerials.length > 0) {
+      data.danhSachMaMay = collectedLineSerials;
+    }
   }
   return data;
 }

@@ -6,7 +6,7 @@ interface ProductBaoHanhFieldsProps {
   viewType?: 'table' | 'card';
   disabled?: boolean;
   baseDateForBaoHanh?: string;
-  onChange: (field: 'soNgayBaoHanh', value: number | null) => void;
+  onChange: (field: 'soNgayBaoHanh' | 'ngayHetHanBaoHanh', value: any) => void;
 }
 
 export function ProductBaoHanhFields({ product, viewType = 'card', disabled, baseDateForBaoHanh, onChange }: ProductBaoHanhFieldsProps) {
@@ -28,6 +28,19 @@ export function ProductBaoHanhFields({ product, viewType = 'card', disabled, bas
     }
     return '';
   }, [product.ngayHetHanBaoHanh, product.soNgayBaoHanh, sanitizedDays, baseDateForBaoHanh]);
+
+  const handleDaysChange = (days: number | null) => {
+    onChange('soNgayBaoHanh', days);
+    if (days && days > 0) {
+      const base = baseDateForBaoHanh ? new Date(baseDateForBaoHanh) : new Date();
+      if (!isNaN(base.getTime())) {
+        const exp = new Date(base.getTime() + days * 86400000);
+        onChange('ngayHetHanBaoHanh', exp.toISOString().split('T')[0]);
+      }
+    } else {
+      onChange('ngayHetHanBaoHanh', null);
+    }
+  };
 
   const warrantyPresets = [
     { label: '6T', days: 180 },
@@ -52,7 +65,7 @@ export function ProductBaoHanhFields({ product, viewType = 'card', disabled, bas
            readOnly={disabled}
            onChange={(e) => {
              const parsed = parseInt(e.target.value);
-             onChange('soNgayBaoHanh', isNaN(parsed) ? null : Math.max(0, parsed));
+             handleDaysChange(isNaN(parsed) ? null : Math.max(0, parsed));
            }}
            className="w-full text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded focus:border-blue-400 p-1.5 focus:outline-none"
          />
@@ -65,7 +78,7 @@ export function ProductBaoHanhFields({ product, viewType = 'card', disabled, bas
                  key={preset.days}
                  type="button"
                  disabled={disabled}
-                 onClick={() => onChange('soNgayBaoHanh', preset.days)}
+                 onClick={() => handleDaysChange(preset.days)}
                  className={`text-3xs px-1.5 py-0.5 rounded font-bold border transition-colors cursor-pointer ${
                    isSelected
                      ? 'bg-blue-600 text-white border-blue-700'

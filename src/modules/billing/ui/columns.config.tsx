@@ -89,12 +89,24 @@ export const getPaymentColumns = (
     id: 'paymentId',
     header: 'Mã PT',
     size: 130,
-    cell: (info) => (
-      <div className="flex items-center gap-1.5">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-600"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-        <div className="font-mono font-bold text-slate-800 tracking-tight">{String(info.getValue() || 'N/A')}</div>
-      </div>
-    ),
+    cell: (info) => {
+      const p = info.row.original as Payment;
+      const rawCode = p.paymentId;
+      const displayCode = (rawCode && rawCode !== 'N/A' && rawCode !== '---')
+        ? rawCode
+        : (p.id?.startsWith('PT-') ? p.id : `PT-${(p.id || 'AUTO').slice(-6).toUpperCase()}`);
+      return (
+        <div className="flex items-center gap-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-600"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <div className="font-mono font-bold text-slate-800 tracking-tight">{displayCode}</div>
+          {p.dacCachGiaoTruoc && (
+            <span className="text-3xs font-extrabold px-1 py-0.5 bg-amber-100 text-amber-800 border border-amber-300 rounded leading-none" title="Đặc cách Ban Giám Đốc giao trước thanh toán sau">
+              ĐC
+            </span>
+          )}
+        </div>
+      );
+    },
     meta: {
       isSticky: true,
     }

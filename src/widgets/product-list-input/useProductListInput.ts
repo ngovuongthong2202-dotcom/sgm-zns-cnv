@@ -86,7 +86,8 @@ export function useProductListInput({
       quantity: 1,
       unit: defaultUnit,
       vatPct: defaultVat,
-      price: 0
+      price: 0,
+      itemType: 'MACHINE'
     });
     onChange([...products, newItem]);
   }, [products, onChange, defaultUnit]);

@@ -140,14 +140,23 @@ export function DrawerProductList({
                           )}
 
                           {/* Warranty Info */}
-                          {((p as any).soNgayBaoHanh || (p as any).ngayHetHanBaoHanh) && (
-                            <div className="flex items-center gap-1.5 text-3xs text-blue-800 font-semibold mt-0.5">
-                              <span className="bg-blue-50 text-blue-900 px-1.5 py-0.5 rounded border border-blue-200 font-bold uppercase">
-                                BH: {Number((p as any).soNgayBaoHanh) > 0 ? `${Number((p as any).soNgayBaoHanh)} ngày` : ''}
-                                {(p as any).ngayHetHanBaoHanh ? ` (Đến ${formatDate((p as any).ngayHetHanBaoHanh)})` : ''}
-                              </span>
-                            </div>
-                          )}
+                          {(() => {
+                            const days = Number((p as any).soNgayBaoHanh || 0);
+                            let expiry = (p as any).ngayHetHanBaoHanh;
+                            if (!expiry && days > 0) {
+                              const base = new Date();
+                              expiry = new Date(base.getTime() + days * 86400000).toISOString();
+                            }
+                            if (days <= 0 && !expiry) return null;
+                            return (
+                              <div className="flex items-center gap-1.5 text-3xs text-blue-800 font-semibold mt-0.5">
+                                <span className="bg-blue-50 text-blue-900 px-1.5 py-0.5 rounded border border-blue-200 font-bold uppercase">
+                                  🛡️ BH: {days > 0 ? `${days} ngày` : ''}
+                                  {expiry ? ` (Đến ${formatDate(expiry)})` : ''}
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </td>
 

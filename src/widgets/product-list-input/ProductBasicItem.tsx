@@ -7,6 +7,7 @@ import { FinancialEngine } from '@/src/shared/utils/financialEngine';
 import { parseFinancialInput } from '@/src/platform/ui/forms/useSmartFormInput';
 import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
 import { SmartFinancialInput } from '@/src/design-system';
+import { detectItemType, ITEM_SEMANTIC_CONFIG, ItemSemanticType } from './useProductItemSemantic';
 
 interface ProductBasicItemProps {
   key?: React.Key;
@@ -42,14 +43,33 @@ export function ProductBasicItem({
   onUpdate,
   onRemove
 }: ProductBasicItemProps) {
+  const itemType: ItemSemanticType = (p.itemType as ItemSemanticType) || detectItemType(p.productName);
+  const nextType: Record<ItemSemanticType, ItemSemanticType> = {
+    MACHINE: 'MATERIAL',
+    MATERIAL: 'SERVICE',
+    SERVICE: 'MACHINE'
+  };
+  const semConfig = ITEM_SEMANTIC_CONFIG[itemType] || ITEM_SEMANTIC_CONFIG.MACHINE;
+  const isMachine = itemType === 'MACHINE';
+
   return (
     <div className="group relative bg-white border md:border-b-0 border-brand-border md:border-transparent md:border-b-brand-border/50 rounded-2xl md:rounded-none p-4 transition-all hover:bg-slate-50/50">
       <div className={`grid ${showPrice ? 'grid-cols-12' : 'grid-cols-12'} gap-3 lg:gap-4 items-start`}>
         <div className={`${showPrice ? 'col-span-12 md:col-span-2' : 'col-span-3'} space-y-1`}>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className="shrink-0 px-1.5 py-0.5 bg-slate-100 text-slate-700 text-2xs font-bold rounded font-mono">
               #{p.stt || idx + 1}
             </span>
+            <button
+              type="button"
+              disabled={readOnly || disabled}
+              onClick={() => onUpdate(idx, 'itemType', nextType[itemType])}
+              title={`Định danh: ${semConfig.label}. Nhấp để chuyển đổi nhanh.`}
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-extrabold border shadow-2xs transition-all cursor-pointer select-none ${semConfig.badgeClass}`}
+            >
+              <span>{semConfig.icon}</span>
+              <span>{semConfig.shortLabel}</span>
+            </button>
             <label className="md:hidden text-2xs font-bold text-slate-600 uppercase tracking-tight flex items-center gap-1">
               <Hash size={10} /> Mã SP
             </label>
@@ -70,11 +90,33 @@ export function ProductBasicItem({
           <input aria-label="Nhập thông tin"
             type="text"
             value={p.productName}
-            onChange={(e) => onUpdate(idx, 'productName', e.target.value)}
+            onChange={(e) => {
+              onUpdate(idx, 'productName', e.target.value);
+              if (!p.itemType) {
+                const detected = detectItemType(e.target.value);
+                if (detected !== 'MACHINE') onUpdate(idx, 'itemType', detected);
+              }
+            }}
             readOnly={readOnly || disabled}
             placeholder="Tên sản phẩm..."
             className={`w-full text-xs font-medium text-slate-900 ${readOnly || disabled ? 'bg-slate-50/30' : 'bg-white'} border-slate-200 rounded-lg focus:ring-1 focus:ring-brand-accent p-2 md:h-[38px] disabled:opacity-70`}
           />
+          {!isMachine && itemType === 'MATERIAL' && (
+            <input type="text" placeholder="Quy cách vật tư (khổ, độ dày...)"
+              value={p.quyCach || ''} 
+              onChange={e => onUpdate(idx, 'quyCach', e.target.value)}
+              readOnly={readOnly || disabled}
+              className="w-full text-2xs text-amber-900 bg-amber-50/60 border border-amber-200/80 rounded px-2 py-1 outline-none placeholder:text-amber-400 font-medium"
+            />
+          )}
+          {!isMachine && itemType === 'SERVICE' && (
+            <input type="text" placeholder="Phạm vi công việc..."
+              value={p.phamViCongViec || ''} 
+              onChange={e => onUpdate(idx, 'phamViCongViec', e.target.value)}
+              readOnly={readOnly || disabled}
+              className="w-full text-2xs text-purple-900 bg-purple-50/60 border border-purple-200/80 rounded px-2 py-1 outline-none placeholder:text-purple-400 font-medium"
+            />
+          )}
         </div>
         <div className={`${showPrice ? 'col-span-3 md:col-span-1' : 'col-span-2'} space-y-1`}>
           <label className="md:hidden text-2xs font-bold text-slate-600 uppercase tracking-tight flex items-center gap-1">
@@ -152,10 +194,10 @@ export function ProductBasicItem({
           <span className="text-3xs font-bold text-slate-600 uppercase">Còn lại: {maxQ}</span>
         </div>
       ) : null}
-      {showBaoHanh && (
+      {showBaoHanh && isMachine && (
         <ProductBaoHanhFields product={p} baseDateForBaoHanh={baseDateForBaoHanh} viewType="table" disabled={disabled} onChange={(field, val) => onUpdate(idx, field, val === null ? undefined : val as any)} />
       )}
-      {showSerial && (
+      {showSerial && isMachine && (
         <div className="mt-3 pt-2.5 border-t border-slate-100">
           <span className="text-3xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
             Mã máy / Serial ({p.danhSachMaMay?.length || 0}/{p.quantity || 0} {p.unit || 'Máy'}):

@@ -150,6 +150,15 @@ router.post('/create/:entityType', async (req, res) => {
         data.loai = normLoai;
       }
 
+      if (!data.paymentId || data.paymentId === 'N/A' || data.paymentId === '---') {
+        try {
+          const year = data.ngayThanhToan ? new Date(data.ngayThanhToan).getFullYear() : new Date().getFullYear();
+          data.paymentId = await sequenceGeneratorService.getNextCode('payment', { year: isNaN(year) ? new Date().getFullYear() : year });
+        } catch (e) {
+          console.error('[WorkflowRoutes] Failed to generate paymentId sequence:', e);
+        }
+      }
+
       const newRef = data.id ? adminDb.collection('payments').doc(data.id) : adminDb.collection('payments').doc();
       const batch = adminDb.batch();
       batch.set(newRef, { ...data, id: newRef.id, createdAt: new Date().toISOString(), deletedAt: null });
@@ -212,6 +221,15 @@ router.post('/create/:entityType', async (req, res) => {
         }
       }
       
+      if (!data.deliveryId || data.deliveryId === 'N/A' || data.deliveryId === '---') {
+        try {
+          const year = data.ngayGiaoHang ? new Date(data.ngayGiaoHang).getFullYear() : new Date().getFullYear();
+          data.deliveryId = await sequenceGeneratorService.getNextCode('delivery', { year: isNaN(year) ? new Date().getFullYear() : year });
+        } catch (e) {
+          console.error('[WorkflowRoutes] Failed to generate deliveryId sequence:', e);
+        }
+      }
+
       const newRef = data.id ? adminDb.collection('deliveries').doc(data.id) : adminDb.collection('deliveries').doc();
       const batch = adminDb.batch();
       batch.set(newRef, { ...data, id: newRef.id, createdAt: new Date().toISOString(), deletedAt: null });
@@ -572,6 +590,52 @@ router.delete('/delete/:entityType/:id', async (req, res) => {
         userId, 
         timestamp: new Date().toISOString() 
       });
+
+      // Conditional Financial Shield & Safe Cascade Clean-up for uncollected anchor payment
+      if (oldDelivery.dacCachGiaoTruoc && oldDelivery.paymentId) {
+        try {
+          const payDoc = await adminDb.collection('payments').doc(oldDelivery.paymentId).get();
+          if (payDoc.exists) {
+            const payData = payDoc.data() as any;
+            const collectedAmount = Number(payData.soTien || payData.amount || 0);
+            const installments = Array.isArray(payData.cacDotThu) ? payData.cacDotThu : [];
+            const hasRealMoney = collectedAmount > 0 || installments.some((dot: any) => Number(dot.soTien || 0) > 0);
+
+            // Only clean up if NO real money has been collected and it was an uncollected waiver anchor
+            if (!hasRealMoney && (payData.dacCachGiaoTruoc || payData.tinhTrangThanhToan === 'Chưa TT')) {
+              // Check if any OTHER active deliveries reference this payment
+              const otherDeliveriesSnap = await adminDb.collection('deliveries')
+                .where('paymentId', '==', oldDelivery.paymentId)
+                .get();
+              const otherActive = otherDeliveriesSnap.docs.filter((d: any) => d.id !== id && !d.data()?.deletedAt && !d.data()?.isDeleted);
+
+              if (otherActive.length === 0) {
+                batch.update(adminDb.collection('payments').doc(oldDelivery.paymentId), {
+                  deletedAt: new Date().toISOString(),
+                  deletedBy: userId,
+                  isDeleted: true
+                });
+                const auditPayRef = adminDb.collection('auditLogs').doc();
+                batch.set(auditPayRef, {
+                  action: 'DELETE',
+                  entityId: oldDelivery.paymentId,
+                  entityType: 'payments',
+                  details: {
+                    deleted: true,
+                    reason: 'Safe cascade clean-up of 0đ uncollected anchor payment from deleted dacCach delivery',
+                    snapshot: payData
+                  },
+                  userId,
+                  timestamp: new Date().toISOString()
+                });
+              }
+            }
+          }
+        } catch (cleanupErr) {
+          console.warn('[WorkflowRoutes] Error during cascade cleanup of uncollected payment:', cleanupErr);
+        }
+      }
+
       await batch.commit();
 
       emitDomainEvent('DeliveryDeleted', { 

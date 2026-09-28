@@ -24,6 +24,10 @@ import { normalizeDeliveryFormValues, validateDeliveryBusinessRules, isDeliveryS
 import { useDeliveryForm } from '../hooks/useDeliveryForm';
 import { formatUserOfficer } from '@/src/shared/utils/userProfile';
 import { useSharedFields } from '@/src/hooks/useSharedFields';
+import { getAvailableRootSerials, detectItemType, calculateActualMachineCount, smartAllocateSerials } from '@/src/widgets/product-list-input/useProductItemSemantic';
+import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
+import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
+import { EntityZnsStatus } from '@/src/domain/enums/zns-status';
 
 export function DeliveryFormModal({ delivery, payments, contracts, quotations, customers, deliveries, nguoiPhuTrachList: _nguoiPhuTrachList, onClose, onSave }: any) {
   const { user, userData } = useAuth();
@@ -61,9 +65,14 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
     deliveryProducts,
     selectedPaymentId,
     populateFromPayment,
+    populateFromContract,
     lookupExportSale,
     isLookingUpExportSale,
   } = useDeliveryForm(delivery, payments, contracts, quotations, customers, deliveries);
+
+  const [sourceMode, setSourceMode] = React.useState<'payment' | 'contract' | 'quotation'>(
+    delivery?.contractId && !delivery?.paymentId ? 'contract' : (delivery?.quotationId && !delivery?.paymentId ? 'quotation' : 'payment')
+  );
 
   const approverValue = watch('nguoiPheDuyetDacCach');
   const effectiveLeaders = React.useMemo(() => {
@@ -257,6 +266,53 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
             }
           }
 
+          if (data.dacCachGiaoTruoc && !data.paymentId && data.contractId) {
+            try {
+              const selContract = (contracts || []).find((c: any) => c.id === data.contractId || c.soHopDong === data.soHopDong);
+              if (selContract) {
+                const rawProds = (selContract.products || []).map(computeLineItem);
+                const allocatedProds = smartAllocateSerials(rawProds, selContract.danhSachMaMay || []);
+                const contractAggs = aggregateProducts(allocatedProds);
+                const uncollectedPayment = await apiCreateEntity('payment', {
+                  contractId: selContract.id,
+                  quotationId: selContract.quotationId || '',
+                  soPhieuBaoGia: selContract.soPhieuBaoGia || '',
+                  customerId: selContract.customerId || '',
+                  maKh: selContract.maKh || '',
+                  tenKhachHang: selContract.tenKhachHang || '',
+                  tenNguoiNop: selContract.nguoiDaiDien || selContract.tenKhachHang || '',
+                  sdt: selContract.sdt || '',
+                  soHopDong: selContract.soHopDong || '',
+                  soDonHang: selContract.soDonHang || '',
+                  totalAmount: Number(selContract.totalAmount) || contractAggs.totalAfterTax || 0,
+                  soTien: 0,
+                  products: allocatedProds,
+                  danhSachMaMay: selContract.danhSachMaMay || [],
+                  soNgayBaoHanh: selContract.soNgayBaoHanh || 365,
+                  ngayHetHanBaoHanh: selContract.ngayHetHanBaoHanh,
+                  slMay: calculateActualMachineCount(allocatedProds) || selContract.slMay || 1,
+                  loai: selContract.loai || (allocatedProds[0]?.productName || 'Máy'),
+                  dvt: selContract.dvt || (allocatedProds[0]?.unit || 'Máy'),
+                  nguoiPhuTrach: selContract.nguoiPhuTrach || '',
+                  vatRate: selContract.vatRate || 0,
+                  discountRate: selContract.discountRate || 0,
+                  subTotal: selContract.subTotal || contractAggs.totalGross || 0,
+                  trangThaiGuiTinThanhToan: EntityZnsStatus.CHUA_GUI,
+                  tinhTrangThanhToan: 'Chưa TT',
+                  phuongThucThanhToan: 'Chuyển khoản',
+                  dacCachGiaoTruoc: true,
+                  ngayThanhToan: new Date().toISOString().split('T')[0]
+                });
+                if (uncollectedPayment?.id) {
+                  data.paymentId = uncollectedPayment.id;
+                  data.soChungTuThamChieu = uncollectedPayment.paymentId || uncollectedPayment.id;
+                }
+              }
+            } catch (pErr) {
+              console.warn('[DeliveryFormModal] Failed to auto-create anchor payment:', pErr);
+            }
+          }
+
           onSave(data);
           clearDraft();
         }, (formErrors) => {
@@ -290,7 +346,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                 <div className="space-y-4">
                   <div className="space-y-1.5 z-20 relative">
                     <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block mb-1 flex justify-between items-center">
-                      <span>Chứng từ Thanh toán tham chiếu <span className="text-red-700">*</span></span>
+                      <span>Căn cứ xuất kho tham chiếu <span className="text-red-700">*</span></span>
                       {(() => {
                         const selectedPayment = payments?.find((p: any) => p.id === selectedPaymentId);
                         if (!selectedPayment) return null;
@@ -308,52 +364,135 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                         );
                       })()}
                     </label>
-                    <AsyncSearchableSelect
-                      collection="payments"
-                      options={enrichedPayments}
-                      value={watch('paymentId') || ''}
-                      onChange={(val, doc) => {
-                        setValue('paymentId', val, { shouldValidate: true });
-                        if (doc) {
-                          populateFromPayment(doc);
-                        }
-                      }}
-                      filterOption={(p: any) => {
-                        // Loại trừ phiếu thu đã bị xóa
-                        if (p.deletedAt || p.deleted_at) return false;
-                        const isCurrentSelected = delivery?.paymentId && (delivery.paymentId === p.id || delivery.paymentId === p.paymentId);
-                        if (isCurrentSelected) return true;
-                        if (p._isFullyDelivered || isDeliverySourceFullyDelivered(p, deliveries, contracts, quotations)) {
-                          return false;
-                        }
-                        return true;
-                      }}
-                      isOptionDisabled={(p: any) => {
-                         const testDoc = Boolean(watch('dacCachGiaoTruoc')) ? { ...p, dacCachGiaoTruoc: true } : p;
-                         const gateResult = canCreateDelivery(testDoc);
-                         if (!gateResult.allowed) return { disabled: true, reason: gateResult.reason };
-                         if (p._isFullyDelivered || isDeliverySourceFullyDelivered(p, deliveries, contracts, quotations)) {
-                           return { disabled: true, reason: 'Chứng từ đã giao đủ 100% số lượng (còn phải giao = 0)' };
-                         }
-                         return { disabled: false };
-                      }}
-                      renderOption={(p: any) => ({
-                        label: getEntityDisplayLabel('payment', p), 
-                        subLabel: p.tenKhachHang
-                      })}
-                      renderItemWrapper={(p: any, children) => (
-                        <PaymentHoverCard
-                          payment={p}
-                          contracts={contracts || []}
-                          quotations={quotations || []}
-                          deliveries={deliveries || []}
-                        >
-                          {children}
-                        </PaymentHoverCard>
-                      )}
-                      placeholder="Tìm theo Mã KH, Tên, Số GD..."
-                      error={errors.paymentId?.message as string | undefined}
-                    />
+
+                    {/* 3-Way Source Switcher Tabs */}
+                    <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200/80 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setSourceMode('payment')}
+                        className={`flex-1 py-1.5 px-2.5 rounded-md text-2xs font-bold transition-all cursor-pointer ${
+                          sourceMode === 'payment'
+                            ? 'bg-white text-blue-700 shadow-xs border border-slate-200/80'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        💰 Căn cứ Phiếu Thu
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSourceMode('contract');
+                          if (!watch('dacCachGiaoTruoc')) {
+                            setValue('dacCachGiaoTruoc', true, { shouldDirty: true });
+                            if (!watch('nguoiPheDuyetDacCach')) setValue('nguoiPheDuyetDacCach', 'Ban Giám Đốc', { shouldDirty: true });
+                          }
+                        }}
+                        className={`flex-1 py-1.5 px-2.5 rounded-md text-2xs font-bold transition-all cursor-pointer ${
+                          sourceMode === 'contract'
+                            ? 'bg-white text-amber-700 shadow-xs border border-amber-200/80'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        📜 Hợp Đồng (Giao trước)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSourceMode('quotation')}
+                        className={`flex-1 py-1.5 px-2.5 rounded-md text-2xs font-bold transition-all cursor-pointer ${
+                          sourceMode === 'quotation'
+                            ? 'bg-white text-blue-700 shadow-xs border border-slate-200/80'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        📋 Căn cứ Báo Giá
+                      </button>
+                    </div>
+
+                    {sourceMode === 'payment' && (
+                      <AsyncSearchableSelect
+                        collection="payments"
+                        options={enrichedPayments}
+                        value={watch('paymentId') || ''}
+                        onChange={(val, doc) => {
+                          setValue('paymentId', val, { shouldValidate: true });
+                          if (doc) {
+                            populateFromPayment(doc);
+                          }
+                        }}
+                        filterOption={(p: any) => {
+                          if (p.deletedAt || p.deleted_at) return false;
+                          const isCurrentSelected = delivery?.paymentId && (delivery.paymentId === p.id || delivery.paymentId === p.paymentId);
+                          if (isCurrentSelected) return true;
+                          if (p._isFullyDelivered || isDeliverySourceFullyDelivered(p, deliveries, contracts, quotations)) {
+                            return false;
+                          }
+                          return true;
+                        }}
+                        isOptionDisabled={(p: any) => {
+                           const testDoc = Boolean(watch('dacCachGiaoTruoc')) ? { ...p, dacCachGiaoTruoc: true } : p;
+                           const gateResult = canCreateDelivery(testDoc);
+                           if (!gateResult.allowed) return { disabled: true, reason: gateResult.reason };
+                           if (p._isFullyDelivered || isDeliverySourceFullyDelivered(p, deliveries, contracts, quotations)) {
+                             return { disabled: true, reason: 'Chứng từ đã giao đủ 100% số lượng (còn phải giao = 0)' };
+                           }
+                           return { disabled: false };
+                        }}
+                        renderOption={(p: any) => ({
+                          label: getEntityDisplayLabel('payment', p), 
+                          subLabel: p.tenKhachHang
+                        })}
+                        renderItemWrapper={(p: any, children) => (
+                          <PaymentHoverCard
+                            payment={p}
+                            contracts={contracts || []}
+                            quotations={quotations || []}
+                            deliveries={deliveries || []}
+                          >
+                            {children}
+                          </PaymentHoverCard>
+                        )}
+                        placeholder="Tìm theo Mã KH, Tên, Số GD..."
+                        error={errors.paymentId?.message as string | undefined}
+                      />
+                    )}
+
+                    {sourceMode === 'contract' && (
+                      <AsyncSearchableSelect
+                        collection="contracts"
+                        options={(contracts || []).filter((c: any) => !c.deletedAt && !c.deleted_at)}
+                        value={watch('contractId') || ''}
+                        onChange={(val, doc) => {
+                          setValue('contractId', val, { shouldValidate: true });
+                          if (doc) {
+                            populateFromContract(doc);
+                          }
+                        }}
+                        renderOption={(c: any) => ({
+                          label: `${c.soHopDong || c.id} - ${c.tenKhachHang || ''}`,
+                          subLabel: `ĐH: ${c.soDonHang || '---'} | SL Máy: ${c.slMay || 0} | Trị giá: ${new Intl.NumberFormat('vi-VN').format(c.totalAmount || 0)} ₫`
+                        })}
+                        placeholder="Tìm Hợp đồng theo số HĐ, tên khách hàng..."
+                      />
+                    )}
+
+                    {sourceMode === 'quotation' && (
+                      <AsyncSearchableSelect
+                        collection="quotations"
+                        options={(quotations || []).filter((q: any) => !q.deletedAt && !q.deleted_at)}
+                        value={watch('quotationId') || ''}
+                        onChange={(val, doc: any) => {
+                          setValue('quotationId', val, { shouldValidate: true });
+                          if (doc) {
+                            setValue('quotationId', doc.id || val);
+                          }
+                        }}
+                        renderOption={(q: any) => ({
+                          label: `${q.soPhieuBaoGia || q.id} - ${q.tenKhachHang || ''}`,
+                          subLabel: `Loại: ${q.loai || q.loaiBaoGia || 'BG'} | Trị giá: ${new Intl.NumberFormat('vi-VN').format(q.totalAmount || 0)} ₫`
+                        })}
+                        placeholder="Tìm Báo giá theo số BG, tên khách hàng..."
+                      />
+                    )}
 
                     {/* Executive Pre-Delivery Waiver Toggle Card */}
                     <div className="mt-3 p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl flex flex-col gap-2">
@@ -370,8 +509,13 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                             checked={Boolean(watch('dacCachGiaoTruoc'))} 
                             onChange={(e) => {
                               setValue('dacCachGiaoTruoc', e.target.checked, { shouldDirty: true });
-                              if (e.target.checked && !watch('nguoiPheDuyetDacCach')) {
-                                setValue('nguoiPheDuyetDacCach', 'Ban Giám Đốc', { shouldDirty: true });
+                              if (e.target.checked) {
+                                if (!watch('nguoiPheDuyetDacCach')) {
+                                  setValue('nguoiPheDuyetDacCach', 'Ban Giám Đốc', { shouldDirty: true });
+                                }
+                                if (!watch('paymentId')) {
+                                  setSourceMode('contract');
+                                }
                               }
                             }} 
                             className="sr-only peer"
@@ -537,6 +681,61 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
             </div>
             
             <div className="bg-slate-50/50 rounded-xl border border-slate-200 overflow-hidden shadow-sm pt-2">
+              {(() => {
+                const linkedContract = (contracts || []).find((c: any) => c.id === watch('contractId') || c.soHopDong === watch('soHopDong'));
+                const sourceSerials = linkedContract?.danhSachMaMay || watch('danhSachMaMay') || [];
+                const availableRootSerials = getAvailableRootSerials(deliveryProducts, sourceSerials);
+
+                if (availableRootSerials.length === 0) return null;
+
+                return (
+                  <div className="mx-3 mb-2 p-2.5 bg-blue-50/80 border border-blue-200 rounded-lg flex items-center justify-between gap-3 flex-wrap animate-in fade-in duration-200">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-2xs font-extrabold text-blue-900 uppercase tracking-wide flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                        Mã máy hợp đồng khả dụng ({availableRootSerials.length}):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {availableRootSerials.map((sn: string) => (
+                          <button
+                            key={sn}
+                            type="button"
+                            onClick={() => {
+                              let assigned = false;
+                              const updated = deliveryProducts.map((p: any) => {
+                                if (assigned) return p;
+                                const isMach = (p.itemType || detectItemType(p.productName)) === 'MACHINE';
+                                const curCount = (p.danhSachMaMay || []).length;
+                                const reqCount = p.quantity || 1;
+                                if (isMach && curCount < reqCount) {
+                                  assigned = true;
+                                  return {
+                                    ...p,
+                                    danhSachMaMay: [...(p.danhSachMaMay || []), sn]
+                                  };
+                                }
+                                return p;
+                              });
+                              setValue('products', updated, { shouldDirty: true });
+                              const allSer = Array.from(new Set(updated.flatMap((p: any) => p.danhSachMaMay || [])));
+                              setValue('danhSachMaMay', allSer, { shouldDirty: true });
+                            }}
+                            className="px-2 py-0.5 bg-white text-blue-700 font-mono font-bold text-3xs rounded border border-blue-300 hover:bg-blue-600 hover:text-white transition-all cursor-pointer shadow-2xs flex items-center gap-1"
+                            title="Bấm để gán nhanh mã máy này vào dòng máy còn thiếu"
+                          >
+                            <span>{sn}</span>
+                            <span className="text-3xs font-black">+</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <span className="text-3xs text-blue-600 font-medium italic">
+                      Nhấp vào chip để gán trực tiếp vào dòng máy
+                    </span>
+                  </div>
+                );
+              })()}
+
               <div className="px-3 pb-2">
                 <ProductListInput 
                   products={deliveryProducts} 

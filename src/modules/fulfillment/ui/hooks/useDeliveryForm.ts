@@ -9,6 +9,7 @@ import { useAuth } from '@/src/modules/iam';
 import { formatUserOfficer } from '@/src/shared/utils/userProfile';
 import { notify } from '@/src/shared/utils/notify';
 import { settingsRepo } from '@/src/data/repositories/settings.repo';
+import { calculateActualMachineCount, smartAllocateSerials } from '@/src/widgets/product-list-input/useProductItemSemantic';
 
 export function useDeliveryForm(
   delivery: any,
@@ -273,14 +274,8 @@ export function useDeliveryForm(
         const remaining = Math.max(0, reqQty - delivered);
         limits[itemKey] = remaining;
 
-        // 1. Kế thừa Serial cho từng dòng sản phẩm
-        let itemSerials: string[] = Array.isArray(cp.danhSachMaMay) && cp.danhSachMaMay.length > 0
-          ? [...cp.danhSachMaMay]
-          : [];
-        if (itemSerials.length === 0 && sourceRootSerials.length > 0) {
-          itemSerials = sourceRootSerials.slice(0, remaining);
-        }
-        currentDeliverySerials.push(...itemSerials);
+        // 1. Giữ nguyên serials hiện có trên dòng nếu có
+        const currentItemSerials: string[] = Array.isArray(cp.danhSachMaMay) ? [...cp.danhSachMaMay] : [];
 
         // 2. Khử triệt để số ngày bảo hành âm (như -1365) và đưa về chuẩn 365 ngày
         const rawWarranty = cp.soNgayBaoHanh ?? source?.soNgayBaoHanh;
@@ -306,30 +301,166 @@ export function useDeliveryForm(
           price: cp.price || cp.donGia || 0,
           soNgayBaoHanh: sanitizedWarranty,
           ngayHetHanBaoHanh: computedExpiry,
-          danhSachMaMay: itemSerials
+          danhSachMaMay: currentItemSerials
         };
       }).filter((cp: any) => limits[cp.id] > 0);
 
-      const allUniqueSerials = Array.from(new Set(currentDeliverySerials));
+      // Phân bổ thông minh mã máy hợp đồng chỉ vào các dòng MÁY
+      const allocatedProducts = smartAllocateSerials(remainingProducts, sourceRootSerials);
+
+      const allUniqueSerials = Array.from(new Set(allocatedProducts.flatMap((p: any) => p.danhSachMaMay || [])));
       if (allUniqueSerials.length > 0) {
         setValue('danhSachMaMay', allUniqueSerials, { shouldDirty: true });
       } else if (sourceRootSerials.length > 0) {
         setValue('danhSachMaMay', sourceRootSerials, { shouldDirty: true });
       }
 
-      if (remainingProducts.length === 0) {
+      if (allocatedProducts.length === 0) {
         setValue('products', []);
         setValue('slMay', 0);
         setMaxQuantities(limits);
         notify.warning('Chứng từ này đã giao đủ 100% số lượng hàng hóa (còn phải giao = 0).');
       } else {
-        setValue('products', remainingProducts);
-        const totalRemainingQty = remainingProducts.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0);
-        setValue('slMay', totalRemainingQty);
+        setValue('products', allocatedProducts);
+        const actualMachineCount = calculateActualMachineCount(allocatedProducts);
+        setValue('slMay', actualMachineCount);
         setMaxQuantities(limits);
       }
     }
   }, [contracts, quotations, customers, deliveries, setValue, getValues, defaultOfficer, todayStr]);
+
+  const populateFromContract = useCallback((c: any) => {
+    if (!c) return;
+    setValue('contractId', c.id || '', { shouldValidate: true });
+    setValue('soHopDong', c.soHopDong || '', { shouldValidate: true });
+    setValue('ngayKy', c.ngayKy || '');
+    setValue('customerId', c.customerId || '');
+    setValue('maKh', c.maKh || '');
+    setValue('tenKhachHang', c.tenKhachHang || '');
+    setValue('sdt', c.sdt || '');
+    setValue('nguoiDaiDien', c.nguoiDaiDien || '');
+    setValue('soDonHang', c.soDonHang || '');
+    setValue('loai', c.loai || 'BG Máy');
+    setValue('dvt', c.dvt || 'Máy');
+    setValue('giaTriHopDong', Number(c.totalAmount || c.giaTriHopDong) || 1);
+    setValue('subTotal', c.subTotal || 0);
+    setValue('vatRate', c.vatRate || 0);
+    setValue('vatAmount', c.vatAmount || 0);
+    setValue('discountRate', c.discountRate || 0);
+    setValue('discountAmount', c.discountAmount || 0);
+    setValue('totalAmount', c.totalAmount || 0);
+    setValue('nguoiPhuTrach', defaultOfficer);
+
+    // Kích hoạt Đặc cách Ban Giám Đốc cho xuất kho trước thanh toán
+    setValue('dacCachGiaoTruoc', true);
+    setValue('lyDoDacCach', c.lyDoDacCach || 'Giao hàng trước thanh toán theo phê duyệt của Ban Giám Đốc');
+    setValue('nguoiPheDuyetDacCach', 'Ban Giám Đốc');
+    setValue('tinhTrangThanhToan', 'CHƯA THANH TOÁN');
+
+    // Snapshot quotation lineage nếu có
+    if (c.quotationId) {
+      setValue('quotationId', c.quotationId);
+      setValue('soPhieuBaoGia', c.soPhieuBaoGia || c.soBaoGia || '');
+      setValue('soBaoGia', c.soPhieuBaoGia || c.soBaoGia || '');
+      setValue('ngayBaoGia', c.ngayBaoGia || '');
+    }
+
+    // Liên hệ khách hàng
+    const targetCustId = c.customerId;
+    const targetCustMa = c.maKh;
+    const customer = customers?.find((cust: any) => (targetCustId && cust.id === targetCustId) || (targetCustMa && cust.maKh === targetCustMa));
+
+    const contactPerson = customer?.contacts?.[0]?.nguoiDaiDien || customer?.nguoiDaiDien || c.nguoiDaiDien || '';
+    const contactPhone = customer?.contacts?.[0]?.sdt || customer?.sdt || c.sdt || '';
+    const deliveryAddress = customer?.diaChi || customer?.tinhThanh || c.diaChi || '';
+
+    setValue('nguoiLienHe', contactPerson, { shouldValidate: true });
+    setValue('sdtLienHe', contactPhone, { shouldValidate: true });
+    setValue('diaChiGiaoHang', deliveryAddress, { shouldValidate: true });
+
+    // Payment mapping nếu có
+    const linkedPayment = payments?.find((p: any) => p.contractId === c.id || (c.soHopDong && p.soHopDong === c.soHopDong));
+    if (linkedPayment) {
+      setValue('paymentId', linkedPayment.id || linkedPayment.paymentId || '');
+    }
+
+    const productList = (Array.isArray(c.products) && c.products.length > 0 ? c.products : null)
+      || (Array.isArray(c.sanPham) && c.sanPham.length > 0 ? c.sanPham : null)
+      || [];
+
+    if (productList.length > 0) {
+      const validDeliveries = (deliveries || []).filter((d: any) => 
+        !d.deletedAt && !d.deleted_at && String(d.tinhTrangGiaoHang || '').toUpperCase() !== 'HỦY'
+      );
+      const linkedDeliveries = validDeliveries.filter((d: any) => d.contractId === c.id || (c.soHopDong && d.soHopDong === c.soHopDong));
+
+      const actualDeliveredMap: Record<string, number> = {};
+      linkedDeliveries.forEach((d: any) => {
+        const dItems = Array.isArray(d.products) && d.products.length > 0 ? d.products : [];
+        dItems.forEach((dp: any, idx: number) => {
+          const itemKey = getProductItemKey(dp, idx);
+          const qty = Number(dp.quantity || dp.soLuong || 0);
+          actualDeliveredMap[itemKey] = (actualDeliveredMap[itemKey] || 0) + qty;
+          if (dp.productId) actualDeliveredMap[String(dp.productId)] = (actualDeliveredMap[String(dp.productId)] || 0) + qty;
+        });
+      });
+
+      const sourceDelivered = (c.deliveredQuantities || {}) as Record<string, number>;
+      const limits: Record<string, number> = {};
+      const sourceRootSerials: string[] = Array.isArray(c.danhSachMaMay) ? c.danhSachMaMay : [];
+      const baseDateStr = getValues('ngayGiaoMay') || getValues('ngayLapPgh') || todayStr;
+
+      const remainingCandidates = productList.map((cp: any, index: number) => {
+        const itemKey = getProductItemKey(cp, index);
+        const fromDeliveries = Number(actualDeliveredMap[itemKey] ?? (cp.productId ? actualDeliveredMap[String(cp.productId)] : 0) ?? 0);
+        const fromSource = Number(sourceDelivered[itemKey] || 0);
+        const delivered = Math.max(fromDeliveries, fromSource);
+        const reqQty = Number(cp.quantity || cp.soLuong || 0);
+        const remaining = Math.max(0, reqQty - delivered);
+        limits[itemKey] = remaining;
+
+        const rawWarranty = cp.soNgayBaoHanh ?? c.soNgayBaoHanh;
+        const sanitizedWarranty = (rawWarranty !== undefined && rawWarranty !== null && Number(rawWarranty) > 0)
+          ? Number(rawWarranty)
+          : 365;
+
+        let computedExpiry = cp.ngayHetHanBaoHanh;
+        if (!computedExpiry || sanitizedWarranty > 0) {
+          const b = new Date(baseDateStr);
+          if (!isNaN(b.getTime())) {
+            const exp = new Date(b.getTime() + sanitizedWarranty * 24 * 60 * 60 * 1000);
+            computedExpiry = exp.toISOString().split('T')[0];
+          }
+        }
+
+        return {
+          ...cp,
+          id: itemKey,
+          productName: cp.productName || cp.tenSanPham || '',
+          quantity: remaining,
+          price: cp.price || cp.donGia || 0,
+          soNgayBaoHanh: sanitizedWarranty,
+          ngayHetHanBaoHanh: computedExpiry,
+          danhSachMaMay: Array.isArray(cp.danhSachMaMay) ? [...cp.danhSachMaMay] : []
+        };
+      }).filter((cp: any) => limits[cp.id] > 0);
+
+      // Phân bổ thông minh mã máy hợp đồng chỉ vào các dòng MÁY
+      const allocatedProducts = smartAllocateSerials(remainingCandidates, sourceRootSerials);
+      setValue('products', allocatedProducts);
+
+      const allUniqueSerials = Array.from(new Set(allocatedProducts.flatMap((p: any) => p.danhSachMaMay || [])));
+      if (allUniqueSerials.length > 0) {
+        setValue('danhSachMaMay', allUniqueSerials, { shouldDirty: true });
+      } else if (sourceRootSerials.length > 0) {
+        setValue('danhSachMaMay', sourceRootSerials, { shouldDirty: true });
+      }
+
+      const actualMachineCount = calculateActualMachineCount(allocatedProducts);
+      setValue('slMay', actualMachineCount);
+      setMaxQuantities(limits);
+    }
+  }, [customers, deliveries, payments, setValue, getValues, defaultOfficer, todayStr]);
 
   const populateFromQuotation = useCallback((q: any) => {
     if (!q) return;
@@ -453,6 +584,19 @@ export function useDeliveryForm(
       }
     }
   }, [delivery?.quotationId, selectedPaymentId, delivery?.id, quotations, populateFromQuotation]);
+
+  const lastPopulatedContractIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (delivery?.contractId && !selectedPaymentId && !delivery?.id) {
+      if (lastPopulatedContractIdRef.current === delivery.contractId) return;
+      lastPopulatedContractIdRef.current = delivery.contractId;
+
+      const c = contracts?.find((x: any) => x.id === delivery.contractId || x.soHopDong === delivery.contractId);
+      if (c) {
+        populateFromContract(c);
+      }
+    }
+  }, [delivery?.contractId, selectedPaymentId, delivery?.id, contracts, populateFromContract]);
 
   const lastPopulatedPaymentIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -603,8 +747,8 @@ export function useDeliveryForm(
   const discountRate = Number(watch('discountRate')) || 0;
 
   useEffect(() => {
-    const total = deliveryProducts.reduce((sum: number, p: any) => sum + (Number(p.quantity) || 0), 0);
-    setValue('slMay', total, { shouldDirty: true });
+    const machineCount = calculateActualMachineCount(deliveryProducts);
+    setValue('slMay', machineCount, { shouldDirty: true });
     
     if (deliveryProducts.length > 0) {
       const firstProductUnit = deliveryProducts[0].unit || (deliveryProducts[0] as any).dvt_chuan || (deliveryProducts[0] as any).dvt;
@@ -643,6 +787,7 @@ export function useDeliveryForm(
     deliveryProducts,
     selectedPaymentId,
     populateFromPayment,
+    populateFromContract,
     lookupExportSale,
     isLookingUpExportSale,
     getValues,
