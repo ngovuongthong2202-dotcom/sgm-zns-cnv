@@ -551,6 +551,50 @@ export function PaymentDetailDrawer({
     [contractDoc, _quotationDoc, deliveries]
   );
 
+  const contractsList = useMemo(() => (contractDoc ? [contractDoc] : []), [contractDoc]);
+  const quotationsList = useMemo(() => (_quotationDoc ? [_quotationDoc] : []), [_quotationDoc]);
+  const customersList = useMemo(() => (customerDoc ? [customerDoc] : []), [customerDoc]);
+
+  const deliveryPrefill = useMemo(() => {
+    if (!payment) return null;
+    const isWaiver = Boolean(
+      (payment as any).dacCachGiaoTruoc ||
+      isChuaTT ||
+      contractDoc?.dacCachGiaoTruoc
+    );
+
+    return {
+      contractId: contractDoc?.id,
+      paymentId: payment.id,
+      quotationId: _quotationDoc?.id,
+      customerId: payment.customerId,
+      tenKhachHang: payment.tenKhachHang,
+      sdt: payment.sdt,
+      diaChiGiaoHang: (payment as any).diaChiGiaoHang || contractDoc?.diaChiGiaoHang || (payment as any).diaChi || '',
+      soHopDong: contractDoc?.soHopDong || payment.soHopDong,
+      soBaoGia: _quotationDoc?.soPhieuBaoGia,
+      soPhieuBaoGia: _quotationDoc?.soPhieuBaoGia,
+      ngayBaoGia: _quotationDoc?.ngayBaoGia,
+      giaTriHopDong: contractDoc?.totalAmount || (payment as any).tongGiaTri || (payment as any).totalAmount || payment.soTien || 0,
+      tinhTrangThanhToan: payment.tinhTrangThanhToan,
+      nguoiPhuTrach: payment.nguoiPhuTrach,
+      products: contractDoc?.products || _quotationDoc?.products || [],
+      danhSachMaMay: contractDoc?.danhSachMaMay || (payment as any).danhSachMaMay || [],
+      slMay: allocGate.remainingMachines,
+      ngayLapPgh: new Date().toISOString().split('T')[0],
+      ngayGiaoMay: new Date().toISOString().split('T')[0],
+      dacCachGiaoTruoc: isWaiver,
+      nguoiPheDuyetDacCach: (payment as any).nguoiPheDuyetDacCach || (contractDoc as any)?.nguoiPheDuyetDacCach || 'Ban Giám Đốc',
+      lyDoDacCach: (payment as any).lyDoDacCach || (contractDoc as any)?.lyDoDacCach || 'Đặc cách giao hàng trước khi thanh toán'
+    };
+  }, [
+    payment,
+    contractDoc,
+    _quotationDoc,
+    isChuaTT,
+    allocGate.remainingMachines
+  ]);
+
   const handleCreateDelivery = () => {
     const targetDoc = contractDoc || _quotationDoc;
     if (!targetDoc) {
@@ -767,30 +811,13 @@ export function PaymentDetailDrawer({
         />
       )}
 
-      {isDeliveryModalOpen && (
+      {isDeliveryModalOpen && deliveryPrefill && (
         <DeliveryFormModal
-          delivery={{
-            contractId: contractDoc?.id,
-            paymentId: payment.id,
-            quotationId: _quotationDoc?.id,
-            customerId: payment.customerId,
-            tenKhachHang: payment.tenKhachHang,
-            sdt: payment.sdt,
-            diaChiGiaoHang: (payment as any).diaChiGiaoHang || contractDoc?.diaChiGiaoHang || (payment as any).diaChi || '',
-            soHopDong: contractDoc?.soHopDong || payment.soHopDong,
-            soBaoGia: _quotationDoc?.soPhieuBaoGia,
-            soPhieuBaoGia: _quotationDoc?.soPhieuBaoGia,
-            ngayBaoGia: _quotationDoc?.ngayBaoGia,
-            giaTriHopDong: contractDoc?.totalAmount || (payment as any).tongGiaTri || (payment as any).totalAmount || payment.soTien || 0,
-            tinhTrangThanhToan: payment.tinhTrangThanhToan,
-            nguoiPhuTrach: payment.nguoiPhuTrach,
-            products: contractDoc?.products || _quotationDoc?.products || [],
-            slMay: allocGate.remainingMachines,
-          }}
+          delivery={deliveryPrefill}
           payments={allRelatedPayments}
-          contracts={contractDoc ? [contractDoc] : []}
-          quotations={_quotationDoc ? [_quotationDoc] : []}
-          customers={customerDoc ? [customerDoc] : []}
+          contracts={contractsList}
+          quotations={quotationsList}
+          customers={customersList}
           deliveries={deliveries}
           nguoiPhuTrachList={nguoiPhuTrachList}
           onClose={() => setIsDeliveryModalOpen(false)}

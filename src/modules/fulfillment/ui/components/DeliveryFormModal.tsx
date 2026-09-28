@@ -23,10 +23,13 @@ import { handleEnterToTab } from '@/src/shared/utils/formNavigation';
 import { normalizeDeliveryFormValues, validateDeliveryBusinessRules, isDeliverySourceFullyDelivered } from './DeliveryFormHelpers';
 import { useDeliveryForm } from '../hooks/useDeliveryForm';
 import { formatUserOfficer } from '@/src/shared/utils/userProfile';
+import { useSharedFields } from '@/src/hooks/useSharedFields';
 
 export function DeliveryFormModal({ delivery, payments, contracts, quotations, customers, deliveries, nguoiPhuTrachList: _nguoiPhuTrachList, onClose, onSave }: any) {
   const { user, userData } = useAuth();
   const defaultOfficer = formatUserOfficer(userData, user);
+  const { lanhDaoPheDuyetList } = useSharedFields();
+
   const effectiveNguoiPhuTrachList = React.useMemo(() => {
     const list = [...(_nguoiPhuTrachList || [])];
     if (defaultOfficer && !list.includes(defaultOfficer)) {
@@ -61,6 +64,15 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
     lookupExportSale,
     isLookingUpExportSale,
   } = useDeliveryForm(delivery, payments, contracts, quotations, customers, deliveries);
+
+  const approverValue = watch('nguoiPheDuyetDacCach');
+  const effectiveLeaders = React.useMemo(() => {
+    const list = [...(lanhDaoPheDuyetList || [])];
+    if (approverValue && !list.includes(approverValue)) {
+      list.push(approverValue);
+    }
+    return list;
+  }, [lanhDaoPheDuyetList, approverValue]);
 
   // Đồng bộ hóa tức thời 100% với danh sách payments đang hiển thị ở trang Thanh toán
   const enrichedPayments = React.useMemo(() => {
@@ -373,26 +385,46 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                             🛡️ <strong>Chính sách Ban Giám Đốc:</strong> Áp dụng cho các đơn hàng ngoại lệ được Lãnh đạo chỉ định giao hàng trước. Hệ thống sẽ mở khóa xuất kho và tự động kích hoạt cảnh báo thu hồi công nợ bên Sổ Cái Kế Toán.
                           </div>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
-                              <label className="text-3xs uppercase font-bold text-amber-900 block mb-1">
-                                Lãnh đạo phê duyệt <span className="text-red-600">*</span>
-                              </label>
-                              <input 
-                                list="approverList"
-                                type="text" 
-                                placeholder="Chọn hoặc nhập Lãnh đạo..."
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-3xs uppercase font-bold text-amber-900 block" htmlFor="nguoiPheDuyetDacCach">
+                                  Lãnh đạo phê duyệt <span className="text-red-600">*</span>
+                                </label>
+                                <span className="text-3xs text-amber-800 font-medium">Bấm chip hoặc chọn</span>
+                              </div>
+                              <select 
+                                id="nguoiPheDuyetDacCach"
                                 value={watch('nguoiPheDuyetDacCach') || ''}
-                                onChange={(e) => setValue('nguoiPheDuyetDacCach', e.target.value, { shouldDirty: true })}
-                                className="w-full text-xs p-2 bg-white border border-amber-300 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-semibold"
-                              />
-                              <datalist id="approverList">
-                                <option value="Ban Giám Đốc" />
-                                <option value="Sếp Nam" />
-                                <option value="Sếp Thắng" />
-                                <option value="Sếp Tuấn" />
-                                <option value="Chủ tịch HĐQT" />
-                              </datalist>
+                                onChange={(e) => setValue('nguoiPheDuyetDacCach', e.target.value, { shouldDirty: true, shouldValidate: true })}
+                                className="w-full text-xs p-2 bg-white border border-amber-300 rounded-lg text-slate-800 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer shadow-xs"
+                              >
+                                <option value="">-- Chọn Lãnh đạo phê duyệt --</option>
+                                {effectiveLeaders.map((lead: string) => (
+                                  <option key={lead} value={lead}>{lead}</option>
+                                ))}
+                              </select>
+
+                              {/* Quick-Pick Chips */}
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {effectiveLeaders.slice(0, 5).map((lead: string) => {
+                                  const isSelected = watch('nguoiPheDuyetDacCach') === lead;
+                                  return (
+                                    <button
+                                      key={lead}
+                                      type="button"
+                                      onClick={() => setValue('nguoiPheDuyetDacCach', lead, { shouldDirty: true, shouldValidate: true })}
+                                      className={`text-3xs px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer border ${
+                                        isSelected 
+                                          ? 'bg-amber-600 text-white border-amber-700 shadow-xs' 
+                                          : 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100 hover:border-amber-300'
+                                      }`}
+                                    >
+                                      {lead}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
 
                             <div>
@@ -406,6 +438,19 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                                 onChange={(e) => setValue('lyDoDacCach', e.target.value, { shouldDirty: true })}
                                 className="w-full text-xs p-2 bg-white border border-amber-300 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
                               />
+                              {/* Quick Reasons Chips */}
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {['Đặc cách giao hàng trước khi thanh toán', 'Khách hàng VIP bảo lãnh công nợ', 'Giao theo tiến độ hợp đồng dự án'].map((reason) => (
+                                  <button
+                                    key={reason}
+                                    type="button"
+                                    onClick={() => setValue('lyDoDacCach', reason, { shouldDirty: true })}
+                                    className="text-3xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 hover:bg-amber-50 hover:text-amber-900 border border-slate-200 hover:border-amber-200 transition-colors cursor-pointer"
+                                  >
+                                    {reason}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         </div>

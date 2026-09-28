@@ -121,6 +121,7 @@ export default function ProductListInput({
                     disabled={disabled}
                     hideAddRemove={hideAddRemove}
                     showBaoHanh={showBaoHanh}
+                    baseDateForBaoHanh={baseDateForBaoHanh}
                     showSerial={showSerial}
                     allContracts={allContracts}
                     onUpdate={updateProduct}
@@ -215,13 +216,14 @@ export default function ProductListInput({
               <ProductFinanceCard 
                 key={idx} 
                 product={p} 
-                index={idx}
+                index={idx} 
                 maxQ={maxQ}
                 readOnly={readOnly}
                 disabled={disabled}
                 hideAddRemove={hideAddRemove}
                 allowEditProductId={allowEditProductId}
                 showBaoHanh={showBaoHanh}
+                baseDateForBaoHanh={baseDateForBaoHanh}
                 showSerial={showSerial}
                 allContracts={allContracts}
                 onUpdate={updateProduct}
@@ -241,6 +243,7 @@ export default function ProductListInput({
               allowEditProductId={allowEditProductId}
               showPrice={showPrice}
               showBaoHanh={showBaoHanh}
+              baseDateForBaoHanh={baseDateForBaoHanh}
               showSerial={showSerial}
               allContracts={allContracts}
               onUpdate={updateProduct}

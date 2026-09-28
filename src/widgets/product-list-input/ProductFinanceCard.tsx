@@ -19,6 +19,7 @@ interface ProductFinanceCardProps {
   hideAddRemove?: boolean;
   allowEditProductId?: boolean;
   showBaoHanh?: boolean;
+  baseDateForBaoHanh?: string;
   showSerial?: boolean;
   allContracts?: any[];
   onUpdate: <K extends keyof ProductItem>(index: number, field: K, value: ProductItem[K]) => void;
@@ -34,6 +35,7 @@ export function ProductFinanceCard({
   hideAddRemove,
   allowEditProductId,
   showBaoHanh,
+  baseDateForBaoHanh,
   showSerial,
   allContracts,
   onUpdate,
@@ -179,7 +181,7 @@ export function ProductFinanceCard({
           </div>
         )}
         {showBaoHanh && (
-          <ProductBaoHanhFields product={p} viewType="card" disabled={disabled} onChange={(field, val) => onUpdate(idx, field, val === null ? undefined : val as any)} />
+          <ProductBaoHanhFields product={p} baseDateForBaoHanh={baseDateForBaoHanh} viewType="card" disabled={disabled} onChange={(field, val) => onUpdate(idx, field, val === null ? undefined : val as any)} />
         )}
         {showSerial && (
           <div className="mt-3 pt-2.5 border-t border-slate-100">

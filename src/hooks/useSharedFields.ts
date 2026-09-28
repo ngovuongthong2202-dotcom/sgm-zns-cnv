@@ -10,6 +10,7 @@ export interface SharedFields {
   loaiKhachHangList: string[];
   phuongThucThanhToanList: string[];
   tinhTrangThanhToanList: string[];
+  lanhDaoPheDuyetList: string[];
 }
 
 export const DEFAULT_LOAI_KHACH_HANG = ['Cá nhân', 'Doanh nghiệp'];
@@ -17,6 +18,7 @@ export const DEFAULT_LOAI_BAO_GIA = ['BG Máy', 'BG Vật tư', 'BG Dịch vụ'
 export const DEFAULT_PHUONG_THUC_THANH_TOAN = ['Chuyển khoản', 'Tiền mặt'];
 export const DEFAULT_TINH_TRANG_THANH_TOAN = ['Tất toán', 'Công nợ', 'Chưa TT', 'Miễn phí'];
 export const DEFAULT_NGUOI_PHU_TRACH = ['Ngô Vương Thông', 'Ngô Thị Mỹ Lệ', 'Trần Thị Huyền Trang'];
+export const DEFAULT_LANH_DAO_PHE_DUYET = ['Ban Giám Đốc', 'Chủ tịch HĐQT', 'Tổng Giám Đốc', 'Phó Tổng Giám Đốc', 'Sếp Nam', 'Sếp Thắng', 'Sếp Tuấn'];
 export const SWR_SYSTEM_RESOURCES_KEY = 'system_resources';
 
 import {
@@ -71,6 +73,10 @@ const fetchSystemResources = async () => {
     ? (sharedFieldsData.tinhTrangThanhToanList as string[])
     : DEFAULT_TINH_TRANG_THANH_TOAN;
 
+  const lanhDaoPheDuyetList = (Array.isArray(sharedFieldsData.lanhDaoPheDuyetList) && sharedFieldsData.lanhDaoPheDuyetList.length > 0)
+    ? (sharedFieldsData.lanhDaoPheDuyetList as string[])
+    : DEFAULT_LANH_DAO_PHE_DUYET;
+
   const tinhThanhList = await vietnamProvincesApi.fetchProvinceNames(VIETNAM_PROVINCES_2025);
 
   return {
@@ -79,7 +85,8 @@ const fetchSystemResources = async () => {
       loaiBaoGiaList,
       loaiKhachHangList,
       phuongThucThanhToanList,
-      tinhTrangThanhToanList
+      tinhTrangThanhToanList,
+      lanhDaoPheDuyetList
     },
     znsTemplates: znsTemplatesList,
     tinhThanhList
@@ -117,7 +124,8 @@ export function useSharedFields() {
         loaiBaoGiaList: DEFAULT_LOAI_BAO_GIA,
         loaiKhachHangList: DEFAULT_LOAI_KHACH_HANG,
         phuongThucThanhToanList: DEFAULT_PHUONG_THUC_THANH_TOAN,
-        tinhTrangThanhToanList: DEFAULT_TINH_TRANG_THANH_TOAN
+        tinhTrangThanhToanList: DEFAULT_TINH_TRANG_THANH_TOAN,
+        lanhDaoPheDuyetList: DEFAULT_LANH_DAO_PHE_DUYET
       },
       znsTemplates: [],
       tinhThanhList: VIETNAM_PROVINCES_2025
@@ -132,6 +140,7 @@ export function useSharedFields() {
     loaiKhachHangList: data?.sharedFields?.loaiKhachHangList || DEFAULT_LOAI_KHACH_HANG,
     phuongThucThanhToanList: data?.sharedFields?.phuongThucThanhToanList || DEFAULT_PHUONG_THUC_THANH_TOAN,
     tinhTrangThanhToanList: data?.sharedFields?.tinhTrangThanhToanList || DEFAULT_TINH_TRANG_THANH_TOAN,
+    lanhDaoPheDuyetList: data?.sharedFields?.lanhDaoPheDuyetList || DEFAULT_LANH_DAO_PHE_DUYET,
     tinhThanhList: data?.tinhThanhList || [],
     znsTemplates: data?.znsTemplates || [],
     loading,

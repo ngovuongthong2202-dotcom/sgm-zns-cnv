@@ -18,6 +18,7 @@ interface ProductFinanceRowProps {
   disabled?: boolean;
   hideAddRemove?: boolean;
   showBaoHanh?: boolean;
+  baseDateForBaoHanh?: string;
   showSerial?: boolean;
   allContracts?: any[];
   onUpdate: <K extends keyof ProductItem>(index: number, field: K, value: ProductItem[K]) => void;
@@ -32,6 +33,7 @@ export function ProductFinanceRow({
   disabled,
   hideAddRemove,
   showBaoHanh,
+  baseDateForBaoHanh,
   showSerial,
   allContracts,
   onUpdate,
@@ -82,7 +84,7 @@ export function ProductFinanceRow({
               />
            </div>
            {showBaoHanh && (
-             <ProductBaoHanhFields product={p} viewType="table" disabled={disabled} onChange={(f, v) => onUpdate(idx, f, v === null ? undefined : v as any)} />
+             <ProductBaoHanhFields product={p} baseDateForBaoHanh={baseDateForBaoHanh} viewType="table" disabled={disabled} onChange={(f, v) => onUpdate(idx, f, v === null ? undefined : v as any)} />
            )}
            {showSerial && (
              <div className="mt-2 pt-2 border-t border-slate-100">

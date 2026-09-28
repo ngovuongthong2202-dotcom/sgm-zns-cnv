@@ -312,6 +312,36 @@ export function ContractModalsContainer({
         return (
           <Suspense fallback={<ModalSkeleton />}>
             <DeliveryFormModal
+              delivery={{
+                contractId: prefillDeliveryContract.id,
+                soHopDong: prefillDeliveryContract.soHopDong,
+                soDonHang: prefillDeliveryContract.soDonHang,
+                paymentId: effectivePaymentId,
+                soChungTuThamChieu: effectivePaymentCode,
+                quotationId: prefillDeliveryContract.quotationId,
+                customerId: prefillDeliveryContract.customerId,
+                maKh: prefillDeliveryContract.maKh,
+                tenKhachHang: prefillDeliveryContract.tenKhachHang,
+                sdt: prefillDeliveryContract.sdt,
+                nguoiDaiDien: prefillDeliveryContract.nguoiDaiDien,
+                soPhieuBaoGia: prefillDeliveryContract.soPhieuBaoGia,
+                ngayBaoGia: prefillDeliveryContract.ngayBaoGia,
+                giaTriHopDong: prefillDeliveryContract.totalAmount || 0,
+                products: getRemainingProducts(prefillDeliveryContract, (realtimeDeliveries || []).filter((d: any) => d.contractId === prefillDeliveryContract.id || d.soHopDong === prefillDeliveryContract.soHopDong)),
+                danhSachMaMay: prefillDeliveryContract.danhSachMaMay || [],
+                slMay: getRemainingProducts(prefillDeliveryContract, (realtimeDeliveries || []).filter((d: any) => d.contractId === prefillDeliveryContract.id || d.soHopDong === prefillDeliveryContract.soHopDong)).reduce((acc: number, p: any) => acc + (p.quantity || 0), 0) || 1,
+                nguoiPhuTrach: prefillDeliveryContract.nguoiPhuTrach || '',
+                diaChiGiaoHang: (prefillDeliveryContract as any).diaChiGiaoHang || (prefillDeliveryContract as any).diaChi || '',
+                nguoiLienHe: (prefillDeliveryContract as any).nguoiLienHe || (prefillDeliveryContract as any).nguoiDaiDien || '',
+                sdtLienHe: (prefillDeliveryContract as any).sdtLienHe || (prefillDeliveryContract as any).sdt || '',
+                dacCachGiaoTruoc: isDacCach,
+                nguoiPheDuyetDacCach: (prefillDeliveryContract as any).nguoiPheDuyetDacCach || (linkedPayment as any)?.nguoiPheDuyetDacCach || 'Ban Giám Đốc',
+                lyDoDacCach: (prefillDeliveryContract as any).lyDoDacCach || (linkedPayment as any)?.lyDoDacCach || 'Đặc cách giao hàng trước khi thanh toán',
+                tinhTrangThanhToan: linkedPayment?.tinhTrangThanhToan || (isDacCach ? 'CHƯA THANH TOÁN' : 'ĐÃ THANH TOÁN'),
+                trangThaiGuiTinGiaoHang: EntityZnsStatus.CHUA_GUI,
+                ngayLapPgh: new Date().toISOString().split('T')[0],
+                ngayGiaoMay: new Date().toISOString().split('T')[0],
+              }}
               deliveries={realtimeDeliveries}
               contracts={contracts}
               quotations={quotations}
@@ -407,33 +437,6 @@ export function ContractModalsContainer({
                 } catch (e: any) {
                   notify.error("Lỗi khi ghi nhận bàn giao máy: " + e.message);
                 }
-              }}
-              delivery={{
-                paymentId: effectivePaymentId,
-                soChungTuThamChieu: effectivePaymentCode,
-                contractId: prefillDeliveryContract.id,
-                quotationId: prefillDeliveryContract.quotationId || '',
-                soPhieuBaoGia: prefillDeliveryContract.soPhieuBaoGia || '',
-                customerId: prefillDeliveryContract.customerId || '',
-                maKh: prefillDeliveryContract.maKh || '',
-                tenKhachHang: prefillDeliveryContract.tenKhachHang || '',
-                sdt: prefillDeliveryContract.sdt || '',
-                soHopDong: prefillDeliveryContract.soHopDong || '',
-                soDonHang: prefillDeliveryContract.soDonHang || '',
-                ngayKy: prefillDeliveryContract.ngayKy || '',
-                loai: prefillDeliveryContract.loai || '',
-                dvt: prefillDeliveryContract.dvt || 'Máy',
-                products: getRemainingProducts(prefillDeliveryContract, (realtimeDeliveries || []).filter((d: any) => d.contractId === prefillDeliveryContract.id || d.soHopDong === prefillDeliveryContract.soHopDong)),
-                slMay: getRemainingProducts(prefillDeliveryContract, (realtimeDeliveries || []).filter((d: any) => d.contractId === prefillDeliveryContract.id || d.soHopDong === prefillDeliveryContract.soHopDong)).reduce((acc: number, p: any) => acc + (p.quantity || 0), 0),
-                nguoiPhuTrach: prefillDeliveryContract.nguoiPhuTrach || '',
-                diaChiGiaoHang: (prefillDeliveryContract as any).diaChiGiaoHang || (prefillDeliveryContract as any).diaChi || '',
-                nguoiLienHe: (prefillDeliveryContract as any).nguoiLienHe || (prefillDeliveryContract as any).nguoiDaiDien || '',
-                sdtLienHe: (prefillDeliveryContract as any).sdtLienHe || (prefillDeliveryContract as any).sdt || '',
-                dacCachGiaoTruoc: isDacCach,
-                lyDoDacCach: isDacCach ? 'Đặc cách giao hàng trước khi thanh toán' : '',
-                tinhTrangThanhToan: linkedPayment?.tinhTrangThanhToan || (isDacCach ? 'CHƯA THANH TOÁN' : 'ĐÃ THANH TOÁN'),
-                trangThaiGuiTinGiaoHang: EntityZnsStatus.CHUA_GUI,
-                ngayGiaoMay: new Date().toISOString().split('T')[0]
               }}
             />
           </Suspense>

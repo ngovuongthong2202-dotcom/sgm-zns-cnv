@@ -11,6 +11,7 @@ import {
   DEFAULT_LOAI_KHACH_HANG,
   DEFAULT_PHUONG_THUC_THANH_TOAN,
   DEFAULT_TINH_TRANG_THANH_TOAN,
+  DEFAULT_LANH_DAO_PHE_DUYET,
   SWR_SYSTEM_RESOURCES_KEY
 } from '@/src/hooks/useSharedFields';
 
@@ -81,6 +82,7 @@ export default function FieldsPage() {
   const [loaiKhachHangList, setLoaiKhachHangList] = useState<string[]>([]);
   const [phuongThucThanhToanList, setPhuongThucThanhToanList] = useState<string[]>([]);
   const [tinhTrangThanhToanList, setTinhTrangThanhToanList] = useState<string[]>([]);
+  const [lanhDaoPheDuyetList, setLanhDaoPheDuyetList] = useState<string[]>([]);
   const [hasInitialized, setHasInitialized] = useState(false);
 
   useEffect(() => {
@@ -92,11 +94,13 @@ export default function FieldsPage() {
           setLoaiKhachHangList(doc.loaiKhachHangList?.length ? doc.loaiKhachHangList : DEFAULT_LOAI_KHACH_HANG);
           setPhuongThucThanhToanList(doc.phuongThucThanhToanList?.length ? doc.phuongThucThanhToanList : DEFAULT_PHUONG_THUC_THANH_TOAN);
           setTinhTrangThanhToanList(doc.tinhTrangThanhToanList?.length ? doc.tinhTrangThanhToanList : DEFAULT_TINH_TRANG_THANH_TOAN);
+          setLanhDaoPheDuyetList(doc.lanhDaoPheDuyetList?.length ? doc.lanhDaoPheDuyetList : DEFAULT_LANH_DAO_PHE_DUYET);
         } else {
           setLoaiBaoGiaList(DEFAULT_LOAI_BAO_GIA);
           setLoaiKhachHangList(DEFAULT_LOAI_KHACH_HANG);
           setPhuongThucThanhToanList(DEFAULT_PHUONG_THUC_THANH_TOAN);
           setTinhTrangThanhToanList(DEFAULT_TINH_TRANG_THANH_TOAN);
+          setLanhDaoPheDuyetList(DEFAULT_LANH_DAO_PHE_DUYET);
         }
         setHasInitialized(true);
         setLoading(false);
@@ -117,6 +121,7 @@ export default function FieldsPage() {
       loaiKhachHangList,
       phuongThucThanhToanList,
       tinhTrangThanhToanList,
+      lanhDaoPheDuyetList,
     };
 
     try {
@@ -167,6 +172,12 @@ export default function FieldsPage() {
              label="Danh mục Tình trạng thanh toán" 
              value={tinhTrangThanhToanList} 
              onChange={setTinhTrangThanhToanList} 
+           />
+           <ArrayInput 
+             label="Danh mục Lãnh Đạo Phê Duyệt Đặc Cách (Ban Giám Đốc / HĐQT)" 
+             hint="Danh sách Lãnh đạo có thẩm quyền phê duyệt chính sách Đặc cách giao hàng trước thanh toán sau."
+             value={lanhDaoPheDuyetList} 
+             onChange={setLanhDaoPheDuyetList} 
            />
         </div>
 

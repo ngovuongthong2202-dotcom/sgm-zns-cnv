@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Delivery, DeliverySchema } from '@/src/domain/schema/delivery.schema';
@@ -24,12 +24,25 @@ export function useDeliveryForm(
   const defaultOfficer = formatUserOfficer(userData, user);
   const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Delivery>('deliveries', delivery?.id || 'new');
 
+  const todayStr = new Date().toISOString().split('T')[0];
+
   const { register, handleSubmit, watch, setValue, getValues, reset, formState: { errors, isSubmitting } } = useForm<Delivery>({
     resolver: zodResolver(DeliverySchema) as any,
-    defaultValues: draft ? { ...draft, nguoiPhuTrach: draft.nguoiPhuTrach || defaultOfficer } : (delivery ? { ...delivery, nguoiPhuTrach: delivery.nguoiPhuTrach || defaultOfficer } : { 
+    defaultValues: draft ? { 
+      ...draft, 
+      nguoiPhuTrach: draft.nguoiPhuTrach || defaultOfficer,
+      ngayLapPgh: draft.ngayLapPgh || todayStr,
+      ngayGiaoMay: draft.ngayGiaoMay || todayStr,
+    } : (delivery ? { 
+      ...delivery, 
+      nguoiPhuTrach: delivery.nguoiPhuTrach || defaultOfficer,
+      ngayLapPgh: delivery.ngayLapPgh || todayStr,
+      ngayGiaoMay: delivery.ngayGiaoMay || todayStr,
+      nguoiPheDuyetDacCach: delivery.nguoiPheDuyetDacCach || 'Ban Giám Đốc',
+    } : { 
       trangThaiGuiTinGiaoHang: EntityZnsStatus.CHUA_GUI,
-      ngayLapPgh: new Date().toISOString().split('T')[0],
-      ngayGiaoMay: new Date().toISOString().split('T')[0],
+      ngayLapPgh: todayStr,
+      ngayGiaoMay: todayStr,
       danhSachMaMay: [],
       slMay: 0,
       dvt: 'Máy',
@@ -49,14 +62,22 @@ export function useDeliveryForm(
       soPhieuXuat: '',
       dacCachGiaoTruoc: false,
       lyDoDacCach: '',
-      nguoiPheDuyetDacCach: ''
+      nguoiPheDuyetDacCach: 'Ban Giám Đốc'
     })
   });
 
+  const initializedDeliveryRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (delivery) {
+      const deliveryKey = delivery.id || `${delivery.paymentId || ''}_${delivery.contractId || ''}_${delivery.quotationId || ''}`;
+      if (initializedDeliveryRef.current === deliveryKey) return;
+      initializedDeliveryRef.current = deliveryKey;
+
       reset({
         ...delivery,
+        ngayLapPgh: delivery.ngayLapPgh || todayStr,
+        ngayGiaoMay: delivery.ngayGiaoMay || todayStr,
         products: delivery.products || [],
         danhSachMaMay: delivery.danhSachMaMay || [],
         ghiChu: delivery.ghiChu || '',
@@ -73,10 +94,10 @@ export function useDeliveryForm(
         ghiChuNoiBo: delivery.ghiChuNoiBo || delivery.ghiChu || '',
         dacCachGiaoTruoc: Boolean((delivery as any).dacCachGiaoTruoc),
         lyDoDacCach: (delivery as any).lyDoDacCach || '',
-        nguoiPheDuyetDacCach: (delivery as any).nguoiPheDuyetDacCach || ''
+        nguoiPheDuyetDacCach: (delivery as any).nguoiPheDuyetDacCach || 'Ban Giám Đốc'
       });
     }
-  }, [delivery, reset, defaultOfficer]);
+  }, [delivery, reset, defaultOfficer, todayStr]);
 
   const watchAll = watch();
   
@@ -233,6 +254,10 @@ export function useDeliveryForm(
       const sourceDelivered = (source?.deliveredQuantities || p.deliveredQuantities || {}) as Record<string, number>;
       const limits: Record<string, number> = {};
 
+      const sourceRootSerials: string[] = Array.isArray(source?.danhSachMaMay) ? source.danhSachMaMay : (Array.isArray(p.danhSachMaMay) ? p.danhSachMaMay : []);
+      const currentDeliverySerials: string[] = [];
+      const baseDateStr = getValues('ngayGiaoMay') || getValues('ngayLapPgh') || todayStr;
+
       const remainingProducts = productList.map((cp: any, index: number) => {
         const itemKey = getProductItemKey(cp, index);
         const normName = String(cp.productName || cp.tenSanPham || '').trim().toLowerCase();
@@ -248,14 +273,49 @@ export function useDeliveryForm(
         const remaining = Math.max(0, reqQty - delivered);
         limits[itemKey] = remaining;
 
+        // 1. Kế thừa Serial cho từng dòng sản phẩm
+        let itemSerials: string[] = Array.isArray(cp.danhSachMaMay) && cp.danhSachMaMay.length > 0
+          ? [...cp.danhSachMaMay]
+          : [];
+        if (itemSerials.length === 0 && sourceRootSerials.length > 0) {
+          itemSerials = sourceRootSerials.slice(0, remaining);
+        }
+        currentDeliverySerials.push(...itemSerials);
+
+        // 2. Khử triệt để số ngày bảo hành âm (như -1365) và đưa về chuẩn 365 ngày
+        const rawWarranty = cp.soNgayBaoHanh ?? source?.soNgayBaoHanh;
+        const sanitizedWarranty = (rawWarranty !== undefined && rawWarranty !== null && Number(rawWarranty) > 0)
+          ? Number(rawWarranty)
+          : 365;
+
+        // 3. Tự động tính hạn bảo hành dự kiến chính xác theo ngày giao máy
+        let computedExpiry = cp.ngayHetHanBaoHanh;
+        if (!computedExpiry || sanitizedWarranty > 0) {
+          const b = new Date(baseDateStr);
+          if (!isNaN(b.getTime())) {
+            const exp = new Date(b.getTime() + sanitizedWarranty * 24 * 60 * 60 * 1000);
+            computedExpiry = exp.toISOString().split('T')[0];
+          }
+        }
+
         return {
           ...cp,
           id: itemKey,
           productName: cp.productName || cp.tenSanPham || '',
           quantity: remaining,
-          price: cp.price || cp.donGia || 0
+          price: cp.price || cp.donGia || 0,
+          soNgayBaoHanh: sanitizedWarranty,
+          ngayHetHanBaoHanh: computedExpiry,
+          danhSachMaMay: itemSerials
         };
       }).filter((cp: any) => limits[cp.id] > 0);
+
+      const allUniqueSerials = Array.from(new Set(currentDeliverySerials));
+      if (allUniqueSerials.length > 0) {
+        setValue('danhSachMaMay', allUniqueSerials, { shouldDirty: true });
+      } else if (sourceRootSerials.length > 0) {
+        setValue('danhSachMaMay', sourceRootSerials, { shouldDirty: true });
+      }
 
       if (remainingProducts.length === 0) {
         setValue('products', []);
@@ -269,7 +329,7 @@ export function useDeliveryForm(
         setMaxQuantities(limits);
       }
     }
-  }, [contracts, quotations, customers, deliveries, setValue, defaultOfficer]);
+  }, [contracts, quotations, customers, deliveries, setValue, getValues, defaultOfficer, todayStr]);
 
   const populateFromQuotation = useCallback((q: any) => {
     if (!q) return;
@@ -326,28 +386,67 @@ export function useDeliveryForm(
       });
 
       const limits: Record<string, number> = {};
+      const quoRootSerials: string[] = Array.isArray(q.danhSachMaMay) ? q.danhSachMaMay : [];
+      const currentDeliverySerials: string[] = [];
+      const baseDateStr = getValues('ngayGiaoMay') || getValues('ngayLapPgh') || todayStr;
+
       const remainingProducts = productList.map((cp: any, idx: number) => {
         const itemKey = getProductItemKey(cp, idx);
         const delivered = actualDeliveredMap[itemKey] || (cp.productId ? actualDeliveredMap[cp.productId] : 0) || 0;
         const reqQty = Number(cp.quantity || 0);
         const remaining = Math.max(0, reqQty - delivered);
         limits[itemKey] = remaining;
+
+        let itemSerials: string[] = Array.isArray(cp.danhSachMaMay) && cp.danhSachMaMay.length > 0
+          ? [...cp.danhSachMaMay]
+          : [];
+        if (itemSerials.length === 0 && quoRootSerials.length > 0) {
+          itemSerials = quoRootSerials.slice(0, remaining);
+        }
+        currentDeliverySerials.push(...itemSerials);
+
+        const rawWarranty = cp.soNgayBaoHanh ?? q.soNgayBaoHanh;
+        const sanitizedWarranty = (rawWarranty !== undefined && rawWarranty !== null && Number(rawWarranty) > 0)
+          ? Number(rawWarranty)
+          : 365;
+
+        let computedExpiry = cp.ngayHetHanBaoHanh;
+        if (!computedExpiry || sanitizedWarranty > 0) {
+          const b = new Date(baseDateStr);
+          if (!isNaN(b.getTime())) {
+            const exp = new Date(b.getTime() + sanitizedWarranty * 24 * 60 * 60 * 1000);
+            computedExpiry = exp.toISOString().split('T')[0];
+          }
+        }
+
         return {
           ...cp,
           id: itemKey,
           quantity: remaining,
+          soNgayBaoHanh: sanitizedWarranty,
+          ngayHetHanBaoHanh: computedExpiry,
+          danhSachMaMay: itemSerials
         };
       }).filter((cp: any) => limits[cp.id] > 0);
+
+      const allUniqueSerials = Array.from(new Set(currentDeliverySerials));
+      if (allUniqueSerials.length > 0) {
+        setValue('danhSachMaMay', allUniqueSerials, { shouldDirty: true });
+      }
 
       setValue('products', remainingProducts);
       const totalRemainingQty = remainingProducts.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0);
       setValue('slMay', totalRemainingQty);
       setMaxQuantities(limits);
     }
-  }, [customers, deliveries, setValue, defaultOfficer]);
+  }, [customers, deliveries, setValue, getValues, defaultOfficer, todayStr]);
 
+  const lastPopulatedQuotationIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (delivery?.quotationId && !selectedPaymentId && !delivery?.id) {
+      if (lastPopulatedQuotationIdRef.current === delivery.quotationId) return;
+      lastPopulatedQuotationIdRef.current = delivery.quotationId;
+
       const q = quotations?.find((x: any) => x.id === delivery.quotationId || x.soPhieuBaoGia === delivery.quotationId);
       if (q) {
         populateFromQuotation(q);
@@ -355,8 +454,12 @@ export function useDeliveryForm(
     }
   }, [delivery?.quotationId, selectedPaymentId, delivery?.id, quotations, populateFromQuotation]);
 
+  const lastPopulatedPaymentIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (selectedPaymentId && !delivery?.id) {
+      if (lastPopulatedPaymentIdRef.current === selectedPaymentId) return;
+      lastPopulatedPaymentIdRef.current = selectedPaymentId;
+
       const p = payments?.find((x: any) => x.id === selectedPaymentId || x.paymentId === selectedPaymentId);
       if (p) {
         populateFromPayment(p);

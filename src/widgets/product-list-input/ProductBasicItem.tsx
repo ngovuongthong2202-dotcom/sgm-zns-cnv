@@ -19,6 +19,7 @@ interface ProductBasicItemProps {
   allowEditProductId?: boolean;
   showPrice?: boolean;
   showBaoHanh?: boolean;
+  baseDateForBaoHanh?: string;
   showSerial?: boolean;
   allContracts?: any[];
   onUpdate: <K extends keyof ProductItem>(index: number, field: K, value: ProductItem[K]) => void;
@@ -35,6 +36,7 @@ export function ProductBasicItem({
   allowEditProductId,
   showPrice,
   showBaoHanh,
+  baseDateForBaoHanh,
   showSerial,
   allContracts,
   onUpdate,
@@ -151,7 +153,7 @@ export function ProductBasicItem({
         </div>
       ) : null}
       {showBaoHanh && (
-        <ProductBaoHanhFields product={p} viewType="table" disabled={disabled} onChange={(field, val) => onUpdate(idx, field, val === null ? undefined : val as any)} />
+        <ProductBaoHanhFields product={p} baseDateForBaoHanh={baseDateForBaoHanh} viewType="table" disabled={disabled} onChange={(field, val) => onUpdate(idx, field, val === null ? undefined : val as any)} />
       )}
       {showSerial && (
         <div className="mt-3 pt-2.5 border-t border-slate-100">
