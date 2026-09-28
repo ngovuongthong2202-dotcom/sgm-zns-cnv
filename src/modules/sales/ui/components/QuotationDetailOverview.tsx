@@ -256,6 +256,10 @@ export function QuotationDetailOverview({
                   <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-3xs">
                     {matchingContracts[0].soHopDong || 'Đã ký HĐ'}
                   </span>
+                ) : !isBgMay ? (
+                  <span className="font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 text-3xs flex items-center gap-1">
+                    <CheckCircle2 size={11} className="text-purple-600" /> Miễn HĐ (Thu tiền trực tiếp)
+                  </span>
                 ) : (
                   <span className="text-slate-400 italic text-3xs">Chưa lập HĐ</span>
                 )}
@@ -282,6 +286,19 @@ export function QuotationDetailOverview({
                   {matchingDeliveries.length > 0 ? `${matchingDeliveries.length} phiếu giao` : 'Chưa giao'}
                 </span>
               </div>
+
+              {!isBgMay && remainingDebt > 0 && quotation?.id && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate(`/payments?fromQuotation=${quotation.id}`);
+                  }}
+                  className="w-full mt-2 py-2 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-2xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <Zap size={13} className="text-purple-600" />
+                  Lập Phiếu Thu Nhanh (Không Cần HĐ)
+                </button>
+              )}
             </div>
           </section>
 

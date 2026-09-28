@@ -14,7 +14,7 @@ interface ProductCatalogPickerProps {
   category?: 'Máy' | 'Vật tư' | 'Dịch vụ';
 }
 
-export function ProductCatalogPicker({ onSelect }: ProductCatalogPickerProps) {
+export function ProductCatalogPicker({ onSelect, category }: ProductCatalogPickerProps) {
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [items, setItems] = useState<ErpItem[]>([]);
@@ -55,6 +55,7 @@ export function ProductCatalogPicker({ onSelect }: ProductCatalogPickerProps) {
 
       const params = new URLSearchParams();
       if (query.trim()) params.append('q', query.trim());
+      if (category) params.append('category', category);
       params.append('limit', '50');
 
       const res = await fetch(`/api/items?${params.toString()}`);
@@ -71,14 +72,14 @@ export function ProductCatalogPicker({ onSelect }: ProductCatalogPickerProps) {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [category]);
 
-  // Fetch initial when opened
+  // Fetch initial when opened or when category changes
   useEffect(() => {
-    if (isOpen && items.length === 0) {
-      fetchItems('');
+    if (isOpen) {
+      fetchItems(search);
     }
-  }, [isOpen, items.length, fetchItems]);
+  }, [isOpen, category, fetchItems]);
 
   // Debounced search
   const handleSearchChange = (val: string) => {

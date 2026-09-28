@@ -4,6 +4,7 @@ import { Button } from '@/src/design-system';
 import { ProductItem } from '@/src/domain/schema/product.schema';
 import { ProductBaoHanhFields } from './ProductBaoHanhFields';
 import { FinancialEngine } from '@/src/shared/utils/financialEngine';
+import { parseFinancialInput } from '@/src/platform/ui/forms/useSmartFormInput';
 import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
 
 interface ProductBasicItemProps {
@@ -107,8 +108,17 @@ export function ProductBasicItem({
                   const newPrice = FinancialEngine.toInteger(e.target.value);
                   onUpdate(idx, 'price', newPrice);
                 }}
+                onBlur={(e) => {
+                  const resolved = parseFinancialInput(e.target.value);
+                  onUpdate(idx, 'price', resolved);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
                 readOnly={readOnly || disabled}
-                className={`w-full text-xs font-bold text-slate-900 ${readOnly || disabled ? 'bg-slate-50/30' : 'bg-white'} border-slate-200 rounded-lg focus:ring-1 focus:ring-brand-accent p-2 text-right md:h-[38px] disabled:opacity-70`}
+                className={`w-full text-xs font-bold text-slate-900 ${readOnly || disabled ? 'bg-slate-50/30' : 'bg-white'} border-slate-200 rounded-lg focus:ring-1 focus:ring-brand-accent p-2 text-right md:h-[38px] disabled:opacity-70 font-mono`}
               />
             </div>
             <div className="col-span-6 md:col-span-2 space-y-1 flex items-center justify-end h-full">

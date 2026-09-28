@@ -55,7 +55,7 @@ export function ProductListHeader({
           )}
           
           <div className="flex items-center gap-2">
-            <ProductCatalogPicker onSelect={addFromCatalog} category={defaultUnit === 'Máy' ? 'Máy' : undefined} />
+            <ProductCatalogPicker onSelect={addFromCatalog} category={defaultUnit === 'Máy' ? 'Máy' : (defaultUnit === 'Cái' || defaultUnit === 'Bộ' ? 'Vật tư' : (defaultUnit === 'Gói' ? 'Dịch vụ' : undefined))} />
             <Button aria-label="Nút bấm"
               type="button"
               onClick={addProduct}

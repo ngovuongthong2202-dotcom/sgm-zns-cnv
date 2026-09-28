@@ -18,6 +18,7 @@ import { handleEnterToTab } from '@/src/shared/utils/formNavigation';
 
 import { useSharedFields } from '@/src/hooks/useSharedFields';
 import { useQuotationForm } from '../hooks/useQuotationForm';
+import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 
 interface Props {
   quotation: Quotation | null;
@@ -274,7 +275,7 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
                    errors={errors as any}
                    setValue={setValue as any}
                    products={products}
-                   defaultUnit={watch('loai') === 'BG Vật tư' ? 'Cái' : 'Máy'}
+                   defaultUnit={normalizeLoai(watch('loai')) === QUOTATION_LOAI.VAT_TU ? 'Cái' : normalizeLoai(watch('loai')) === QUOTATION_LOAI.DICH_VU ? 'Gói' : 'Máy'}
                    showPrice={true}
                    disabled={businessLock?.locked || isErpLocked}
                    baseDateForBaoHanh={watch('ngayBaoGia') || new Date().toISOString().split('T')[0]}

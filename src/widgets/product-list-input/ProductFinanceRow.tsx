@@ -164,6 +164,15 @@ export function ProductFinanceRow({
                   const val = FinancialEngine.toInteger(e.target.value);
                   onUpdate(idx, 'discountAmount', val || undefined);
                 }}
+                onBlur={(e) => {
+                  const resolved = parseFinancialInput(e.target.value);
+                  onUpdate(idx, 'discountAmount', resolved || undefined);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
                 readOnly={readOnly || disabled}
                 className="w-full text-xs font-bold text-right text-amber-700 border border-amber-200/80 rounded p-1 outline-none focus:border-amber-400 bg-white font-mono pr-1.5"
               />

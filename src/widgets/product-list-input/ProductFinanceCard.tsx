@@ -4,6 +4,7 @@ import { Button } from '@/src/design-system';
 import { ProductItem } from '@/src/domain/schema/product.schema';
 import { ProductBaoHanhFields } from './ProductBaoHanhFields';
 import { FinancialEngine } from '@/src/shared/utils/financialEngine';
+import { parseFinancialInput } from '@/src/platform/ui/forms/useSmartFormInput';
 import { computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
 
@@ -108,8 +109,17 @@ export function ProductFinanceCard({
               const newPrice = FinancialEngine.toInteger(e.target.value);
               onUpdate(idx, 'price', newPrice);
             }}
+            onBlur={(e) => {
+              const resolved = parseFinancialInput(e.target.value);
+              onUpdate(idx, 'price', resolved);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.currentTarget.blur();
+              }
+            }}
             readOnly={readOnly || disabled}
-            className="w-2/4 text-xs font-bold text-right text-slate-800 bg-white border border-slate-200 rounded p-1.5 outline-none focus:border-blue-400"
+            className="w-2/4 text-xs font-bold text-right text-slate-800 bg-white border border-slate-200 rounded p-1.5 outline-none focus:border-blue-400 font-mono"
           />
         </div>
         <div className="mt-2 text-2xs font-mono font-semibold text-slate-500 flex justify-between bg-white p-1.5 rounded border border-slate-100">
@@ -136,8 +146,17 @@ export function ProductFinanceCard({
                   const newDisc = FinancialEngine.toInteger(e.target.value);
                   onUpdate(idx, 'discountAmount', newDisc || undefined);
                 }}
+                onBlur={(e) => {
+                  const resolved = parseFinancialInput(e.target.value);
+                  onUpdate(idx, 'discountAmount', resolved || undefined);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
                 readOnly={readOnly || disabled}
-                className="flex-1 text-xs font-medium text-right text-amber-700 bg-white border border-slate-200 rounded p-1 outline-none focus:border-amber-400"
+                className="flex-1 text-xs font-medium text-right text-amber-700 bg-white border border-slate-200 rounded p-1 outline-none focus:border-amber-400 font-mono"
               />
             </div>
          </div>

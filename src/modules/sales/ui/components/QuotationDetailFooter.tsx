@@ -1,7 +1,9 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { Button } from '@/src/design-system/Button';
-import { FileText, Copy, Send, Trash2 } from 'lucide-react';
+import { FileText, Copy, Send, Trash2, Zap } from 'lucide-react';
+import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 const ExportQuotationPdf = React.lazy(() => import('./ExportQuotationPdf').then(m => ({ default: m.ExportQuotationPdf })));
 
 interface QuotationDetailFooterProps {
@@ -21,6 +23,8 @@ export function QuotationDetailFooter({
   handleSendZnsWithLock,
   onDelete
 }: QuotationDetailFooterProps) {
+  const navigate = useNavigate();
+  const isBgMay = normalizeLoai(quotation.loai) === QUOTATION_LOAI.MAY;
   return (
     <div className="flex items-center justify-between w-full relative z-30 px-2">
       <div className="flex items-center gap-2">
@@ -55,7 +59,19 @@ export function QuotationDetailFooter({
       </div>
 
       <div className="flex items-center gap-2">
- 
+        {!isBgMay && quotation?.id && (
+          <Button 
+            aria-label="Lập phiếu thu" 
+            variant="ghost"
+            size="sm"
+            className="px-3 h-9 font-bold text-xs text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 flex items-center gap-1.5"
+            onClick={() => navigate(`/payments?fromQuotation=${quotation.id}`)}
+            leftIcon={<Zap size={13} className="text-purple-600" />}
+          >
+            Lập Phiếu Thu
+          </Button>
+        )}
+
         <Button 
           aria-label="Trình gửi Zalo" 
           variant="primary"

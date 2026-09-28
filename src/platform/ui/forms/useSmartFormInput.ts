@@ -9,9 +9,125 @@ import { useConfirm } from '@/src/design-system/Confirm';
  * - '1.5ty' / '1.5b' / '1.5tỷ' -> 1,500,000,000
  * - In-place math: '15m*3' -> 45,000,000, '500k+250k' -> 750,000, '10m/2' -> 5,000,000
  */
+/**
+ * Cleans and safely parses a single numeric token in Vietnamese Dong (VND).
+ * Handles thousands separators (100.000, 15.000.000, 1.000, 50.000, 100,000),
+ * currency suffixes (đ, vnd, đồng), and decimal fallbacks.
+ */
+function parseSingleNumericToken(raw: string): number {
+  if (!raw) return 0;
+  let s = raw.trim().toLowerCase().replace(/[\u200B-\u200D\uFEFF]/g, '');
+  // Strip currency suffixes
+  s = s.replace(/(?:đ|vnd|đồng)$/i, '').trim();
+  if (!s) return 0;
+
+  // In Vietnam, amounts do not have decimals/cents.
+  // Detect thousands separator patterns:
+  // e.g. dot or comma followed by 3 digits (.000, ,000, .123, etc.) or multiple dots/commas
+  const hasThousandDot = /\.\d{3}(?:\D|$)/.test(s);
+  const hasThousandComma = /,\d{3}(?:\D|$)/.test(s);
+  const multipleDots = (s.match(/\./g) || []).length > 1;
+  const multipleCommas = (s.match(/,/g) || []).length > 1;
+
+  if (hasThousandDot || hasThousandComma || multipleDots || multipleCommas) {
+    const cleanDigits = s.replace(/[^\d]/g, '');
+    return parseInt(cleanDigits, 10) || 0;
+  }
+
+  // If single dot or comma followed by non-3 digits (e.g. "1.5" or "2,5"):
+  if (/[.,]\d+$/.test(s)) {
+    const normalized = s.replace(',', '.').replace(/[^\d.]/g, '');
+    const val = parseFloat(normalized);
+    return isNaN(val) ? 0 : Math.round(val);
+  }
+
+  // Simple digits fallback
+  const cleanDigits = s.replace(/[^\d]/g, '');
+  return parseInt(cleanDigits, 10) || 0;
+}
+
+/**
+ * Deterministic Zero-Eval Math Evaluator for financial expressions.
+ * Tokenizes operands and operators (+, -, *, /), normalizes operand thousand separators,
+ * and computes standard operator precedence without eval() or Function().
+ */
+function evaluateSafeMath(expr: string): number {
+  const rawTokens = expr.match(/(?:\d+[.,\d]*|\+|-|\*|\/)/g);
+  if (!rawTokens || rawTokens.length === 0) return 0;
+
+  const tokens: (number | string)[] = [];
+  for (let i = 0; i < rawTokens.length; i++) {
+    const t = rawTokens[i];
+    if (t === '+' || t === '-' || t === '*' || t === '/') {
+      tokens.push(t);
+    } else {
+      tokens.push(parseSingleNumericToken(t));
+    }
+  }
+
+  // Handle leading unary minus/plus
+  if (tokens[0] === '-') {
+    tokens.shift();
+    if (typeof tokens[0] === 'number') {
+      tokens[0] = -tokens[0];
+    }
+  } else if (tokens[0] === '+') {
+    tokens.shift();
+  }
+
+  // Pass 1: Multiplication and Division
+  const pass1: (number | string)[] = [];
+  let i = 0;
+  while (i < tokens.length) {
+    const current = tokens[i];
+    if ((current === '*' || current === '/') && pass1.length > 0 && i + 1 < tokens.length) {
+      const prev = pass1.pop();
+      const next = tokens[i + 1];
+      if (typeof prev === 'number' && typeof next === 'number') {
+        const res = current === '*' ? prev * next : (next !== 0 ? prev / next : 0);
+        pass1.push(res);
+        i += 2;
+        continue;
+      }
+    }
+    pass1.push(current);
+    i++;
+  }
+
+  // Pass 2: Addition and Subtraction
+  let result = typeof pass1[0] === 'number' ? pass1[0] : 0;
+  let j = 1;
+  while (j < pass1.length) {
+    const op = pass1[j];
+    const nextVal = pass1[j + 1];
+    if (typeof nextVal === 'number') {
+      if (op === '+') {
+        result += nextVal;
+      } else if (op === '-') {
+        result -= nextVal;
+      }
+      j += 2;
+    } else {
+      j++;
+    }
+  }
+
+  return Math.max(0, Math.round(result));
+}
+
+/**
+ * Universal Financial Shortcut & Math Expression Parser
+ * Supports:
+ * - '100.000' / '100.000đ' -> 100,000 (Zero loss of zeros)
+ * - '1.000' / '50.000' / '15.000.000' / '25,000,000' -> Exact integer VND
+ * - '100k' -> 100,000
+ * - '15m' / '15tr' -> 15,000,000
+ * - '1.5ty' / '1.5b' / '1.5tỷ' -> 1,500,000,000
+ * - In-place math: '100.000*2' -> 200,000, '15m*3' -> 45,000,000, '500k+250k' -> 750,000
+ */
 export function parseFinancialInput(input: string | number): number {
   if (typeof input === 'number') {
-    return isNaN(input) ? 0 : Math.max(0, input);
+    return isNaN(input) ? 0 : Math.max(0, Math.round(input));
   }
 
   if (!input || typeof input !== 'string') return 0;
@@ -39,36 +155,14 @@ export function parseFinancialInput(input: string | number): number {
 
   cleaned = unitReplacer(cleaned);
 
-  // 2. Remove standard currency separators if NOT math operations
-  // If string contains math operator (+, -, *, /), clean up individual tokens
+  // 2. If expression has operators (+, -, *, /), evaluate with Zero-Eval Safe Math Engine
   const hasOperator = /[+\-*/]/.test(cleaned);
-  if (!hasOperator) {
-    // Normal numeric string like "15.000.000" or "15,000,000" or "15000000"
-    const standardNumeric = cleaned.replace(/[^\d.]/g, '');
-    // If multiple dots, it's thousands separator: remove dots
-    if ((standardNumeric.match(/\./g) || []).length > 1) {
-      return parseInt(standardNumeric.replace(/\./g, ''), 10) || 0;
-    }
-    // Single dot or no dot
-    return Math.round(parseFloat(standardNumeric) || 0);
+  if (hasOperator) {
+    return evaluateSafeMath(cleaned);
   }
 
-  // 3. In-place math safe evaluator (handles +, -, *, /)
-  try {
-    // Sanitize: only allow digits, dots, and operators +, -, *, /, spaces
-    const safeExpr = cleaned.replace(/[^\d.+\-*/]/g, '');
-    // Basic tokens calculation
-    const evaluated = Function(`"use strict"; return (${safeExpr})`)();
-    if (typeof evaluated === 'number' && !isNaN(evaluated) && isFinite(evaluated)) {
-      return Math.max(0, Math.round(evaluated));
-    }
-  } catch {
-    // Fallback if math parsing fails: extract first valid number
-    const fallbackMatch = cleaned.match(/\d+/);
-    return fallbackMatch ? parseInt(fallbackMatch[0], 10) : 0;
-  }
-
-  return 0;
+  // 3. Otherwise, parse as a single numeric token
+  return parseSingleNumericToken(cleaned);
 }
 
 /**
