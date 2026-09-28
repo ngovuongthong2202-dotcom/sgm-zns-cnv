@@ -119,9 +119,31 @@ export function useDeliveriesActions(
     let confirmTitle = 'Xóa phiếu giao';
     let confirmMessage = `Bạn có chắc chắn muốn xóa phiếu giao hàng ${resolveDeliveryDisplayCode(del)}?`;
 
+    // Kiểm tra phiếu thu liên kết (đặc biệt là phiếu thu neo đặc cách)
+    let linkedPayment: any = null;
+    if (del.paymentId) {
+      try {
+        linkedPayment = await repositoryFactory.get<any>('payments').getById(del.paymentId);
+      } catch (e) {}
+    } else if (del.dacCachGiaoTruoc && del.contractId) {
+      try {
+        const pList = await repositoryFactory.get<any>('payments').list({ fkField: 'contractId', fkId: del.contractId });
+        linkedPayment = (pList || []).find((p: any) => 
+          p.dacCachGiaoTruoc && 
+          Number(p.soTien || 0) === 0
+        );
+      } catch (e) {}
+    }
+
     if (isCompleted) {
       confirmTitle = 'Xóa phiếu giao đã xác nhận thành công';
       confirmMessage = `Phiếu giao hàng ${resolveDeliveryDisplayCode(del)} đã hoàn tất bàn giao thực tế (ngày ${del.ngayGiaoThucTe ? formatDate(del.ngayGiaoThucTe) : '---'}). Bạn có chắc chắn muốn HỦY XÁC NHẬN GIAO HÀNG và XÓA phiếu này không? Số lượng bàn giao sẽ được hoàn lại cho Hợp đồng / Báo giá liên quan.`;
+    }
+
+    if (linkedPayment && linkedPayment.dacCachGiaoTruoc && Number(linkedPayment.soTien || 0) === 0) {
+      confirmMessage += `\n\n⚡ Lưu ý đặc cách: Phiếu giao hàng này có Phiếu thu neo đặc cách (${linkedPayment.paymentId || '0đ'}) liên kết. Hệ thống sẽ tự động dọn dẹp phiếu thu neo này theo đúng quy trình nghiệp vụ.`;
+    } else if (linkedPayment && Number(linkedPayment.soTien || 0) > 0) {
+      confirmMessage += `\n\n📌 Lưu ý: Phiếu thu liên kết (${linkedPayment.paymentId}) đã ghi nhận thanh toán thực tế ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(linkedPayment.soTien)} và sẽ được giữ lại an toàn trên hệ thống.`;
     }
 
     if (await confirm({ 
@@ -169,6 +191,16 @@ export function useDeliveriesActions(
 
         await deleteDelivery(del.id);
 
+        // Tự động dọn dẹp phiếu thu neo đặc cách liên kết nếu số tiền thực thu = 0
+        if (linkedPayment && linkedPayment.id && linkedPayment.dacCachGiaoTruoc && Number(linkedPayment.soTien || 0) === 0) {
+          try {
+            await repositoryFactory.get<any>('payments').softDelete(linkedPayment.id);
+            logger.info(`[DeliveryDelete] Auto-cleaned linked special waiver anchor payment: ${linkedPayment.id}`);
+          } catch (cleanErr) {
+            console.warn('[DeliveryDelete] Failed to auto-clean linked anchor payment:', cleanErr);
+          }
+        }
+
         // Ghi Audit log xóa
         auditLogsRepo.create({
           action: 'DELETE',
@@ -192,7 +224,11 @@ export function useDeliveriesActions(
         if (viewingConfirmationDelivery?.id === del.id) {
           setViewingConfirmationDelivery(null);
         }
-        notify.success("Đã xóa phiếu giao hàng thành công");
+        notify.success(
+          linkedPayment && linkedPayment.dacCachGiaoTruoc && Number(linkedPayment.soTien || 0) === 0
+            ? "Đã xóa phiếu giao hàng và tự động dọn dẹp phiếu thu neo đặc cách liên kết!"
+            : "Đã xóa phiếu giao hàng thành công"
+        );
       } catch (err: any) {
         if (err.blockingDocuments?.length || err.detailedBlocks?.length) {
           showBlockingModal({

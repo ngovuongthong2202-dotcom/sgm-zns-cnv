@@ -6,6 +6,7 @@ import { usePaymentZns } from './usePaymentZns';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { useEntityLifecycle } from '@/src/hooks/useEntityLifecycle';
 import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
+import { checkPaymentLock } from '@/src/domain/policy/lock.policy';
 
 export function usePaymentsActions(
   deletePayment: (id: string) => Promise<void>,
@@ -24,9 +25,15 @@ export function usePaymentsActions(
     if (!pm.id) return;
 
     // Rule 8 & 12: Thanh toán đã dùng làm điều kiện giao hàng thì không được xóa nếu còn bản ghi con
-    const { checkPaymentLock } = await import('@/src/domain/policy/lock.policy');
     const linkedDeliveries = (deliveries || []).filter(d => 
-      (d.paymentId && (d.paymentId === pm.id || d.paymentId === pm.paymentId))
+      !(d as any).deletedAt && (
+        (d.paymentId && (d.paymentId === pm.id || d.paymentId === pm.paymentId)) ||
+        (Boolean(pm.dacCachGiaoTruoc) && (
+          (pm.contractId && d.contractId === pm.contractId) ||
+          (pm.soHopDong && d.soHopDong === pm.soHopDong) ||
+          (pm.soDonHang && d.soDonHang === pm.soDonHang)
+        ))
+      )
     );
     const lockResult = checkPaymentLock(pm, linkedDeliveries);
     if (lockResult.locked) {

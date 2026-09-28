@@ -108,7 +108,15 @@ export function checkPaymentLock(
   const pCode = oldPayment.paymentId;
 
   const linkedDeliveries = (deliveries || []).filter(d => 
-    !(d as any).deletedAt && ((pId && d.paymentId === pId) || (pCode && d.paymentId === pCode))
+    !(d as any).deletedAt && (
+      (pId && d.paymentId === pId) || 
+      (pCode && d.paymentId === pCode) ||
+      (Boolean(oldPayment.dacCachGiaoTruoc) && (
+        (oldPayment.contractId && d.contractId === oldPayment.contractId) ||
+        (oldPayment.soHopDong && d.soHopDong === oldPayment.soHopDong) ||
+        (oldPayment.soDonHang && d.soDonHang === oldPayment.soDonHang)
+      ))
+    )
   );
 
   const blockingDocs: string[] = [];
@@ -120,7 +128,7 @@ export function checkPaymentLock(
       type: 'delivery',
       id: d.id || d.deliveryId,
       code: d.deliveryId,
-      label: `Giao hàng: ${d.deliveryId}`,
+      label: `Giao hàng: ${d.deliveryId}${d.dacCachGiaoTruoc ? ' (Đặc cách BGĐ)' : ''}`,
       date: (d as any).ngayGiaoHang || (d as any).ngayGiaoThucTe,
       status: (d as any).tinhTrangGiaoHang
     });
@@ -129,7 +137,7 @@ export function checkPaymentLock(
   if (blockingDocs.length > 0) {
     return {
       locked: true,
-      reason: `Thanh toán đã có Giao hàng liên kết, không thể xoá.`,
+      reason: `Thanh toán đã có Phiếu giao hàng liên kết (bao gồm cả trường hợp đặc cách). Vui lòng xử lý hoặc xóa Phiếu giao hàng trước!`,
       blockingDocuments: blockingDocs,
       detailedBlocks
     };
