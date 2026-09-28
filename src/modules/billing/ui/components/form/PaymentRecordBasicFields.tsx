@@ -6,6 +6,7 @@ import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 import { format } from 'date-fns';
 import { AsyncSearchableSelect } from '@/src/design-system/primitives/AsyncSearchableSelect';
 import { MoneyInput } from '../PaymentRecordDrawerHelpers';
+import { SmartFinancialInput } from '@/src/design-system';
 import { canCreatePayment } from '@/src/domain/policy/gate.policy';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { ContractHoverCard } from '@/src/modules/contracts/ui/components/ContractHoverCard';
@@ -256,7 +257,7 @@ export function PaymentRecordBasicFields({
                         setValue('tenKhachHang', doc.tenKhachHang || '', { shouldDirty: true });
                         setValue('sdt', doc.sdt || '', { shouldDirty: true });
                         setValue('soHopDong', isDocContract ? (doc.soHopDong || '') : '', { shouldDirty: true });
-                        setValue('soDonHang', isDocContract ? (doc.soDonHang || '') : '', { shouldDirty: true });
+                        setValue('soDonHang', isDocContract ? (doc.soDonHang || '') : (doc.soDonHang || doc.soPhieuBaoGia || ''), { shouldDirty: true });
                         setValue('soPhieuBaoGia', doc.soPhieuBaoGia || '', { shouldDirty: true });
                         
                         if (isDocContract) {
@@ -689,20 +690,25 @@ export function PaymentRecordBasicFields({
             <Controller
               name="soTien" control={control}
               render={({ field }) => (
-                <MoneyInput 
-                  value={field.value} 
-                  onChange={(val: any) => {
-                    let num = Number(val) || 0;
-                    if (num < 0) num = 0;
-                    field.onChange(num);
-                    if (totalAmountVal > 0) {
-                      const rate = Math.min(100, (num / totalAmountVal) * 100);
-                      syncStatusFromRate(rate, num);
-                    }
-                  }} 
-                  readOnly={isFree || disabled} 
-                  placeholder="0" 
-                />
+                <div className="p-3">
+                  <SmartFinancialInput 
+                    value={field.value} 
+                    onChange={(val: number) => {
+                      let num = Number(val) || 0;
+                      if (num < 0) num = 0;
+                      field.onChange(num);
+                      if (totalAmountVal > 0) {
+                        const rate = Math.min(100, (num / totalAmountVal) * 100);
+                        syncStatusFromRate(rate, num);
+                      }
+                    }} 
+                    readOnly={isFree || disabled} 
+                    placeholder="0 đ" 
+                    currencySuffix="đ"
+                    showWordsBadge={true}
+                    className="text-lg font-bold font-mono tracking-tight"
+                  />
+                </div>
               )}
             />
           </div>

@@ -39,6 +39,7 @@ export const ContractSchema = z.object({
   totalAmount: z.number().optional(),
   
   // ZNS & Workflow - not strictly validated
+  dacCachGiaoTruoc: z.boolean().optional().default(false),
   trangThaiGuiTinBaoGia: z.string().optional().nullable(), // Fast-lane projection
   thongTinGuiZnsKyHopDong: z.record(z.string(), z.unknown()).optional(),
   trangThaiGuiTinHopDong: z.string().optional().nullable(),

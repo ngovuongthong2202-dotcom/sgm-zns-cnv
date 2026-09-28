@@ -9,6 +9,7 @@ import { autoDetectBusinessName, STANDARDIZED_BUSINESS_TYPES } from './CustomerF
 
 import { sanitizeTaxCode, sanitizeText } from '@/src/shared/utils/inputSanitizer';
 import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressParser';
+import { SmartTaxCodeInput } from '@/src/design-system';
 
 interface ProfileSectionProps {
   register: UseFormRegister<any>;
@@ -193,50 +194,24 @@ export function CustomerFormProfileSection({
             <label className="text-2xs font-medium uppercase text-slate-500 flex items-center gap-1.5" htmlFor="maSoThue">
               Mã Số Thuế <span className="text-2xs text-slate-500 font-normal lowercase">(10-13 chữ số)</span>
             </label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <input
+            <div className="flex gap-2 items-start">
+              <div className="flex-1">
+                <SmartTaxCodeInput
                   id="maSoThue"
-                  autoComplete="off"
-                  {...register('maSoThue')}
-                  onPaste={(e) => {
-                    const text = e.clipboardData.getData('text');
-                    if (text) {
-                      e.preventDefault();
-                      const clean = sanitizeTaxCode(text);
-                      setValue('maSoThue', clean, { shouldDirty: true, shouldValidate: true });
-                    }
+                  value={watch('maSoThue')}
+                  onChange={(tax: string) => {
+                    setValue('maSoThue', tax, { shouldDirty: true, shouldValidate: true });
                   }}
-                  onBlur={(e) => {
-                    register('maSoThue').onBlur(e);
-                    const clean = sanitizeTaxCode(e.target.value);
-                    if (clean !== e.target.value) {
-                      setValue('maSoThue', clean, { shouldDirty: true, shouldValidate: true });
-                    }
-                  }}
-                  className="w-full font-mono font-semibold h-8 border border-slate-200 rounded-lg px-3 text-sm placeholder:text-slate-300"
-                  placeholder="Ví dụ: 0102030405..."
+                  onLookup={handleTaxLookup}
+                  isLookingUp={isLookingUp}
+                  error={Boolean(errors.maSoThue)}
+                  compact
                 />
-                {isLookingUp && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <div className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                )}
-                {lookupStatus === 'success' && !isLookingUp && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600">
-                    <Check size={16} />
-                  </div>
-                )}
-                {lookupStatus === 'error' && !isLookingUp && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-red-600">
-                    <AlertCircle size={16} />
-                  </div>
-                )}
               </div>
               <Button
                 type="button"
                 onClick={handleTaxLookup}
-                disabled={isLookingUp}
+                disabled={isLookingUp || !watch('maSoThue')}
                 className="h-8 px-4 bg-slate-900 text-white rounded-lg text-xs font-medium hover:bg-slate-800 shrink-0 disabled:opacity-50 transition-colors"
               >
                 {isLookingUp ? 'Đang tra...' : 'Điền thông tin pháp nhân'}

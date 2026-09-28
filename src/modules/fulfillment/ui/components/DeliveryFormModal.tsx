@@ -237,9 +237,12 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
           }
 
           if (!delivery) {
-            const { checkWorkflowGate } = await import('@/src/domain/workflow-ui');
-            const canProceed = await checkWorkflowGate('DELIVERY', data.paymentId, undefined, user?.email);
-            if (!canProceed) return;
+            // Nếu có cờ Đặc cách Ban Giám Đốc (Giao trước - Thanh toán sau), bỏ qua kiểm tra cổng bắt buộc thanh toán
+            if (!data.dacCachGiaoTruoc && data.paymentId) {
+              const { checkWorkflowGate } = await import('@/src/domain/workflow-ui');
+              const canProceed = await checkWorkflowGate('DELIVERY', data.paymentId, undefined, user?.email);
+              if (!canProceed) return;
+            }
           }
 
           onSave(data);
@@ -449,6 +452,8 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
               <DeliveryTransportSection
                 register={register}
                 errors={errors}
+                watch={watch}
+                setValue={setValue}
               />
 
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">

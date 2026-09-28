@@ -7,6 +7,7 @@ import { FinancialEngine } from '@/src/shared/utils/financialEngine';
 import { parseFinancialInput } from '@/src/platform/ui/forms/useSmartFormInput';
 import { computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
+import { SmartFinancialInput } from '@/src/design-system';
 
 interface ProductFinanceCardProps {
   key?: React.Key;
@@ -102,23 +103,13 @@ export function ProductFinanceCard({
             readOnly={readOnly || disabled}
             className="w-1/4 text-xs font-medium text-center text-slate-600 bg-white border border-slate-200 rounded p-1.5 outline-none focus:border-blue-400"
           />
-          <input type="text"
+          <SmartFinancialInput
             placeholder="Đơn giá"
-            value={p.price ? FinancialEngine.formatVND(p.price) : (p.price === 0 ? '0' : '')}
-            onChange={(e) => {
-              const newPrice = FinancialEngine.toInteger(e.target.value);
-              onUpdate(idx, 'price', newPrice);
-            }}
-            onBlur={(e) => {
-              const resolved = parseFinancialInput(e.target.value);
-              onUpdate(idx, 'price', resolved);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.currentTarget.blur();
-              }
-            }}
+            value={p.price}
+            onChange={(val: number) => onUpdate(idx, 'price', val)}
             readOnly={readOnly || disabled}
+            compact
+            currencySuffix=""
             className="w-2/4 text-xs font-bold text-right text-slate-800 bg-white border border-slate-200 rounded p-1.5 outline-none focus:border-blue-400 font-mono"
           />
         </div>
@@ -139,23 +130,13 @@ export function ProductFinanceCard({
                 readOnly={readOnly || disabled}
                 className="w-10 text-xs font-medium text-center bg-white border border-slate-200 rounded p-1 outline-none focus:border-amber-400"
               />
-              <input type="text"
+              <SmartFinancialInput
                 placeholder="Tiền Disc"
-                value={p.discountAmount ? FinancialEngine.formatVND(p.discountAmount) : ''}
-                onChange={(e) => {
-                  const newDisc = FinancialEngine.toInteger(e.target.value);
-                  onUpdate(idx, 'discountAmount', newDisc || undefined);
-                }}
-                onBlur={(e) => {
-                  const resolved = parseFinancialInput(e.target.value);
-                  onUpdate(idx, 'discountAmount', resolved || undefined);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.currentTarget.blur();
-                  }
-                }}
+                value={p.discountAmount}
+                onChange={(val: number) => onUpdate(idx, 'discountAmount', val || undefined)}
                 readOnly={readOnly || disabled}
+                compact
+                currencySuffix=""
                 className="flex-1 text-xs font-medium text-right text-amber-700 bg-white border border-slate-200 rounded p-1 outline-none focus:border-amber-400 font-mono"
               />
             </div>

@@ -6,6 +6,7 @@ import { ProductBaoHanhFields } from './ProductBaoHanhFields';
 import { FinancialEngine } from '@/src/shared/utils/financialEngine';
 import { parseFinancialInput } from '@/src/platform/ui/forms/useSmartFormInput';
 import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
+import { SmartFinancialInput } from '@/src/design-system';
 
 interface ProductBasicItemProps {
   key?: React.Key;
@@ -101,23 +102,14 @@ export function ProductBasicItem({
           <>
             <div className="col-span-6 md:col-span-2 space-y-1">
               <label className="md:hidden text-2xs font-bold text-slate-600 uppercase tracking-tight">Đơn giá</label>
-              <input aria-label="Nhập thông tin"
-                type="text"
-                value={p.price ? FinancialEngine.formatVND(p.price) : ''}
-                onChange={(e) => {
-                  const newPrice = FinancialEngine.toInteger(e.target.value);
-                  onUpdate(idx, 'price', newPrice);
-                }}
-                onBlur={(e) => {
-                  const resolved = parseFinancialInput(e.target.value);
-                  onUpdate(idx, 'price', resolved);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.currentTarget.blur();
-                  }
-                }}
+              <SmartFinancialInput
+                aria-label="Nhập thông tin"
+                placeholder="Đơn giá"
+                value={p.price}
+                onChange={(newPrice: number) => onUpdate(idx, 'price', newPrice)}
                 readOnly={readOnly || disabled}
+                compact
+                currencySuffix=""
                 className={`w-full text-xs font-bold text-slate-900 ${readOnly || disabled ? 'bg-slate-50/30' : 'bg-white'} border-slate-200 rounded-lg focus:ring-1 focus:ring-brand-accent p-2 text-right md:h-[38px] disabled:opacity-70 font-mono`}
               />
             </div>

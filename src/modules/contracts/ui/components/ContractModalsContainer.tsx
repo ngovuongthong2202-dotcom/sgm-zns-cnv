@@ -109,18 +109,39 @@ export function ContractModalsContainer({
           setPrefillPaymentContract(contract);
         }}
         onCreateDelivery={async (contract) => {
-          const allocGate = calculateMachineAllocation(contract, realtimeDeliveries);
+          const cId = (contract.id || '').trim().toLowerCase();
+          const cSoHopDong = (contract.soHopDong || '').trim().toLowerCase();
+          const cSoDonHang = (contract.soDonHang || '').trim().toLowerCase();
+          const cQuoId = (contract.quotationId || '').trim().toLowerCase();
+
+          const contractDeliveries = (realtimeDeliveries || []).filter((d: any) => {
+            if (!d || d.deletedAt || d.deleted_at || d.isDeleted) return false;
+            const status = (d.tinhTrangGiaoHang || d.status || '').toString().trim().toUpperCase();
+            if (status === 'HỦY' || status === 'HUY' || status === 'CANCELLED') return false;
+
+            const dContractId = (d.contractId || '').trim().toLowerCase();
+            const dSoHopDong = (d.soHopDong || d.contractCode || '').trim().toLowerCase();
+            const dSoDonHang = (d.soDonHang || '').trim().toLowerCase();
+            const dQuoId = (d.quotationId || '').trim().toLowerCase();
+
+            return (
+              (cId && (dContractId === cId || dContractId === cSoHopDong)) ||
+              (cSoHopDong && (dSoHopDong === cSoHopDong || dContractId === cSoHopDong || dSoHopDong === cId)) ||
+              (cSoDonHang && dSoDonHang && dSoDonHang === cSoDonHang) ||
+              (cQuoId && dQuoId && dQuoId === cQuoId)
+            );
+          });
+
+          const allocGate = calculateMachineAllocation(contract, contractDeliveries);
           if (allocGate.isFullyAllocated) {
             notify.warning(`Hợp đồng ${contract.soHopDong || ''} đã điều phối đủ ${allocGate.totalAssignedMachines}/${allocGate.totalOrderMachines} máy xuất kho. Không thể tạo thêm phiếu giao!`);
             return;
           }
-          const remaining = getRemainingProducts(contract, realtimeDeliveries);
+          const remaining = getRemainingProducts(contract, contractDeliveries);
           if (remaining.length === 0) {
             notify.warning("Hợp đồng này đã giao đầy đủ thiết bị, không cần tạo thêm phiếu giao!");
             return;
           }
-          const ok = await checkWorkflowGate('DELIVERY', contract.id as string, 'contracts', user?.email || undefined);
-          if (!ok) return;
 
           const linkedPayment = (realtimePayments || []).find((p: any) => 
             !p.deletedAt && !p.deleted_at && 
@@ -128,15 +149,20 @@ export function ContractModalsContainer({
           );
 
           if (!linkedPayment) {
-            // Nghiệp vụ bảo toàn Workflow: HĐ máy phải qua Bước Thanh toán trước khi Giao hàng.
-            // Tự động khởi tạo phiếu thu với trạng thái "Chưa TT" (dacCachGiaoTruoc = true).
-            // Mở preview PaymentFormDrawer để kiểm tra/sửa, sau khi bấm Lưu sẽ tự động mở DeliveryFormModal.
-            notify.info("Hợp đồng chưa có phiếu thanh toán. Hệ thống tự động khởi tạo Phiếu Thu ('Chưa TT' - Đặc cách giao trước). Vui lòng kiểm tra và Lưu để chuyển tiếp sang Phiếu Giao!");
-            setPendingDeliveryContract(contract);
-            setPrefillPaymentStatus('Chưa TT');
-            setPrefillPaymentContract(contract);
+            // Nghiệp vụ bảo toàn Workflow: Kích hoạt Đặc cách Ban Giám Đốc (Giao trước - Thanh toán sau)
+            // Mở thẳng DeliveryFormModal với cờ dacCachGiaoTruoc, không ép tạo thanh toán thủ công gây ma sát
+            setTransitionPaymentInfo({
+              id: '',
+              code: '',
+              isDacCach: true,
+            });
+            setPrefillDeliveryContract(contract);
+            notify.info("Hợp đồng chưa có phiếu thanh toán. Đã tự động kích hoạt Đặc cách Ban Giám Đốc (Giao trước - Thanh toán sau) để lập Phiếu Giao!");
             return;
           }
+
+          const ok = await checkWorkflowGate('DELIVERY', contract.id as string, 'contracts', user?.email || undefined);
+          if (!ok) return;
 
           setPrefillDeliveryContract(contract);
         }}
@@ -327,6 +353,46 @@ export function ContractModalsContainer({
                         newDeliveredQuantities[itemKey] = previousDelivered + newShipmentQty;
                       }
 
+                      if (deliveryData.dacCachGiaoTruoc && !deliveryData.paymentId && prefillDeliveryContract) {
+                        try {
+                          const healedContractProducts = (prefillDeliveryContract.products || []).map(computeLineItem);
+                          const contractAggs = aggregateProducts(healedContractProducts);
+                          const uncollectedPayment = await apiCreateEntity('payment', {
+                            contractId: prefillDeliveryContract.id,
+                            quotationId: prefillDeliveryContract.quotationId || '',
+                            soPhieuBaoGia: prefillDeliveryContract.soPhieuBaoGia || '',
+                            customerId: prefillDeliveryContract.customerId || '',
+                            maKh: prefillDeliveryContract.maKh || '',
+                            tenKhachHang: prefillDeliveryContract.tenKhachHang || '',
+                            tenNguoiNop: prefillDeliveryContract.nguoiDaiDien || prefillDeliveryContract.tenKhachHang || '',
+                            sdt: prefillDeliveryContract.sdt || '',
+                            soHopDong: prefillDeliveryContract.soHopDong || '',
+                            soDonHang: prefillDeliveryContract.soDonHang || '',
+                            totalAmount: Number(prefillDeliveryContract.totalAmount) || contractAggs.totalAfterTax || 0,
+                            soTien: 0,
+                            products: healedContractProducts,
+                            slMay: prefillDeliveryContract.slMay || healedContractProducts.reduce((sum: number, p: any) => sum + (Number(p.quantity) || 0), 0),
+                            loai: prefillDeliveryContract.loai || (healedContractProducts[0]?.productName || 'Máy'),
+                            dvt: prefillDeliveryContract.dvt || (healedContractProducts[0]?.unit || 'Máy'),
+                            nguoiPhuTrach: prefillDeliveryContract.nguoiPhuTrach || '',
+                            vatRate: prefillDeliveryContract.vatRate || 0,
+                            discountRate: prefillDeliveryContract.discountRate || 0,
+                            subTotal: prefillDeliveryContract.subTotal || contractAggs.totalGross || 0,
+                            trangThaiGuiTinThanhToan: EntityZnsStatus.CHUA_GUI,
+                            tinhTrangThanhToan: 'Chưa TT',
+                            phuongThucThanhToan: 'Chuyển khoản',
+                            dacCachGiaoTruoc: true,
+                            ngayThanhToan: new Date().toISOString().split('T')[0]
+                          });
+                          if (uncollectedPayment?.id) {
+                            deliveryData.paymentId = uncollectedPayment.id;
+                            deliveryData.soChungTuThamChieu = uncollectedPayment.paymentId || uncollectedPayment.id;
+                          }
+                        } catch (pErr) {
+                          console.warn('Could not auto-create uncollected payment ledger anchor:', pErr);
+                        }
+                      }
+
                       await apiCreateEntity('delivery', deliveryData);
                       await repositoryFactory.get(collectionName).update(sourceId, { deliveredQuantities: newDeliveredQuantities });
                     } else {
@@ -357,8 +423,8 @@ export function ContractModalsContainer({
                 ngayKy: prefillDeliveryContract.ngayKy || '',
                 loai: prefillDeliveryContract.loai || '',
                 dvt: prefillDeliveryContract.dvt || 'Máy',
-                products: getRemainingProducts(prefillDeliveryContract, realtimeDeliveries),
-                slMay: getRemainingProducts(prefillDeliveryContract, realtimeDeliveries).reduce((acc: number, p: any) => acc + (p.quantity || 0), 0),
+                products: getRemainingProducts(prefillDeliveryContract, (realtimeDeliveries || []).filter((d: any) => d.contractId === prefillDeliveryContract.id || d.soHopDong === prefillDeliveryContract.soHopDong)),
+                slMay: getRemainingProducts(prefillDeliveryContract, (realtimeDeliveries || []).filter((d: any) => d.contractId === prefillDeliveryContract.id || d.soHopDong === prefillDeliveryContract.soHopDong)).reduce((acc: number, p: any) => acc + (p.quantity || 0), 0),
                 nguoiPhuTrach: prefillDeliveryContract.nguoiPhuTrach || '',
                 diaChiGiaoHang: (prefillDeliveryContract as any).diaChiGiaoHang || (prefillDeliveryContract as any).diaChi || '',
                 nguoiLienHe: (prefillDeliveryContract as any).nguoiLienHe || (prefillDeliveryContract as any).nguoiDaiDien || '',

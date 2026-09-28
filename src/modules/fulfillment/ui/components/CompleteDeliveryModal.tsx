@@ -23,6 +23,7 @@ import { cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
 import { sanitizeText } from '@/src/shared/utils/inputSanitizer';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
+import { SmartPhoneInput } from '@/src/design-system';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/src/design-system/Button';
 import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
@@ -79,7 +80,7 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
 
   const totalQuantity = (delivery.products || []).reduce((acc, p) => acc + (Number(p.quantity) || 1), 0);
 
-  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<CompleteFormValues>({
+  const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<CompleteFormValues>({
     resolver: zodResolver(CompleteSchema),
     defaultValues: {
       ngayGiaoThucTe: delivery.ngayGiaoThucTe || delivery.ngayGiaoMay || new Date().toISOString().split('T')[0],
@@ -397,10 +398,11 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                           <Phone size={12} className="text-emerald-600" /> 
                           SĐT liên lạc thợ giao
                         </label>
-                        <input 
-                          {...register('sdtThoGiaoMay')}
-                          className="h-9 px-3 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-100 outline-none bg-white" 
-                          placeholder="Số điện thoại liên lạc thợ..."
+                        <SmartPhoneInput 
+                          value={watch('sdtThoGiaoMay')}
+                          onChange={(val: string) => setValue('sdtThoGiaoMay', val, { shouldDirty: true })}
+                          placeholder="09xx xxx xxx"
+                          compact
                         />
                       </div>
                     </div>
@@ -442,15 +444,41 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-2xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                          <User size={12} className="text-blue-600" /> 
-                          Người ký nhận bàn giao <span className="text-red-500">*</span>
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-2xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <User size={12} className="text-blue-600" /> 
+                            Người ký nhận bàn giao <span className="text-red-500">*</span>
+                          </label>
+                        </div>
                         <input 
                           {...register('kyNhan')}
                           className="h-9 px-3 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-100 outline-none bg-white" 
                           placeholder="Họ tên người nhận - SĐT / Chức vụ..."
                         />
+                        {/* Quick Recipient Suggestions */}
+                        {(() => {
+                          const suggestions = Array.from(new Set([
+                            delivery.nguoiLienHe,
+                            delivery.nguoiDaiDien,
+                            delivery.tenKhachHang
+                          ])).filter(Boolean) as string[];
+                          if (suggestions.length === 0) return null;
+                          return (
+                            <div className="flex flex-wrap items-center gap-1 pt-1">
+                              <span className="text-3xs font-bold text-slate-400 uppercase tracking-wider">Gợi ý:</span>
+                              {suggestions.map((name) => (
+                                <button
+                                  key={name}
+                                  type="button"
+                                  onClick={() => setValue('kyNhan', name, { shouldDirty: true, shouldValidate: true })}
+                                  className="text-3xs font-medium bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-blue-200 transition-colors cursor-pointer"
+                                >
+                                  {name}
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })()}
                         {errors.kyNhan && <p className="text-red-500 text-3xs font-medium">{errors.kyNhan.message}</p>}
                       </div>
                     </div>

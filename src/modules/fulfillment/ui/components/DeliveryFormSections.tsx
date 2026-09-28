@@ -5,6 +5,7 @@ import { Truck, Package, Lock, Wrench, Phone, MapPin } from 'lucide-react';
 import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressParser';
+import { SmartPhoneInput } from '@/src/design-system';
 
 interface DeliverySourceCardProps {
   soHopDong?: string;
@@ -391,12 +392,18 @@ export function DeliveryInfoSection({
 interface DeliveryTransportSectionProps {
   register: UseFormRegister<Delivery>;
   errors: FieldErrors<Delivery>;
+  watch?: UseFormWatch<Delivery>;
+  setValue?: UseFormSetValue<Delivery>;
 }
 
 export function DeliveryTransportSection({
   register,
-  errors
+  errors,
+  watch,
+  setValue
 }: DeliveryTransportSectionProps) {
+  const commonTransporters = ['Xe CNV', 'A Hùng Xe Tải', 'GHTK', 'Viettel Post', 'Chành xe Miền Tây', 'Chành xe Bắc Nam'];
+
   return (
     <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
       <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-2">
@@ -406,24 +413,53 @@ export function DeliveryTransportSection({
       <div className="flex flex-col gap-4">
         <div className="space-y-4">
           <div className="space-y-1.5 focus-within:text-blue-600 transition-colors">
-            <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="donViVanChuyen">Đơn vị Vận chuyển / Biển số <span className="text-red-700">*</span></label>
+            <div className="flex items-center justify-between">
+              <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="donViVanChuyen">
+                Đơn vị Vận chuyển / Biển số <span className="text-red-700">*</span>
+              </label>
+            </div>
             <input
               id="donViVanChuyen"
               {...register('donViVanChuyen')}
               className="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-normal placeholder:text-slate-400"
-              placeholder="Nhập bên giao hàng..."
+              placeholder="Nhập hoặc chọn bên giao hàng..."
             />
+            {setValue && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-3xs font-bold text-slate-400 uppercase tracking-wider">Gợi ý:</span>
+                {commonTransporters.map((carrier) => (
+                  <button
+                    key={carrier}
+                    type="button"
+                    onClick={() => setValue('donViVanChuyen', carrier, { shouldDirty: true, shouldValidate: true })}
+                    className="text-3xs font-medium bg-slate-50 hover:bg-orange-50 text-slate-600 hover:text-orange-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-orange-200 transition-colors cursor-pointer"
+                  >
+                    {carrier}
+                  </button>
+                ))}
+              </div>
+            )}
             {errors.donViVanChuyen && <p className="text-red-600 text-2xs font-medium mt-0.5">{errors.donViVanChuyen.message as string}</p>}
           </div>
 
           <div className="space-y-1.5 focus-within:text-blue-600 transition-colors">
             <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="soDienThoaiDonViVanChuyen">Hotline / SĐT Tài xế</label>
-            <input
-              id="soDienThoaiDonViVanChuyen"
-              {...register('soDienThoaiDonViVanChuyen')}
-              className="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full font-mono font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400"
-              placeholder="09xx..."
-            />
+            {watch && setValue ? (
+              <SmartPhoneInput
+                id="soDienThoaiDonViVanChuyen"
+                value={watch('soDienThoaiDonViVanChuyen')}
+                onChange={(val: string) => setValue('soDienThoaiDonViVanChuyen', val, { shouldDirty: true })}
+                placeholder="09xx xxx xxx"
+                compact
+              />
+            ) : (
+              <input
+                id="soDienThoaiDonViVanChuyen"
+                {...register('soDienThoaiDonViVanChuyen')}
+                className="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full font-mono font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400"
+                placeholder="09xx..."
+              />
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100">
@@ -445,12 +481,22 @@ export function DeliveryTransportSection({
                 <Phone size={12} className="text-emerald-600" />
                 SĐT liên lạc thợ
               </label>
-              <input
-                id="sdtThoGiaoMay"
-                {...register('sdtThoGiaoMay')}
-                className="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full font-mono font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400"
-                placeholder="Số điện thoại thợ giao..."
-              />
+              {watch && setValue ? (
+                <SmartPhoneInput
+                  id="sdtThoGiaoMay"
+                  value={watch('sdtThoGiaoMay')}
+                  onChange={(val: string) => setValue('sdtThoGiaoMay', val, { shouldDirty: true })}
+                  placeholder="09xx xxx xxx"
+                  compact
+                />
+              ) : (
+                <input
+                  id="sdtThoGiaoMay"
+                  {...register('sdtThoGiaoMay')}
+                  className="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full font-mono font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400"
+                  placeholder="Số điện thoại thợ giao..."
+                />
+              )}
             </div>
           </div>
         </div>

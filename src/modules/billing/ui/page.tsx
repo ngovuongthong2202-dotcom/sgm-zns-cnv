@@ -310,8 +310,8 @@ export default function PaymentsFeature() {
           }}
           payment={editingPayment}
           payments={payments}
-          contracts={formContract ? [formContract] : []}
-          quotations={formQuotation ? [formQuotation] : (prefillQuotationForPayment ? [prefillQuotationForPayment] : [])}
+          contracts={contracts.length > 0 ? contracts : (formContract ? [formContract] : [])}
+          quotations={quotations.length > 0 ? quotations : (formQuotation ? [formQuotation] : (prefillQuotationForPayment ? [prefillQuotationForPayment] : []))}
           prefillQuotation={prefillQuotationForPayment}
           nguoiPhuTrachList={nguoiPhuTrachList}
           phuongThucThanhToanList={phuongThucThanhToanList}

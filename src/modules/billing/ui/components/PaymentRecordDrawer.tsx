@@ -161,7 +161,7 @@ export function PaymentRecordDrawer({
           maKh: prefillQuotation.maKh || '',
           tenKhachHang: prefillQuotation.tenKhachHang || '',
           sdt: prefillQuotation.sdt || '',
-          soDonHang: '',
+          soDonHang: prefillQuotation.soDonHang || prefillQuotation.soPhieuBaoGia || '',
           soHopDong: '',
           soPhieuBaoGia: prefillQuotation.soPhieuBaoGia || '',
           subTotal: prefillQuotation.subTotal || 0,
@@ -327,12 +327,12 @@ export function PaymentRecordDrawer({
       data.nguoiPhuTrach = defaultOfficer;
     }
 
-    // Kiểm tra nghiệp vụ: Số Đơn Hàng bắt buộc đối với Báo giá Vật tư / Báo giá Dịch vụ
+    // Kiểm tra nghiệp vụ: Số Đơn Hàng đối với Báo giá Vật tư / Báo giá Dịch vụ
     const isFromContract = Boolean(data.contractId || (data.soHopDong && String(data.soHopDong).trim() !== ''));
     if (!isFromContract) {
       if (!data.soDonHang || !String(data.soDonHang).trim()) {
-        notify.error('Vui lòng nhập "Số Đơn Hàng" cho phiếu thanh toán Báo giá Vật tư / Dịch vụ.');
-        return;
+        // Tự động gán Số Đơn Hàng theo Số Phiếu Báo Giá hoặc Mã Phiếu Thu nếu chưa nhập
+        data.soDonHang = data.soPhieuBaoGia || (data.paymentId ? `DH-${data.paymentId}` : 'DH-QUO');
       }
     } else {
       if (!data.soDonHang || !String(data.soDonHang).trim()) {

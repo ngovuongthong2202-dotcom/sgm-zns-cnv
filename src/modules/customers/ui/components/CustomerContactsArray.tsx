@@ -1,7 +1,8 @@
 import React from "react";
-import { useFieldArray, Control, UseFormRegister, FieldErrors, UseFormSetValue } from "react-hook-form";
+import { useFieldArray, Control, UseFormRegister, FieldErrors, UseFormSetValue, Controller } from "react-hook-form";
 import { Customer } from "@/src/domain/schema/customer.schema";
 import { Button } from "@/src/design-system/Button";
+import { SmartPhoneInput } from "@/src/design-system";
 import { Plus, Trash, Contact, Users, Check } from "lucide-react";
 import { cleanProperVietnameseText } from "@/src/shared/utils/textFormatter";
 import { sanitizePhoneVN, sanitizeText } from "@/src/shared/utils/inputSanitizer";
@@ -92,35 +93,23 @@ export function CustomerContactsArray({ control, register, errors, setValue, isI
               <label className="text-2xs font-medium uppercase tracking-wide text-slate-500" htmlFor={"contact-phone-" + index}>
                 Số điện thoại {index === 0 && <span className="text-red-500">*</span>}
               </label>
-              <input
-                id={"contact-phone-" + index}
-                {...register("contacts." + index + ".sdt" as any, {
-                  onChange: (e) => {
-                    if (index === 0) {
-                      setValue("sdt", e.target.value, { shouldDirty: true, shouldValidate: true });
-                    }
-                  }
-                })}
-                onPaste={(e) => {
-                  const text = e.clipboardData.getData('text');
-                  if (text) {
-                    e.preventDefault();
-                    const clean = sanitizePhoneVN(text);
-                    setValue("contacts." + index + ".sdt" as any, clean, { shouldDirty: true });
-                    if (index === 0) {
-                      setValue("sdt", clean, { shouldDirty: true, shouldValidate: true });
-                    }
-                  }
-                }}
-                onBlur={(e) => {
-                  const cleaned = sanitizePhoneVN(e.target.value);
-                  setValue("contacts." + index + ".sdt" as any, cleaned, { shouldDirty: true });
-                  if (index === 0) {
-                    setValue("sdt", cleaned, { shouldDirty: true, shouldValidate: true });
-                  }
-                }}
-                className="w-full font-mono h-8 border border-slate-200 rounded-lg px-3 bg-white text-sm placeholder:text-slate-300"
-                placeholder="09xx xxx xxx"
+              <Controller
+                control={control}
+                name={`contacts.${index}.sdt` as any}
+                render={({ field }) => (
+                  <SmartPhoneInput
+                    id={"contact-phone-" + index}
+                    value={field.value}
+                    onChange={(cleanPhone: string) => {
+                      field.onChange(cleanPhone);
+                      if (index === 0) {
+                        setValue("sdt", cleanPhone, { shouldDirty: true, shouldValidate: true });
+                      }
+                    }}
+                    compact
+                    error={Boolean(errors.contacts?.[index]?.sdt)}
+                  />
+                )}
               />
               {errors.contacts?.[index]?.sdt && (
                 <p className="text-xs text-red-650 mt-1">{errors.contacts?.[index]?.sdt?.message}</p>

@@ -228,6 +228,31 @@ export function ContractDefinitionSection({ register, setValue, errors, estimate
             />
           )}
         </div>
+
+        {/* Executive Pre-Delivery Waiver Toggle */}
+        <div className="md:col-span-2 p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-xl space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <input
+                id="dacCachGiaoTruoc"
+                type="checkbox"
+                {...register('dacCachGiaoTruoc')}
+                className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300 cursor-pointer"
+              />
+              <label htmlFor="dacCachGiaoTruoc" className="text-xs font-bold text-amber-950 cursor-pointer flex items-center gap-1.5 select-none">
+                Cho phép giao hàng trước thanh toán sau (Đặc cách phê duyệt lãnh đạo)
+              </label>
+            </div>
+            {watch && watch('dacCachGiaoTruoc') && (
+              <span className="px-2 py-0.5 text-3xs font-extrabold uppercase tracking-wider bg-amber-200 text-amber-900 rounded-md">
+                ĐÃ BẬT ĐẶC CÁCH
+              </span>
+            )}
+          </div>
+          <p className="text-2xs text-amber-800 leading-relaxed pl-6.5 font-medium">
+            Khi bật tính năng này, hệ thống sẽ mở khóa cho phép tạo Phiếu Giao Hàng ngay cả khi hợp đồng chưa có thanh toán đặt cọc. Phiếu giao hàng sẽ tự động liên kết với hồ sơ thanh toán công nợ mở (0đ) đảm bảo tính toàn vẹn workflow.
+          </p>
+        </div>
       </div>
     </div>
   );

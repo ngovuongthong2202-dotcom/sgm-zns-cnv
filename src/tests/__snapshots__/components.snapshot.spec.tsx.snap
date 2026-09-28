@@ -454,6 +454,35 @@ exports[`Component Snapshots (Baseline) > renders ContractFormModal 1`] = `
                     value="Admin"
                   />
                 </div>
+                <div
+                  class="md:col-span-2 p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-xl space-y-2"
+                >
+                  <div
+                    class="flex items-center justify-between"
+                  >
+                    <div
+                      class="flex items-center gap-2.5"
+                    >
+                      <input
+                        class="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300 cursor-pointer"
+                        id="dacCachGiaoTruoc"
+                        name="dacCachGiaoTruoc"
+                        type="checkbox"
+                      />
+                      <label
+                        class="text-xs font-bold text-amber-950 cursor-pointer flex items-center gap-1.5 select-none"
+                        for="dacCachGiaoTruoc"
+                      >
+                        Cho phép giao hàng trước thanh toán sau (Đặc cách phê duyệt lãnh đạo)
+                      </label>
+                    </div>
+                  </div>
+                  <p
+                    class="text-2xs text-amber-800 leading-relaxed pl-6.5 font-medium"
+                  >
+                    Khi bật tính năng này, hệ thống sẽ mở khóa cho phép tạo Phiếu Giao Hàng ngay cả khi hợp đồng chưa có thanh toán đặt cọc. Phiếu giao hàng sẽ tự động liên kết với hồ sơ thanh toán công nợ mở (0đ) đảm bảo tính toàn vẹn workflow.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -1448,21 +1477,100 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                         </span>
                       </label>
                       <div
-                        class="flex gap-2"
+                        class="flex gap-2 items-start"
                       >
                         <div
-                          class="relative flex-1"
+                          class="flex-1"
                         >
-                          <input
-                            autocomplete="off"
-                            class="w-full font-mono font-semibold h-8 border border-slate-200 rounded-lg px-3 text-sm placeholder:text-slate-300"
-                            id="maSoThue"
-                            name="maSoThue"
-                            placeholder="Ví dụ: 0102030405..."
-                          />
+                          <div
+                            class="flex flex-col gap-0"
+                          >
+                            <div
+                              class="relative flex items-center"
+                            >
+                              <div
+                                class="absolute left-3 text-slate-400 pointer-events-none flex items-center"
+                              >
+                                <svg
+                                  aria-hidden="true"
+                                  class="lucide lucide-building2 lucide-building-2"
+                                  fill="none"
+                                  height="14"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  viewBox="0 0 24 24"
+                                  width="14"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    d="M10 12h4"
+                                  />
+                                  <path
+                                    d="M10 8h4"
+                                  />
+                                  <path
+                                    d="M14 21v-3a2 2 0 0 0-4 0v3"
+                                  />
+                                  <path
+                                    d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"
+                                  />
+                                  <path
+                                    d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"
+                                  />
+                                </svg>
+                              </div>
+                              <input
+                                class="w-full pl-9 pr-24 font-mono tracking-wider uppercase text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 py-1.5 text-xs"
+                                id="maSoThue"
+                                maxlength="14"
+                                placeholder="0123456789 hoặc 0123456789-001"
+                                type="text"
+                                value=""
+                              />
+                              <div
+                                class="absolute right-2 flex items-center gap-1.5"
+                              >
+                                <button
+                                  class="flex items-center gap-1 px-2 py-1 text-3xs font-bold rounded transition-colors bg-slate-100 text-slate-400 cursor-not-allowed"
+                                  disabled=""
+                                  title="Tra cứu thông tin doanh nghiệp từ Tổng cục Thuế"
+                                  type="button"
+                                >
+                                  <svg
+                                    aria-hidden="true"
+                                    class="lucide lucide-search"
+                                    fill="none"
+                                    height="10"
+                                    stroke="currentColor"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    viewBox="0 0 24 24"
+                                    width="10"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path
+                                      d="m21 21-4.34-4.34"
+                                    />
+                                    <circle
+                                      cx="11"
+                                      cy="11"
+                                      r="8"
+                                    />
+                                  </svg>
+                                  <span>
+                                    Tra cứu
+                                  </span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                         <button
                           class="inline-flex items-center justify-center duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:pointer-events-none active:scale-[0.98] border border-slate-950 active:bg-slate-950 shadow-sm focus-visible:ring-slate-900 gap-1.5 h-8 px-4 bg-slate-900 text-white rounded-lg text-xs font-medium hover:bg-slate-800 shrink-0 disabled:opacity-50 transition-colors"
+                          disabled=""
                           type="button"
                         >
                           Điền thông tin pháp nhân
@@ -1943,12 +2051,45 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                           *
                         </span>
                       </label>
-                      <input
-                        class="w-full font-mono h-8 border border-slate-200 rounded-lg px-3 bg-white text-sm placeholder:text-slate-300"
-                        id="contact-phone-0"
-                        name="contacts.0.sdt"
-                        placeholder="09xx xxx xxx"
-                      />
+                      <div
+                        class="flex flex-col gap-0"
+                      >
+                        <div
+                          class="relative flex items-center"
+                        >
+                          <div
+                            class="absolute left-3 text-slate-400 pointer-events-none flex items-center"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="lucide lucide-phone"
+                              fill="none"
+                              height="14"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              viewBox="0 0 24 24"
+                              width="14"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"
+                              />
+                            </svg>
+                          </div>
+                          <input
+                            class="w-full pl-9 pr-24 font-mono text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 py-1.5 text-xs"
+                            id="contact-phone-0"
+                            placeholder="09xx xxx xxx"
+                            type="tel"
+                            value=""
+                          />
+                          <div
+                            class="absolute right-2 flex items-center gap-1.5"
+                          />
+                        </div>
+                      </div>
                     </div>
                     <div
                       class="space-y-1"
@@ -3005,23 +3146,72 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
                   <div
                     class="space-y-1.5 focus-within:text-blue-600 transition-colors"
                   >
-                    <label
-                      class="text-2xs font-medium uppercase tracking-wide text-slate-500 block"
-                      for="donViVanChuyen"
+                    <div
+                      class="flex items-center justify-between"
                     >
-                      Đơn vị Vận chuyển / Biển số 
-                      <span
-                        class="text-red-700"
+                      <label
+                        class="text-2xs font-medium uppercase tracking-wide text-slate-500 block"
+                        for="donViVanChuyen"
                       >
-                        *
-                      </span>
-                    </label>
+                        Đơn vị Vận chuyển / Biển số 
+                        <span
+                          class="text-red-700"
+                        >
+                          *
+                        </span>
+                      </label>
+                    </div>
                     <input
                       class="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-normal placeholder:text-slate-400"
                       id="donViVanChuyen"
                       name="donViVanChuyen"
-                      placeholder="Nhập bên giao hàng..."
+                      placeholder="Nhập hoặc chọn bên giao hàng..."
                     />
+                    <div
+                      class="flex flex-wrap items-center gap-1.5 pt-1"
+                    >
+                      <span
+                        class="text-3xs font-bold text-slate-400 uppercase tracking-wider"
+                      >
+                        Gợi ý:
+                      </span>
+                      <button
+                        class="text-3xs font-medium bg-slate-50 hover:bg-orange-50 text-slate-600 hover:text-orange-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-orange-200 transition-colors cursor-pointer"
+                        type="button"
+                      >
+                        Xe CNV
+                      </button>
+                      <button
+                        class="text-3xs font-medium bg-slate-50 hover:bg-orange-50 text-slate-600 hover:text-orange-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-orange-200 transition-colors cursor-pointer"
+                        type="button"
+                      >
+                        A Hùng Xe Tải
+                      </button>
+                      <button
+                        class="text-3xs font-medium bg-slate-50 hover:bg-orange-50 text-slate-600 hover:text-orange-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-orange-200 transition-colors cursor-pointer"
+                        type="button"
+                      >
+                        GHTK
+                      </button>
+                      <button
+                        class="text-3xs font-medium bg-slate-50 hover:bg-orange-50 text-slate-600 hover:text-orange-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-orange-200 transition-colors cursor-pointer"
+                        type="button"
+                      >
+                        Viettel Post
+                      </button>
+                      <button
+                        class="text-3xs font-medium bg-slate-50 hover:bg-orange-50 text-slate-600 hover:text-orange-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-orange-200 transition-colors cursor-pointer"
+                        type="button"
+                      >
+                        Chành xe Miền Tây
+                      </button>
+                      <button
+                        class="text-3xs font-medium bg-slate-50 hover:bg-orange-50 text-slate-600 hover:text-orange-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-orange-200 transition-colors cursor-pointer"
+                        type="button"
+                      >
+                        Chành xe Bắc Nam
+                      </button>
+                    </div>
                   </div>
                   <div
                     class="space-y-1.5 focus-within:text-blue-600 transition-colors"
@@ -3032,12 +3222,45 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
                     >
                       Hotline / SĐT Tài xế
                     </label>
-                    <input
-                      class="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full font-mono font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400"
-                      id="soDienThoaiDonViVanChuyen"
-                      name="soDienThoaiDonViVanChuyen"
-                      placeholder="09xx..."
-                    />
+                    <div
+                      class="flex flex-col gap-0"
+                    >
+                      <div
+                        class="relative flex items-center"
+                      >
+                        <div
+                          class="absolute left-3 text-slate-400 pointer-events-none flex items-center"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            class="lucide lucide-phone"
+                            fill="none"
+                            height="14"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                            width="14"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"
+                            />
+                          </svg>
+                        </div>
+                        <input
+                          class="w-full pl-9 pr-24 font-mono text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 py-1.5 text-xs"
+                          id="soDienThoaiDonViVanChuyen"
+                          placeholder="09xx xxx xxx"
+                          type="tel"
+                          value=""
+                        />
+                        <div
+                          class="absolute right-2 flex items-center gap-1.5"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div
                     class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100"
@@ -3101,12 +3324,45 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
                         </svg>
                         SĐT liên lạc thợ
                       </label>
-                      <input
-                        class="h-8 rounded-lg border border-slate-200 px-3 text-sm w-full font-mono font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400"
-                        id="sdtThoGiaoMay"
-                        name="sdtThoGiaoMay"
-                        placeholder="Số điện thoại thợ giao..."
-                      />
+                      <div
+                        class="flex flex-col gap-0"
+                      >
+                        <div
+                          class="relative flex items-center"
+                        >
+                          <div
+                            class="absolute left-3 text-slate-400 pointer-events-none flex items-center"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="lucide lucide-phone"
+                              fill="none"
+                              height="14"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              viewBox="0 0 24 24"
+                              width="14"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"
+                              />
+                            </svg>
+                          </div>
+                          <input
+                            class="w-full pl-9 pr-24 font-mono text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 py-1.5 text-xs"
+                            id="sdtThoGiaoMay"
+                            placeholder="09xx xxx xxx"
+                            type="tel"
+                            value=""
+                          />
+                          <div
+                            class="absolute right-2 flex items-center gap-1.5"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -4622,15 +4878,22 @@ exports[`Component Snapshots (Baseline) > renders PaymentRecordDrawer 1`] = `
                   </span>
                 </div>
                 <div
-                  class="relative"
+                  class="p-3"
                 >
-                  <input
-                    aria-label="Nhập thông tin"
-                    class="premium-input w-full font-bold text-slate-900 text-lg pr-4 text-right font-mono tabular-nums focus:ring-slate-950 focus:border-slate-950 bg-white"
-                    placeholder="0"
-                    type="text"
-                    value=""
-                  />
+                  <div
+                    class="flex flex-col gap-1"
+                  >
+                    <div
+                      class="relative w-full"
+                    >
+                      <input
+                        class="w-full text-slate-800 bg-white border border-slate-200 rounded-lg p-2 transition-all outline-none text-right focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-lg font-bold font-mono tracking-tight"
+                        placeholder="0 đ"
+                        type="text"
+                        value=""
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

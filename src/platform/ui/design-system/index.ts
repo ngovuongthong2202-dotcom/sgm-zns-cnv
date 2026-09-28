@@ -35,3 +35,4 @@ export * from './skeletons';
 export * from './primitives';
 export * from './SegmentedTabs';
 export * from './Switch';
+export * from './form';

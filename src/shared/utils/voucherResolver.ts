@@ -147,8 +147,42 @@ export function calculateMachineAllocation(
     ? totalFromProducts 
     : (Number(doc.slMay) || (Array.isArray(doc.danhSachMaMay) ? doc.danhSachMaMay.length : 0));
 
-  // 2. Tổng cơ số máy đã được gán vào các phiếu giao hàng (kể cả đang xử lý hay đã giao)
-  const validDeliveries = relatedDeliveries.filter((d: any) => !d.deletedAt && !d.isDeleted);
+  // 2. Tự phòng vệ đa tầng (Multi-Layer Self-Defense):
+  // Lọc chỉ những phiếu giao hàng thuộc về tài liệu này và loại bỏ các phiếu đã hủy / xóa mềm
+  const cleanId = (v: any) => (v ? String(v).trim().toLowerCase() : '');
+  const docId = cleanId(doc.id || doc._rawId);
+  const docSoHopDong = cleanId(doc.soHopDong || doc.contractCode);
+  const docSoDonHang = cleanId(doc.soDonHang);
+  const docQuotationId = cleanId(doc.quotationId);
+  const docSoPhieuBaoGia = cleanId(doc.soPhieuBaoGia || doc.soBaoGia);
+
+  const hasAnyDocIdentifier = Boolean(docId || docSoHopDong || docSoDonHang || docQuotationId || docSoPhieuBaoGia);
+
+  const validDeliveries = relatedDeliveries.filter((d: any) => {
+    if (!d || d.deletedAt || d.deleted_at || d.isDeleted) return false;
+    const status = (d.tinhTrangGiaoHang || d.status || '').toString().trim().toUpperCase();
+    if (status === 'HỦY' || status === 'HUY' || status === 'CANCELLED') return false;
+
+    // Nếu doc có mã định danh, bắt buộc phiếu giao phải liên kết với doc
+    if (hasAnyDocIdentifier) {
+      const dContractId = cleanId(d.contractId);
+      const dSoHopDong = cleanId(d.soHopDong || d.contractCode);
+      const dSoDonHang = cleanId(d.soDonHang);
+      const dQuotationId = cleanId(d.quotationId);
+      const dSoPhieuBaoGia = cleanId(d.soPhieuBaoGia || d.soBaoGia);
+
+      const isMatch = (
+        (docId && (dContractId === docId || dContractId === docSoHopDong)) ||
+        (docSoHopDong && (dSoHopDong === docSoHopDong || dContractId === docSoHopDong || dSoHopDong === docId)) ||
+        (docSoDonHang && dSoDonHang && dSoDonHang === docSoDonHang) ||
+        (docQuotationId && (dQuotationId === docQuotationId || dQuotationId === docSoPhieuBaoGia)) ||
+        (docSoPhieuBaoGia && (dSoPhieuBaoGia === docSoPhieuBaoGia || dQuotationId === docSoPhieuBaoGia))
+      );
+      if (!isMatch) return false;
+    }
+
+    return true;
+  });
   
   let totalAssignedMachines = 0;
   let totalDeliveredMachines = 0;

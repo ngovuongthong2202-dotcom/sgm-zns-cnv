@@ -18,6 +18,7 @@ import {
   Plus
 } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
+import { SmartFinancialInput } from '@/src/design-system';
 import { Payment, PaymentInstallment } from '@/src/domain/schema/payment.schema';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
 import { sanitizeText } from '@/src/shared/utils/inputSanitizer';
@@ -260,68 +261,28 @@ export function RecordInstallmentModal({
                       )}
                     </div>
 
-                    <div className="relative">
-                      <input 
-                        type="text"
-                        value={displayAmount}
-                        onChange={handleAmountChange}
-                        className="h-11 px-3.5 pr-14 border-2 border-emerald-400 focus:border-emerald-700 rounded-xl text-lg font-currency font-black text-emerald-950 w-full outline-none bg-emerald-50/20 shadow-2xs transition-colors"
-                        placeholder="Nhập số tiền thu (VD: 450.000.000)..."
-                      />
-                      <span className="absolute right-3.5 top-3 text-xs font-black text-slate-700 select-none">
-                        VND
-                      </span>
-                    </div>
-
-                    {/* Dịch số tiền thành chữ tiếng Việt */}
-                    {watchedAmount > 0 && (
-                      <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-2xs text-emerald-950 flex items-start gap-1.5">
-                        <span className="font-black uppercase tracking-wider shrink-0 text-emerald-800">Bằng chữ:</span>
-                        <span className="italic font-bold">
-                          {readVietnameseCurrency(watchedAmount)}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Phím bấm nhanh: Tỷ lệ nợ & Cộng số tiền */}
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-3xs font-extrabold uppercase text-slate-800 flex items-center gap-1">
-                          <Percent size={11} className="text-blue-600" /> Tỷ lệ nợ:
-                        </span>
-                        {[
-                          { label: '30% (Cọc sản xuất SGM)', ratio: 0.3 },
-                          { label: '50% (Trước xuất xưởng)', ratio: 0.5 },
-                          { label: '70% (Bàn giao)', ratio: 0.7 },
-                          { label: '100% (Tất toán)', ratio: 1.0 },
-                        ].map(preset => (
-                          <button
-                            key={preset.label}
-                            type="button"
-                            onClick={() => handleApplyPresetRatio(preset.ratio)}
-                            className="px-2 py-0.5 rounded text-3xs font-black bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 transition-colors cursor-pointer"
-                          >
-                            {preset.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-3xs font-extrabold uppercase text-slate-800 flex items-center gap-1">
-                          <Plus size={11} className="text-emerald-700" /> Cộng nhanh:
-                        </span>
-                        {[1_000_000, 5_000_000, 10_000_000, 50_000_000, 100_000_000].map(addVal => (
-                          <button
-                            key={addVal}
-                            type="button"
-                            onClick={() => handleApplyIncrement(addVal)}
-                            className="px-2 py-0.5 rounded text-3xs font-bold bg-slate-100 hover:bg-emerald-100 text-slate-900 hover:text-emerald-950 border border-slate-250 transition-colors cursor-pointer"
-                          >
-                            +{addVal >= 1_000_000 ? `${addVal / 1_000_000}tr` : formatCurrency(addVal)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    <SmartFinancialInput
+                      value={watchedAmount}
+                      onChange={(val: number) => {
+                        const capped = remainingDebt > 0 ? Math.min(remainingDebt, val) : val;
+                        setValue('soTien', capped, { shouldValidate: true, shouldDirty: true });
+                        setDisplayAmount(new Intl.NumberFormat('vi-VN').format(capped));
+                      }}
+                      max={remainingDebt > 0 ? remainingDebt : undefined}
+                      currencySuffix="VND"
+                      showWordsBadge={true}
+                      showLiveMathPreview={true}
+                      baseAmountForPresets={remainingDebt}
+                      presetRatios={[
+                        { label: '⚡ 30% Cọc SX', ratio: 0.3 },
+                        { label: '⚡ 50% Trước xuất xưởng', ratio: 0.5 },
+                        { label: '⚡ 70% Bàn giao', ratio: 0.7 },
+                        { label: '⚡ 100% Tất toán', ratio: 1.0 },
+                      ]}
+                      quickIncrements={[1_000_000, 5_000_000, 10_000_000, 50_000_000, 100_000_000]}
+                      className="h-11 px-3.5 border-2 border-emerald-400 focus:border-emerald-700 rounded-xl text-lg font-currency font-black text-emerald-950 w-full outline-none bg-emerald-50/20 shadow-2xs transition-colors"
+                      placeholder="Nhập số tiền thu (VD: 450.000.000 hoặc 450m)..."
+                    />
 
                     {errors.soTien && (
                       <p className="text-red-600 text-3xs font-bold flex items-center gap-1 mt-1">

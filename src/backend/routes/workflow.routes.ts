@@ -674,6 +674,15 @@ router.post('/check-gate', async (req, res) => {
       validatorFunc = canCreatePayment as unknown as (data: unknown) => { allowed: boolean; reason?: string };
     } else if (targetEntity === 'DELIVERY') {
       if (requestedParentDocType === 'contracts' || requestedParentDocType === 'quotations') {
+         // Kiểm tra cơ chế Đặc cách Ban Giám Đốc (Executive Waiver): Giao hàng trước mới thanh toán sau
+         const parentDocSnap = await adminDb.collection(requestedParentDocType).doc(parentId).get();
+         if (parentDocSnap.exists) {
+            const pData = parentDocSnap.data() as any;
+            if (pData?.dacCachGiaoTruoc || pData?.choPhepGiaoTruoc || pData?.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU' || pData?.isPostDeliverySettlement) {
+               return res.json({ action: 'ALLOW', warning: "Đơn hàng/Hợp đồng được phê duyệt Đặc cách Ban Giám Đốc giao trước thanh toán sau." });
+            }
+         }
+
          const filterField = requestedParentDocType === 'contracts' ? 'contractId' : 'quotationId';
          const paymentsSnap = await adminDb.collection('payments').where(filterField, '==', parentId).get();
          let isAllowed = false;

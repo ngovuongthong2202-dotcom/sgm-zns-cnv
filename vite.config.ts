@@ -23,6 +23,7 @@ export default defineConfig({
 
   resolve: {
     alias: {
+      '@/src/design-system': path.resolve(__dirname, './src/platform/ui/design-system'),
       '@': path.resolve(__dirname, '.'),
       '@/ds': path.resolve(__dirname, './src/platform/ui/design-system'),
       '@/shared': path.resolve(__dirname, './src/shared'),
