@@ -7,6 +7,8 @@ import { formatDate } from '@/src/shared/utils/formatDate';
 import { aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
 import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 
+import { SGM_COMPANY_INFO } from '@/src/shared/constants/companyInfo';
+
 interface ExportQuotationPdfProps {
   quotation: Quotation;
   variant?: 'default' | 'primary' | 'secondary' | 'danger' | 'ghost' | 'link';
@@ -77,16 +79,18 @@ export function ExportQuotationPdf({ quotation, variant = 'secondary', className
 
           {/* Header */}
           <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8 relative z-10">
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">SGM VIỆT NAM</h1>
-              <p className="text-xs text-slate-500 mt-1 font-semibold max-w-sm">
-                Nhà cung cấp máy móc thiết bị và vật tư vận hành B2B hàng đầu.<br />
-                Đường số 4, KCN Hòa Khánh, Liên Chiểu, Đà Nẵng. <br />
-                Hotline: 1900 6067 | Email: contact@sgm.vn
-              </p>
+            <div className="flex items-start gap-4">
+              <img src="/sgm-logo.png" alt="SGM Logo" className="h-16 w-auto object-contain shrink-0" />
+              <div>
+                <h1 className="text-base font-black tracking-tight text-slate-900 uppercase">{SGM_COMPANY_INFO.name}</h1>
+                <p className="text-2xs text-slate-600 mt-0.5 font-medium leading-normal max-w-sm">
+                  {SGM_COMPANY_INFO.address}<br />
+                  MST: <span className="font-mono font-bold">{SGM_COMPANY_INFO.taxCode}</span> | Hotline: <span className="font-mono font-bold">{SGM_COMPANY_INFO.hotline}</span> | Email: {SGM_COMPANY_INFO.email}
+                </p>
+              </div>
             </div>
-            <div className="text-right">
-              <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wide">BÁO GIÁ THƯƠNG MẠI</h2>
+            <div className="text-right shrink-0">
+              <h2 className="text-base font-black text-blue-900 uppercase tracking-wide">BÁO GIÁ THƯƠNG MẠI</h2>
               <div className="mt-2 text-xs space-y-1 font-semibold text-slate-600">
                 <p>Số BG: <span className="font-mono text-slate-900 font-bold">{quotation.soPhieuBaoGia || 'DRAFT-XXX'}</span></p>
                 <p>Ngày lập: <span className="text-slate-950 font-mono">{formatDate(quotation.ngayBaoGia)}</span></p>

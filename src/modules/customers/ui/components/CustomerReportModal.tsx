@@ -270,9 +270,12 @@ export function CustomerReportModal({
             <div>
               {/* Header Bar */}
               <div className="flex items-center justify-between border-b-2 border-slate-900 pb-2 mb-4">
-                <span className="font-bold tracking-wider text-sm text-slate-950 uppercase">SAIGON MACHINE</span>
+                <div className="flex items-center gap-2">
+                  <img src="/sgm-logo.png" alt="SGM Logo" className="h-6 w-auto object-contain" />
+                  <span className="font-bold tracking-wider text-sm text-slate-950 uppercase">SAIGON MACHINE (SGM)</span>
+                </div>
                 <span className="font-bold tracking-wider text-xs text-slate-700 uppercase">
-                  HỒ SƠ NỘI BỘ / {customer.maKh}
+                  HỒ SƠ KHÁCH HÀNG 360° / {customer.maKh}
                 </span>
               </div>
 

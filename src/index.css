@@ -7,6 +7,7 @@
   --font-display: "Plus Jakarta Sans", "Inter", sans-serif;
   --font-serif: "Playfair Display", serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-currency: var(--font-sans);
 
   /* Semantic Corporate Light Colors - WCAG 2.1 AAA Compliant */
   --color-surface: #ffffff;

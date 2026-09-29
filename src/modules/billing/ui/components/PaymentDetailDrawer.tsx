@@ -461,68 +461,98 @@ export function PaymentDetailDrawer({
                         <th className="p-2 px-3">Hình thức & Số UNC</th>
                         <th className="p-2 px-3">Người nộp</th>
                         <th className="p-2 px-3">Ghi chú</th>
-                        {onSendZns && <th className="p-2 px-3 text-center w-20">ZNS</th>}
+                        <th className="p-2 px-3 text-center min-w-[130px]">Trạng thái ZNS</th>
+                        {onSendZns && <th className="p-2 px-3 text-center w-20">Thao tác</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {effectiveInstallments.map((inst, idx) => (
-                        <tr key={inst.id || idx} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="p-2 px-3 text-center font-bold text-slate-600">
-                            <div className="flex flex-col items-center gap-1">
-                              <span className="font-mono text-3xs bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">
-                                Đợt {inst.lanThu || idx + 1}
-                              </span>
-                              {idx === triggerInstallmentIdx && (
-                                <span className="text-3xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-2xs">
-                                  {triggerBadgeText}
+                      {effectiveInstallments.map((inst, idx) => {
+                        const isFirstInst = (inst.lanThu === 1 || idx === 0);
+                        const isSent = (inst as any).znsStatus === 'ĐÃ GỬI' || 
+                                       (inst as any).trangThaiGuiTin === 'ĐÃ GỬI' || 
+                                       Boolean((inst as any).znsSentAt) ||
+                                       (isFirstInst && (payment.trangThaiGuiTinThanhToan === 'ĐÃ GỬI' || (payment as any).trangThaiGuiTinThanhToan === 'SENT'));
+                        const isFailed = (inst as any).znsStatus === 'THẤT BẠI' || 
+                                         (isFirstInst && (payment.trangThaiGuiTinThanhToan === 'THẤT BẠI' || (payment as any).trangThaiGuiTinThanhToan === 'FAILED'));
+
+                        return (
+                          <tr key={inst.id || idx} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="p-2 px-3 text-center font-bold text-slate-600">
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="font-mono text-3xs bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">
+                                  Đợt {inst.lanThu || idx + 1}
+                                </span>
+                                {idx === triggerInstallmentIdx && (
+                                  <span className="text-3xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-2xs">
+                                    {triggerBadgeText}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-2 px-3 font-currency text-slate-600">
+                              {formatDate(inst.ngayThu)}
+                            </td>
+                            <td className="p-2 px-3 text-right font-currency font-black text-emerald-800">
+                              {formatCurrency(inst.soTien || 0)}
+                            </td>
+                            <td className="p-2 px-3 text-slate-700 font-medium">
+                              <span>{inst.phuongThucThanhToan || 'Chuyển khoản'}</span>
+                              {inst.soChungTuThamChieu && (
+                                <span className="font-mono text-3xs text-blue-700 font-semibold block">
+                                  UNC: {inst.soChungTuThamChieu}
                                 </span>
                               )}
-                            </div>
-                          </td>
-                          <td className="p-2 px-3 font-currency text-slate-600">
-                            {formatDate(inst.ngayThu)}
-                          </td>
-                          <td className="p-2 px-3 text-right font-currency font-black text-emerald-800">
-                            {formatCurrency(inst.soTien || 0)}
-                          </td>
-                          <td className="p-2 px-3 text-slate-700 font-medium">
-                            <span>{inst.phuongThucThanhToan || 'Chuyển khoản'}</span>
-                            {inst.soChungTuThamChieu && (
-                              <span className="font-mono text-3xs text-blue-700 font-semibold block">
-                                UNC: {inst.soChungTuThamChieu}
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-2 px-3 text-slate-800">
-                            {inst.nguoiNop || payerName}
-                          </td>
-                          <td className="p-2 px-3 text-slate-500 italic text-3xs">
-                            {inst.ghiChu || '---'}
-                          </td>
-                          {onSendZns && (
-                            <td className="p-2 px-3 text-center">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const installmentPaymentSnapshot: Payment = {
-                                    ...payment,
-                                    soTien: inst.soTien || payment.soTien,
-                                    ngayThanhToan: inst.ngayThu || payment.ngayThanhToan,
-                                    phuongThucThanhToan: inst.phuongThucThanhToan || payment.phuongThucThanhToan,
-                                    tenNguoiNop: inst.nguoiNop || payerName,
-                                  };
-                                  onSendZns(installmentPaymentSnapshot);
-                                }}
-                                className="inline-flex items-center gap-1 text-3xs font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-1 rounded transition-colors cursor-pointer"
-                                title={`Gửi ZNS cho Đợt ${inst.lanThu || idx + 1}`}
-                              >
-                                <Send size={10} />
-                                Gửi
-                              </button>
                             </td>
-                          )}
-                        </tr>
-                      ))}
+                            <td className="p-2 px-3 text-slate-800">
+                              {inst.nguoiNop || payerName}
+                            </td>
+                            <td className="p-2 px-3 text-slate-500 italic text-3xs">
+                              {inst.ghiChu || '---'}
+                            </td>
+                            <td className="p-2 px-3 text-center">
+                              {isSent ? (
+                                <span className="inline-flex items-center gap-1 text-3xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                  ✓ Đã gửi ZNS
+                                </span>
+                              ) : isFailed ? (
+                                <span className="inline-flex items-center gap-1 text-3xs font-bold text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                  ⚠️ Thất bại
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-3xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                  Chưa gửi
+                                </span>
+                              )}
+                            </td>
+                            {onSendZns && (
+                              <td className="p-2 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const installmentPaymentSnapshot: Payment = {
+                                      ...payment,
+                                      soTien: inst.soTien || payment.soTien,
+                                      ngayThanhToan: inst.ngayThu || payment.ngayThanhToan,
+                                      phuongThucThanhToan: inst.phuongThucThanhToan || payment.phuongThucThanhToan,
+                                      tenNguoiNop: inst.nguoiNop || payerName,
+                                    };
+                                    onSendZns(installmentPaymentSnapshot);
+                                  }}
+                                  className={`inline-flex items-center gap-1 text-3xs font-bold px-2 py-1 rounded transition-colors cursor-pointer border ${
+                                    isSent 
+                                      ? 'text-slate-600 bg-slate-50 hover:bg-slate-100 border-slate-200' 
+                                      : 'text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border-blue-200'
+                                  }`}
+                                  title={`Gửi ZNS cho Đợt ${inst.lanThu || idx + 1}`}
+                                >
+                                  <Send size={10} />
+                                  {isSent ? 'Gửi lại' : 'Gửi ZNS'}
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

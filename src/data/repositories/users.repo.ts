@@ -25,6 +25,26 @@ const defaultAdminAccount: UserAccount = {
 export class UsersRepository {
   private tableName = 'users';
 
+  async getAll(): Promise<UserAccount[]> {
+    if (!isSupabaseConfigured) {
+      return [defaultAdminAccount];
+    }
+    const { data, error } = await supabase.from(this.tableName).select('*');
+    if (error || !data) {
+      return [defaultAdminAccount];
+    }
+    return (data || []).map((row: any) => ({
+      id: row.id || row.username,
+      username: row.username,
+      displayName: row.display_name || row.displayName,
+      department: row.department,
+      position: row.position,
+      role: row.role,
+      createdAt: row.created_at,
+      ...((row.data as Record<string, unknown>) || {})
+    } as UserAccount));
+  }
+
   async getUser(username: string): Promise<UserAccount | null> {
     if (!isSupabaseConfigured) {
       return username === 'admin' ? defaultAdminAccount : null;

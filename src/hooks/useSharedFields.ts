@@ -32,24 +32,24 @@ import {
 export { VIETNAM_PROVINCES_2025, VIETNAM_PROVINCES_63 };
 export { vietnamProvincesApi };
 
+import { usersRepo } from '@/src/data/repositories';
+
 const fetchSystemResources = async () => {
   const [sharedFieldsDataRaw, znsTemplatesRaw, usersResult] = await Promise.all([
     settingsRepo.getById('shared_fields'),
     repositoryFactory.get<Record<string, unknown>>('znsTemplates').list({ limit: 500 }),
-    isSupabaseConfigured
-      ? supabase.from('users').select('*')
-      : Promise.resolve({ data: [], error: null })
+    usersRepo.getAll().catch(() => [])
   ]);
 
   const sharedFieldsData = sharedFieldsDataRaw || {};
-  const znsTemplatesList = znsTemplatesRaw.filter(d => !d.deletedAt);
+  const znsTemplatesList = znsTemplatesRaw.filter((d: any) => !d.deletedAt);
 
-  // Extract users from users table - lọc sạch tài khoản placeholder cũ
+  // Extract users from users table - lấy chính xác displayName (Họ & Tên)
   let userAccountsList: string[] = [];
-  const userRows = usersResult.data || [];
+  const userRows = Array.isArray(usersResult) ? usersResult : [];
   if (userRows.length > 0) {
     userAccountsList = userRows
-      .map((d: any) => ((d.display_name || d.displayName || d.data?.displayName || d.username || '') as string).trim())
+      .map((d: any) => ((d.displayName || d.display_name || d.data?.displayName || d.username || '') as string).trim())
       .filter(Boolean)
       .filter((name: string) => !name.toLowerCase().includes('mạnh hùng'));
   }

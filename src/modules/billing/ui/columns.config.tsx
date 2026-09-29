@@ -170,9 +170,17 @@ export const getPaymentColumns = (
          );
       } else if (quoCode) {
          displayNode = (
-           <span className="font-semibold text-emerald-800 hover:text-emerald-950 tracking-tight text-xs transition-colors">
-             {quoCode.startsWith('BG') ? quoCode : `BG: ${quoCode}`}
-           </span>
+           <div className="flex flex-col gap-0.5" title={`Báo giá: ${quoCode}${order ? ` | ${order}` : ''}`}>
+             <span className="font-semibold text-emerald-800 hover:text-emerald-950 tracking-tight text-xs transition-colors flex items-center gap-1">
+               <span className="bg-emerald-50 text-emerald-800 border border-emerald-300 px-1 py-0.2 rounded text-3xs font-mono font-bold">BG</span>
+               {quoCode.startsWith('BG') ? quoCode : `BG: ${quoCode}`}
+             </span>
+             {order && (
+               <span className="font-mono text-slate-600 font-medium text-2xs uppercase">
+                 {order.startsWith('ĐH') || order.startsWith('DH') ? order : `ĐH: ${order}`}
+               </span>
+             )}
+           </div>
          );
       } else if (fallback) {
          displayNode = <span className="font-mono text-slate-500 font-medium text-xs">{fallback}</span>;
@@ -554,9 +562,42 @@ export const getPaymentColumns = (
     accessorFn: (row) => normalizeLegacyStatus(row.trangThaiGuiTinThanhToan),
     id: 'trangThaiGuiTinThanhToan',
     header: 'Trạng thái ZNS',
-    size: 130,
+    size: 140,
     cell: (info) => {
+       const p = info.row.original as Payment;
        const status = info.getValue() as EntityZnsStatus;
+       const installments = p.cacDotThu || [];
+       
+       if (installments.length > 1) {
+         const sentCount = installments.filter((inst: any) => 
+           inst.znsStatus === 'ĐÃ GỬI' || 
+           inst.trangThaiGuiTin === 'ĐÃ GỬI' || 
+           Boolean(inst.znsSentAt) ||
+           (inst.lanThu === 1 && (status === EntityZnsStatus.THANH_CONG || (status as any) === 'ĐÃ GỬI'))
+         ).length;
+         
+         const allSent = sentCount >= installments.length;
+         const partialSent = sentCount > 0 && sentCount < installments.length;
+         
+         return (
+           <div onClick={(e) => e.stopPropagation()} className="flex flex-col gap-0.5">
+             {allSent ? (
+               <span className="px-2 py-0.5 rounded-md text-2xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-tight uppercase leading-none inline-flex items-center gap-1">
+                 ✓ Đã gửi ({sentCount}/{installments.length} đợt)
+               </span>
+             ) : partialSent ? (
+               <span className="px-2 py-0.5 rounded-md text-2xs font-bold bg-amber-50 text-amber-800 border border-amber-200 tracking-tight uppercase leading-none inline-flex items-center gap-1">
+                 ⏳ Gửi {sentCount}/{installments.length} đợt
+               </span>
+             ) : (
+               <span className="px-2 py-0.5 rounded-md text-2xs font-bold bg-slate-50 text-slate-700 border border-slate-200 tracking-tight uppercase leading-none inline-flex items-center gap-1">
+                 Chưa gửi ({installments.length} đợt)
+               </span>
+             )}
+           </div>
+         );
+       }
+
        return (
          <div onClick={(e) => e.stopPropagation()}>
            <StatusPill statusStr={status as string} />

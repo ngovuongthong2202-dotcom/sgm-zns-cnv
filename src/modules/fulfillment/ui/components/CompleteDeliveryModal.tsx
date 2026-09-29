@@ -27,6 +27,9 @@ import { SmartPhoneInput } from '@/src/design-system';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/src/design-system/Button';
 import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
+import { parseVietnamAddressComplete } from '@/src/shared/services/vietnamAddressParser';
+import { VIETNAM_PROVINCES_2025 } from '@/src/shared/services/vietnamProvincesApi';
+import { detectItemType } from '@/src/widgets/product-list-input/useProductItemSemantic';
 
 const CompleteSchema = z.object({
   ngayGiaoThucTe: z.string().min(1, 'Vui lòng chọn ngày giao'),
@@ -226,11 +229,32 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                       </div>
 
                       <div className="p-2.5 bg-white rounded-lg border border-slate-200">
-                        <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Địa chỉ giao nhận</span>
+                        <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Địa chỉ & Vùng Giao Nhận</span>
                         <span className="font-medium text-slate-800 text-xs line-clamp-2 flex items-start gap-1" title={delivery.diaChiGiaoHang}>
                           <MapPin size={12} className="text-amber-600 shrink-0 mt-0.5" />
                           {delivery.diaChiGiaoHang || 'Tại cơ sở của khách hàng'}
                         </span>
+                        {(() => {
+                          const geoResult = parseVietnamAddressComplete(delivery.diaChiGiaoHang || '', VIETNAM_PROVINCES_2025);
+                          if (!geoResult?.province) return null;
+                          return (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                              <span className="text-3xs font-bold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                                🏙️ Tỉnh/Thành: {geoResult.province}
+                              </span>
+                              {geoResult.logisticsRegion && (
+                                <span className="text-3xs font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                  📍 Vùng: {geoResult.logisticsRegion}
+                                </span>
+                              )}
+                              {geoResult.suggestedCarriers?.length ? (
+                                <span className="text-3xs font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title={`Đơn vị đề xuất: ${geoResult.suggestedCarriers.map(c => c.carrierName).join(', ')}`}>
+                                  🚚 Gợi ý: {geoResult.suggestedCarriers[0].carrierName}
+                                </span>
+                              ) : null}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -315,10 +339,12 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                               const curSerials = productSerials[key] || [];
                               const targetQty = Number(prod.quantity) || 1;
                               const isFilled = curSerials.length === targetQty;
+                              const itemType = prod.itemType || detectItemType(prod.productName, prod.unit || (prod as any).dvt);
+                              const isMachine = itemType === 'MACHINE';
 
                               const warrantyDisplay = (prod as any).ngayHetHanBaoHanh 
                                 ? formatDate((prod as any).ngayHetHanBaoHanh)
-                                : ((prod as any).thoiGianBaoHanh ? `${(prod as any).thoiGianBaoHanh} tháng` : '12 tháng (Tiêu chuẩn)');
+                                : ((prod as any).thoiGianBaoHanh ? `${(prod as any).thoiGianBaoHanh} tháng` : (isMachine ? '12 tháng (Tiêu chuẩn)' : 'Theo tiêu chuẩn'));
 
                               return (
                                 <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
@@ -326,46 +352,73 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                                     {idx + 1}
                                   </td>
                                   <td className="p-2.5 px-3 text-slate-800 font-medium align-top">
-                                    <span className="font-bold text-slate-900 block">{prod.productName}</span>
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                      <span className="font-bold text-slate-900">{prod.productName}</span>
+                                      {itemType === 'SERVICE' ? (
+                                        <span className="text-3xs font-bold text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                                          Dịch vụ
+                                        </span>
+                                      ) : itemType === 'MATERIAL' ? (
+                                        <span className="text-3xs font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                          Vật tư
+                                        </span>
+                                      ) : (
+                                        <span className="text-3xs font-bold text-blue-800 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
+                                          Máy
+                                        </span>
+                                      )}
+                                    </div>
                                     {prod.productId && (
                                       <span className="font-mono text-3xs text-slate-500">Mã: {prod.productId}</span>
                                     )}
                                   </td>
                                   <td className="p-2.5 px-3 text-center font-mono font-bold text-slate-800 border-l border-slate-100 bg-slate-50/40 align-top pt-3">
-                                    {prod.quantity} <span className="text-3xs text-slate-500 font-normal">{prod.unit || 'Máy'}</span>
+                                    {prod.quantity} <span className="text-3xs text-slate-500 font-normal">{prod.unit || (itemType === 'SERVICE' ? 'Gói' : 'Cái')}</span>
                                   </td>
                                   <td className="p-2.5 px-3 text-xs border-l border-slate-100 align-top pt-3">
-                                    <span className="inline-flex items-center gap-1 font-mono font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-3xs">
-                                      <ShieldCheck size={11} className="shrink-0" />
-                                      {warrantyDisplay}
-                                    </span>
+                                    {isMachine ? (
+                                      <span className="inline-flex items-center gap-1 font-mono font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-3xs">
+                                        <ShieldCheck size={11} className="shrink-0" />
+                                        {warrantyDisplay}
+                                      </span>
+                                    ) : (
+                                      <span className="text-3xs text-slate-400 italic">
+                                        Không áp dụng serial
+                                      </span>
+                                    )}
                                   </td>
                                   <td className="p-2.5 px-3 border-l border-slate-100 bg-blue-50/20 align-top">
-                                    <div className="space-y-1.5">
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-3xs font-bold text-slate-600 uppercase">
-                                          Serial máy ({curSerials.length}/{targetQty})
-                                        </span>
-                                        {isFilled ? (
-                                          <span className="text-3xs font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.2 rounded border border-emerald-300">
-                                            ✓ Đủ {targetQty} mã
+                                    {isMachine ? (
+                                      <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-3xs font-bold text-slate-600 uppercase">
+                                            Serial máy ({curSerials.length}/{targetQty})
                                           </span>
-                                        ) : (
-                                          <span className="text-3xs text-amber-700 font-semibold">
-                                            (Nhập {targetQty} serial)
-                                          </span>
-                                        )}
+                                          {isFilled ? (
+                                            <span className="text-3xs font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.2 rounded border border-emerald-300">
+                                              ✓ Đủ {targetQty} mã
+                                            </span>
+                                          ) : (
+                                            <span className="text-3xs text-amber-700 font-semibold">
+                                              (Nhập {targetQty} serial)
+                                            </span>
+                                          )}
+                                        </div>
+                                        <MachineCodeChipInput 
+                                          value={curSerials}
+                                          onChange={(newSerials) => {
+                                            setProductSerials(prev => ({
+                                              ...prev,
+                                              [key]: newSerials
+                                            }));
+                                          }}
+                                        />
                                       </div>
-                                      <MachineCodeChipInput 
-                                        value={curSerials}
-                                        onChange={(newSerials) => {
-                                          setProductSerials(prev => ({
-                                            ...prev,
-                                            [key]: newSerials
-                                          }));
-                                        }}
-                                      />
-                                    </div>
+                                    ) : (
+                                      <div className="p-2 bg-slate-50 border border-dashed border-slate-200 rounded text-center text-3xs text-slate-500 italic">
+                                        {itemType === 'SERVICE' ? '🛠️ Dịch vụ kỹ thuật - Không cấp mã Serial máy' : '📦 Phụ tùng / Vật tư - Bàn giao theo số lượng'}
+                                      </div>
+                                    )}
                                   </td>
                                 </tr>
                               );

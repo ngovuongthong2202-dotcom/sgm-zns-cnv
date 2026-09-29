@@ -435,28 +435,28 @@ export function PaymentRecordBasicFields({
                 <div className="col-span-2 grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-2xs font-medium uppercase tracking-wide text-slate-600 block">
-                      Số Hợp Đồng {!isContract && <span className="text-red-600 font-bold">*</span>}
+                      Số Hợp Đồng
                     </label>
                     <input 
                       aria-label="Số hợp đồng" 
                       disabled={disabled} 
-                      {...register('soHopDong', { required: !isContract })} 
+                      {...register('soHopDong')} 
                       onBlur={(e) => handleBlurUppercase(e, (val) => setValue('soHopDong', val, { shouldDirty: true }))}
                       className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" 
-                      placeholder={isContract ? "HD..." : "Nhập số hợp đồng (*)..."}
+                      placeholder={isContract ? "HD..." : "Nhập số hợp đồng (nếu có)..."}
                     />
                   </div>
                   <div className="space-y-1">
                     <label className="text-2xs font-medium uppercase tracking-wide text-slate-600 block">
-                      Số Đơn Hàng {!isContract && <span className="text-red-600 font-bold">*</span>}
+                      Số Đơn Hàng
                     </label>
                     <input 
                       aria-label="Số đơn hàng" 
                       disabled={disabled} 
-                      {...register('soDonHang', { required: !isContract })} 
+                      {...register('soDonHang')} 
                       onBlur={(e) => handleBlurUppercase(e, (val) => setValue('soDonHang', val, { shouldDirty: true }))}
                       className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" 
-                      placeholder={isContract ? (watchAll.soDonHang ? watchAll.soDonHang : "Tự động kế thừa từ HĐ") : "Nhập số đơn hàng (*)..."}
+                      placeholder={isContract ? (watchAll.soDonHang ? watchAll.soDonHang : "Tự động kế thừa từ HĐ") : "Nhập số đơn hàng (nếu có)..."}
                     />
                   </div>
                 </div>

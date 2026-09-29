@@ -75,8 +75,9 @@ export function usePaymentZns(
         : (await repositoryFactory.get<any>('quotations').list({ limit: 10 })).find((q: any) => q.soPhieuBaoGia === payment.soPhieuBaoGia);
       
       if (quotation) {
-        enrichedPayment.soHopDong = enrichedPayment.soHopDong || quotation.soHopDong || quotation.soPhieuBaoGia || '';
+        enrichedPayment.soHopDong = enrichedPayment.soHopDong || quotation.soHopDong || '';
         enrichedPayment.soDonHang = enrichedPayment.soDonHang || quotation.soDonHang || quotation.soPhieuBaoGia || '';
+        enrichedPayment.soPhieuBaoGia = enrichedPayment.soPhieuBaoGia || quotation.soPhieuBaoGia || '';
         if (!enrichedPayment.products || enrichedPayment.products.length === 0) {
           enrichedPayment.products = quotation.products || [];
         }

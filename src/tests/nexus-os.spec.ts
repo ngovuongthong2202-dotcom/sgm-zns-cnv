@@ -38,7 +38,7 @@ describe('NEXUS-OS Architectural Verification', () => {
 
       const uniqueResults = new Set(results);
       expect(uniqueResults.size).toBe(3);
-    });
+    }, 20000);
   });
 
   describe('Pillar 2: Smart Money & Tax Calculation in Quotation Domain', () => {

@@ -5,6 +5,7 @@ import { Button } from '@/src/design-system/Button';
 import { Printer } from 'lucide-react';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
+import { SGM_COMPANY_INFO } from '@/src/shared/constants/companyInfo';
 
 interface ExportDeliveryPdfProps {
   delivery: Delivery;
@@ -55,15 +56,17 @@ export function ExportDeliveryPdf({
         >
           {/* Header doanh nghiệp */}
           <div className="flex justify-between items-start border-b-2 border-slate-900 pb-5 mb-6">
-            <div>
-              <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">CÔNG TY CỔ PHẦN THIẾT BỊ SGM VIỆT NAM</h1>
-              <p className="text-xs text-slate-600 mt-1 font-medium max-w-md">
-                Chuyên cung cấp máy móc cơ khí, thiết bị công nghiệp & dịch vụ kỹ thuật chuyển giao.<br />
-                Trụ sở: KCN Hòa Khánh, TP. Đà Nẵng | Chi nhánh: Hà Nội - TP. Hồ Chí Minh.<br />
-                Hotline Kỹ thuật: 1900 6067 | Kế toán kho: 0988.xxx.xxx
-              </p>
+            <div className="flex items-start gap-4">
+              <img src="/sgm-logo.png" alt="SGM Logo" className="h-14 w-auto object-contain shrink-0" />
+              <div>
+                <h1 className="text-sm font-black tracking-tight text-slate-900 uppercase">{SGM_COMPANY_INFO.name}</h1>
+                <p className="text-2xs text-slate-600 mt-0.5 font-medium leading-normal max-w-sm">
+                  {SGM_COMPANY_INFO.address}<br />
+                  MST: <span className="font-mono font-bold">{SGM_COMPANY_INFO.taxCode}</span> | Hotline: <span className="font-mono font-bold">{SGM_COMPANY_INFO.hotline}</span>
+                </p>
+              </div>
             </div>
-            <div className="text-right">
+            <div className="text-right shrink-0">
               <span className="inline-block px-3 py-1 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-xs text-slate-900 mb-1.5">
                 {delivery.deliveryId || 'PGH-CHUA-LUU'}
               </span>

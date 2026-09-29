@@ -4515,18 +4515,13 @@ exports[`Component Snapshots (Baseline) > renders PaymentRecordDrawer 1`] = `
                       <label
                         class="text-2xs font-medium uppercase tracking-wide text-slate-600 block"
                       >
-                        Số Hợp Đồng 
-                        <span
-                          class="text-red-600 font-bold"
-                        >
-                          *
-                        </span>
+                        Số Hợp Đồng
                       </label>
                       <input
                         aria-label="Số hợp đồng"
                         class="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75"
                         name="soHopDong"
-                        placeholder="Nhập số hợp đồng (*)..."
+                        placeholder="Nhập số hợp đồng (nếu có)..."
                       />
                     </div>
                     <div
@@ -4535,18 +4530,13 @@ exports[`Component Snapshots (Baseline) > renders PaymentRecordDrawer 1`] = `
                       <label
                         class="text-2xs font-medium uppercase tracking-wide text-slate-600 block"
                       >
-                        Số Đơn Hàng 
-                        <span
-                          class="text-red-600 font-bold"
-                        >
-                          *
-                        </span>
+                        Số Đơn Hàng
                       </label>
                       <input
                         aria-label="Số đơn hàng"
                         class="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75"
                         name="soDonHang"
-                        placeholder="Nhập số đơn hàng (*)..."
+                        placeholder="Nhập số đơn hàng (nếu có)..."
                       />
                     </div>
                   </div>
