@@ -85,7 +85,9 @@ interface DeliveryInfoSectionProps {
   errors: FieldErrors<Delivery>;
   nguoiPhuTrachList: string[];
   onLookupExportSale?: () => void;
+  onClearExportSale?: () => void;
   isLookingUpExportSale?: boolean;
+  erpLinkedCode?: string | null;
   currentCustomer?: any;
   watch?: UseFormWatch<Delivery>;
   setValue?: UseFormSetValue<Delivery>;
@@ -96,19 +98,31 @@ export function DeliveryInfoSection({
   errors,
   nguoiPhuTrachList,
   onLookupExportSale,
+  onClearExportSale,
   isLookingUpExportSale,
+  erpLinkedCode,
   currentCustomer,
   watch,
   setValue
 }: DeliveryInfoSectionProps) {
   const { user, userData } = useAuth();
   const isAdmin = isAdministratorRole(userData, user);
+  const soPhieuXuatVal = watch?.('soPhieuXuat') || '';
+
   return (
     <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
       <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-        <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-2">
-          <Package size={14} /> THÔNG TIN LỆNH GIAO HÀNG
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-2">
+            <Package size={14} /> THÔNG TIN LỆNH GIAO HÀNG
+          </h3>
+          {erpLinkedCode && (
+            <span className="text-3xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1 animate-fadeIn">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              ✓ ERP: {erpLinkedCode}
+            </span>
+          )}
+        </div>
         {onLookupExportSale && (
           <button
             type="button"
@@ -142,31 +156,53 @@ export function DeliveryInfoSection({
             <input
               id="soPhieuXuat"
               {...register('soPhieuXuat')}
-              onBlur={() => onLookupExportSale?.()}
+              onBlur={() => {
+                if (soPhieuXuatVal.trim()) {
+                  onLookupExportSale?.();
+                } else {
+                  onClearExportSale?.();
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  onLookupExportSale?.();
+                  if (soPhieuXuatVal.trim()) {
+                    onLookupExportSale?.();
+                  } else {
+                    onClearExportSale?.();
+                  }
                 }
               }}
-              className="h-8 rounded-lg border border-slate-200 px-3 pr-8 text-sm w-full font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-normal placeholder:text-slate-400"
+              className="h-8 rounded-lg border border-slate-200 px-3 pr-14 text-sm w-full font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-normal placeholder:text-slate-400"
               placeholder="Nhập mã phiếu xuất..."
             />
-            {onLookupExportSale && (
-              <button
-                type="button"
-                onClick={onLookupExportSale}
-                disabled={isLookingUpExportSale}
-                className="absolute right-1 text-slate-400 hover:text-blue-600 p-1 rounded"
-                title="Tra cứu ERP"
-              >
-                {isLookingUpExportSale ? (
-                  <span className="animate-spin inline-block text-xs">⏳</span>
-                ) : (
-                  <span className="text-xs">🔍</span>
-                )}
-              </button>
-            )}
+            <div className="absolute right-1 flex items-center gap-0.5">
+              {soPhieuXuatVal && onClearExportSale && (
+                <button
+                  type="button"
+                  onClick={onClearExportSale}
+                  className="text-slate-400 hover:text-red-600 hover:bg-slate-100 p-1 rounded transition-colors"
+                  title="Xóa và làm sạch dữ liệu ERP"
+                >
+                  <span className="text-xs font-bold">✕</span>
+                </button>
+              )}
+              {onLookupExportSale && (
+                <button
+                  type="button"
+                  onClick={onLookupExportSale}
+                  disabled={isLookingUpExportSale}
+                  className="text-slate-400 hover:text-blue-600 hover:bg-slate-100 p-1 rounded transition-colors"
+                  title="Tra cứu ERP"
+                >
+                  {isLookingUpExportSale ? (
+                    <span className="animate-spin inline-block text-xs">⏳</span>
+                  ) : (
+                    <span className="text-xs">🔍</span>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
           {errors.soPhieuXuat && <p className="text-red-600 text-2xs font-medium mt-0.5">{errors.soPhieuXuat.message as string}</p>}
         </div>

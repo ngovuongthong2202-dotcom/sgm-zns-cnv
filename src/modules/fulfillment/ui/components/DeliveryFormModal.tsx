@@ -70,6 +70,8 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
     populateFromQuotation,
     lookupExportSale,
     isLookingUpExportSale,
+    clearErpFields,
+    erpLinkedCode,
     getValues,
     isDirty,
     saveDraft,
@@ -217,6 +219,42 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
     if (!selectedPaymentId) return null;
     return (payments || []).find((p: any) => p.id === selectedPaymentId || p.paymentId === selectedPaymentId) || null;
   }, [payments, selectedPaymentId]);
+
+  // Bộ lọc nghiêm ngặt: Chỉ lấy Báo Giá Vật Tư & Dịch Vụ (loại trừ BG Máy vì BG Máy bắt buộc phải đi qua Hợp Đồng)
+  const filteredQuotationsForDelivery = React.useMemo(() => {
+    return (quotations || []).filter((q: any) => {
+      if (q.deletedAt || q.deleted_at) return false;
+      const loai = String(q.loai || q.loaiBaoGia || '').trim().toLowerCase();
+      if (loai.includes('máy') || loai === 'bg máy') return false;
+      return true;
+    });
+  }, [quotations]);
+
+  const handleSwitchToPaymentTab = () => {
+    setSourceMode('payment');
+    const curPayId = watch('paymentId');
+    const selPay = enrichedPayments.find((p: any) => p.id === curPayId || p.paymentId === curPayId);
+    if (!selPay?.dacCachGiaoTruoc) {
+      setValue('dacCachGiaoTruoc', false, { shouldDirty: true });
+      setValue('nguoiPheDuyetDacCach', '', { shouldDirty: true });
+      setValue('lyDoDacCach', '', { shouldDirty: true });
+    }
+  };
+
+  const handleSwitchToContractTab = () => {
+    setSourceMode('contract');
+    setValue('dacCachGiaoTruoc', true, { shouldDirty: true });
+    if (!watch('nguoiPheDuyetDacCach')) {
+      setValue('nguoiPheDuyetDacCach', (lanhDaoPheDuyetList && lanhDaoPheDuyetList[0]) || '', { shouldDirty: true });
+    }
+  };
+
+  const handleSwitchToQuotationTab = () => {
+    setSourceMode('quotation');
+    setValue('dacCachGiaoTruoc', false, { shouldDirty: true });
+    setValue('nguoiPheDuyetDacCach', '', { shouldDirty: true });
+    setValue('lyDoDacCach', '', { shouldDirty: true });
+  };
 
   return (
     <div className="fixed inset-0 bg-slate-50 z-[200] flex flex-col h-screen overflow-hidden">
@@ -395,11 +433,11 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                       })()}
                     </label>
 
-                    {/* 3-Way Source Switcher Tabs */}
+                    {/* 3-Way Source Switcher Tabs with CSSM */}
                     <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200/80 mb-2">
                       <button
                         type="button"
-                        onClick={() => setSourceMode('payment')}
+                        onClick={handleSwitchToPaymentTab}
                         className={`flex-1 py-1.5 px-2.5 rounded-md text-2xs font-bold transition-all cursor-pointer ${
                           sourceMode === 'payment'
                             ? 'bg-white text-blue-700 shadow-xs border border-slate-200/80'
@@ -410,13 +448,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          setSourceMode('contract');
-                          if (!watch('dacCachGiaoTruoc')) {
-                            setValue('dacCachGiaoTruoc', true, { shouldDirty: true });
-                            if (!watch('nguoiPheDuyetDacCach')) setValue('nguoiPheDuyetDacCach', (lanhDaoPheDuyetList && lanhDaoPheDuyetList[0]) || '', { shouldDirty: true });
-                          }
-                        }}
+                        onClick={handleSwitchToContractTab}
                         className={`flex-1 py-1.5 px-2.5 rounded-md text-2xs font-bold transition-all cursor-pointer ${
                           sourceMode === 'contract'
                             ? 'bg-white text-amber-700 shadow-xs border border-amber-200/80'
@@ -427,14 +459,14 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                       </button>
                       <button
                         type="button"
-                        onClick={() => setSourceMode('quotation')}
+                        onClick={handleSwitchToQuotationTab}
                         className={`flex-1 py-1.5 px-2.5 rounded-md text-2xs font-bold transition-all cursor-pointer ${
                           sourceMode === 'quotation'
                             ? 'bg-white text-blue-700 shadow-xs border border-slate-200/80'
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        📋 Căn cứ Báo Giá
+                        📋 Căn cứ Báo Giá (Vật tư / DV)
                       </button>
                     </div>
 
@@ -508,7 +540,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                     {sourceMode === 'quotation' && (
                       <AsyncSearchableSelect
                         collection="quotations"
-                        options={(quotations || []).filter((q: any) => !q.deletedAt && !q.deleted_at)}
+                        options={filteredQuotationsForDelivery}
                         value={watch('quotationId') || ''}
                         onChange={(val, doc: any) => {
                           setValue('quotationId', val, { shouldValidate: true });
@@ -520,7 +552,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                           label: `${q.soPhieuBaoGia || q.id} - ${q.tenKhachHang || ''}`,
                           subLabel: `Loại: ${q.loai || q.loaiBaoGia || 'BG'} | Trị giá: ${new Intl.NumberFormat('vi-VN').format(q.totalAmount || 0)} ₫`
                         })}
-                        placeholder="Tìm Báo giá theo số BG, tên khách hàng..."
+                        placeholder="Tìm Báo giá Vật tư / Dịch vụ theo số BG, tên khách..."
                       />
                     )}
 
@@ -657,7 +689,9 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                     errors={errors}
                     nguoiPhuTrachList={effectiveNguoiPhuTrachList}
                     onLookupExportSale={lookupExportSale}
+                    onClearExportSale={clearErpFields}
                     isLookingUpExportSale={isLookingUpExportSale}
+                    erpLinkedCode={erpLinkedCode}
                     currentCustomer={currentCustomer}
                     watch={watch}
                     setValue={setValue}

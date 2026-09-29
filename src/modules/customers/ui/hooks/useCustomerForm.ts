@@ -7,6 +7,7 @@ import { useDraft } from '@/src/hooks/useDraft';
 import { notify } from '@/src/shared/utils/notify';
 import { autoDetectBusinessName, parseVietQRBusinessData } from '../components/CustomerFormHelpers';
 import { supabase } from '@/src/shared/config/supabase.client';
+import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressParser';
 
 export function extractSequentialCustomerNumber(code?: string | null): number {
   if (!code) return 0;
@@ -443,6 +444,46 @@ export function useCustomerForm(
     }
   };
 
+  const magicPasteUnpack = (rawText: string) => {
+    if (!rawText || !rawText.trim()) return;
+    const raw = rawText.trim();
+
+    // 1. MST
+    const taxMatch = raw.match(/(?:MST|Mã số thuế|Tax Code)?[:\s]*(\d{10}(?:-\d{3})?|\d{13})/i);
+    const extractedTax = taxMatch ? taxMatch[1] : '';
+
+    // 2. SĐT
+    const phoneMatch = raw.match(/(?:SĐT|SDT|Điện thoại|Tel|Hotline)?[:\s]*(0[35789]\d{8}|\+84[35789]\d{8})/i);
+    const extractedPhone = phoneMatch ? phoneMatch[1] : '';
+
+    // 3. Email
+    const emailMatch = raw.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    const extractedEmail = emailMatch ? emailMatch[0] : '';
+
+    // 4. Tỉnh thành
+    const detectedProvince = detectProvinceFromAddress(raw, PROVINCES);
+
+    if (extractedTax) setValue('maSoThue', extractedTax, { shouldDirty: true, shouldValidate: true });
+    if (detectedProvince) setValue('tinhThanh', detectedProvince, { shouldDirty: true, shouldValidate: true });
+
+    if (extractedPhone) {
+      setValue('sdt', extractedPhone, { shouldDirty: true });
+      const currentContacts = getValues('contacts') || [];
+      if (currentContacts.length > 0) {
+        setValue('contacts.0.sdt', extractedPhone, { shouldDirty: true });
+      }
+    }
+
+    if (extractedEmail) {
+      const currentContacts = getValues('contacts') || [];
+      if (currentContacts.length > 0) {
+        setValue('contacts.0.email' as any, extractedEmail, { shouldDirty: true });
+      }
+    }
+
+    notify.success('Đã bóc tách dữ liệu thông minh từ văn bản dán');
+  };
+
   return {
     register,
     handleSubmit,
@@ -480,5 +521,6 @@ export function useCustomerForm(
     checkDuplicates,
     handleTaxLookup,
     generateNextMaKh,
+    magicPasteUnpack,
   };
 }

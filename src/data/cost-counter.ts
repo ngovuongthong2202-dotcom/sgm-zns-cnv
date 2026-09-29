@@ -1,6 +1,7 @@
-class SessionCostCounter {
+class SupabaseOperationMonitor {
   private reads = 0;
   private writes = 0;
+  private cacheHits = 0;
   private listeners: Set<() => void> = new Set();
 
   incrementReads(count: number = 1) {
@@ -17,8 +18,15 @@ class SessionCostCounter {
     }
   }
 
+  incrementCacheHits(count: number = 1) {
+    if (process.env.NODE_ENV !== 'production' && count > 0) {
+      this.cacheHits += count;
+      this.notify();
+    }
+  }
+
   getStats() {
-    return { reads: this.reads, writes: this.writes };
+    return { reads: this.reads, writes: this.writes, cacheHits: this.cacheHits };
   }
 
   subscribe(listener: () => void) {
@@ -30,8 +38,10 @@ class SessionCostCounter {
 
   private notify() {
     this.listeners.forEach(cb => cb());
-    console.debug(`[Firestore Cost] Reads: ${this.reads}, Writes: ${this.writes}`);
+    console.debug(`[Supabase Operations] Reads: ${this.reads}, Writes: ${this.writes}, CacheHits: ${this.cacheHits}`);
   }
 }
 
-export const sessionCostCounter = new SessionCostCounter();
+export const sessionCostCounter = new SupabaseOperationMonitor();
+export const supabaseOperationMonitor = sessionCostCounter;
+

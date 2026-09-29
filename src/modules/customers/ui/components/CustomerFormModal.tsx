@@ -86,6 +86,7 @@ export function CustomerForm({
     checkDuplicates,
     handleTaxLookup,
     generateNextMaKh,
+    magicPasteUnpack,
   } = useCustomerForm(customer, onDirtyChange, PROVINCES, loaiKhachHangList, currentUserName, existingCustomers);
   const { confirm } = useConfirm();
 
@@ -200,6 +201,8 @@ export function CustomerForm({
                 lookupStatus={lookupStatus}
                 handleTaxLookup={handleTaxLookup}
                 PROVINCES={PROVINCES}
+                onMagicPaste={magicPasteUnpack}
+                existingCustomers={existingCustomers}
               />
               <CustomerFormClassificationSection 
                 register={register}

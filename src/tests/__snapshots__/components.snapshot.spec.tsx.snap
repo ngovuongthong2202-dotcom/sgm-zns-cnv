@@ -1195,15 +1195,16 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                       </h3>
                     </div>
                     <div
-                      class="flex items-center p-0.5 bg-slate-100 rounded-lg"
+                      class="flex items-center gap-2"
                     >
                       <button
-                        class="px-2.5 py-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1 bg-white text-blue-700 shadow-xs"
+                        class="px-2.5 py-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
+                        title="Dán một đoạn văn bản thô để tự động phân tích và điền các trường"
                         type="button"
                       >
                         <svg
                           aria-hidden="true"
-                          class="lucide lucide-building2 lucide-building-2"
+                          class="lucide lucide-sparkles text-amber-600"
                           fill="none"
                           height="11"
                           stroke="currentColor"
@@ -1215,57 +1216,95 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                           xmlns="http://www.w3.org/2000/svg"
                         >
                           <path
-                            d="M10 12h4"
+                            d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"
                           />
                           <path
-                            d="M10 8h4"
+                            d="M20 2v4"
                           />
                           <path
-                            d="M14 21v-3a2 2 0 0 0-4 0v3"
-                          />
-                          <path
-                            d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"
-                          />
-                          <path
-                            d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"
-                          />
-                        </svg>
-                        Doanh nghiệp
-                      </button>
-                      <button
-                        class="px-2.5 py-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1 text-slate-500 hover:text-slate-800"
-                        type="button"
-                      >
-                        <svg
-                          aria-hidden="true"
-                          class="lucide lucide-users"
-                          fill="none"
-                          height="11"
-                          stroke="currentColor"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          viewBox="0 0 24 24"
-                          width="11"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
-                          />
-                          <path
-                            d="M16 3.128a4 4 0 0 1 0 7.744"
-                          />
-                          <path
-                            d="M22 21v-2a4 4 0 0 0-3-3.87"
+                            d="M22 4h-4"
                           />
                           <circle
-                            cx="9"
-                            cy="7"
-                            r="4"
+                            cx="4"
+                            cy="20"
+                            r="2"
                           />
                         </svg>
-                        Cá nhân (Nhanh 10s)
+                        Magic Paste
                       </button>
+                      <div
+                        class="flex items-center p-0.5 bg-slate-100 rounded-lg"
+                      >
+                        <button
+                          class="px-2.5 py-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1 bg-white text-blue-700 shadow-xs"
+                          type="button"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            class="lucide lucide-building2 lucide-building-2"
+                            fill="none"
+                            height="11"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                            width="11"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M10 12h4"
+                            />
+                            <path
+                              d="M10 8h4"
+                            />
+                            <path
+                              d="M14 21v-3a2 2 0 0 0-4 0v3"
+                            />
+                            <path
+                              d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"
+                            />
+                            <path
+                              d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"
+                            />
+                          </svg>
+                          Doanh nghiệp
+                        </button>
+                        <button
+                          class="px-2.5 py-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1 text-slate-500 hover:text-slate-800"
+                          type="button"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            class="lucide lucide-users"
+                            fill="none"
+                            height="11"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                            width="11"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
+                            />
+                            <path
+                              d="M16 3.128a4 4 0 0 1 0 7.744"
+                            />
+                            <path
+                              d="M22 21v-2a4 4 0 0 0-3-3.87"
+                            />
+                            <circle
+                              cx="9"
+                              cy="7"
+                              r="4"
+                            />
+                          </svg>
+                          Cá nhân (Nhanh 10s)
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <div
@@ -2699,7 +2738,7 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
                       class="flex-1 py-1.5 px-2.5 rounded-md text-2xs font-bold transition-all cursor-pointer text-slate-600 hover:text-slate-900"
                       type="button"
                     >
-                      📋 Căn cứ Báo Giá
+                      📋 Căn cứ Báo Giá (Vật tư / DV)
                     </button>
                   </div>
                   <div
@@ -2776,37 +2815,41 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
               <div
                 class="flex items-center justify-between border-b border-slate-100 pb-2"
               >
-                <h3
-                  class="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-2"
+                <div
+                  class="flex items-center gap-2"
                 >
-                  <svg
-                    aria-hidden="true"
-                    class="lucide lucide-package"
-                    fill="none"
-                    height="14"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    viewBox="0 0 24 24"
-                    width="14"
-                    xmlns="http://www.w3.org/2000/svg"
+                  <h3
+                    class="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-2"
                   >
-                    <path
-                      d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"
-                    />
-                    <path
-                      d="M12 22V12"
-                    />
-                    <polyline
-                      points="3.29 7 12 12 20.71 7"
-                    />
-                    <path
-                      d="m7.5 4.27 9 5.15"
-                    />
-                  </svg>
-                   THÔNG TIN LỆNH GIAO HÀNG
-                </h3>
+                    <svg
+                      aria-hidden="true"
+                      class="lucide lucide-package"
+                      fill="none"
+                      height="14"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="14"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"
+                      />
+                      <path
+                        d="M12 22V12"
+                      />
+                      <polyline
+                        points="3.29 7 12 12 20.71 7"
+                      />
+                      <path
+                        d="m7.5 4.27 9 5.15"
+                      />
+                    </svg>
+                     THÔNG TIN LỆNH GIAO HÀNG
+                  </h3>
+                </div>
                 <button
                   class="text-2xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded px-2.5 py-1 flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
                   type="button"
@@ -2865,22 +2908,26 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
                     class="relative flex items-center"
                   >
                     <input
-                      class="h-8 rounded-lg border border-slate-200 px-3 pr-8 text-sm w-full font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-normal placeholder:text-slate-400"
+                      class="h-8 rounded-lg border border-slate-200 px-3 pr-14 text-sm w-full font-bold text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:font-normal placeholder:text-slate-400"
                       id="soPhieuXuat"
                       name="soPhieuXuat"
                       placeholder="Nhập mã phiếu xuất..."
                     />
-                    <button
-                      class="absolute right-1 text-slate-400 hover:text-blue-600 p-1 rounded"
-                      title="Tra cứu ERP"
-                      type="button"
+                    <div
+                      class="absolute right-1 flex items-center gap-0.5"
                     >
-                      <span
-                        class="text-xs"
+                      <button
+                        class="text-slate-400 hover:text-blue-600 hover:bg-slate-100 p-1 rounded transition-colors"
+                        title="Tra cứu ERP"
+                        type="button"
                       >
-                        🔍
-                      </span>
-                    </button>
+                        <span
+                          class="text-xs"
+                        >
+                          🔍
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div

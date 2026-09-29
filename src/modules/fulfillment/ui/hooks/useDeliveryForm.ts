@@ -637,10 +637,25 @@ export function useDeliveryForm(
     }
   }, [selectedPaymentId, delivery?.id, payments, populateFromPayment]);
 
+  const [erpLinkedCode, setErpLinkedCode] = useState<string | null>(delivery?.soPhieuXuat || null);
+
+  const clearErpFields = useCallback((notifyUser = true) => {
+    setValue('soPhieuXuat', '', { shouldDirty: true });
+    setValue('khoXuat', '', { shouldDirty: true });
+    setValue('keToanKho', '', { shouldDirty: true });
+    setValue('ngayTaoPhieuXuat', '', { shouldDirty: true });
+    setValue('donViVanChuyen', '', { shouldDirty: true });
+    setValue('soDienThoaiDonViVanChuyen', '', { shouldDirty: true });
+    setErpLinkedCode(null);
+    if (notifyUser) {
+      notify.info('Đã làm sạch thông tin liên kết phiếu xuất ERP');
+    }
+  }, [setValue]);
+
   const lookupExportSale = useCallback(async (batchCodeToLookup?: string) => {
-    const code = (batchCodeToLookup || getValues('soPhieuXuat') || '').trim();
+    const code = (batchCodeToLookup !== undefined ? batchCodeToLookup : (getValues('soPhieuXuat') || '')).trim();
     if (!code) {
-      notify.warning('Vui lòng nhập số phiếu xuất kho cần tra cứu');
+      clearErpFields(false);
       return;
     }
 
@@ -711,8 +726,10 @@ export function useDeliveryForm(
         if (vehicle_phone && !getValues('soDienThoaiDonViVanChuyen')) {
           setValue('soDienThoaiDonViVanChuyen', vehicle_phone, { shouldDirty: true });
         }
+        setErpLinkedCode(json.data.batch_code || code);
         notify.success(`Đã tự động lấy dữ liệu phiếu xuất ${json.data.batch_code || code} từ ERP`);
       } else {
+        setErpLinkedCode(null);
         notify.warning(`Không tìm thấy thông tin phiếu xuất kho cho mã: ${code}`);
       }
     } catch (err: any) {
@@ -721,7 +738,7 @@ export function useDeliveryForm(
     } finally {
       setIsLookingUpExportSale(false);
     }
-  }, [getValues, setValue]);
+  }, [getValues, setValue, clearErpFields]);
 
   useEffect(() => {
     let source: any = null;
@@ -807,6 +824,8 @@ export function useDeliveryForm(
     populateFromQuotation,
     lookupExportSale,
     isLookingUpExportSale,
+    clearErpFields,
+    erpLinkedCode,
     getValues,
     isDirty,
     saveDraft,

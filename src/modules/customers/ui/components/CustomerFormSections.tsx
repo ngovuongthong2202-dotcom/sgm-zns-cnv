@@ -23,6 +23,8 @@ interface ProfileSectionProps {
   lookupStatus: 'idle' | 'success' | 'error';
   handleTaxLookup: () => Promise<void>;
   PROVINCES: string[];
+  onMagicPaste?: (text: string) => void;
+  existingCustomers?: any[];
 }
 
 export function CustomerFormProfileSection({
@@ -36,12 +38,41 @@ export function CustomerFormProfileSection({
   isLookingUp,
   lookupStatus,
   handleTaxLookup,
-  PROVINCES
+  PROVINCES,
+  onMagicPaste,
+  existingCustomers = []
 }: ProfileSectionProps) {
   const isIndividual = watch('loaiHinhDoanhNghiep') === 'CÁ NHÂN' || watch('loaiKh') === 'Cá nhân';
+  const [magicPasteOpen, setMagicPasteOpen] = React.useState(false);
+  const [magicPasteInput, setMagicPasteInput] = React.useState('');
+
+  const currentTax = (watch('maSoThue') || '').trim();
+  const currentPhone = (watch('sdt') || '').trim();
+  const currentId = watch('id');
+
+  const duplicateTax = React.useMemo(() => {
+    if (!currentTax || currentTax.length < 10) return null;
+    return (existingCustomers || []).find((c: any) => c.id !== currentId && c.maSoThue && c.maSoThue.trim() === currentTax);
+  }, [currentTax, existingCustomers, currentId]);
+
+  const duplicatePhone = React.useMemo(() => {
+    if (!currentPhone || currentPhone.length < 9) return null;
+    return (existingCustomers || []).find((c: any) => c.id !== currentId && c.sdt && c.sdt.trim() === currentPhone);
+  }, [currentPhone, existingCustomers, currentId]);
 
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+      {/* Realtime Duplicate Warnings */}
+      {(duplicateTax || duplicatePhone) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-center gap-2 text-2xs text-amber-900 animate-fadeIn">
+          <AlertCircle size={14} className="text-amber-600 shrink-0" />
+          <span>
+            ⚠️ <strong>Cảnh báo trùng lặp:</strong> {duplicateTax ? `MST ${currentTax} đã tồn tại cho khách hàng [${duplicateTax.tenKhachHang} - ${duplicateTax.maKh}]. ` : ''}
+            {duplicatePhone ? `SĐT ${currentPhone} đã tồn tại cho khách hàng [${duplicatePhone.tenKhachHang} - ${duplicatePhone.maKh}].` : ''}
+          </span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between border-b border-slate-100 pb-3">
         <div className="flex items-center gap-2">
           {isIndividual ? <Users size={16} className="text-blue-600" /> : <Building2 size={16} className="text-slate-800" />}
@@ -49,42 +80,92 @@ export function CustomerFormProfileSection({
             {isIndividual ? '1. Profile Khách Hàng Cá Nhân' : '1. Profile Pháp Nhân'}
           </h3>
         </div>
-        <div className="flex items-center p-0.5 bg-slate-100 rounded-lg">
-          <button
-            type="button"
-            onClick={() => {
-              if (watch('loaiHinhDoanhNghiep') === 'CÁ NHÂN') {
-                setValue('loaiHinhDoanhNghiep', 'CÔNG TY TNHH', { shouldDirty: true });
-              }
-              setValue('loaiKh', 'Doanh nghiệp', { shouldDirty: true });
-            }}
-            className={`px-2.5 py-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1 ${
-              !isIndividual ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Building2 size={11} />
-            Doanh nghiệp
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setValue('loaiHinhDoanhNghiep', 'CÁ NHÂN', { shouldDirty: true });
-              setValue('loaiKh', 'Cá nhân', { shouldDirty: true });
-              setValue('maSoThue', '', { shouldDirty: true });
-              const currentName = watch('tenKhachHang');
-              if (currentName) {
-                setValue('nguoiDaiDien', currentName, { shouldDirty: true });
-              }
-            }}
-            className={`px-2.5 py-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1 ${
-              isIndividual ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Users size={11} />
-            Cá nhân (Nhanh 10s)
-          </button>
+        <div className="flex items-center gap-2">
+          {onMagicPaste && (
+            <button
+              type="button"
+              onClick={() => setMagicPasteOpen(!magicPasteOpen)}
+              className="px-2.5 py-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer"
+              title="Dán một đoạn văn bản thô để tự động phân tích và điền các trường"
+            >
+              <Sparkles size={11} className="text-amber-600" />
+              Magic Paste
+            </button>
+          )}
+          <div className="flex items-center p-0.5 bg-slate-100 rounded-lg">
+            <button
+              type="button"
+              onClick={() => {
+                if (watch('loaiHinhDoanhNghiep') === 'CÁ NHÂN') {
+                  setValue('loaiHinhDoanhNghiep', 'CÔNG TY TNHH', { shouldDirty: true });
+                }
+                setValue('loaiKh', 'Doanh nghiệp', { shouldDirty: true });
+              }}
+              className={`px-2.5 py-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1 ${
+                !isIndividual ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Building2 size={11} />
+              Doanh nghiệp
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setValue('loaiHinhDoanhNghiep', 'CÁ NHÂN', { shouldDirty: true });
+                setValue('loaiKh', 'Cá nhân', { shouldDirty: true });
+                setValue('maSoThue', '', { shouldDirty: true });
+                const currentName = watch('tenKhachHang');
+                if (currentName) {
+                  setValue('nguoiDaiDien', currentName, { shouldDirty: true });
+                }
+              }}
+              className={`px-2.5 py-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1 ${
+                isIndividual ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Users size={11} />
+              Cá nhân (Nhanh 10s)
+            </button>
+          </div>
         </div>
       </div>
+
+      {magicPasteOpen && onMagicPaste && (
+        <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 space-y-2 animate-fadeIn">
+          <div className="flex items-center justify-between">
+            <span className="text-2xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1">
+              ✨ Magic Paste: Dán văn bản bất kỳ để tự trích xuất
+            </span>
+            <button
+              type="button"
+              onClick={() => setMagicPasteOpen(false)}
+              className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+            >
+              ✕
+            </button>
+          </div>
+          <textarea
+            value={magicPasteInput}
+            onChange={(e) => setMagicPasteInput(e.target.value)}
+            placeholder="Ví dụ: Công ty TNHH Thiết Bị ABC - MST: 0312345678 - 123 Lê Duẩn, Q1, TP.HCM - SĐT: 0903123456 - a@gmail.com"
+            className="w-full text-xs p-2 bg-white border border-amber-300 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 min-h-[60px]"
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              onClick={() => {
+                onMagicPaste(magicPasteInput);
+                setMagicPasteInput('');
+                setMagicPasteOpen(false);
+              }}
+              disabled={!magicPasteInput.trim()}
+              className="h-7 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-2xs font-bold"
+            >
+              🚀 Phân tích & Tự điền
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1 sm:col-span-2 relative">
