@@ -65,14 +65,16 @@ interface DataViewProps<T> {
       return vars;
     }, [columnSizing, table.getFlatHeaders()]);
   
+    const isSmallDataSet = !fetchMore && rows.length <= 15;
+
     const getRowHeight = (index: number) => {
       if (index >= rows.length) return 36; // Spinner row
       const row = rows[index];
       if (row?.getIsGrouped()) return density === 'comfortable' ? 56 : 48;
       switch (density) {
-        case 'compact': return 40; 
-        case 'comfortable': return 58;
-        default: return 48; // cozy or normal behavior
+        case 'compact': return 64; 
+        case 'comfortable': return 88;
+        default: return 76; // cozy or normal behavior
       }
     };
   
@@ -87,26 +89,28 @@ interface DataViewProps<T> {
         }
         return element.getBoundingClientRect().height;
       },
-      enabled: true,
+      enabled: !isSmallDataSet,
     });
 
-    const virtualItems = rowVirtualizer.getVirtualItems();
+    const virtualItems = isSmallDataSet ? [] : rowVirtualizer.getVirtualItems();
 
     // Listen to rows expanded/collapsed and trigger re-measure
     const expandedState = table.getState().expanded;
     React.useEffect(() => {
-      rowVirtualizer.measure();
-    }, [expandedState, rowVirtualizer]);
+      if (!isSmallDataSet) {
+        rowVirtualizer.measure();
+      }
+    }, [expandedState, rowVirtualizer, isSmallDataSet]);
 
     React.useEffect(() => {
-      if (!fetchMore) return;
+      if (!fetchMore || isSmallDataSet) return;
       const lastItem = virtualItems[virtualItems.length - 1];
       if (!lastItem) return;
 
       if (lastItem.index >= rows.length - 1 && !isFetching) {
         fetchMore();
       }
-    }, [virtualItems, fetchMore, isFetching, rows.length]);
+    }, [virtualItems, fetchMore, isFetching, rows.length, isSmallDataSet]);
   
     return (
       <div
@@ -161,42 +165,75 @@ interface DataViewProps<T> {
           </div>
           
           {/* Body */}
-          <div className="relative min-w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-            {virtualItems.map(virtualRow => {
-              if (virtualRow.index >= rows.length) {
-                return null;
-              }
-              const row = rows[virtualRow.index];
-              const isActive = virtualRow.index === activeRowIndex;
-              const visibleColumnIds = table.getVisibleFlatColumns().map(c => c.id).join(',') + '|' + (table.getState().columnOrder?.join(',') || '');
-              return (
-               <DataViewRow 
-                   key={row.id}
-                   row={row}
-                   virtualRow={virtualRow}
-                   visibleColumnIds={visibleColumnIds}
-                   isActive={isActive}
-                   isSelected={row.getIsSelected()}
-                   isSomeSelected={row.getIsSomeSelected()}
-                   isExpanded={row.getIsExpanded()}
-                   density={density}
-                   renderGroupHeader={renderGroupHeader}
-                   renderSubComponent={renderSubComponent}
-                   onRowSelect={onRowSelect}
-                   onRowHover={onRowHover}
-                   onRowEdit={onRowEdit}
-                   onRowZns={onRowZns}
-                   onRowDelete={onRowDelete}
-                   customRowActions={customRowActions}
-                   onContextMenu={(e) => {
-                     e.preventDefault();
-                     setContextMenu({ x: e.clientX, y: e.clientY, row: row.original as T });
-                   }}
-                   measureElement={rowVirtualizer.measureElement}
-                />
-              );
-            })}
-          </div>
+          {isSmallDataSet ? (
+            <div className="relative min-w-full flex flex-col min-h-0">
+              {rows.map((row, index) => {
+                const isActive = index === activeRowIndex;
+                const visibleColumnIds = table.getVisibleFlatColumns().map(c => c.id).join(',') + '|' + (table.getState().columnOrder?.join(',') || '');
+                return (
+                  <DataViewRow 
+                    key={row.id}
+                    row={row}
+                    visibleColumnIds={visibleColumnIds}
+                    isActive={isActive}
+                    isSelected={row.getIsSelected()}
+                    isSomeSelected={row.getIsSomeSelected()}
+                    isExpanded={row.getIsExpanded()}
+                    density={density}
+                    renderGroupHeader={renderGroupHeader}
+                    renderSubComponent={renderSubComponent}
+                    onRowSelect={onRowSelect}
+                    onRowHover={onRowHover}
+                    onRowEdit={onRowEdit}
+                    onRowZns={onRowZns}
+                    onRowDelete={onRowDelete}
+                    customRowActions={customRowActions}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setContextMenu({ x: e.clientX, y: e.clientY, row: row.original as T });
+                    }}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <div className="relative min-w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+              {virtualItems.map(virtualRow => {
+                if (virtualRow.index >= rows.length) {
+                  return null;
+                }
+                const row = rows[virtualRow.index];
+                const isActive = virtualRow.index === activeRowIndex;
+                const visibleColumnIds = table.getVisibleFlatColumns().map(c => c.id).join(',') + '|' + (table.getState().columnOrder?.join(',') || '');
+                return (
+                  <DataViewRow 
+                    key={row.id}
+                    row={row}
+                    virtualRow={virtualRow}
+                    visibleColumnIds={visibleColumnIds}
+                    isActive={isActive}
+                    isSelected={row.getIsSelected()}
+                    isSomeSelected={row.getIsSomeSelected()}
+                    isExpanded={row.getIsExpanded()}
+                    density={density}
+                    renderGroupHeader={renderGroupHeader}
+                    renderSubComponent={renderSubComponent}
+                    onRowSelect={onRowSelect}
+                    onRowHover={onRowHover}
+                    onRowEdit={onRowEdit}
+                    onRowZns={onRowZns}
+                    onRowDelete={onRowDelete}
+                    customRowActions={customRowActions}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setContextMenu({ x: e.clientX, y: e.clientY, row: row.original as T });
+                    }}
+                    measureElement={rowVirtualizer.measureElement}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Custom Context Menu */}

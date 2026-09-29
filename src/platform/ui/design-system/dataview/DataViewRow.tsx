@@ -5,7 +5,7 @@ import { Eye, Pencil, Send, Trash2 } from 'lucide-react';
 
 export interface DataViewRowProps {
   row: Row<any>;
-  virtualRow: { index: number; start: number; size: number };
+  virtualRow?: { index: number; start: number; size: number };
   visibleColumnIds: string;
   isActive: boolean;
   isSelected?: boolean;
@@ -22,7 +22,7 @@ export interface DataViewRowProps {
   onRowDelete?: (row: any) => void;
   customRowActions?: (row: any) => React.ReactNode;
   onContextMenu?: React.MouseEventHandler<HTMLDivElement>;
-  measureElement: (element: HTMLElement | null) => void;
+  measureElement?: (element: HTMLElement | null) => void;
 }
 
 export const DataViewRow = React.memo(({ 
@@ -44,7 +44,9 @@ export const DataViewRow = React.memo(({
   onContextMenu,
   measureElement 
 }: DataViewRowProps) => {  
-  const isOdd = typedVirtualRow.index % 2 === 1;
+  const rowIndex = typedVirtualRow ? typedVirtualRow.index : typedRow.index;
+  const isOdd = rowIndex % 2 === 1;
+  const isVirtual = Boolean(typedVirtualRow);
   const bgClass = isSelected || isSomeSelected
     ? 'bg-blue-50/80 border-l-[3px] border-l-blue-600'
     : isActive
@@ -58,13 +60,17 @@ export const DataViewRow = React.memo(({
       role="row"
       aria-expanded={typedRow.getIsGrouped() ? typedRow.getIsExpanded() : undefined}
       tabIndex={0}
-      data-index={typedVirtualRow.index}
+      data-index={rowIndex}
       ref={measureElement}
-      className={`absolute top-0 left-0 min-w-full flex flex-col border-b border-slate-200 transition-all duration-150 cursor-pointer group/row outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 hover:bg-blue-50/70 hover:text-blue-950 ${bgClass}`}
-      style={{
-        transform: `translateY(${typedVirtualRow.start}px)`,
-        height: 'auto', // Always use 'auto' to allow dynamic natural height measurement & prevent circular layout cache lock!
-      }}
+      className={`${isVirtual ? 'absolute top-0 left-0' : 'relative'} min-w-full flex flex-col border-b border-slate-200 transition-all duration-150 cursor-pointer group/row outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 hover:bg-blue-50/70 hover:text-blue-950 ${bgClass}`}
+      style={
+        isVirtual && typedVirtualRow
+          ? {
+              transform: `translateY(${typedVirtualRow.start}px)`,
+              height: 'auto',
+            }
+          : { height: 'auto' }
+      }
       onMouseEnter={() => {
         if (!typedRow.getIsGrouped() && onRowHover) {
           onRowHover(typedRow.original);
@@ -272,9 +278,9 @@ export const DataViewRow = React.memo(({
   const prevVirtualRow = prevProps.virtualRow;
   const nextVirtualRow = nextProps.virtualRow;
   return (
-    prevVirtualRow.start === nextVirtualRow.start &&
-    prevVirtualRow.size === nextVirtualRow.size &&
-    prevVirtualRow.index === nextVirtualRow.index &&
+    prevVirtualRow?.start === nextVirtualRow?.start &&
+    prevVirtualRow?.size === nextVirtualRow?.size &&
+    prevVirtualRow?.index === nextVirtualRow?.index &&
     prevProps.visibleColumnIds === nextProps.visibleColumnIds &&
     prevProps.isActive === nextProps.isActive &&
     prevProps.density === nextProps.density &&

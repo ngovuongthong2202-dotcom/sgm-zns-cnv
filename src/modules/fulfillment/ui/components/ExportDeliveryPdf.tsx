@@ -4,8 +4,8 @@ import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { Button } from '@/src/design-system/Button';
 import { Printer } from 'lucide-react';
 import { formatDate } from '@/src/shared/utils/formatDate';
-import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 import { SGM_COMPANY_INFO } from '@/src/shared/constants/companyInfo';
+import { detectItemType } from '@/src/widgets/product-list-input/useProductItemSemantic';
 
 interface ExportDeliveryPdfProps {
   delivery: Delivery;
@@ -30,11 +30,6 @@ export function ExportDeliveryPdf({
   const isService = delivery.loai === 'Dịch vụ';
   const products = delivery.products || [];
   const totalQuantity = products.reduce((acc, p) => acc + (Number(p.quantity) || 1), 0);
-  const totalAmount = delivery.totalAmount || products.reduce((acc, p) => acc + (Number(p.subtotalAfterTax) || 0), 0);
-
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
-  };
 
   return (
     <>
@@ -84,7 +79,7 @@ export function ExportDeliveryPdf({
                 : 'PHIẾU XUẤT KHO KIÊM BIÊN BẢN BÀN GIAO THIẾT BỊ'}
             </h2>
             <p className="text-xs text-slate-600 italic mt-0.5">
-              (Căn cứ hợp đồng thương mại / báo giá và phiếu xuất bán hàng hóa ERP)
+              (Căn cứ hợp đồng thương mại / báo giá và điều phối vận tải logistics xuất xưởng SGM)
             </p>
           </div>
 
@@ -95,10 +90,10 @@ export function ExportDeliveryPdf({
               <h3 className="font-black text-slate-900 uppercase tracking-wide border-b border-slate-200 pb-1 flex items-center justify-between">
                 <span>ĐƠN VỊ GIAO HÀNG (BÊN BÁN):</span>
               </h3>
-              <p><strong className="text-slate-700">Đơn vị:</strong> Công ty Cổ phần Thiết bị SGM</p>
+              <p><strong className="text-slate-700">Đơn vị:</strong> {SGM_COMPANY_INFO.name}</p>
               <p><strong className="text-slate-700">Phiếu xuất ERP:</strong> <span className="font-mono font-bold">{delivery.soPhieuXuat || '---'}</span></p>
-              <p><strong className="text-slate-700">Kho xuất hàng:</strong> {delivery.khoXuat || 'Kho tổng SGM'}</p>
-              <p><strong className="text-slate-700">Đơn vị vận chuyển:</strong> {delivery.donViVanChuyen || 'Đội xe nội bộ SGM'}</p>
+              <p><strong className="text-slate-700">Kho xuất hàng:</strong> {delivery.khoXuat || 'Kho tổng SGM Tân Tạo'}</p>
+              <p><strong className="text-slate-700">Đơn vị vận chuyển:</strong> {delivery.donViVanChuyen || 'Đội xe chuyên dụng SGM'}</p>
               <p className="bg-amber-100/70 p-1.5 rounded border border-amber-300 font-medium">
                 <strong className="text-amber-950 font-bold">Thợ giao máy / KTV:</strong> <span className="font-bold text-slate-900">{delivery.thoGiaoMay || 'Kỹ thuật viên SGM'}</span>
                 {delivery.sdtThoGiaoMay && (
@@ -115,7 +110,7 @@ export function ExportDeliveryPdf({
               <p><strong className="text-slate-700">Khách hàng:</strong> <span className="font-bold text-slate-950">{delivery.tenKhachHang || '---'}</span></p>
               <p><strong className="text-slate-700">Người nhận máy:</strong> {delivery.kyNhan || delivery.nguoiLienHe || 'Người đại diện'}</p>
               <p><strong className="text-slate-700">Điện thoại liên hệ:</strong> <span className="font-mono font-semibold">{delivery.sdtLienHe || delivery.sdt || '---'}</span></p>
-              <p><strong className="text-slate-700">Địa chỉ giao nhận:</strong> {delivery.diaChiGiaoHang || 'Tại cơ sở khách hàng'}</p>
+              <p><strong className="text-slate-700">Địa chỉ giao nhận:</strong> {delivery.diaChiGiaoHang || 'Tại xưởng / cơ sở khách hàng'}</p>
               <div className="pt-1 flex items-center gap-3">
                 <p><strong className="text-slate-700">Hợp đồng:</strong> <span className="font-mono font-bold text-blue-800">{delivery.soHopDong || '---'}</span></p>
                 <p><strong className="text-slate-700">Đơn hàng:</strong> <span className="font-mono font-bold text-blue-800">{delivery.soDonHang || '---'}</span></p>
@@ -123,48 +118,51 @@ export function ExportDeliveryPdf({
             </div>
           </div>
 
-          {/* Bảng kê chi tiết sản phẩm thiết bị giao */}
+          {/* Bảng kê chi tiết sản phẩm thiết bị giao (KHÔNG THỂ HIỆN GIÁ TIỀN) */}
           <div className="mb-6">
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 mb-2">
-              DANH MỤC THIẾT BỊ & THÔNG SỐ BÀN GIAO ({products.length} MỤC)
+              DANH MỤC THIẾT BỊ, THÔNG SỐ KỸ THUẬT & PHỤ KIỆN BÀN GIAO ({products.length} MỤC)
             </h3>
             <table className="w-full text-left border-collapse border border-slate-300 text-xs">
               <thead className="bg-slate-100 text-slate-950 font-black uppercase text-2xs tracking-wider">
                 <tr>
                   <th className="p-2 border border-slate-300 text-center w-10">STT</th>
-                  <th className="p-2 border border-slate-300 min-w-[200px]">Tên Hàng Hóa / Model Cấu Hình</th>
-                  <th className="p-2 border border-slate-300 min-w-[140px]">Mã Serial / Số Máy</th>
+                  <th className="p-2 border border-slate-300 min-w-[220px]">Tên Hàng Hóa / Model Cấu Hình</th>
+                  <th className="p-2 border border-slate-300 min-w-[130px]">Mã Serial / Số Máy</th>
                   <th className="p-2 border border-slate-300 text-center w-14">ĐVT</th>
                   <th className="p-2 border border-slate-300 text-center w-14">SL</th>
-                  <th className="p-2 border border-slate-300 text-right w-24">Đơn Giá</th>
-                  <th className="p-2 border border-slate-300 text-right w-28">Thành Tiền</th>
+                  <th className="p-2 border border-slate-300 min-w-[160px]">Tình Trạng & Phụ Kiện Bàn Giao</th>
+                  <th className="p-2 border border-slate-300 w-28">Ghi Chú</th>
                 </tr>
               </thead>
               <tbody>
                 {products.length > 0 ? (
                   products.map((item, idx) => {
+                    const itemType = item.itemType || detectItemType(item.productName, item.unit || (item as any).dvt);
+                    const isMachine = itemType === 'MACHINE';
                     const serials = Array.isArray(item.danhSachMaMay) && item.danhSachMaMay.length > 0 
                       ? item.danhSachMaMay.join(', ') 
-                      : (delivery.danhSachMaMay?.length ? delivery.danhSachMaMay.join(', ') : '---');
+                      : (delivery.danhSachMaMay?.length ? delivery.danhSachMaMay.join(', ') : 'Tem kiểm định SGM');
 
                     return (
                       <tr key={idx} className="hover:bg-slate-50">
                         <td className="p-2 border border-slate-300 text-center font-bold font-mono">{idx + 1}</td>
                         <td className="p-2 border border-slate-300">
                           <strong className="block text-slate-950">{item.productName}</strong>
-                          {item.productId && <span className="font-mono text-3xs text-slate-600 block">Mã: {item.productId}</span>}
+                          {item.productId && <span className="font-mono text-3xs text-slate-600 block">Mã SP: {item.productId}</span>}
                           {item.ghiChu && <span className="text-3xs italic text-slate-500 block">{item.ghiChu}</span>}
                         </td>
                         <td className="p-2 border border-slate-300 font-mono text-3xs font-bold text-slate-800">
                           {serials}
                         </td>
-                        <td className="p-2 border border-slate-300 text-center">{item.unit || 'Máy'}</td>
+                        <td className="p-2 border border-slate-300 text-center">{item.unit || (isMachine ? 'Bộ' : 'Cái')}</td>
                         <td className="p-2 border border-slate-300 text-center font-bold font-mono text-sm">{item.quantity}</td>
-                        <td className="p-2 border border-slate-300 text-right font-mono font-bold">
-                          {formatCurrency(Number(item.price) || 0)}
+                        <td className="p-2 border border-slate-300 text-2xs text-slate-700">
+                          <span className="font-semibold text-emerald-800 block">✓ Mới 100%, nguyên kiện KCS</span>
+                          <span className="text-3xs text-slate-500 block">Đủ phụ kiện, cáp nguồn, HDSD</span>
                         </td>
-                        <td className="p-2 border border-slate-300 text-right font-mono font-black text-slate-950">
-                          {formatCurrency(Number(item.subtotalAfterTax) || 0)}
+                        <td className="p-2 border border-slate-300 text-3xs text-slate-600">
+                          {item.ghiChu || 'Theo tiêu chuẩn SGM'}
                         </td>
                       </tr>
                     );
@@ -178,39 +176,37 @@ export function ExportDeliveryPdf({
               <tfoot className="font-bold bg-slate-50">
                 <tr>
                   <td colSpan={4} className="p-2.5 border border-slate-300 text-right font-black uppercase text-2xs">
-                    Tổng số lượng bàn giao:
+                    Tổng số lượng thiết bị bàn giao:
                   </td>
-                  <td className="p-2.5 border border-slate-300 text-center font-mono font-black text-sm">
+                  <td className="p-2.5 border border-slate-300 text-center font-mono font-black text-sm text-blue-900">
                     {totalQuantity}
                   </td>
-                  <td className="p-2.5 border border-slate-300 text-right font-black uppercase text-2xs">
-                    Tổng giá trị:
-                  </td>
-                  <td className="p-2.5 border border-slate-300 text-right font-mono font-black text-sm text-blue-900">
-                    {formatCurrency(totalAmount)}
+                  <td colSpan={2} className="p-2.5 border border-slate-300 text-slate-700 text-2xs italic font-medium">
+                    (Thiết bị hoàn tất kiểm tra chất lượng xuất xưởng)
                   </td>
                 </tr>
-                {totalAmount > 0 && (
-                  <tr>
-                    <td colSpan={7} className="p-2 px-3 border border-slate-300 text-slate-800 text-xs italic font-medium">
-                      <strong>Bằng chữ:</strong> {readVietnameseCurrency(totalAmount)}
-                    </td>
-                  </tr>
-                )}
               </tfoot>
             </table>
           </div>
 
-          {/* Ghi chú bàn giao & Nghiệm thu */}
-          <div className="mb-8 p-3 rounded-lg border border-slate-300 bg-slate-50/50 text-xs">
-            <strong className="block font-bold uppercase text-2xs text-slate-700 mb-1">Tình trạng máy & Ghi chú kỹ thuật khi bàn giao:</strong>
-            <p className="text-slate-800 italic leading-relaxed">
-              {delivery.ghiChu || 'Thiết bị mới 100%, nguyên đai nguyên kiện, đã tiến hành chạy thử và bàn giao đầy đủ hướng dẫn vận hành kỹ thuật.'}
-            </p>
+          {/* Ghi chú bàn giao, Nghiệm thu & An toàn hiện trường */}
+          <div className="grid grid-cols-2 gap-4 mb-6 text-2xs">
+            <div className="p-3 rounded-lg border border-slate-300 bg-slate-50/50 space-y-1">
+              <strong className="block font-bold uppercase text-slate-800">Tình trạng máy & Ghi chú kỹ thuật:</strong>
+              <p className="text-slate-700 italic leading-relaxed">
+                {delivery.ghiChu || 'Thiết bị mới 100%, nguyên đai nguyên kiện, đã tiến hành chạy thử xuất xưởng và bàn giao đầy đủ hướng dẫn vận hành kỹ thuật.'}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg border border-amber-200 bg-amber-50/40 space-y-1">
+              <strong className="block font-bold uppercase text-amber-900">Yêu cầu an toàn & Hạ cẩu máy:</strong>
+              <p className="text-slate-700 leading-relaxed text-3xs">
+                Mặt bằng xưởng bằng phẳng chịu lực; Nguồn điện 3 pha 380V/50Hz sẵn sàng; Khách hàng chuẩn bị xe cẩu 5-10 tấn tiếp nhận hạ máy an toàn theo hướng dẫn của KTV SGM.
+              </p>
+            </div>
           </div>
 
           {/* Khối chữ ký 4 bên pháp lý */}
-          <div className="grid grid-cols-4 gap-4 text-center text-xs mt-10 pt-4 border-t border-slate-200">
+          <div className="grid grid-cols-4 gap-4 text-center text-xs mt-8 pt-4 border-t border-slate-200">
             <div className="space-y-1">
               <p className="font-black uppercase tracking-wider text-slate-900 text-2xs">NGƯỜI LẬP PHIẾU</p>
               <p className="text-3xs italic text-slate-500">(Ký, ghi rõ họ tên)</p>
