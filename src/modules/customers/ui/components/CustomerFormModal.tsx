@@ -17,6 +17,14 @@ import { useCustomerForm } from '../hooks/useCustomerForm';
 
 import { CustomerFormProfileSection, CustomerFormClassificationSection, CustomerFormCrossCheckPanel } from './CustomerFormSections';
 import { CustomerDedupeModal } from './CustomerDedupeModal';
+import { CustomerCascadeImpactModal } from './CustomerCascadeImpactModal';
+import { repositoryFactory } from '@/src/data/repositories/factory';
+import { clearSwrColCache } from '@/src/data/swr-fetchers';
+import { crossTabSync } from '@/src/shared/utils/crossTabSync';
+import { Quotation } from '@/src/domain/schema/quotation.schema';
+import { Contract } from '@/src/domain/schema/contract.schema';
+import { Payment } from '@/src/domain/schema/payment.schema';
+import { Delivery } from '@/src/domain/schema/delivery.schema';
 
 interface Props {
   customer: Customer | null;
@@ -90,6 +98,90 @@ export function CustomerForm({
   } = useCustomerForm(customer, onDirtyChange, PROVINCES, loaiKhachHangList, currentUserName, existingCustomers);
   const { confirm } = useConfirm();
 
+  const [cascadeState, setCascadeState] = React.useState<{
+    isOpen: boolean;
+    pendingData: Customer | null;
+    linkedDocs: {
+      quotations: Quotation[];
+      contracts: Contract[];
+      payments: Payment[];
+      deliveries: Delivery[];
+    };
+  }>({
+    isOpen: false,
+    pendingData: null,
+    linkedDocs: { quotations: [], contracts: [], payments: [], deliveries: [] }
+  });
+  const [isCheckingImpact, setIsCheckingImpact] = React.useState(false);
+  const [isSyncing, setIsSyncing] = React.useState(false);
+
+  const handleSaveMasterOnly = async () => {
+    if (!cascadeState.pendingData) return;
+    const dataToSave = cascadeState.pendingData;
+    setCascadeState(prev => ({ ...prev, isOpen: false }));
+    await clearDraft();
+    await onSave(dataToSave);
+  };
+
+  const handleSafeSync = async () => {
+    if (!cascadeState.pendingData || !customer?.id) return;
+    setIsSyncing(true);
+    try {
+      const dataToSave = cascadeState.pendingData;
+      const { quotations, deliveries } = cascadeState.linkedDocs;
+
+      // 1. Save master customer
+      await onSave(dataToSave);
+
+      // 2. Cascade to Draft Quotations
+      const draftQuotes = quotations.filter(q => !q.lifecycleStatus || q.lifecycleStatus === 'DRAFT' || q.tinhTrangBaoGia?.toLowerCase().includes('nháp'));
+      const quoteRepo = repositoryFactory.get<Quotation>('quotations');
+      for (const q of draftQuotes) {
+        if (q.id) {
+          await quoteRepo.update(q.id, {
+            tenKhachHang: dataToSave.tenKhachHang,
+            sdt: dataToSave.sdt,
+            diaChi: dataToSave.diaChi,
+            nguoiDaiDien: dataToSave.nguoiDaiDien || dataToSave.contacts?.[0]?.nguoiDaiDien
+          });
+        }
+      }
+
+      // 3. Cascade to Pending Deliveries
+      const pendingDeliveries = deliveries.filter(d => !d.tinhTrangGiaoHang || d.tinhTrangGiaoHang === 'CHO_GIAO' || d.tinhTrangGiaoHang.toLowerCase().includes('chờ'));
+      const deliveryRepo = repositoryFactory.get<Delivery>('deliveries');
+      for (const d of pendingDeliveries) {
+        if (d.id) {
+          await deliveryRepo.update(d.id, {
+            tenKhachHang: dataToSave.tenKhachHang,
+            sdt: dataToSave.sdt,
+            diaChiGiaoHang: dataToSave.diaChi,
+            nguoiDaiDien: dataToSave.nguoiDaiDien || dataToSave.contacts?.[0]?.nguoiDaiDien,
+            nguoiLienHe: dataToSave.contacts?.[0]?.nguoiDaiDien || dataToSave.nguoiDaiDien,
+            sdtLienHe: dataToSave.contacts?.[0]?.sdt || dataToSave.sdt
+          });
+        }
+      }
+
+      // 4. Invalidate SWR Caches & Broadcast sync
+      clearSwrColCache('quotations');
+      clearSwrColCache('deliveries');
+      clearSwrColCache('customers');
+      crossTabSync.broadcast({ type: 'ENTITY_MUTATED', collectionName: 'customers', id: customer.id });
+      crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'quotations' });
+      crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'deliveries' });
+
+      notify.success(`Đã cập nhật Khách Hàng và đồng bộ an toàn ${draftQuotes.length + pendingDeliveries.length} chứng từ đang xử lý!`);
+      await clearDraft();
+      setCascadeState(prev => ({ ...prev, isOpen: false }));
+      onClose();
+    } catch (err: any) {
+      notify.error(`Lỗi khi đồng bộ chứng từ: ${err?.message || err}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleCloseAttempt = async () => {
     if (isDirty) {
       await saveDraft(getValues());
@@ -159,6 +251,45 @@ export function CustomerForm({
             if (!customer) {
                const hasDupes = await checkDuplicates(normalized);
                if (hasDupes) return; // Dừng lại, hiện modal
+            }
+
+            // Khi chỉnh sửa khách hàng đã có mã/id
+            if (customer && customer.id) {
+              const coreFields = ['tenKhachHang', 'nguoiDaiDien', 'sdt', 'diaChi', 'tinhThanh', 'maSoThue'] as const;
+              const hasCoreChanges = coreFields.some(
+                (k) => String(customer[k] || '').trim() !== String(normalized[k] || '').trim()
+              );
+
+              if (hasCoreChanges) {
+                setIsCheckingImpact(true);
+                try {
+                  const [qList, cList, pList, dList] = await Promise.all([
+                    repositoryFactory.get<Quotation>('quotations').list({ fkField: 'customerId', fkId: customer.id, limit: 100 }),
+                    repositoryFactory.get<Contract>('contracts').list({ fkField: 'customerId', fkId: customer.id, limit: 100 }),
+                    repositoryFactory.get<Payment>('payments').list({ fkField: 'customerId', fkId: customer.id, limit: 100 }),
+                    repositoryFactory.get<Delivery>('deliveries').list({ fkField: 'customerId', fkId: customer.id, limit: 100 }),
+                  ]);
+                  const total = qList.length + cList.length + pList.length + dList.length;
+                  if (total > 0) {
+                    setCascadeState({
+                      isOpen: true,
+                      pendingData: normalized,
+                      linkedDocs: {
+                        quotations: qList,
+                        contracts: cList,
+                        payments: pList,
+                        deliveries: dList
+                      }
+                    });
+                    setIsCheckingImpact(false);
+                    return; // Mở Impact Analysis Modal để người dùng quyết định
+                  }
+                } catch (err) {
+                  console.error('Impact check error:', err);
+                } finally {
+                  setIsCheckingImpact(false);
+                }
+              }
             }
             
             // Successful submit -> wipe form draft
@@ -235,7 +366,26 @@ export function CustomerForm({
     </div>
   );
 
-  if (hideShell) return formContent;
+  if (hideShell) {
+    return (
+      <>
+        {formContent}
+        {customer && (
+          <CustomerCascadeImpactModal
+            show={cascadeState.isOpen}
+            onClose={() => setCascadeState(prev => ({ ...prev, isOpen: false }))}
+            originalCustomer={customer}
+            updatedData={cascadeState.pendingData || {}}
+            linkedDocs={cascadeState.linkedDocs}
+            isLoadingLinkedDocs={isCheckingImpact}
+            onConfirmSaveMasterOnly={handleSaveMasterOnly}
+            onConfirmSafeSync={handleSafeSync}
+            isSyncing={isSyncing}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-slate-50 z-50 flex flex-col h-screen overflow-hidden">
@@ -282,6 +432,20 @@ export function CustomerForm({
           onSave={onSave as any} 
           onCloseParent={onClose} 
         />
+
+        {customer && (
+          <CustomerCascadeImpactModal
+            show={cascadeState.isOpen}
+            onClose={() => setCascadeState(prev => ({ ...prev, isOpen: false }))}
+            originalCustomer={customer}
+            updatedData={cascadeState.pendingData || {}}
+            linkedDocs={cascadeState.linkedDocs}
+            isLoadingLinkedDocs={isCheckingImpact}
+            onConfirmSaveMasterOnly={handleSaveMasterOnly}
+            onConfirmSafeSync={handleSafeSync}
+            isSyncing={isSyncing}
+          />
+        )}
 
         {/* Footer */}
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50/90 backdrop-blur shrink-0 flex items-center justify-between z-10 sticky bottom-0 w-full mb-0">

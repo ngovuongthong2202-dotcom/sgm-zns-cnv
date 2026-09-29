@@ -137,9 +137,6 @@ export function HoverCardPortal({
 
   return (
     <>
-      {isOpen && (
-        <div className="fixed inset-0 bg-slate-950/15 backdrop-blur-[1px] z-[99999] pointer-events-none transition-all duration-200 animate-in fade-in" />
-      )}
       <div 
         ref={triggerRef}
         onMouseEnter={handleMouseEnter}
@@ -163,7 +160,7 @@ export function HoverCardPortal({
             width: `${cardWidth}px`,
             opacity: adjustedPos.opacity
           }}
-          className="z-[100000] animate-in fade-in zoom-in-95 duration-150 outline-none bg-white rounded-xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.25)] border border-slate-300 max-h-[85vh] overflow-hidden flex flex-col backdrop-blur-xl bg-white/98 text-slate-800 pointer-events-auto"
+          className="z-[100000] animate-in fade-in zoom-in-95 duration-150 outline-none bg-white rounded-xl shadow-[0_20px_50px_rgba(15,23,42,0.18)] border border-slate-200/90 ring-1 ring-slate-900/5 max-h-[85vh] overflow-hidden flex flex-col backdrop-blur-xl bg-white/98 text-slate-800 pointer-events-auto"
         >
           {content}
         </div>,

@@ -82,20 +82,90 @@ export const SmartPhoneInput = forwardRef<HTMLInputElement, SmartPhoneInputProps
       placeholder = '09xx xxx xxx',
       disabled,
       readOnly,
+      onKeyDown,
       ...props
     },
     ref
   ) => {
+    const inputRef = React.useRef<HTMLInputElement>(null);
+    const pendingCursorRef = React.useRef<number | null>(null);
+
+    React.useImperativeHandle(ref, () => inputRef.current as HTMLInputElement);
+
     const cleanPhone = useMemo(() => normalizePhone(value || ''), [value]);
     const carrier = useMemo(() => detectCarrier(cleanPhone), [cleanPhone]);
     const isValidVNPhone = cleanPhone.length === 10 && cleanPhone.startsWith('0');
+    const displayFormatted = useMemo(() => formatPhoneDisplay(cleanPhone), [cleanPhone]);
+
+    // Restore cursor precisely after state updates
+    React.useLayoutEffect(() => {
+      if (pendingCursorRef.current !== null && inputRef.current && document.activeElement === inputRef.current) {
+        const pos = pendingCursorRef.current;
+        inputRef.current.setSelectionRange(pos, pos);
+        pendingCursorRef.current = null;
+      }
+    }, [displayFormatted]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const normalized = normalizePhone(e.target.value);
+      const rawVal = e.target.value;
+      const rawCursor = e.target.selectionStart ?? rawVal.length;
+
+      // Count actual digits before cursor in the current unformatted/raw input event
+      const digitsBeforeCursor = rawVal.slice(0, rawCursor).replace(/\D/g, '').length;
+      const normalized = normalizePhone(rawVal);
       onChange(normalized);
+
+      // Compute target cursor position in the formatted representation
+      const formatted = formatPhoneDisplay(normalized);
+      let newCursorPos = 0;
+      let count = 0;
+      for (let i = 0; i < formatted.length; i++) {
+        if (/\d/.test(formatted[i])) {
+          count++;
+        }
+        if (count === digitsBeforeCursor) {
+          newCursorPos = i + 1;
+          break;
+        }
+      }
+      if (digitsBeforeCursor === 0) {
+        newCursorPos = 0;
+      }
+
+      pendingCursorRef.current = newCursorPos;
     };
 
-    const displayFormatted = useMemo(() => formatPhoneDisplay(cleanPhone), [cleanPhone]);
+    const handleKeyDownInternal = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (onKeyDown) onKeyDown(e);
+
+      // Ergonomic Backspace over spaces (e.g. at "0902 |993")
+      if (e.key === 'Backspace' && inputRef.current) {
+        const { selectionStart, selectionEnd } = inputRef.current;
+        if (selectionStart === selectionEnd && selectionStart !== null && selectionStart > 0) {
+          const charBefore = displayFormatted[selectionStart - 1];
+          if (charBefore === ' ') {
+            e.preventDefault();
+            const digitsBefore = displayFormatted.slice(0, selectionStart - 1).replace(/\D/g, '').length;
+            if (digitsBefore > 0) {
+              const newClean = cleanPhone.slice(0, digitsBefore - 1) + cleanPhone.slice(digitsBefore);
+              onChange(newClean);
+
+              const formatted = formatPhoneDisplay(newClean);
+              let newPos = 0;
+              let count = 0;
+              for (let i = 0; i < formatted.length; i++) {
+                if (/\d/.test(formatted[i])) count++;
+                if (count === digitsBefore - 1) {
+                  newPos = i + 1;
+                  break;
+                }
+              }
+              pendingCursorRef.current = newPos;
+            }
+          }
+        }
+      }
+    };
 
     return (
       <div className={twMerge('w-full flex flex-col gap-1', compact && 'gap-0.5')}>
@@ -106,10 +176,11 @@ export const SmartPhoneInput = forwardRef<HTMLInputElement, SmartPhoneInputProps
           </div>
 
           <input
-            ref={ref}
+            ref={inputRef}
             type="tel"
             value={displayFormatted}
             onChange={handleInputChange}
+            onKeyDown={handleKeyDownInternal}
             placeholder={placeholder}
             disabled={disabled}
             readOnly={readOnly}
