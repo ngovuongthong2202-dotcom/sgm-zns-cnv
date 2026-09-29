@@ -30,7 +30,7 @@ import { useConfirm } from '@/src/design-system/Confirm';
 import { resolveDeliverySourceDocument } from '@/src/modules/fulfillment/ui/utils/deliverySourceResolver';
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { getProductItemKey } from '@/src/shared/utils/product-key';
-import { resolvePaymentLoai } from '../domain/resolvePaymentLoai';
+import { resolvePaymentLoai } from '@/src/modules/billing/domain/resolvePaymentLoai';
 import { QUOTATION_LOAI } from '@/src/domain/enums/quotation-loai';
 
 interface PaymentDetailDrawerProps {
@@ -248,6 +248,18 @@ export function PaymentDetailDrawer({
     if (paymentLoai === QUOTATION_LOAI.VAT_TU) return '📦 Kích hoạt xuất kho';
     return '🎯 Kích hoạt SX';
   }, [triggerThresholdInfo.isPostDeliverySettlement, paymentLoai]);
+
+  const triggerInstallmentIdx = useMemo(() => {
+    if (!triggerThresholdInfo.isTriggered || !effectiveInstallments || effectiveInstallments.length === 0) return -1;
+    let running = 0;
+    for (let i = 0; i < effectiveInstallments.length; i++) {
+      running += Number(effectiveInstallments[i].soTien || 0);
+      if (running >= triggerThresholdInfo.requiredThresholdAmount) {
+        return i;
+      }
+    }
+    return 0;
+  }, [triggerThresholdInfo, effectiveInstallments]);
 
   if (!payment) return null;
 
