@@ -30,6 +30,8 @@ import { useConfirm } from '@/src/design-system/Confirm';
 import { resolveDeliverySourceDocument } from '@/src/modules/fulfillment/ui/utils/deliverySourceResolver';
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { getProductItemKey } from '@/src/shared/utils/product-key';
+import { resolvePaymentLoai } from '../domain/resolvePaymentLoai';
+import { QUOTATION_LOAI } from '@/src/domain/enums/quotation-loai';
 
 interface PaymentDetailDrawerProps {
   isOpen: boolean;
@@ -213,15 +215,39 @@ export function PaymentDetailDrawer({
     });
   }, [payment, totalPayable, deliveries, contractDoc]);
 
-  const triggerInstallmentIdx = useMemo(() => {
-    if (!triggerThresholdInfo.isTriggered || !triggerThresholdInfo.triggerInstallmentNumber) {
-      return -1;
+  const paymentLoai = useMemo(() => payment ? resolvePaymentLoai(payment) : QUOTATION_LOAI.MAY, [payment]);
+
+  const depositAchievedText = useMemo(() => {
+    const pct = Math.round(totalPayable > 0 ? (triggerThresholdInfo.totalPaid / totalPayable) * 100 : 100);
+    if (paymentLoai === QUOTATION_LOAI.DICH_VU) {
+      return `🛠️ Đã đạt cọc dịch vụ (${pct}% ≥ ${triggerThresholdInfo.thresholdPercent}%)`;
     }
-    const idx = effectiveInstallments.findIndex(
-      (inst, i) => (inst.lanThu || i + 1) === triggerThresholdInfo.triggerInstallmentNumber
-    );
-    return idx >= 0 ? idx : 0;
-  }, [triggerThresholdInfo, effectiveInstallments]);
+    if (paymentLoai === QUOTATION_LOAI.VAT_TU) {
+      return `📦 Đã đạt cọc xuất kho (${pct}% ≥ ${triggerThresholdInfo.thresholdPercent}%)`;
+    }
+    return `🎯 Đã đạt cọc sản xuất (${pct}% ≥ ${triggerThresholdInfo.thresholdPercent}%)`;
+  }, [paymentLoai, totalPayable, triggerThresholdInfo]);
+
+  const depositPendingText = useMemo(() => {
+    const pct = Math.round(totalPayable > 0 ? (triggerThresholdInfo.totalPaid / totalPayable) * 100 : 0);
+    const deficit = formatCurrency(Math.max(0, triggerThresholdInfo.requiredThresholdAmount - triggerThresholdInfo.totalPaid));
+    if (paymentLoai === QUOTATION_LOAI.DICH_VU) {
+      return `⏳ Chưa đủ cọc dịch vụ (đạt ${pct}%/${triggerThresholdInfo.thresholdPercent}% - thiếu ${deficit})`;
+    }
+    if (paymentLoai === QUOTATION_LOAI.VAT_TU) {
+      return `⏳ Chưa đủ cọc xuất kho (đạt ${pct}%/${triggerThresholdInfo.thresholdPercent}% - thiếu ${deficit})`;
+    }
+    return `⏳ Chưa đủ cọc SX (đạt ${pct}%/${triggerThresholdInfo.thresholdPercent}% - thiếu ${deficit})`;
+  }, [paymentLoai, totalPayable, triggerThresholdInfo]);
+
+  const triggerBadgeText = useMemo(() => {
+    if (triggerThresholdInfo.isPostDeliverySettlement) {
+      return paymentLoai === QUOTATION_LOAI.DICH_VU ? '💳 Tất toán sau dịch vụ' : paymentLoai === QUOTATION_LOAI.VAT_TU ? '💳 Tất toán sau giao hàng' : '💳 Tất toán sau giao máy';
+    }
+    if (paymentLoai === QUOTATION_LOAI.DICH_VU) return '🛠️ Kích hoạt dịch vụ';
+    if (paymentLoai === QUOTATION_LOAI.VAT_TU) return '📦 Kích hoạt xuất kho';
+    return '🎯 Kích hoạt SX';
+  }, [triggerThresholdInfo.isPostDeliverySettlement, paymentLoai]);
 
   if (!payment) return null;
 
@@ -391,15 +417,15 @@ export function PaymentDetailDrawer({
                   </h4>
                   {(triggerThresholdInfo.isPostDeliverySettlement || payment.dacCachGiaoTruoc || payment.isExempted || contractDoc?.dacCachGiaoTruoc || deliveries.some((d: any) => d.dacCachGiaoTruoc || d.isExempted)) ? (
                     <span className="text-3xs font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs">
-                      <span>⚡</span> Đặc cách BGĐ (Tất toán sau khi nhận máy)
+                      <span>⚡</span> Đặc cách BGĐ ({paymentLoai === QUOTATION_LOAI.DICH_VU ? 'Nghiệm thu dịch vụ trước' : paymentLoai === QUOTATION_LOAI.VAT_TU ? 'Xuất kho trước' : 'Tất toán sau khi nhận máy'})
                     </span>
                   ) : triggerThresholdInfo.isTriggered ? (
                     <span className="text-3xs font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs">
-                      <span>🎯</span> Đã đạt cọc sản xuất ({Math.round(totalPayable > 0 ? (triggerThresholdInfo.totalPaid / totalPayable) * 100 : 100)}% ≥ {triggerThresholdInfo.thresholdPercent}%)
+                      <span>{paymentLoai === QUOTATION_LOAI.DICH_VU ? '🛠️' : paymentLoai === QUOTATION_LOAI.VAT_TU ? '📦' : '🎯'}</span> {depositAchievedText}
                     </span>
                   ) : (
                     <span className="text-3xs font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-2xs">
-                      <span>⏳</span> Chưa đủ cọc SX (đạt {Math.round(totalPayable > 0 ? (triggerThresholdInfo.totalPaid / totalPayable) * 100 : 0)}%/{triggerThresholdInfo.thresholdPercent}% - thiếu {formatCurrency(Math.max(0, triggerThresholdInfo.requiredThresholdAmount - triggerThresholdInfo.totalPaid))})
+                      <span>⏳</span> {depositPendingText}
                     </span>
                   )}
                 </div>
@@ -438,7 +464,7 @@ export function PaymentDetailDrawer({
                               </span>
                               {idx === triggerInstallmentIdx && (
                                 <span className="text-3xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-2xs">
-                                  {triggerThresholdInfo.isPostDeliverySettlement ? '💳 Tất toán sau giao máy' : '🎯 Kích hoạt SX'}
+                                  {triggerBadgeText}
                                 </span>
                               )}
                             </div>

@@ -131,39 +131,42 @@ export function DrawerHeaderCockpitHUD({
           </div>
         </div>
 
-        <ArrowRight size={12} className="text-slate-400 shrink-0" />
-
-        {/* CHẶNG 2: HỢP ĐỒNG */}
-        <div 
-          onClick={() => matchedContract && handleSelectDoc('contract', matchedContract)}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer shrink-0 ${
-            currentType === 'contract'
-              ? 'bg-blue-950/90 border-blue-500 text-white shadow-xs ring-1 ring-blue-500/50'
-              : matchedContract
-                ? 'bg-slate-900 border-slate-700 text-slate-200 hover:border-slate-500 hover:text-white'
-                : 'bg-slate-900/80 border-slate-700/60 text-slate-400 cursor-default'
-          }`}
-          title={matchedContract ? `Hợp đồng: ${matchedContract.soHopDong}` : 'Chưa lập Hợp đồng'}
-        >
-          <div className={`w-5 h-5 rounded flex items-center justify-center ${currentType === 'contract' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'}`}>
-            <FileSignature size={12} />
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="text-3xs uppercase font-extrabold text-slate-300 tracking-wider">2. HỢP ĐỒNG</span>
-              {currentType === 'contract' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-              )}
+        {/* CHẶNG 2: HỢP ĐỒNG (Chỉ hiển thị khi là Track Máy Móc hoặc đã có Hợp đồng liên kết) */}
+        {(lifecycleBadge.track === 'TRACK_MACHINE' || matchedContract) && (
+          <>
+            <ArrowRight size={12} className="text-slate-400 shrink-0" />
+            <div 
+              onClick={() => matchedContract && handleSelectDoc('contract', matchedContract)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer shrink-0 ${
+                currentType === 'contract'
+                  ? 'bg-blue-950/90 border-blue-500 text-white shadow-xs ring-1 ring-blue-500/50'
+                  : matchedContract
+                    ? 'bg-slate-900 border-slate-700 text-slate-200 hover:border-slate-500 hover:text-white'
+                    : 'bg-slate-900/80 border-slate-700/60 text-slate-400 cursor-default'
+              }`}
+              title={matchedContract ? `Hợp đồng: ${matchedContract.soHopDong}` : 'Chưa lập Hợp đồng'}
+            >
+              <div className={`w-5 h-5 rounded flex items-center justify-center ${currentType === 'contract' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'}`}>
+                <FileSignature size={12} />
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-3xs uppercase font-extrabold text-slate-300 tracking-wider">2. HỢP ĐỒNG</span>
+                  {currentType === 'contract' && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+                  )}
+                </div>
+                <span className="font-mono text-2xs font-bold truncate max-w-[120px] text-white">
+                  {matchedContract?.soHopDong || 'Chưa lập HĐ'}
+                </span>
+              </div>
             </div>
-            <span className="font-mono text-2xs font-bold truncate max-w-[120px] text-white">
-              {matchedContract?.soHopDong || 'Chưa lập HĐ'}
-            </span>
-          </div>
-        </div>
+          </>
+        )}
 
         <ArrowRight size={12} className="text-slate-400 shrink-0" />
 
-        {/* CHẶNG 3: THANH TOÁN (FINANCIAL GATEWAY) */}
+        {/* CHẶNG 3 (HOẶC 2 NẾU KHÔNG CÓ HĐ): THANH TOÁN (FINANCIAL GATEWAY) */}
         <div 
           onClick={() => matchedPayments[0] && handleSelectDoc('payment', matchedPayments[0])}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer shrink-0 ${
@@ -182,7 +185,9 @@ export function DrawerHeaderCockpitHUD({
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
-              <span className="text-3xs uppercase font-extrabold text-slate-300 tracking-wider">3. DÒNG TIỀN</span>
+              <span className="text-3xs uppercase font-extrabold text-slate-300 tracking-wider">
+                {(lifecycleBadge.track === 'TRACK_MACHINE' || matchedContract) ? '3. DÒNG TIỀN' : '2. DÒNG TIỀN'}
+              </span>
               <span className={`text-3xs font-black px-1 rounded ${
                 is30PercentSecured ? 'bg-emerald-950 text-emerald-300 border border-emerald-700' : isExempted ? 'bg-amber-950 text-amber-300 border border-amber-700' : 'bg-slate-800 text-slate-300 border border-slate-700'
               }`}>
@@ -202,7 +207,7 @@ export function DrawerHeaderCockpitHUD({
 
         <ArrowRight size={12} className="text-slate-400 shrink-0" />
 
-        {/* CHẶNG 4: GIAO HÀNG / BÀN GIAO */}
+        {/* CHẶNG GIAO HÀNG / BÀN GIAO / NGHIỆM THU */}
         <div 
           onClick={() => matchedDeliveries[0] && handleSelectDoc('delivery', matchedDeliveries[0])}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer shrink-0 ${
@@ -212,7 +217,7 @@ export function DrawerHeaderCockpitHUD({
                 ? 'bg-slate-900 border-slate-700 text-slate-200 hover:border-slate-500 hover:text-white'
                 : 'bg-slate-900/90 border-slate-700/80 hover:border-slate-600'
           }`}
-          title={matchedDeliveries[0] ? `Lệnh giao: ${primaryDeliveryDisplayCode}` : 'Chờ xuất xưởng'}
+          title={matchedDeliveries[0] ? `Lệnh giao: ${primaryDeliveryDisplayCode}` : (lifecycleBadge.track === 'TRACK_SERVICE' ? 'Chờ triển khai' : 'Chờ xuất kho')}
         >
           <div className={`w-5 h-5 rounded flex items-center justify-center ${
             matchedDeliveries.some(d => d.ngayGiaoThucTe) ? 'bg-cyan-600 text-white' : matchedDeliveries.length > 0 ? 'bg-blue-600 text-white' : 'bg-slate-800 text-amber-300'
@@ -221,7 +226,13 @@ export function DrawerHeaderCockpitHUD({
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
-              <span className="text-3xs uppercase font-extrabold text-slate-300 tracking-wider">4. GIAO NHẬN</span>
+              <span className="text-3xs uppercase font-extrabold text-slate-300 tracking-wider">
+                {(lifecycleBadge.track === 'TRACK_MACHINE' || matchedContract)
+                  ? '4. GIAO NHẬN'
+                  : lifecycleBadge.track === 'TRACK_SERVICE'
+                    ? '3. TRIỂN KHAI'
+                    : '3. XUẤT KHO'}
+              </span>
               {matchedDeliveries.some(d => d.ngayGiaoThucTe) && (
                 <CheckCircle2 size={10} className="text-emerald-400" />
               )}
@@ -235,7 +246,7 @@ export function DrawerHeaderCockpitHUD({
               ) : (
                 <span className="text-amber-300 font-extrabold tracking-tight flex items-center gap-1">
                   <Clock size={10} className="text-amber-300 shrink-0" />
-                  Chờ xuất xưởng
+                  {lifecycleBadge.track === 'TRACK_SERVICE' ? 'Chờ triển khai' : lifecycleBadge.track === 'TRACK_MATERIAL' ? 'Chờ xuất kho' : 'Chờ xuất xưởng'}
                 </span>
               )}
             </span>

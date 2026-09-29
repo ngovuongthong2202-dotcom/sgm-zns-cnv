@@ -302,7 +302,7 @@ export function CustomerDetailDrawer({
           {(
             [
               { id: 'overview', label: 'Tổng quan' },
-              { id: 'flow', label: 'Dòng chảy 360°', count: drawerQuotations.length + drawerContracts.length + drawerPayments.length + drawerDeliveries.length, loading: qLoading || cLoading || pLoading || dLoading },
+              { id: 'flow', label: 'Dòng chảy 360°', count: Math.max(drawerQuotations.length, drawerContracts.length) || (drawerPayments.length > 0 ? 1 : (drawerDeliveries.length > 0 ? 1 : 0)), loading: qLoading || cLoading || pLoading || dLoading },
               { id: 'nexus', label: 'Nhật ký & Hoạt động' },
             ] as const
           ).map((tab) => {

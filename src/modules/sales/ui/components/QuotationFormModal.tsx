@@ -278,6 +278,13 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
                    setValue={setValue as any}
                    products={products}
                    defaultUnit={normalizeLoai(watch('loai')) === QUOTATION_LOAI.VAT_TU ? 'Cái' : normalizeLoai(watch('loai')) === QUOTATION_LOAI.DICH_VU ? 'Gói' : 'Máy'}
+                   defaultItemType={
+                     normalizeLoai(watch('loai')) === QUOTATION_LOAI.VAT_TU 
+                       ? 'MATERIAL' 
+                       : normalizeLoai(watch('loai')) === QUOTATION_LOAI.DICH_VU 
+                         ? 'SERVICE' 
+                         : 'MACHINE'
+                   }
                    showPrice={true}
                    disabled={businessLock?.locked || isErpLocked}
                    baseDateForBaoHanh={watch('ngayBaoGia') || new Date().toISOString().split('T')[0]}

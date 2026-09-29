@@ -257,7 +257,7 @@ export function PaymentRecordBasicFields({
                         setValue('tenKhachHang', doc.tenKhachHang || '', { shouldDirty: true });
                         setValue('sdt', doc.sdt || '', { shouldDirty: true });
                         setValue('soHopDong', isDocContract ? (doc.soHopDong || '') : '', { shouldDirty: true });
-                        setValue('soDonHang', isDocContract ? (doc.soDonHang || '') : (doc.soDonHang || doc.soPhieuBaoGia || ''), { shouldDirty: true });
+                        setValue('soDonHang', isDocContract ? (doc.soDonHang || '') : (doc.soDonHang || ''), { shouldDirty: true });
                         setValue('soPhieuBaoGia', doc.soPhieuBaoGia || '', { shouldDirty: true });
                         
                         if (isDocContract) {

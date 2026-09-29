@@ -118,7 +118,7 @@ export function ProductFinanceRow({
                   value={p.quyCach || ''} 
                   onChange={e => onUpdate(idx, 'quyCach', e.target.value)}
                   readOnly={readOnly || disabled}
-                  className="w-full text-2xs text-amber-900 bg-amber-50/60 border border-amber-200/80 rounded px-2 py-1 outline-none placeholder:text-amber-400 font-medium"
+                  className="w-full text-2xs text-emerald-950 bg-emerald-50/60 border border-emerald-200/80 rounded px-2 py-1 outline-none placeholder:text-emerald-400 font-medium"
                 />
               )}
               {!isMachine && itemType === 'SERVICE' && (
@@ -126,7 +126,7 @@ export function ProductFinanceRow({
                   value={p.phamViCongViec || ''} 
                   onChange={e => onUpdate(idx, 'phamViCongViec', e.target.value)}
                   readOnly={readOnly || disabled}
-                  className="w-full text-2xs text-purple-900 bg-purple-50/60 border border-purple-200/80 rounded px-2 py-1 outline-none placeholder:text-purple-400 font-medium"
+                  className="w-full text-2xs text-amber-950 bg-amber-50/60 border border-amber-200/80 rounded px-2 py-1 outline-none placeholder:text-amber-500 font-medium"
                 />
               )}
            </div>

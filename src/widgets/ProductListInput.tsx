@@ -10,6 +10,7 @@ import { ProductFinanceCard } from './product-list-input/ProductFinanceCard';
 import { ProductFinanceRow } from './product-list-input/ProductFinanceRow';
 import { ProductBasicItem } from './product-list-input/ProductBasicItem';
 import { ProductListHeader, ProductListFooter } from './product-list-input/ProductListSections';
+import { ItemSemanticType } from './product-list-input/useProductItemSemantic';
 
 interface ProductListInputProps {
   products: ProductItem[];
@@ -21,6 +22,7 @@ interface ProductListInputProps {
   showBaoHanh?: boolean;
   baseDateForBaoHanh?: string;
   defaultUnit?: string;
+  defaultItemType?: ItemSemanticType;
   showPrice?: boolean;
   showFinance?: boolean; 
   disabled?: boolean;
@@ -38,6 +40,7 @@ export default function ProductListInput({
   showBaoHanh,
   baseDateForBaoHanh,
   defaultUnit = 'Máy',
+  defaultItemType = 'MACHINE',
   showPrice,
   showFinance,
   disabled,
@@ -50,7 +53,7 @@ export default function ProductListInput({
     bulkDiscAmount, setBulkDiscAmount, applyBulkVat, applyBulkDiscPct,
     applyBulkDiscAmount, addProduct, addFromCatalog, removeProduct, updateProduct
   } = useProductListInput({
-    products, onChange, maxQuantities, showBaoHanh, baseDateForBaoHanh, defaultUnit, showFinance
+    products, onChange, maxQuantities, showBaoHanh, baseDateForBaoHanh, defaultUnit, defaultItemType, showFinance
   });
 
   const totalQuantity = products.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);

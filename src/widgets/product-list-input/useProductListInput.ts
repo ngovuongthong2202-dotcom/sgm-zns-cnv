@@ -4,6 +4,7 @@ import { computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 import { getProductItemKey } from '@/src/shared/utils/product-key';
 import { distributeDiscountAmount, syncBaoHanhDates } from './product-list-input.helpers';
 import { FinancialEngine } from '@/src/shared/utils/financialEngine';
+import { ItemSemanticType, detectItemType } from './useProductItemSemantic';
 
 interface UseProductListInputProps {
   products: ProductItem[];
@@ -12,6 +13,7 @@ interface UseProductListInputProps {
   showBaoHanh?: boolean;
   baseDateForBaoHanh?: string;
   defaultUnit?: string;
+  defaultItemType?: ItemSemanticType;
   showFinance?: boolean;
 }
 
@@ -22,6 +24,7 @@ export function useProductListInput({
   showBaoHanh,
   baseDateForBaoHanh,
   defaultUnit = 'Máy',
+  defaultItemType = 'MACHINE',
   showFinance
 }: UseProductListInputProps) {
   const [bulkVat, setBulkVat] = useState<string>('');
@@ -78,30 +81,33 @@ export function useProductListInput({
 
   const addProduct = useCallback(() => {
     const defaultVat = products.length > 0 && products[0].vatPct !== undefined ? products[0].vatPct : 8;
+    const resolvedUnit = defaultUnit !== 'Máy' ? defaultUnit : (defaultItemType === 'SERVICE' ? 'Gói' : (defaultItemType === 'MATERIAL' ? 'Cái' : 'Máy'));
     const newItem = computeLineItem({
       id: crypto.randomUUID(),
       stt: products.length + 1,
       productId: '',
       productName: '',
       quantity: 1,
-      unit: defaultUnit,
+      unit: resolvedUnit,
       vatPct: defaultVat,
       price: 0,
-      itemType: 'MACHINE'
+      itemType: defaultItemType
     });
     onChange([...products, newItem]);
-  }, [products, onChange, defaultUnit]);
+  }, [products, onChange, defaultUnit, defaultItemType]);
 
   const addFromCatalog = useCallback((p: ProductItem) => {
     const defaultVat = p.vatPct !== undefined ? p.vatPct : (products.length > 0 && products[0].vatPct !== undefined ? products[0].vatPct : 8);
+    const resolvedType = p.itemType || detectItemType(p.productName, p.unit, defaultItemType);
     const newItem = computeLineItem({
       ...p,
+      itemType: resolvedType,
       stt: products.length + 1,
       vatPct: defaultVat,
       id: p.id || crypto.randomUUID()
     });
     onChange([...products, newItem]);
-  }, [products, onChange]);
+  }, [products, onChange, defaultItemType]);
 
   const removeProduct = useCallback((index: number) => {
     const remaining = products.filter((_, i) => i !== index);
@@ -126,6 +132,17 @@ export function useProductListInput({
     }
 
     newProducts[index] = { ...newProducts[index], [field]: val };
+
+    // Tự động nhận diện phân loại sản phẩm khi đổi tên hoặc đơn vị tính
+    if (field === 'productName' || field === 'unit') {
+      const updatedName = field === 'productName' ? String(val || '') : (p.productName || '');
+      const updatedUnit = field === 'unit' ? String(val || '') : (p.unit || '');
+      const autoType = detectItemType(updatedName, updatedUnit, defaultItemType);
+      newProducts[index].itemType = autoType;
+      if (autoType !== 'MACHINE') {
+        newProducts[index].danhSachMaMay = [];
+      }
+    }
 
     // Realtime reactive warranty expiration calculation (Bidirectional)
     if (field === 'soNgayBaoHanh') {

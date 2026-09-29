@@ -25,7 +25,7 @@ export const ITEM_SEMANTIC_CONFIG: Record<ItemSemanticType, SemanticConfig> = {
     label: 'Vật tư / Phụ tùng',
     shortLabel: 'Vật tư',
     icon: '📦',
-    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
+    badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100',
     description: 'Linh kiện thay thế, dao cắt, trục, tôn tấm, ốc vít...'
   },
   SERVICE: {
@@ -33,39 +33,54 @@ export const ITEM_SEMANTIC_CONFIG: Record<ItemSemanticType, SemanticConfig> = {
     label: 'Dịch vụ / Nhân công',
     shortLabel: 'Dịch vụ',
     icon: '🛠️',
-    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100',
+    badgeClass: 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100',
     description: 'Lắp đặt, cân chỉnh máy, đào tạo chuyển giao, bảo dưỡng...'
   }
 };
 
 /**
  * Heuristic Context-Aware Semantic Detector
- * Detects whether a line item is a MACHINE, MATERIAL, or SERVICE based on name pattern
- * NEVER relies blindly on dvt (which can be 'Cái' for machines!)
+ * Detects whether a line item is a MACHINE, MATERIAL, or SERVICE based on name pattern and unit
+ * Supports context-aware defaultType (e.g. from Quotation/Contract classification)
  */
 export function detectItemType(
   productName: string = '',
+  unitOrDefault?: string | ItemSemanticType,
   defaultType: ItemSemanticType = 'MACHINE'
 ): ItemSemanticType {
-  const norm = (productName || '').trim().toLowerCase();
-  if (!norm) return defaultType;
+  let resolvedUnit: string | undefined;
+  let resolvedDefault: ItemSemanticType = defaultType;
 
-  // 1. Nhận diện Dịch vụ & Phụ phí vận chuyển (ưu tiên cao vì thường có từ khóa rõ ràng)
-  if (/lắp đặt|vận hành|bảo dưỡng|bảo trì|cân chỉnh|chuyển giao|vận chuyển|cước xe|cước vận chuyển|chi phí vận chuyển|xe cẩu|xe tải|đầu kéo|bốc xếp|giao nhận|phí ship|chở hàng|nhân công|dịch vụ|thi công|hướng dẫn/i.test(norm)) {
+  if (unitOrDefault === 'MACHINE' || unitOrDefault === 'MATERIAL' || unitOrDefault === 'SERVICE') {
+    resolvedDefault = unitOrDefault;
+  } else if (typeof unitOrDefault === 'string') {
+    resolvedUnit = unitOrDefault;
+  }
+
+  const normName = (productName || '').trim().toLowerCase();
+  const normUnit = (resolvedUnit || '').trim().toLowerCase();
+
+  // 1. Kiểm tra đơn vị tính đặc thù của Dịch vụ
+  if (/^(gói|goi|lần|lan|chuyến|chuyen|ngày|ngay|giờ|gio|ca|tháng|thang|năm|nam|buổi|buoi|hợp đồng|hop dong)$/i.test(normUnit)) {
     return 'SERVICE';
   }
 
-  // 2. Nhận diện Máy móc / Thiết bị chế tạo (ưu tiên máy móc trước vật tư đơn lẻ)
-  if (/máy|dây chuyền|hệ thống|dập vòm|cán tôn|xà gồ|chấn|uốn|k1200|c100|z200|khung dập|bộ cán/i.test(norm)) {
+  // 2. Nhận diện Dịch vụ, Thi công, Vận chuyển qua từ khóa tên sản phẩm (ưu tiên cao)
+  if (/chi phí|chi phi|dịch vụ|dich vu|kiểm tra|kiem tra|vệ sinh|ve sinh|sửa chữa|sua chua|sữa chữa|cải tạo|cai tao|lắp đặt|lap dat|vận hành|van hanh|bảo dưỡng|bao duong|bảo trì|bao tri|cân chỉnh|can chinh|chuyển giao|chuyen giao|vận chuyển|van chuyen|cước xe|cuoc xe|xe cẩu|xe cau|xe tải|xe tai|đầu kéo|dau keo|bốc xếp|boc xep|giao nhận|giao nhan|phí ship|phi ship|chở hàng|cho hang|nhân công|nhan cong|thi công|thi cong|hướng dẫn|huong dan/i.test(normName)) {
+    return 'SERVICE';
+  }
+
+  // 3. Nhận diện Máy móc / Thiết bị chế tạo
+  if (/máy|may|dây chuyền|day chuyen|hệ thống|he thong|dập vòm|dap vom|cán tôn|can ton|xà gồ|xa go|chấn|chan|uốn|uon|k1200|c100|z200|khung dập|khung dap|bộ cán|bo can/i.test(normName)) {
     return 'MACHINE';
   }
 
-  // 3. Nhận diện Vật tư / Phụ kiện / Linh kiện
-  if (/lưỡi dao|dao cắt|trục cán|con lăn|ốc vít|bulong|bu lông|dầu nhớt|tôn cuộn|thép tấm|phụ kiện|linh kiện|khuôn cán|bạc đạn|vòng bi|xích tải/i.test(norm)) {
+  // 4. Nhận diện Vật tư / Phụ kiện / Linh kiện
+  if (/lưỡi dao|luoi dao|dao cắt|dao cat|trục cán|truc can|con lăn|con lan|ốc vít|oc vit|bulong|bu lông|dầu nhớt|dau nhot|tôn cuộn|ton cuon|thép tấm|thep tam|phụ kiện|phu kien|linh kiện|linh kien|khuôn cán|khuon can|bạc đạn|bac dan|vòng bi|vong bi|xích tải|xich tai|cao su|ron|gioăng|gioang|phốt|phot|bánh răng|banh rang/i.test(normName)) {
     return 'MATERIAL';
   }
 
-  return defaultType;
+  return resolvedDefault;
 }
 
 /**
@@ -75,7 +90,7 @@ export function detectItemType(
 export function calculateActualMachineCount(products: (ProductItem | any)[] = []): number {
   if (!Array.isArray(products) || products.length === 0) return 0;
   return products
-    .filter(p => (p.itemType || detectItemType(p.productName)) === 'MACHINE')
+    .filter(p => (p.itemType || detectItemType(p.productName, p.unit || p.dvt)) === 'MACHINE')
     .reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
 }
 
@@ -104,7 +119,7 @@ export function smartAllocateSerials(
   const availablePool = cleanRootSerials.filter(sn => !assigned.has(sn));
 
   return products.map(p => {
-    const inferredType = p.itemType || detectItemType(p.productName);
+    const inferredType = p.itemType || detectItemType(p.productName, p.unit || p.dvt);
     
     // Non-machine items should not have serials
     if (inferredType !== 'MACHINE') {

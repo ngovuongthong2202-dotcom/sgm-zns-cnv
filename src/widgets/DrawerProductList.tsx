@@ -4,6 +4,7 @@ import { aggregateProducts, computeLineItem } from '@/src/domain/pricing/quotati
 import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { AlertTriangle } from 'lucide-react';
+import { detectItemType, ITEM_SEMANTIC_CONFIG, ItemSemanticType } from '@/src/widgets/product-list-input/useProductItemSemantic';
 
 interface DeliveryQuantities {
   [key: string]: number;
@@ -91,6 +92,8 @@ export function DrawerProductList({
                   const serials = Array.isArray(p.danhSachMaMay) ? p.danhSachMaMay : [];
                   const isPromo = p.price === 0 && Boolean(p.productName || p.productId);
                   const isZeroVat = p.vatPct === 0 || p.vatPct === undefined || p.vatPct === null;
+                  const itemType: ItemSemanticType = (p.itemType as ItemSemanticType) || detectItemType(p.productName, p.unit);
+                  const semConfig = ITEM_SEMANTIC_CONFIG[itemType] || ITEM_SEMANTIC_CONFIG.MACHINE;
 
                   return (
                     <tr 
@@ -107,12 +110,17 @@ export function DrawerProductList({
                       {/* Tên & Quy cách */}
                       <td className="p-2.5 align-top min-w-[280px] border-r border-slate-200/80">
                         <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             {p.productId && (
                               <span className="font-mono text-3xs font-bold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
                                 {p.productId}
                               </span>
                             )}
+                            {/* Semantic Type Badge */}
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-extrabold border select-none ${semConfig.badgeClass}`}>
+                              <span>{semConfig.icon}</span>
+                              <span>{semConfig.shortLabel}</span>
+                            </span>
                             <span className="font-bold text-slate-950 text-xs leading-snug">
                               {p.productName || 'Sản phẩm chưa đặt tên'}
                             </span>
@@ -125,6 +133,18 @@ export function DrawerProductList({
 
                           {p.ghiChu && (
                             <p className="text-2xs italic text-slate-700 font-medium">{p.ghiChu}</p>
+                          )}
+
+                          {p.quyCach && (
+                            <p className="text-2xs text-emerald-950 font-medium bg-emerald-50/70 border border-emerald-200/60 rounded px-1.5 py-0.5 mt-0.5">
+                              <span className="font-bold">Quy cách:</span> {p.quyCach}
+                            </p>
+                          )}
+
+                          {p.phamViCongViec && (
+                            <p className="text-2xs text-amber-950 font-medium bg-amber-50/70 border border-amber-200/60 rounded px-1.5 py-0.5 mt-0.5">
+                              <span className="font-bold">Phạm vi CV:</span> {p.phamViCongViec}
+                            </p>
                           )}
 
                           {/* Machine Codes / Serials */}
