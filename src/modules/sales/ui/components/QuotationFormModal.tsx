@@ -62,6 +62,7 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
     
     lastSavedAt,
     clearDraft,
+    saveDraft,
     
     aggs,
     products,
@@ -144,6 +145,7 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
              aria-label="Đóng"  
              onClick={async () => {
                if (isDirty) {
+                 await saveDraft(getValues());
                  const proceed = await confirm({
                    title: 'Xác nhận đóng',
                    message: 'Dữ liệu chỉnh sửa sẽ được lưu nháp để tiếp tục sau. Bạn chắc chắn muốn đóng và thoát khỏi màn hình lập báo giá?',

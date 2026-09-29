@@ -2055,39 +2055,40 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                         class="flex flex-col gap-0"
                       >
                         <div
-                          class="relative flex items-center"
+                          class="flex items-center gap-1.5"
                         >
                           <div
-                            class="absolute left-3 text-slate-400 pointer-events-none flex items-center"
+                            class="relative flex-1 min-w-0"
                           >
-                            <svg
-                              aria-hidden="true"
-                              class="lucide lucide-phone"
-                              fill="none"
-                              height="14"
-                              stroke="currentColor"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              viewBox="0 0 24 24"
-                              width="14"
-                              xmlns="http://www.w3.org/2000/svg"
+                            <div
+                              class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center"
                             >
-                              <path
-                                d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"
-                              />
-                            </svg>
+                              <svg
+                                aria-hidden="true"
+                                class="lucide lucide-phone"
+                                fill="none"
+                                height="14"
+                                stroke="currentColor"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                viewBox="0 0 24 24"
+                                width="14"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"
+                                />
+                              </svg>
+                            </div>
+                            <input
+                              class="w-full pl-9 pr-3 py-1.5 text-xs font-mono text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                              id="contact-phone-0"
+                              placeholder="09xx xxx xxx"
+                              type="tel"
+                              value=""
+                            />
                           </div>
-                          <input
-                            class="w-full pl-9 sm:pr-40 font-mono text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 py-1.5 text-xs pr-28"
-                            id="contact-phone-0"
-                            placeholder="09xx xxx xxx"
-                            type="tel"
-                            value=""
-                          />
-                          <div
-                            class="absolute right-2 flex items-center gap-1.5 pointer-events-none"
-                          />
                         </div>
                       </div>
                     </div>
@@ -3248,39 +3249,40 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
                       class="flex flex-col gap-0"
                     >
                       <div
-                        class="relative flex items-center"
+                        class="flex items-center gap-1.5"
                       >
                         <div
-                          class="absolute left-3 text-slate-400 pointer-events-none flex items-center"
+                          class="relative flex-1 min-w-0"
                         >
-                          <svg
-                            aria-hidden="true"
-                            class="lucide lucide-phone"
-                            fill="none"
-                            height="14"
-                            stroke="currentColor"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            viewBox="0 0 24 24"
-                            width="14"
-                            xmlns="http://www.w3.org/2000/svg"
+                          <div
+                            class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center"
                           >
-                            <path
-                              d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"
-                            />
-                          </svg>
+                            <svg
+                              aria-hidden="true"
+                              class="lucide lucide-phone"
+                              fill="none"
+                              height="14"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              viewBox="0 0 24 24"
+                              width="14"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"
+                              />
+                            </svg>
+                          </div>
+                          <input
+                            class="w-full pl-9 pr-3 py-1.5 text-xs font-mono text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                            id="soDienThoaiDonViVanChuyen"
+                            placeholder="09xx xxx xxx"
+                            type="tel"
+                            value=""
+                          />
                         </div>
-                        <input
-                          class="w-full pl-9 sm:pr-40 font-mono text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 py-1.5 text-xs pr-28"
-                          id="soDienThoaiDonViVanChuyen"
-                          placeholder="09xx xxx xxx"
-                          type="tel"
-                          value=""
-                        />
-                        <div
-                          class="absolute right-2 flex items-center gap-1.5 pointer-events-none"
-                        />
                       </div>
                     </div>
                   </div>
@@ -3350,39 +3352,40 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
                         class="flex flex-col gap-0"
                       >
                         <div
-                          class="relative flex items-center"
+                          class="flex items-center gap-1.5"
                         >
                           <div
-                            class="absolute left-3 text-slate-400 pointer-events-none flex items-center"
+                            class="relative flex-1 min-w-0"
                           >
-                            <svg
-                              aria-hidden="true"
-                              class="lucide lucide-phone"
-                              fill="none"
-                              height="14"
-                              stroke="currentColor"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              viewBox="0 0 24 24"
-                              width="14"
-                              xmlns="http://www.w3.org/2000/svg"
+                            <div
+                              class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center"
                             >
-                              <path
-                                d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"
-                              />
-                            </svg>
+                              <svg
+                                aria-hidden="true"
+                                class="lucide lucide-phone"
+                                fill="none"
+                                height="14"
+                                stroke="currentColor"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                viewBox="0 0 24 24"
+                                width="14"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"
+                                />
+                              </svg>
+                            </div>
+                            <input
+                              class="w-full pl-9 pr-3 py-1.5 text-xs font-mono text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                              id="sdtThoGiaoMay"
+                              placeholder="09xx xxx xxx"
+                              type="tel"
+                              value=""
+                            />
                           </div>
-                          <input
-                            class="w-full pl-9 sm:pr-40 font-mono text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 py-1.5 text-xs pr-28"
-                            id="sdtThoGiaoMay"
-                            placeholder="09xx xxx xxx"
-                            type="tel"
-                            value=""
-                          />
-                          <div
-                            class="absolute right-2 flex items-center gap-1.5 pointer-events-none"
-                          />
                         </div>
                       </div>
                     </div>

@@ -31,7 +31,7 @@ export function useDeliveryForm(
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const { register, handleSubmit, watch, setValue, getValues, reset, formState: { errors, isSubmitting } } = useForm<Delivery>({
+  const { register, handleSubmit, watch, setValue, getValues, reset, formState: { errors, isSubmitting, isDirty } } = useForm<Delivery>({
     resolver: zodResolver(DeliverySchema) as any,
     defaultValues: draft ? { 
       ...draft, 
@@ -107,11 +107,12 @@ export function useDeliveryForm(
   const watchAll = watch();
   
   useEffect(() => {
-    const handler = setTimeout(() => {
-      saveDraft(watchAll);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [watchAll, saveDraft]);
+    if (!isDirty) return;
+    const interval = setInterval(() => {
+      saveDraft(getValues());
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [isDirty, saveDraft, getValues]);
 
   const isCreating = !delivery?.id;
 
@@ -172,14 +173,22 @@ export function useDeliveryForm(
     const finalSoPhieuBaoGia = (p as any).soPhieuBaoGia || source?.soPhieuBaoGia || (source as any)?.soBaoGia || resolvedQuot?.soPhieuBaoGia || (resolvedQuot as any)?.soBaoGia || '';
     const finalNgayBaoGia = (p as any).ngayBaoGia || (source as any)?.ngayBaoGia || resolvedQuot?.ngayBaoGia || '';
 
-    setValue('contractId', p.contractId || source?.id || '');
-    setValue('quotationId', finalQuotationId);
+    const isContract = Boolean(
+      p.contractId ||
+      (p.soHopDong && String(p.soHopDong).trim()) ||
+      (source && 'soHopDong' in source && Boolean(source.soHopDong))
+    );
+    const resolvedContractId = isContract ? (p.contractId || (source && 'soHopDong' in source ? source.id : '')) : '';
+    const resolvedQuotationId = finalQuotationId || (!isContract && source ? source.id : '') || '';
+
+    setValue('contractId', resolvedContractId, { shouldValidate: true, shouldDirty: true });
+    setValue('quotationId', resolvedQuotationId, { shouldValidate: true, shouldDirty: true });
     setValue('soPhieuBaoGia', finalSoPhieuBaoGia);
     setValue('soBaoGia', finalSoPhieuBaoGia);
     setValue('ngayBaoGia', finalNgayBaoGia);
     setValue('soDonHang', p.soDonHang || source?.soDonHang || '');
     setValue('loai', p.loai || source?.loai || '');
-    setValue('dvt', p.dvt || source?.dvt || 'Máy');
+    setValue('dvt', p.dvt || source?.dvt || (p.products?.[0]?.unit || 'Máy'));
     setValue('slMay', Number(p.slMay || source?.slMay) || 1);
     setValue('giaTriHopDong', Number(p.giaTriHopDong || p.totalAmount || source?.totalAmount) || 1);
     setValue('soHopDong', p.soHopDong || source?.soHopDong || '');
@@ -468,7 +477,10 @@ export function useDeliveryForm(
 
   const populateFromQuotation = useCallback((q: any) => {
     if (!q) return;
-    setValue('quotationId', q.id, { shouldValidate: true });
+    setValue('contractId', '', { shouldValidate: true, shouldDirty: true });
+    setValue('soHopDong', '', { shouldDirty: true });
+    setValue('ngayKy', '', { shouldDirty: true });
+    setValue('quotationId', q.id, { shouldValidate: true, shouldDirty: true });
     setValue('soPhieuBaoGia', q.soPhieuBaoGia || '');
     setValue('soBaoGia', q.soPhieuBaoGia || '');
     setValue('ngayBaoGia', q.ngayBaoGia || '');
@@ -792,8 +804,11 @@ export function useDeliveryForm(
     selectedPaymentId,
     populateFromPayment,
     populateFromContract,
+    populateFromQuotation,
     lookupExportSale,
     isLookingUpExportSale,
     getValues,
+    isDirty,
+    saveDraft,
   };
 }

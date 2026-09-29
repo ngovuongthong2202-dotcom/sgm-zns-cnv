@@ -474,6 +474,7 @@ export function useCustomerForm(
     
     nameInputRef,
     clearDraft,
+    saveDraft,
     
     smartFormatNameAI,
     checkDuplicates,

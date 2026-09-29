@@ -10,6 +10,7 @@ import { useAuth } from '@/src/modules/iam';
 import { useSharedFields } from '@/src/hooks/useSharedFields';
 import { Package, ScrollText } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
+import { useConfirm } from '@/src/design-system/Confirm';
 import ProductListInput from '@/src/widgets/ProductListInput';
 import { normalizeCode, normalizePersonName } from '@/src/shared/utils/textFormatter';
 import { normalizePhoneVN } from '@/src/shared/utils/phone';
@@ -65,8 +66,27 @@ export function ContractFormModal({ contract, contracts, quotations, nguoiPhuTra
     subTotal,
     discountAmount,
     vatAmount,
-    totalAmount
+    totalAmount,
+    isDirty,
+    getValues,
+    saveDraft
   } = useContractForm(contract, contracts, allPayments, allDeliveries, prefillQuotation);
+  const { confirm } = useConfirm();
+
+  const handleCloseAttempt = async () => {
+    if (isDirty) {
+      await saveDraft(getValues() as any);
+      const proceed = await confirm({
+        title: 'Xác nhận đóng',
+        message: 'Dữ liệu đã được lưu nháp tự động. Bạn chắc chắn muốn đóng?',
+        variant: 'warning',
+        confirmText: 'Đóng',
+        cancelText: 'Quay lại'
+      });
+      if (!proceed) return;
+    }
+    onClose();
+  };
 
   const onSubmitForm = async (data: any) => {
     try {
@@ -123,7 +143,7 @@ export function ContractFormModal({ contract, contracts, quotations, nguoiPhuTra
           </div>
           <Button 
              aria-label="Đóng"  
-             onClick={onClose} 
+             onClick={handleCloseAttempt} 
              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white transition-colors border-none"
              variant="ghost"
           >

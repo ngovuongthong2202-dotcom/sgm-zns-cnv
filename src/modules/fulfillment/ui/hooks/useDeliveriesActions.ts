@@ -15,6 +15,7 @@ import { DeliveryStatusVO } from '@/src/domain/value-objects/DeliveryStatusVO';
 import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
 
 import { auditLogsRepo } from '@/src/data/repositories/system.repo';
+import { resolveDeliverySourceDocument } from '../utils/deliverySourceResolver';
 
 export function useDeliveriesActions(
   createDelivery: (data: Delivery) => Promise<string>,
@@ -431,21 +432,13 @@ export function useDeliveriesActions(
         }
       }
 
-      let sourceId = data.contractId;
-      let collectionName = 'contracts';
-      let updateSourceFn: (id: string, data: any) => Promise<void> = updateContract;
-
-      if (!sourceId && data.quotationId) {
-        sourceId = data.quotationId;
-        collectionName = 'quotations';
-        updateSourceFn = updateQuotation;
+      const resolved = await resolveDeliverySourceDocument(data);
+      if (!resolved || !resolved.source) {
+        throw new Error('Không tìm thấy nguồn dữ liệu tham chiếu (Hợp đồng hoặc Báo giá)');
       }
 
-      if (!sourceId) throw new Error('Yêu cầu phải có Hợp đồng hoặc Báo giá');
-
-      const sourceSnap = await repositoryFactory.get<any>(collectionName).getById(sourceId);
-      if (!sourceSnap) throw new Error('Không tìm thấy nguồn dữ liệu tham chiếu');
-      const source = sourceSnap;
+      const source = resolved.source;
+      const updateSourceFn = resolved.sourceType === 'contracts' ? updateContract : updateQuotation;
 
       const currentDelivered = source.deliveredQuantities || {};
       const newDeliveredQuantities: Record<string, number> = { ...currentDelivered };

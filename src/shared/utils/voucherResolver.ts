@@ -172,7 +172,7 @@ export function calculateMachineAllocation(
       const dSoPhieuBaoGia = cleanId(d.soPhieuBaoGia || d.soBaoGia);
 
       const isMatch = (
-        (docId && (dContractId === docId || dContractId === docSoHopDong)) ||
+        (docId && (dContractId === docId || dContractId === docSoHopDong || dQuotationId === docId || dSoHopDong === docId)) ||
         (docSoHopDong && (dSoHopDong === docSoHopDong || dContractId === docSoHopDong || dSoHopDong === docId)) ||
         (docSoDonHang && dSoDonHang && dSoDonHang === docSoDonHang) ||
         (docQuotationId && (dQuotationId === docQuotationId || dQuotationId === docSoPhieuBaoGia)) ||

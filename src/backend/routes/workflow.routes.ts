@@ -179,10 +179,17 @@ router.post('/create/:entityType', async (req, res) => {
       const gateResult = canCreateDelivery(payData);
       if (!gateResult.allowed) return res.status(422).json({ error: gateResult.reason });
 
-      // Kiểm tra số lượng giao hàng (Hỗ trợ nhiều đợt giao, ngăn giao vượt số lượng)
-      const targetSource = payData.contractId 
+      let targetSource = payData.contractId 
         ? await adminDb.collection('contracts').doc(payData.contractId).get()
         : (payData.quotationId ? await adminDb.collection('quotations').doc(payData.quotationId).get() : null);
+      
+      // Self-healing: Nếu contractId không tồn tại trên contracts collection nhưng tồn tại trên quotations collection
+      if (payData.contractId && (!targetSource || !targetSource.exists)) {
+        const quoFallback = await adminDb.collection('quotations').doc(payData.contractId).get();
+        if (quoFallback.exists) {
+          targetSource = quoFallback;
+        }
+      }
       
       const sourceObj = (targetSource && targetSource.exists ? targetSource.data() : null) || payData;
       const srcProducts: any[] = sourceObj?.products || payData.products || [];

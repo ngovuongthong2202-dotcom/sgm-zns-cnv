@@ -1,20 +1,18 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { Customer } from '@/src/domain/schema/customer.schema';
-import { Quotation } from '@/src/domain/schema/quotation.schema';
 import React from 'react';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 import { CustomerHoverCard } from './components/CustomerHoverCard';
 import { Button } from '@/src/design-system/Button';
 import { normalizeBusinessName, normalizeCode } from '@/src/shared/utils/textFormatter';
-import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
 import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
 
 export const getCustomerColumns = (
-  quotations: Quotation[] = [],
+  quotationCountMap: Map<string, Set<string>>,
   onEditCustomer?: (customer: Customer) => void,
   onDeleteCustomer?: (customer: Customer) => void,
   onSendZns?: (customer: Customer) => void,
@@ -212,17 +210,11 @@ export const getCustomerColumns = (
   {
     id: 'soBaoGia',
     accessorFn: (row) => {
-      const matchFn = (q: any) => {
-        if (!q || q.deletedAt || q.deleted_at || q.isDeleted) return false;
-        return Boolean(
-          q.customerId === row.id ||
-          q.customerId === row.maKh ||
-          (row.maKh && q.maKh === row.maKh)
-        );
-      };
-      const fromParam = quotations.filter(matchFn).length;
-      if (fromParam > 0) return fromParam;
-      return entityCachePool.filter('quotations', matchFn).length;
+      // Set-based dedup: mỗi quotation chỉ đếm 1 lần dù match trên cả id lẫn maKh
+      const seen = new Set<string>();
+      if (row.id) quotationCountMap.get(row.id)?.forEach(qId => seen.add(qId));
+      if (row.maKh) quotationCountMap.get(row.maKh)?.forEach(qId => seen.add(qId));
+      return seen.size;
     },
     header: 'Số BG',
     size: 80,

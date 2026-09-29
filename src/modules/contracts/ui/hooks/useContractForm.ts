@@ -171,6 +171,8 @@ export function useContractForm(
     subTotal,
     discountAmount,
     vatAmount,
-    totalAmount
+    totalAmount,
+    getValues,
+    saveDraft
   };
 }

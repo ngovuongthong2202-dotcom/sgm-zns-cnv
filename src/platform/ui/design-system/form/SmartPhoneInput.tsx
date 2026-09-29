@@ -99,66 +99,128 @@ export const SmartPhoneInput = forwardRef<HTMLInputElement, SmartPhoneInputProps
 
     return (
       <div className={twMerge('flex flex-col gap-1', compact && 'gap-0')}>
-        <div className="relative flex items-center">
-          <div className="absolute left-3 text-slate-400 pointer-events-none flex items-center">
-            <Phone size={14} />
-          </div>
-
-          <input
-            ref={ref}
-            type="tel"
-            value={displayFormatted}
-            onChange={handleInputChange}
-            placeholder={placeholder}
-            disabled={disabled}
-            readOnly={readOnly}
-            className={twMerge(
-              'w-full pl-9 pr-36 sm:pr-40 py-2 font-mono text-sm text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all',
-              'focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500',
-              error && 'border-red-400 focus:border-red-500 focus:ring-red-200/30 text-red-700',
-              (disabled || readOnly) && 'bg-slate-50 text-slate-500 cursor-not-allowed border-slate-200',
-              compact && 'py-1.5 text-xs pr-28',
-              className
-            )}
-            {...props}
-          />
-
-          <div className="absolute right-2 flex items-center gap-1.5 pointer-events-none">
-            {/* Carrier badge */}
+        {compact ? (
+          /* ═══ COMPACT MODE: Inline Suffix Layout ═══
+             Badge + actions are flex siblings AFTER input, not absolute overlay.
+             This eliminates text being hidden behind badges (zero layout shift). */
+          <div className="flex items-center gap-1.5">
+            <div className="relative flex-1 min-w-0">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center">
+                <Phone size={14} />
+              </div>
+              <input
+                ref={ref}
+                type="tel"
+                value={displayFormatted}
+                onChange={handleInputChange}
+                placeholder={placeholder}
+                disabled={disabled}
+                readOnly={readOnly}
+                className={twMerge(
+                  'w-full pl-9 pr-3 py-1.5 text-xs font-mono text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all',
+                  'focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500',
+                  error && 'border-red-400 focus:border-red-500 focus:ring-red-200/30 text-red-700',
+                  (disabled || readOnly) && 'bg-slate-50 text-slate-500 cursor-not-allowed border-slate-200',
+                  className
+                )}
+                {...props}
+              />
+            </div>
+            {/* Carrier badge as flex sibling — NO overlay, NO text overlap */}
             {showCarrierBadge && carrier && (
               <span
                 className={twMerge(
-                  'px-1.5 py-0.5 text-3xs font-bold rounded border uppercase tracking-wider select-none pointer-events-none',
+                  'shrink-0 px-1.5 py-0.5 text-3xs font-bold rounded border uppercase tracking-wider select-none whitespace-nowrap',
                   carrier.badgeBg
                 )}
               >
                 {carrier.name}
               </span>
             )}
-
-            {/* Quick Actions: Call / Zalo */}
+            {/* Quick actions as flex siblings */}
             {showQuickActions && isValidVNPhone && !disabled && (
-              <div className="flex items-center gap-1 pointer-events-auto">
+              <div className="shrink-0 flex items-center gap-0.5">
                 <a
                   href={`tel:${cleanPhone}`}
                   title="Gọi ngay"
-                  className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                  className="p-0.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
                 >
-                  <Phone size={12} />
+                  <Phone size={11} />
                 </a>
                 <a
                   href={`https://zalo.me/${cleanPhone}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Nhắn Zalo"
-                  className="px-1.5 py-0.5 text-3xs font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 rounded transition-colors cursor-pointer border border-sky-200"
+                  className="px-1 py-0.5 text-3xs font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 rounded transition-colors cursor-pointer border border-sky-200"
                 >
-                  Zalo
+                  Z
                 </a>
               </div>
             )}
           </div>
-        </div>
+        ) : (
+          /* ═══ FULL MODE: Original overlay layout (unchanged) ═══ */
+          <div className="relative flex items-center">
+            <div className="absolute left-3 text-slate-400 pointer-events-none flex items-center">
+              <Phone size={14} />
+            </div>
+
+            <input
+              ref={ref}
+              type="tel"
+              value={displayFormatted}
+              onChange={handleInputChange}
+              placeholder={placeholder}
+              disabled={disabled}
+              readOnly={readOnly}
+              className={twMerge(
+                'w-full pl-9 pr-36 sm:pr-40 py-2 font-mono text-sm text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all',
+                'focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500',
+                error && 'border-red-400 focus:border-red-500 focus:ring-red-200/30 text-red-700',
+                (disabled || readOnly) && 'bg-slate-50 text-slate-500 cursor-not-allowed border-slate-200',
+                className
+              )}
+              {...props}
+            />
+
+            <div className="absolute right-2 flex items-center gap-1.5 pointer-events-none">
+              {/* Carrier badge */}
+              {showCarrierBadge && carrier && (
+                <span
+                  className={twMerge(
+                    'px-1.5 py-0.5 text-3xs font-bold rounded border uppercase tracking-wider select-none pointer-events-none',
+                    carrier.badgeBg
+                  )}
+                >
+                  {carrier.name}
+                </span>
+              )}
+
+              {/* Quick Actions: Call / Zalo */}
+              {showQuickActions && isValidVNPhone && !disabled && (
+                <div className="flex items-center gap-1 pointer-events-auto">
+                  <a
+                    href={`tel:${cleanPhone}`}
+                    title="Gọi ngay"
+                    className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                  >
+                    <Phone size={12} />
+                  </a>
+                  <a
+                    href={`https://zalo.me/${cleanPhone}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Nhắn Zalo"
+                    className="px-1.5 py-0.5 text-3xs font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 rounded transition-colors cursor-pointer border border-sky-200"
+                  >
+                    Zalo
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Validation hint if incomplete */}
         {cleanPhone.length > 0 && cleanPhone.length !== 10 && (

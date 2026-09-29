@@ -26,8 +26,10 @@ import { useSharedFields } from '@/src/hooks/useSharedFields';
 import { Truck } from 'lucide-react';
 
 import { Button } from '@/src/design-system/Button';
-
 import { useConfirm } from '@/src/design-system/Confirm';
+import { resolveDeliverySourceDocument } from '@/src/modules/fulfillment/ui/utils/deliverySourceResolver';
+import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
+import { getProductItemKey } from '@/src/shared/utils/product-key';
 
 interface PaymentDetailDrawerProps {
   isOpen: boolean;
@@ -593,7 +595,14 @@ export function PaymentDetailDrawer({
   );
 
   const contractsList = useMemo(() => (contractDoc ? [contractDoc] : []), [contractDoc]);
-  const quotationsList = useMemo(() => (_quotationDoc ? [_quotationDoc] : []), [_quotationDoc]);
+  const quotationsList = useMemo(() => {
+    if (_quotationDoc) return [_quotationDoc];
+    if (quotationId) {
+      const cached = entityCachePool.get('quotations', quotationId);
+      if (cached) return [cached];
+    }
+    return [];
+  }, [_quotationDoc, quotationId]);
   const customersList = useMemo(() => (customerDoc ? [customerDoc] : []), [customerDoc]);
 
   const deliveryPrefill = useMemo(() => {
@@ -604,22 +613,24 @@ export function PaymentDetailDrawer({
       contractDoc?.dacCachGiaoTruoc
     );
 
+    const resolvedQuo = _quotationDoc || (quotationId ? entityCachePool.get('quotations', quotationId) : null);
+
     return {
-      contractId: contractDoc?.id,
+      contractId: contractDoc?.id || payment.contractId || '',
       paymentId: payment.id,
-      quotationId: _quotationDoc?.id,
+      quotationId: resolvedQuo?.id || payment.quotationId || '',
       customerId: payment.customerId,
       tenKhachHang: payment.tenKhachHang,
       sdt: payment.sdt,
       diaChiGiaoHang: (payment as any).diaChiGiaoHang || contractDoc?.diaChiGiaoHang || (payment as any).diaChi || '',
       soHopDong: contractDoc?.soHopDong || payment.soHopDong,
-      soBaoGia: _quotationDoc?.soPhieuBaoGia,
-      soPhieuBaoGia: _quotationDoc?.soPhieuBaoGia,
-      ngayBaoGia: _quotationDoc?.ngayBaoGia,
+      soBaoGia: resolvedQuo?.soPhieuBaoGia || (payment as any).soPhieuBaoGia,
+      soPhieuBaoGia: resolvedQuo?.soPhieuBaoGia || (payment as any).soPhieuBaoGia,
+      ngayBaoGia: resolvedQuo?.ngayBaoGia || (payment as any).ngayBaoGia,
       giaTriHopDong: contractDoc?.totalAmount || (payment as any).tongGiaTri || (payment as any).totalAmount || payment.soTien || 0,
       tinhTrangThanhToan: payment.tinhTrangThanhToan,
       nguoiPhuTrach: payment.nguoiPhuTrach,
-      products: contractDoc?.products || _quotationDoc?.products || [],
+      products: contractDoc?.products || resolvedQuo?.products || (payment as any).products || [],
       danhSachMaMay: contractDoc?.danhSachMaMay || (payment as any).danhSachMaMay || [],
       slMay: allocGate.remainingMachines,
       ngayLapPgh: new Date().toISOString().split('T')[0],
@@ -632,6 +643,7 @@ export function PaymentDetailDrawer({
     payment,
     contractDoc,
     _quotationDoc,
+    quotationId,
     isChuaTT,
     allocGate.remainingMachines
   ]);
@@ -651,9 +663,32 @@ export function PaymentDetailDrawer({
 
   const handleSaveDelivery = async (data: any) => {
     try {
-      const deliveryRepo = repositoryFactory.get<any>('deliveries');
-      await deliveryRepo.create(data);
-      notify.success('Lập phiếu xuất kho thành công!');
+      const resolved = await resolveDeliverySourceDocument(data, {
+        contracts: contractsList,
+        quotations: quotationsList,
+        payments: allRelatedPayments
+      });
+
+      if (!resolved || !resolved.source) {
+        throw new Error('Không tìm thấy nguồn dữ liệu tham chiếu (Hợp đồng hoặc Báo giá)');
+      }
+
+      const source = resolved.source;
+      const currentDelivered = source.deliveredQuantities || {};
+      const newDeliveredQuantities: Record<string, number> = { ...currentDelivered };
+
+      (data.products || []).forEach((p: any, idx: number) => {
+        const itemKey = getProductItemKey(p, idx);
+        const qty = Number(p.quantity || 0);
+        newDeliveredQuantities[itemKey] = (currentDelivered[itemKey] || 0) + qty;
+      });
+
+      await apiCreateEntity('delivery', data);
+      await repositoryFactory.get<any>(resolved.sourceType).update(source.id, {
+        deliveredQuantities: newDeliveredQuantities
+      });
+
+      notify.success('Lập phiếu xuất kho và cập nhật tiến độ thành công!');
       setIsDeliveryModalOpen(false);
     } catch (err: any) {
       notify.error(err.message || 'Không thể tạo phiếu xuất kho');

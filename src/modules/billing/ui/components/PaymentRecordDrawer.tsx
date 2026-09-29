@@ -63,7 +63,7 @@ export function PaymentRecordDrawer({
 }: PaymentRecordDrawerProps) {
   const [isLockedByOther, setIsLockedByOther] = React.useState(false);
   const isNew = !payment;
-  const { confirm: _confirm} = useConfirm();
+  const { confirm } = useConfirm();
   const { user, userData } = useAuth();
   const defaultOfficer = formatUserOfficer(userData, user);
   const { canEdit, reason: lockReason } = checkA5Policy(user, userData, payment);
@@ -91,7 +91,7 @@ export function PaymentRecordDrawer({
 
   const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Payment & { sourceValue: string }>('payments', payment?.id || 'new');
 
-  const { register, handleSubmit, watch, setValue, control, reset, getValues, formState: { isSubmitting } } = useForm<Payment & { sourceValue: string }>({
+  const { register, handleSubmit, watch, setValue, control, reset, getValues, formState: { isSubmitting, isDirty } } = useForm<Payment & { sourceValue: string }>({
     resolver: zodResolver(PaymentFormSchema) as any,
     defaultValues: draft ? { ...draft, nguoiPhuTrach: draft.nguoiPhuTrach || defaultOfficer } : (payment ? { ...payment, nguoiPhuTrach: payment.nguoiPhuTrach || defaultOfficer, sourceValue: payment.contractId ? `CONTRACT:${payment.contractId}` : payment.quotationId ? `QUOTATION:${payment.quotationId}` : '' } : { 
       paymentId: generateDeterministicNextCode('PT', allPaymentsList),
@@ -213,13 +213,12 @@ export function PaymentRecordDrawer({
 
   const watchAll = watch();
   useEffect(() => {
-    if (isOpen) {
-      const handler = setTimeout(() => {
-        saveDraft(watchAll);
-      }, 500);
-      return () => clearTimeout(handler);
-    }
-  }, [watchAll, saveDraft, isOpen]);
+    if (!isDirty || !isOpen) return;
+    const interval = setInterval(() => {
+      saveDraft(getValues());
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [isDirty, saveDraft, getValues, isOpen]);
 
  
   const selectedSourceValue = watch('sourceValue');
@@ -379,7 +378,20 @@ export function PaymentRecordDrawer({
           </div>
           <Button 
              aria-label="Đóng"  
-             onClick={onClose} 
+             onClick={async () => {
+               if (isDirty) {
+                 await saveDraft(getValues());
+                 const proceed = await confirm({
+                   title: 'Xác nhận đóng',
+                   message: 'Dữ liệu đã được lưu nháp tự động. Bạn chắc chắn muốn đóng?',
+                   variant: 'warning',
+                   confirmText: 'Đóng',
+                   cancelText: 'Quay lại'
+                 });
+                 if (!proceed) return;
+               }
+               onClose();
+             }} 
              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white transition-colors border-none"
              variant="ghost"
           >
@@ -403,10 +415,19 @@ export function PaymentRecordDrawer({
           </div>
         )}
 
-        {/* 1-Screen Scrollable Body */}
         <form 
           id="paymentForm" 
-          onKeyDown={handleEnterToTab}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              const submitBtn = document.querySelector('button[type="submit"][form="paymentForm"]') as HTMLButtonElement | null;
+              if (submitBtn) {
+                submitBtn.click();
+              }
+              return;
+            }
+            handleEnterToTab(e);
+          }}
           onSubmit={handleSubmit(onSubmit, (errors) => {
             const FIELD_LABELS: Record<string, string> = {
               paymentId: 'Mã TT',

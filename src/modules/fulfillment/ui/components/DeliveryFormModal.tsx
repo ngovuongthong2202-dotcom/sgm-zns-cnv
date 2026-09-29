@@ -28,6 +28,7 @@ import { getAvailableRootSerials, detectItemType, calculateActualMachineCount, s
 import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { EntityZnsStatus } from '@/src/domain/enums/zns-status';
+import { useConfirm } from '@/src/design-system/Confirm';
 
 export function DeliveryFormModal({ delivery, payments, contracts, quotations, customers, deliveries, nguoiPhuTrachList: _nguoiPhuTrachList, onClose, onSave }: any) {
   const { user, userData } = useAuth();
@@ -66,9 +67,29 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
     selectedPaymentId,
     populateFromPayment,
     populateFromContract,
+    populateFromQuotation,
     lookupExportSale,
     isLookingUpExportSale,
+    getValues,
+    isDirty,
+    saveDraft,
   } = useDeliveryForm(delivery, payments, contracts, quotations, customers, deliveries);
+  const { confirm } = useConfirm();
+
+  const handleCloseAttempt = async () => {
+    if (isDirty) {
+      await saveDraft(getValues());
+      const proceed = await confirm({
+        title: 'Xác nhận đóng',
+        message: 'Dữ liệu đã được lưu nháp tự động. Bạn chắc chắn muốn đóng?',
+        variant: 'warning',
+        confirmText: 'Đóng',
+        cancelText: 'Quay lại'
+      });
+      if (!proceed) return;
+    }
+    onClose();
+  };
 
   const [sourceMode, setSourceMode] = React.useState<'payment' | 'contract' | 'quotation'>(
     delivery?.contractId && !delivery?.paymentId ? 'contract' : (delivery?.quotationId && !delivery?.paymentId ? 'quotation' : 'payment')
@@ -223,7 +244,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
           </div>
           <Button 
              aria-label="Đóng"  
-             onClick={onClose} 
+             onClick={handleCloseAttempt} 
              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white transition-colors border-none"
              variant="ghost"
           >
@@ -246,8 +267,17 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
           </div>
         )}
 
-        {/* 1-Screen Scrollable Body */}
-        <form id="deliveryForm" onKeyDown={handleEnterToTab} onSubmit={handleSubmit(async (data: any) => { 
+        <form id="deliveryForm" onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            const submitBtn = document.querySelector('button[type="submit"][form="deliveryForm"]') as HTMLButtonElement | null;
+            if (submitBtn) {
+              submitBtn.click();
+            }
+            return;
+          }
+          handleEnterToTab(e);
+        }} onSubmit={handleSubmit(async (data: any) => { 
           // normalization
           data = normalizeDeliveryFormValues(data);
 
@@ -483,7 +513,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                         onChange={(val, doc: any) => {
                           setValue('quotationId', val, { shouldValidate: true });
                           if (doc) {
-                            setValue('quotationId', doc.id || val);
+                            populateFromQuotation(doc);
                           }
                         }}
                         renderOption={(q: any) => ({

@@ -18,30 +18,45 @@ export class CreateDeliveryUseCase {
   ) {}
 
   public async execute(command: CreateDeliveryCommand): Promise<Result<string>> {
-    // Basic logic mapping from useSaveDelivery
-    let sourceId = command.contractId as string | undefined;
+    let sourceVal: any;
     let updateSourceFn: any = this.updateContractUseCase;
 
-    if (!sourceId && command.quotationId) {
-      sourceId = command.quotationId as string;
-      updateSourceFn = this.updateQuotationUseCase;
-    }
-
-    if (!sourceId) {
-      return Result.fail('Yêu cầu phải có Hợp đồng hoặc Báo giá');
-    }
-
-    let sourceVal: any;
     if (command.contractId) {
-      const resp = await this.getContractQuery.execute(command.contractId);
-      if (!resp.isSuccess) return Result.fail('Không tìm thấy nguồn dữ liệu tham chiếu (Hợp đồng)');
-      sourceVal = resp.getValue().props;
-      sourceVal.id = resp.getValue().id; // keep id
-    } else {
-      const resp = await this.getQuotationQuery.execute(command.quotationId!);
-      if (!resp.isSuccess) return Result.fail('Không tìm thấy nguồn dữ liệu tham chiếu (Báo giá)');
-      sourceVal = resp.getValue().props;
-      sourceVal.id = resp.getValue().id; // keep id
+      const contractResp = await this.getContractQuery.execute(command.contractId);
+      if (contractResp.isSuccess) {
+        sourceVal = contractResp.getValue().props;
+        sourceVal.id = contractResp.getValue().id;
+        updateSourceFn = this.updateContractUseCase;
+      } else {
+        // Self-Healing Fallback: Kiểm tra xem contractId có phải là quotationId bị gán nhầm không
+        const quoResp = await this.getQuotationQuery.execute(command.contractId);
+        if (quoResp.isSuccess) {
+          sourceVal = quoResp.getValue().props;
+          sourceVal.id = quoResp.getValue().id;
+          updateSourceFn = this.updateQuotationUseCase;
+        }
+      }
+    }
+
+    if (!sourceVal && command.quotationId) {
+      const quoResp = await this.getQuotationQuery.execute(command.quotationId);
+      if (quoResp.isSuccess) {
+        sourceVal = quoResp.getValue().props;
+        sourceVal.id = quoResp.getValue().id;
+        updateSourceFn = this.updateQuotationUseCase;
+      } else {
+        // Fallback kiểm tra contractId
+        const contractResp = await this.getContractQuery.execute(command.quotationId);
+        if (contractResp.isSuccess) {
+          sourceVal = contractResp.getValue().props;
+          sourceVal.id = contractResp.getValue().id;
+          updateSourceFn = this.updateContractUseCase;
+        }
+      }
+    }
+
+    if (!sourceVal) {
+      return Result.fail('Không tìm thấy nguồn dữ liệu tham chiếu (Hợp đồng hoặc Báo giá)');
     }
 
     const currentDelivered = sourceVal.deliveredQuantities || {};

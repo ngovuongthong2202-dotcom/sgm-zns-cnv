@@ -96,13 +96,30 @@ export default function CustomersFeature() {
     }
   }, [nextCustomer, setDrawerState]);
 
+  const quotationCountMap = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    const addToMap = (key: string, qId: string) => {
+      if (!key || !qId) return;
+      if (!map.has(key)) map.set(key, new Set());
+      map.get(key)!.add(qId);
+    };
+
+    for (const q of quotations) {
+      const qId = q.id || q.soPhieuBaoGia;
+      if (!qId) continue;
+      if (q.customerId) addToMap(q.customerId, qId);
+      if (q.maKh && q.maKh !== q.customerId) addToMap(q.maKh, qId);
+    }
+    return map;
+  }, [quotations]);
+
   // Construct custom column render configs
   const columns = useMemo(() => {
     const canDelete = can('delete', 'customer', userData?.role);
     const canSendZns = can('send_zns', 'customer', userData?.role);
 
     return getCustomerColumns(
-      quotations,
+      quotationCountMap,
       can('update', 'customer', userData?.role) ? (c) => setDrawerState({ mode: 'edit', customer: c }) : undefined,
       canDelete ? handleDeleteCustomer : undefined,
       canSendZns ? handleSendZns : undefined,
@@ -110,7 +127,7 @@ export default function CustomersFeature() {
       sendingZnsIds,
       (c) => setDrawerState({ mode: 'view', customer: c, initialTab: 'flow' })
     );
-  }, [handleDeleteCustomer, handleSendZns, sendingZnsIds, setDrawerState, userData?.role, quotations]);
+  }, [handleDeleteCustomer, handleSendZns, sendingZnsIds, setDrawerState, userData?.role, quotationCountMap]);
 
   const customersWithStt = useMemo(() => enrichWithStt(filteredCustomers), [filteredCustomers]);
 

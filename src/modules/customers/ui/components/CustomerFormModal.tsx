@@ -6,6 +6,7 @@ import { Customer } from '@/src/domain/schema/customer.schema';
 import { EntityLockWarning } from '@/src/widgets/EntityLockWarning';
 import { useSharedFields } from '@/src/hooks/useSharedFields';
 import { Button } from '@/src/design-system/Button';
+import { useConfirm } from '@/src/design-system/Confirm';
 import { Building2, Lock, X } from 'lucide-react';
 import { checkA5Policy } from '@/src/modules/iam';
 import { useAuth } from '@/src/modules/iam';
@@ -78,11 +79,30 @@ export function CustomerForm({
     handleRemoveTag,
     nameInputRef,
     clearDraft,
+    saveDraft,
+    getValues,
+    isDirty,
     smartFormatNameAI,
     checkDuplicates,
     handleTaxLookup,
     generateNextMaKh,
   } = useCustomerForm(customer, onDirtyChange, PROVINCES, loaiKhachHangList, currentUserName, existingCustomers);
+  const { confirm } = useConfirm();
+
+  const handleCloseAttempt = async () => {
+    if (isDirty) {
+      await saveDraft(getValues());
+      const proceed = await confirm({
+        title: 'Xác nhận đóng',
+        message: 'Dữ liệu đã được lưu nháp tự động. Bạn chắc chắn muốn đóng?',
+        variant: 'warning',
+        confirmText: 'Đóng',
+        cancelText: 'Quay lại'
+      });
+      if (!proceed) return;
+    }
+    onClose();
+  };
   
   const { canEdit, reason: lockReason } = checkA5Policy(user, userData, customer);
 
@@ -108,7 +128,17 @@ export function CustomerForm({
       <form
         id="customerForm"
         autoComplete="none"
-        onKeyDown={handleEnterToTab}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            const submitBtn = document.querySelector('button[type="submit"][form="customerForm"]') as HTMLButtonElement | null;
+            if (submitBtn) {
+              submitBtn.click();
+            }
+            return;
+          }
+          handleEnterToTab(e);
+        }}
         onSubmit={handleSubmit(
           async (data: any) => {
             if (tagInput && tagInput.trim()) {
@@ -230,7 +260,7 @@ export function CustomerForm({
           </div>
           <Button
             aria-label="Đóng"
-            onClick={onClose}
+            onClick={handleCloseAttempt}
             variant="ghost"
             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white transition-colors border-none"
           >
