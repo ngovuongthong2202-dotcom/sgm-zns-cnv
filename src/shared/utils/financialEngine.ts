@@ -100,3 +100,7 @@ export const FinancialEngine = {
     });
   }
 };
+
+export const formatVND = (amount: number | undefined | null): string => {
+  return new Intl.NumberFormat('vi-VN').format(amount || 0) + ' đ';
+};

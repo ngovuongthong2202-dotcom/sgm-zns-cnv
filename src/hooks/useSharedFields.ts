@@ -11,6 +11,7 @@ export interface SharedFields {
   phuongThucThanhToanList: string[];
   tinhTrangThanhToanList: string[];
   lanhDaoPheDuyetList: string[];
+  donViVanChuyenList: string[];
 }
 
 export const DEFAULT_LOAI_KHACH_HANG = ['Cá nhân', 'Doanh nghiệp'];
@@ -19,6 +20,7 @@ export const DEFAULT_PHUONG_THUC_THANH_TOAN = ['Chuyển khoản', 'Tiền mặt
 export const DEFAULT_TINH_TRANG_THANH_TOAN = ['Tất toán', 'Công nợ', 'Chưa TT', 'Miễn phí'];
 export const DEFAULT_NGUOI_PHU_TRACH = ['Ngô Vương Thông', 'Ngô Thị Mỹ Lệ', 'Trần Thị Huyền Trang'];
 export const DEFAULT_LANH_DAO_PHE_DUYET = ['Ban Giám Đốc', 'Chủ tịch HĐQT', 'Tổng Giám Đốc', 'Phó Tổng Giám Đốc', 'Sếp Nam', 'Sếp Thắng', 'Sếp Tuấn'];
+export const DEFAULT_DON_VI_VAN_CHUYEN = ['Xe CNV', 'A Hùng Xe Tải', 'GHTK', 'Viettel Post', 'Chành xe Miền Tây', 'Chành xe Bắc Nam', 'GrabExpress / Ahamove', 'Tự vận chuyển'];
 export const SWR_SYSTEM_RESOURCES_KEY = 'system_resources';
 
 import {
@@ -77,6 +79,10 @@ const fetchSystemResources = async () => {
     ? (sharedFieldsData.lanhDaoPheDuyetList as string[])
     : DEFAULT_LANH_DAO_PHE_DUYET;
 
+  const donViVanChuyenList = (Array.isArray(sharedFieldsData.donViVanChuyenList) && sharedFieldsData.donViVanChuyenList.length > 0)
+    ? (sharedFieldsData.donViVanChuyenList as string[])
+    : DEFAULT_DON_VI_VAN_CHUYEN;
+
   const tinhThanhList = await vietnamProvincesApi.fetchProvinceNames(VIETNAM_PROVINCES_2025);
 
   return {
@@ -86,7 +92,8 @@ const fetchSystemResources = async () => {
       loaiKhachHangList,
       phuongThucThanhToanList,
       tinhTrangThanhToanList,
-      lanhDaoPheDuyetList
+      lanhDaoPheDuyetList,
+      donViVanChuyenList
     },
     znsTemplates: znsTemplatesList,
     tinhThanhList
@@ -125,7 +132,8 @@ export function useSharedFields() {
         loaiKhachHangList: DEFAULT_LOAI_KHACH_HANG,
         phuongThucThanhToanList: DEFAULT_PHUONG_THUC_THANH_TOAN,
         tinhTrangThanhToanList: DEFAULT_TINH_TRANG_THANH_TOAN,
-        lanhDaoPheDuyetList: DEFAULT_LANH_DAO_PHE_DUYET
+        lanhDaoPheDuyetList: DEFAULT_LANH_DAO_PHE_DUYET,
+        donViVanChuyenList: DEFAULT_DON_VI_VAN_CHUYEN
       },
       znsTemplates: [],
       tinhThanhList: VIETNAM_PROVINCES_2025
@@ -141,6 +149,7 @@ export function useSharedFields() {
     phuongThucThanhToanList: data?.sharedFields?.phuongThucThanhToanList || DEFAULT_PHUONG_THUC_THANH_TOAN,
     tinhTrangThanhToanList: data?.sharedFields?.tinhTrangThanhToanList || DEFAULT_TINH_TRANG_THANH_TOAN,
     lanhDaoPheDuyetList: data?.sharedFields?.lanhDaoPheDuyetList || DEFAULT_LANH_DAO_PHE_DUYET,
+    donViVanChuyenList: data?.sharedFields?.donViVanChuyenList || DEFAULT_DON_VI_VAN_CHUYEN,
     tinhThanhList: data?.tinhThanhList || [],
     znsTemplates: data?.znsTemplates || [],
     loading,
@@ -148,3 +157,4 @@ export function useSharedFields() {
     isValidating
   };
 }
+

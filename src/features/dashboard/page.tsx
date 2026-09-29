@@ -3,19 +3,41 @@ import { PageHeader } from '@/src/design-system/PageHeader';
 import React, { useState } from 'react';
 import { usePipelineAnalytics } from './hooks/usePipelineAnalytics';
 import { useAuth } from '@/src/modules/iam';
-import { Users, FileText, Handshake, CreditCard, ChevronRight, AlertCircle, CheckCircle2, Truck, BarChart3, PieChart } from 'lucide-react';
+import { 
+  Users, 
+  FileText, 
+  Handshake, 
+  CreditCard, 
+  ChevronRight, 
+  AlertCircle, 
+  CheckCircle2, 
+  Truck, 
+  BarChart3, 
+  PieChart,
+  MousePointerClick
+} from 'lucide-react';
 import { t } from '@/src/i18n/vi';
+import { MetricDrilldownDrawer, MetricDrilldownType } from './components/MetricDrilldownDrawer';
 
 export default function DashboardPage() {
   const { user: _user } = useAuth();
-  const { analytics } = usePipelineAnalytics();
+  const { 
+    analytics, 
+    customers, 
+    quotations, 
+    contracts, 
+    payments, 
+    deliveries 
+  } = usePipelineAnalytics();
+  
   const [activeTab, setActiveTab] = useState<'overview' | 'groups'>('overview');
+  const [drilldownMetric, setDrilldownMetric] = useState<MetricDrilldownType | null>(null);
 
   return (
     <div className="flex flex-col h-full bg-surface-sunken relative overflow-hidden animate-in fade-in pb-24">
       <PageHeader 
         title="Pipeline Analytics" 
-        meta="Real-time Conversion Tracking • Workflow Analytics" 
+        meta="Real-time Conversion Tracking • Workflow Analytics • Interactive Cockpit" 
       />
 
       <div className="flex flex-col gap-8 w-full max-w-[1400px] mx-auto font-sans p-6">
@@ -42,32 +64,77 @@ export default function DashboardPage() {
       </div>
 
       {activeTab === 'overview' && (
-        <div className="space-y-8">
+        <div className="space-y-8 max-w-[1400px] mx-auto w-full px-6">
           {/* SECTION 1: KHÁCH HÀNG & BÁO GIÁ GLOBAL CONNECTION */}
-          <section className="bg-slate-50 rounded-2xl border border-slate-200/70 p-6">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-6 flex items-center gap-2">
-              <Users size={16} className="text-blue-500" />
-              1. Liên kết Khách hàng & Báo giá
-            </h2>
+          <section className="bg-slate-50 rounded-2xl border border-slate-200/70 p-6 shadow-xs">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <Users size={16} className="text-blue-500" />
+                1. Liên kết Khách hàng & Báo giá
+              </h2>
+              <span className="text-2xs text-slate-400 font-medium flex items-center gap-1">
+                <MousePointerClick size={12} /> Bấm vào thẻ chỉ số để xem danh sách chi tiết
+              </span>
+            </div>
+
             <div className="flex flex-col md:flex-row items-center justify-center gap-8 lg:gap-16">
-              <div className="flex flex-col items-center bg-white p-6 rounded-xl border border-slate-200 w-full max-w-[200px] shadow-sm">
-                <span className="text-4xl font-black text-slate-800">{analytics.totalCustomers}</span>
-                <span className="text-xs font-semibold text-slate-500 uppercase mt-2">Tổng Khách hàng</span>
+              {/* Metric 1: Tổng Khách hàng */}
+              <div 
+                onClick={() => setDrilldownMetric('totalCustomers')}
+                className="flex flex-col items-center bg-white p-6 rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer w-full max-w-[220px] group active:scale-[0.99]"
+                title="Bấm để xem toàn bộ danh bạ khách hàng"
+              >
+                <span className="text-4xl font-black text-slate-850 group-hover:text-blue-600 transition-colors">
+                  {analytics.totalCustomers}
+                </span>
+                <span className="text-xs font-bold text-slate-500 uppercase mt-2 group-hover:text-slate-800 transition-colors text-center">
+                  Tổng Khách hàng
+                </span>
+                <span className="text-3xs text-blue-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity mt-1">
+                  Xem danh sách →
+                </span>
               </div>
+
               <ChevronRight size={32} className="text-slate-300 hidden md:block" />
-              <div className="flex flex-col items-center bg-blue-50 p-6 rounded-xl border border-blue-100 w-full max-w-[200px] shadow-sm">
-                <span className="text-4xl font-black text-blue-600">{analytics.customersWithQuotesCount}</span>
-                <span className="text-xs font-semibold text-blue-500 uppercase mt-2 text-center">Khách có Báo giá</span>
+
+              {/* Metric 2: Khách có Báo giá */}
+              <div 
+                onClick={() => setDrilldownMetric('customersWithQuotes')}
+                className="flex flex-col items-center bg-blue-50/70 p-6 rounded-xl border border-blue-200 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer w-full max-w-[220px] group active:scale-[0.99]"
+                title="Bấm để xem danh sách khách hàng đã có báo giá"
+              >
+                <span className="text-4xl font-black text-blue-700 group-hover:scale-105 transition-transform">
+                  {analytics.customersWithQuotesCount}
+                </span>
+                <span className="text-xs font-bold text-blue-600 uppercase mt-2 text-center">
+                  Khách có Báo giá
+                </span>
+                <span className="text-3xs text-blue-700 font-medium opacity-0 group-hover:opacity-100 transition-opacity mt-1">
+                  Xem danh sách →
+                </span>
               </div>
+
               <ChevronRight size={32} className="text-slate-300 hidden md:block" />
-              <div className="flex flex-col justify-center gap-2 text-sm text-slate-600 font-medium bg-white p-6 border border-slate-200 rounded-xl w-full max-w-[280px]">
-                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                  <span>Khách có báo giá</span>
-                  <span className="font-bold text-slate-800">{analytics.customersWithQuotesCount}</span>
+
+              {/* Metric 3: Tóm tắt Khách có BG & Khách trắng */}
+              <div className="flex flex-col justify-center gap-2 text-sm text-slate-600 font-medium bg-white p-6 border border-slate-200 rounded-xl w-full max-w-[300px] shadow-xs">
+                <div 
+                  onClick={() => setDrilldownMetric('customersWithQuotes')}
+                  className="flex justify-between items-center border-b border-slate-100 pb-2.5 cursor-pointer hover:text-blue-700 transition-colors"
+                >
+                  <span className="text-xs font-semibold">Khách có báo giá:</span>
+                  <span className="font-bold text-slate-850 font-mono bg-blue-50 px-2 py-0.5 rounded text-blue-700">
+                    {analytics.customersWithQuotesCount}
+                  </span>
                 </div>
-                <div className="flex justify-between items-center pt-2">
-                  <span>Khách trắng (Chưa có BG)</span>
-                  <span className="font-bold text-red-500">{analytics.totalCustomers - analytics.customersWithQuotesCount}</span>
+                <div 
+                  onClick={() => setDrilldownMetric('customersZeroQuotes')}
+                  className="flex justify-between items-center pt-2.5 cursor-pointer hover:text-amber-700 transition-colors"
+                >
+                  <span className="text-xs font-semibold text-slate-700">Khách trắng (Chưa BG):</span>
+                  <span className="font-bold text-amber-600 font-mono bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    {Math.max(0, analytics.totalCustomers - analytics.customersWithQuotesCount)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -75,60 +142,108 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
             {/* SECTION 2: BÁO GIÁ MÁY -> HỢP ĐỒNG */}
-            <section className="bg-slate-50 rounded-2xl border border-slate-200/70 p-6 flex flex-col h-full">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-6 flex items-center gap-2">
-                <FileText size={16} className="text-emerald-500" />
-                2. Pipeline Báo Giá MÁY
-              </h2>
+            <section className="bg-slate-50 rounded-2xl border border-slate-200/70 p-6 flex flex-col h-full shadow-xs">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                  <FileText size={16} className="text-emerald-500" />
+                  2. Pipeline Báo Giá MÁY
+                </h2>
+                <span className="text-2xs text-slate-400 font-medium">Click thẻ để drilldown</span>
+              </div>
               
               <div className="flex-1 flex flex-col items-center justify-center gap-4">
-                <div className="flex flex-col items-center bg-white border border-slate-200 w-full p-4 rounded-xl shadow-sm text-center">
-                  <span className="text-3xl font-black text-slate-800">{analytics.pipelineMay.total}</span>
-                  <span className="text-2xs font-bold text-slate-500 tracking-wide uppercase mt-1">Tổng BG Máy</span>
+                {/* Metric 4: Tổng BG Máy */}
+                <div 
+                  onClick={() => setDrilldownMetric('totalMachineQuotes')}
+                  className="flex flex-col items-center bg-white border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer w-full p-4 rounded-xl text-center group active:scale-[0.99]"
+                >
+                  <span className="text-3xl font-black text-slate-850 group-hover:text-blue-600 transition-colors">
+                    {analytics.pipelineMay.total}
+                  </span>
+                  <span className="text-2xs font-bold text-slate-500 tracking-wide uppercase mt-1">
+                    Tổng BG Máy (Bấm để xem)
+                  </span>
                 </div>
                 
                 <div className="w-0.5 h-6 bg-slate-300"></div>
                 
                 <div className="grid grid-cols-2 gap-4 w-full">
-                  <div className="flex flex-col items-center bg-emerald-50 border border-emerald-100 p-4 rounded-xl shadow-sm">
-                    <CheckCircle2 size={24} className="text-emerald-500 mb-2" />
+                  {/* Metric 5: BG Máy Đã có HĐ */}
+                  <div 
+                    onClick={() => setDrilldownMetric('machineQuotesWithContract')}
+                    className="flex flex-col items-center bg-emerald-50/70 border border-emerald-200 hover:border-emerald-400 hover:shadow-md transition-all cursor-pointer p-4 rounded-xl group active:scale-[0.99]"
+                  >
+                    <CheckCircle2 size={24} className="text-emerald-600 mb-2 group-hover:scale-110 transition-transform" />
                     <span className="text-2xl font-black text-emerald-700">{analytics.pipelineMay.withContracts}</span>
-                    <span className="text-2xs font-bold text-emerald-600 text-center uppercase tracking-tight mt-1">Đã có Hợp đồng</span>
+                    <span className="text-2xs font-bold text-emerald-700 text-center uppercase tracking-tight mt-1">
+                      Đã có Hợp đồng
+                    </span>
                   </div>
-                  <div className="flex flex-col items-center bg-amber-50 border border-amber-100 p-4 rounded-xl shadow-sm">
-                    <AlertCircle size={24} className="text-amber-500 mb-2" />
+
+                  {/* Metric 6: BG Máy Chưa có HĐ */}
+                  <div 
+                    onClick={() => setDrilldownMetric('machineQuotesWithoutContract')}
+                    className="flex flex-col items-center bg-amber-50/70 border border-amber-200 hover:border-amber-400 hover:shadow-md transition-all cursor-pointer p-4 rounded-xl group active:scale-[0.99]"
+                  >
+                    <AlertCircle size={24} className="text-amber-600 mb-2 group-hover:scale-110 transition-transform" />
                     <span className="text-2xl font-black text-amber-700">{analytics.pipelineMay.withoutContracts}</span>
-                    <span className="text-2xs font-bold text-amber-600 text-center uppercase tracking-tight mt-1">{t('missing.contract')}</span>
+                    <span className="text-2xs font-bold text-amber-700 text-center uppercase tracking-tight mt-1">
+                      {t('missing.contract')}
+                    </span>
                   </div>
                 </div>
               </div>
             </section>
 
             {/* SECTION 3: BÁO GIÁ VTY / DỊCH VỤ -> THANH TOÁN */}
-            <section className="bg-slate-50 rounded-2xl border border-slate-200/70 p-6 flex flex-col h-full">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-6 flex items-center gap-2">
-                <CreditCard size={16} className="text-teal-500" />
-                3. Pipeline Báo Giá Vật Tư / Dịch Vụ
-              </h2>
+            <section className="bg-slate-50 rounded-2xl border border-slate-200/70 p-6 flex flex-col h-full shadow-xs">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                  <CreditCard size={16} className="text-teal-500" />
+                  3. Pipeline Báo Giá Vật Tư / Dịch Vụ
+                </h2>
+                <span className="text-2xs text-slate-400 font-medium">Click thẻ để drilldown</span>
+              </div>
               
               <div className="flex-1 flex flex-col items-center justify-center gap-4">
-                <div className="flex flex-col items-center bg-white border border-slate-200 w-full p-4 rounded-xl shadow-sm text-center">
-                  <span className="text-3xl font-black text-slate-800">{analytics.pipelineVatTuDv.total}</span>
-                  <span className="text-2xs font-bold text-slate-500 tracking-wide uppercase mt-1">Tổng BG Vật Tư / DV</span>
+                {/* Metric 7: Tổng BG Vật tư / DV */}
+                <div 
+                  onClick={() => setDrilldownMetric('totalSupplyQuotes')}
+                  className="flex flex-col items-center bg-white border border-slate-200 hover:border-teal-400 hover:shadow-md transition-all cursor-pointer w-full p-4 rounded-xl text-center group active:scale-[0.99]"
+                >
+                  <span className="text-3xl font-black text-slate-850 group-hover:text-teal-600 transition-colors">
+                    {analytics.pipelineVatTuDv.total}
+                  </span>
+                  <span className="text-2xs font-bold text-slate-500 tracking-wide uppercase mt-1">
+                    Tổng BG Vật Tư / DV (Bấm để xem)
+                  </span>
                 </div>
                 
                 <div className="w-0.5 h-6 bg-slate-300"></div>
                 
                 <div className="grid grid-cols-2 gap-4 w-full">
-                  <div className="flex flex-col items-center bg-teal-50 border border-teal-100 p-4 rounded-xl shadow-sm">
-                    <CheckCircle2 size={24} className="text-teal-500 mb-2" />
+                  {/* Metric 8: BG Vật tư Đã có TT */}
+                  <div 
+                    onClick={() => setDrilldownMetric('supplyQuotesWithPayment')}
+                    className="flex flex-col items-center bg-teal-50/70 border border-teal-200 hover:border-teal-400 hover:shadow-md transition-all cursor-pointer p-4 rounded-xl group active:scale-[0.99]"
+                  >
+                    <CheckCircle2 size={24} className="text-teal-600 mb-2 group-hover:scale-110 transition-transform" />
                     <span className="text-2xl font-black text-teal-700">{analytics.pipelineVatTuDv.withPayments}</span>
-                    <span className="text-2xs font-bold text-teal-600 text-center uppercase tracking-tight mt-1">Đã có Thanh toán</span>
+                    <span className="text-2xs font-bold text-teal-700 text-center uppercase tracking-tight mt-1">
+                      Đã có Thanh toán
+                    </span>
                   </div>
-                  <div className="flex flex-col items-center bg-red-50 border border-red-100 p-4 rounded-xl shadow-sm">
-                    <AlertCircle size={24} className="text-red-500 mb-2" />
+
+                  {/* Metric 9: BG Vật tư Chưa TT */}
+                  <div 
+                    onClick={() => setDrilldownMetric('supplyQuotesWithoutPayment')}
+                    className="flex flex-col items-center bg-red-50/70 border border-red-200 hover:border-red-400 hover:shadow-md transition-all cursor-pointer p-4 rounded-xl group active:scale-[0.99]"
+                  >
+                    <AlertCircle size={24} className="text-red-600 mb-2 group-hover:scale-110 transition-transform" />
                     <span className="text-2xl font-black text-red-700">{analytics.pipelineVatTuDv.withoutPayments}</span>
-                    <span className="text-2xs font-bold text-red-600 text-center uppercase tracking-tight mt-1">Chưa Thanh toán</span>
+                    <span className="text-2xs font-bold text-red-700 text-center uppercase tracking-tight mt-1">
+                      Chưa Thanh toán
+                    </span>
                   </div>
                 </div>
               </div>
@@ -136,7 +251,7 @@ export default function DashboardPage() {
           </div>
 
           {/* SECTION 4: HỢP ĐỒNG FULFILLMENT */}
-          <section className="bg-slate-900 rounded-2xl border border-slate-800 p-8 text-white relative overflow-hidden">
+          <section className="bg-slate-900 rounded-2xl border border-slate-800 p-8 text-white relative overflow-hidden shadow-lg">
             <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
             
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-8 flex items-center gap-2 relative z-10">
@@ -144,9 +259,12 @@ export default function DashboardPage() {
               4. Mức độ hoàn thành Hợp Đồng
             </h2>
             
-            <div className="flex flex-col md:flex-row justify-between gap-6 relative z-10">
-               {/* Total */}
-               <div className="flex-1 bg-slate-800/80 backdrop-blur border border-slate-700 p-6 rounded-xl flex items-center justify-between">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+               {/* Total Contracts */}
+               <div 
+                 onClick={() => setDrilldownMetric('contractPaid')}
+                 className="bg-slate-800/80 backdrop-blur border border-slate-700 hover:border-slate-500 hover:bg-slate-800 p-6 rounded-xl flex items-center justify-between cursor-pointer transition-all active:scale-[0.99]"
+               >
                  <div>
                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Tổng Hợp đồng</p>
                    <p className="text-4xl font-black text-white">{analytics.contractFulfillment.total}</p>
@@ -154,22 +272,28 @@ export default function DashboardPage() {
                  <Handshake size={48} className="text-slate-600 opacity-50" />
                </div>
 
-               {/* Paid */}
-               <div className="flex-1 bg-emerald-900/40 backdrop-blur border border-emerald-800 p-6 rounded-xl flex items-center justify-between">
+               {/* Paid Contracts */}
+               <div 
+                 onClick={() => setDrilldownMetric('contractPaid')}
+                 className="bg-emerald-950/40 backdrop-blur border border-emerald-800/80 hover:border-emerald-500 p-6 rounded-xl flex items-center justify-between cursor-pointer transition-all active:scale-[0.99]"
+               >
                  <div>
-                   <p className="text-xs text-emerald-400/80 font-bold uppercase tracking-wider mb-1">Đã Thanh Toán</p>
+                   <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider mb-1">Đã Thanh Toán</p>
                    <p className="text-4xl font-black text-emerald-400">{analytics.contractFulfillment.paid}</p>
                  </div>
-                 <CreditCard size={48} className="text-emerald-500 opacity-20" />
+                 <CreditCard size={48} className="text-emerald-500 opacity-25" />
                </div>
 
-               {/* Delivered */}
-               <div className="flex-1 bg-sky-900/40 backdrop-blur border border-sky-800 p-6 rounded-xl flex items-center justify-between">
+               {/* Delivered Contracts */}
+               <div 
+                 onClick={() => setDrilldownMetric('contractDelivered')}
+                 className="bg-sky-950/40 backdrop-blur border border-sky-800/80 hover:border-sky-500 p-6 rounded-xl flex items-center justify-between cursor-pointer transition-all active:scale-[0.99]"
+               >
                  <div>
-                   <p className="text-xs text-sky-400/80 font-bold uppercase tracking-wider mb-1">Đã Giao Hàng</p>
+                   <p className="text-xs text-sky-400 font-bold uppercase tracking-wider mb-1">Đã Giao Hàng</p>
                    <p className="text-4xl font-black text-sky-400">{analytics.contractFulfillment.delivered}</p>
                  </div>
-                 <Truck size={48} className="text-sky-500 opacity-20" />
+                 <Truck size={48} className="text-sky-500 opacity-25" />
                </div>
             </div>
           </section>
@@ -177,7 +301,7 @@ export default function DashboardPage() {
       )}
 
       {activeTab === 'groups' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-[1400px] mx-auto w-full px-6">
            <section className="bg-slate-50 border border-slate-200/70 p-6 rounded-2xl">
              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-6 border-b border-slate-200 pb-4">Top 10 Tỉnh/Thành Mở Báo Giá</h3>
              <ul className="space-y-3">
@@ -209,7 +333,20 @@ export default function DashboardPage() {
            </section>
         </div>
       )}
+
+      {/* Slide-over Drilldown Cockpit Drawer */}
+      <MetricDrilldownDrawer
+        isOpen={Boolean(drilldownMetric)}
+        onClose={() => setDrilldownMetric(null)}
+        metricType={drilldownMetric}
+        data={{
+          customers,
+          quotations,
+          contracts,
+          payments,
+          deliveries
+        }}
+      />
     </div>
   );
 }
-

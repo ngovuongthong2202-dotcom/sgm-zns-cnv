@@ -47,7 +47,17 @@ export function normalizeDeliveryFormValues(data: any) {
   return data;
 }
 
+import { detectItemType } from '@/src/widgets/product-list-input/useProductItemSemantic';
+
 export function validateDeliveryBusinessRules(data: any, payments: any[], maxQuantities: Record<string, number>, _delivery: any): { valid: boolean; error?: string } {
+  if (!data.soPhieuXuat || !String(data.soPhieuXuat).trim()) {
+    return { valid: false, error: 'Vui lòng nhập Số Phiếu Xuất Kho (ERP) trước khi lưu giao hàng' };
+  }
+
+  if (!data.donViVanChuyen || !String(data.donViVanChuyen).trim()) {
+    return { valid: false, error: 'Vui lòng nhập hoặc chọn Đơn vị Vận chuyển / Chành xe giao hàng' };
+  }
+
   if (data.paymentId && !data.dacCachGiaoTruoc) {
     const selectedPayment = payments.find((p: any) => p.id === data.paymentId);
     if (selectedPayment && isPaymentUnpaid(selectedPayment.tinhTrangThanhToan)) {
@@ -75,17 +85,30 @@ export function validateDeliveryBusinessRules(data: any, payments: any[], maxQua
       const itemKey = getProductItemKey(p, index);
       const maxLimit = maxQuantities[itemKey];
       if (maxLimit !== undefined && p.quantity > maxLimit) {
-        return { valid: false, error: `Sản phẩm ${p.productName} vượt quá số lượng còn lại cho phép (${maxLimit})` };
+        return { valid: false, error: `Sản phẩm ${p.productName || p.tenSanPham} vượt quá số lượng còn lại cho phép (${maxLimit})` };
       }
       if (p.soNgayBaoHanh !== undefined && p.soNgayBaoHanh !== null && Number(p.soNgayBaoHanh) < 0) {
-        return { valid: false, error: `Số ngày bảo hành của sản phẩm ${p.productName} không được là số âm` };
+        return { valid: false, error: `Số ngày bảo hành của sản phẩm ${p.productName || p.tenSanPham} không được là số âm` };
+      }
+
+      // Check serial quota for MACHINE items
+      const isMachine = p.itemType === 'MACHINE' || detectItemType(p.productName || p.tenSanPham) === 'MACHINE';
+      const requiredQty = Number(p.quantity || p.soLuong || 1);
+      if (isMachine && requiredQty > 0) {
+        const serials = Array.isArray(p.danhSachMaMay) ? p.danhSachMaMay.filter(Boolean) : [];
+        if (serials.length !== requiredQty) {
+          return { 
+            valid: false, 
+            error: `Sản phẩm máy "${p.productName || p.tenSanPham}" đang giao ${requiredQty} máy nhưng chỉ có ${serials.length} mã serial. Vui lòng nhập đủ ${requiredQty} serial máy.` 
+          };
+        }
       }
     }
   }
 
   if (normalizeLoai(data.loai) === QUOTATION_LOAI.MAY) {
     const serials = data.danhSachMaMay || [];
-    if (serials.length !== data.slMay) {
+    if (data.slMay > 0 && serials.length !== data.slMay) {
       return { valid: false, error: `Bàn giao máy yêu cầu số lượng serial khớp số lượng máy: Bạn đang giao ${data.slMay} máy nhưng nhập ${serials.length} serial.` };
     }
   }

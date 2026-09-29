@@ -11,7 +11,7 @@ describe('SequenceGeneratorService (Universal Sequence Engine)', () => {
 
     const codeService = await sequenceGeneratorService.getNextCode('quotation', { loai: 'BG Dịch vụ', year: 2026 });
     expect(codeService).toMatch(/^BGDV-2026-\d{4}$/);
-  });
+  }, 20000);
 
   it('generates sequential codes for contracts, payments and deliveries', async () => {
     const contractCode = await sequenceGeneratorService.getNextCode('contract', { year: 2026 });

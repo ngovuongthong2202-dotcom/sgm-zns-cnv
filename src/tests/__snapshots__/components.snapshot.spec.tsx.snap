@@ -3277,6 +3277,18 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
                       >
                         Chành xe Bắc Nam
                       </button>
+                      <button
+                        class="text-3xs font-medium bg-slate-50 hover:bg-orange-50 text-slate-600 hover:text-orange-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-orange-200 transition-colors cursor-pointer"
+                        type="button"
+                      >
+                        GrabExpress / Ahamove
+                      </button>
+                      <button
+                        class="text-3xs font-medium bg-slate-50 hover:bg-orange-50 text-slate-600 hover:text-orange-700 px-2 py-0.5 rounded-full border border-slate-200 hover:border-orange-200 transition-colors cursor-pointer"
+                        type="button"
+                      >
+                        Tự vận chuyển
+                      </button>
                     </div>
                   </div>
                   <div

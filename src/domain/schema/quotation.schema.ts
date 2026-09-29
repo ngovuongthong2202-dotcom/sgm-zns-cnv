@@ -45,7 +45,7 @@ export const QuotationSchema = z.object({
   // Product details
   products: z.array(ProductItemSchema).optional().default([]),
   slMay: z.number().int().nonnegative().optional(), // Total machine count (calculated)
-  loai: z.string().optional(),
+  loai: z.string().min(1, 'Phân loại Báo giá là bắt buộc'),
   loaiBaoGia: z.string().optional(),
   phanLoaiKhach: z.string().optional(),
   noiDungGhiChu: z.string().optional(),

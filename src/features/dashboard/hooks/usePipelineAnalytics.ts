@@ -172,5 +172,12 @@ export function usePipelineAnalytics() {
     };
   }, [customers, quotations, contracts, payments, deliveries, payload]);
 
-  return { analytics };
+  return { 
+    analytics,
+    customers,
+    quotations,
+    contracts,
+    payments,
+    deliveries
+  };
 }

@@ -35,7 +35,7 @@ import { QUOTATION_LOAI } from '@/src/domain/enums/quotation-loai';
 export function DeliveryFormModal({ delivery, payments, contracts, quotations, customers, deliveries, nguoiPhuTrachList: _nguoiPhuTrachList, onClose, onSave }: any) {
   const { user, userData } = useAuth();
   const defaultOfficer = formatUserOfficer(userData, user);
-  const { lanhDaoPheDuyetList } = useSharedFields();
+  const { lanhDaoPheDuyetList, donViVanChuyenList } = useSharedFields();
 
   const effectiveNguoiPhuTrachList = React.useMemo(() => {
     const list = [...(_nguoiPhuTrachList || [])];
@@ -729,6 +729,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                 errors={errors}
                 watch={watch}
                 setValue={setValue}
+                transportersList={donViVanChuyenList}
               />
 
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">

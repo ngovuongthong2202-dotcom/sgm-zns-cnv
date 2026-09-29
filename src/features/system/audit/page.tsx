@@ -1,6 +1,20 @@
 /* eslint-disable max-lines */
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, Database, UserCheck, Activity, Clock, CodeSquare, FileJson, FileText } from 'lucide-react';
+import { 
+  Search, 
+  Database, 
+  UserCheck, 
+  Activity, 
+  Clock, 
+  CodeSquare, 
+  FileJson, 
+  FileText, 
+  RotateCcw, 
+  ShieldAlert, 
+  CheckCircle2,
+  Eye,
+  GitCompare
+} from 'lucide-react';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { useDebounce } from '../../../hooks/useDebounce';
 
@@ -10,10 +24,13 @@ import { tokens } from '@/src/design-system/tokens';
 import { InlineEntityLabel } from '@/src/design-system/InlineEntityLabel';
 import { PageHeader } from '@/src/design-system/PageHeader';
 import { t } from '@/src/i18n/vi';
+import { apiRestoreEntity } from '@/src/shared/utils/apiCreateEntity';
+import { notify } from '@/src/shared/utils/notify';
+import { formatVND } from '@/src/shared/utils/financialEngine';
 
 export interface AuditLogType {
   id?: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'ZNS_SEND' | 'ZNS_CALLBACK' | 'TRANSACTION_UPDATE' | string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'ZNS_SEND' | 'ZNS_CALLBACK' | 'TRANSACTION_UPDATE' | string;
   entityId: string;
   entityType: string;
   details: any; 
@@ -46,46 +63,289 @@ function useRepoPaginatedAuditLogs(limit: number) {
     }
   }, [limit]);
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     setData([]);
     setHasMore(true);
     setOffset(0);
     loadData(0);
   }, [loadData]);
 
-  return { data, loading, loadMore: () => loadData(offset), hasMore };
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { data, loading, loadMore: () => loadData(offset), hasMore, refresh };
+}
+
+function formatVal(k: string, v: any) {
+  if (v === null || v === undefined || v === '') return <span className="text-slate-400 italic">-- Trống --</span>;
+  if (typeof v === 'boolean') return <span className="font-semibold text-slate-800">{v ? 'Có (true)' : 'Không (false)'}</span>;
+  if (typeof v === 'number') {
+    if (k.toLowerCase().includes('tien') || k.toLowerCase().includes('amount') || k.toLowerCase().includes('gia') || k.toLowerCase().includes('price') || k.toLowerCase().includes('tong')) {
+      return <span className="font-mono font-semibold text-slate-900">{formatVND(v)}</span>;
+    }
+    return <span className="font-mono text-slate-850">{v}</span>;
+  }
+  if (Array.isArray(v)) {
+    if (v.length === 0) return <span className="text-slate-400 italic">[] (Rỗng)</span>;
+    return (
+      <span className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-2xs font-mono font-medium">
+        {v.length} mục ({v.map((item: any) => item.tenSanPham || item.name || item.code || JSON.stringify(item)).slice(0, 3).join(', ')}{v.length > 3 ? '...' : ''})
+      </span>
+    );
+  }
+  if (typeof v === 'object') return <span className="font-mono text-2xs text-slate-600">{JSON.stringify(v)}</span>;
+  
+  // Resolve relation IDs if applicable
+  if (typeof v === 'string' && v.length > 5 && k.endsWith('Id') && !k.endsWith('UserId')) {
+    const entityTypeMap: Record<string, string> = {
+      customerId: 'customers',
+      quotationId: 'quotations',
+      contractId: 'contracts',
+      paymentId: 'payments',
+      deliveryId: 'deliveries',
+    };
+    const entityType = entityTypeMap[k];
+    if (entityType) {
+      return <span className="font-semibold text-blue-700 underline decoration-blue-200 underline-offset-2"><InlineEntityLabel entityType={entityType} entityId={v} fallbackId={v} /></span>;
+    }
+  }
+  
+  return String(v);
+}
+
+function ForensicSnapshotCard({ 
+  snapshot, 
+  entityType, 
+  entityId, 
+  action, 
+  onRestored 
+}: { 
+  snapshot: any, 
+  entityType: string, 
+  entityId: string, 
+  action: string, 
+  onRestored?: () => void 
+}) {
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  if (!snapshot || typeof snapshot !== 'object') {
+    return (
+      <div className="p-8 bg-slate-50 rounded-xl border border-slate-200 text-center text-slate-500 text-xs">
+        Không có dữ liệu snapshot chi tiết cho bản ghi này.
+      </div>
+    );
+  }
+
+  const handleRestore = async () => {
+    setIsRestoring(true);
+    try {
+      await apiRestoreEntity(entityType, entityId, 'admin');
+      notify.success(`Đã khôi phục thành công chứng từ ${entityId}!`);
+      setShowConfirm(false);
+      if (onRestored) onRestored();
+    } catch (err: any) {
+      notify.error(err.message || 'Không thể khôi phục chứng từ này');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const docCode = snapshot.soBaoGia || snapshot.soHopDong || snapshot.soPhieuThu || snapshot.deliveryId || snapshot.maSoThue || snapshot.maKhachHang || entityId;
+  const customerName = snapshot.customerName || snapshot.tenKhachHang || snapshot.tenCongTy || snapshot.hoTen || snapshot.name || '--';
+  const amount = snapshot.tongTienSauThue || snapshot.tongTien || snapshot.giaTriHopDong || snapshot.soTien || snapshot.amount;
+  const products = Array.isArray(snapshot.products) ? snapshot.products : (Array.isArray(snapshot.items) ? snapshot.items : []);
+  const isDeletedAction = action === 'DELETE';
+
+  return (
+    <div className="space-y-4">
+      {/* Reconstitution Header Banner */}
+      <div className={`p-4 rounded-xl border ${isDeletedAction ? 'bg-red-50/70 border-red-200' : 'bg-blue-50/60 border-blue-200'} flex flex-col md:flex-row md:items-center justify-between gap-4`}>
+        <div className="flex items-start gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isDeletedAction ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+            {isDeletedAction ? <ShieldAlert size={20} /> : <FileText size={20} />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-600">Bản ghi nguyên trạng (Forensic Snapshot)</span>
+              {isDeletedAction && (
+                <span className="bg-red-600 text-white text-3xs font-bold uppercase px-1.5 py-0.5 rounded tracking-wider">ĐÃ XÓA</span>
+              )}
+            </div>
+            <h4 className="text-base font-bold text-slate-900 mt-0.5 flex items-center gap-2">
+              <span>{docCode}</span>
+              {customerName !== '--' && <span className="text-slate-500 font-normal text-sm">· {customerName}</span>}
+            </h4>
+          </div>
+        </div>
+
+        {isDeletedAction && (
+          <div className="shrink-0 flex items-center gap-2">
+            {!showConfirm ? (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setShowConfirm(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-semibold flex items-center gap-1.5"
+              >
+                <RotateCcw size={14} /> Khôi phục chứng từ
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2 bg-white p-1.5 rounded-lg border border-red-300 shadow-sm animate-in fade-in duration-150">
+                <span className="text-xs font-medium text-slate-700 px-2">Khôi phục bản ghi này?</span>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  isLoading={isRestoring}
+                  onClick={handleRestore}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 py-1"
+                >
+                  Xác nhận
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowConfirm(false)}
+                  className="text-xs px-2.5 py-1"
+                >
+                  Hủy
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Snapshot High-Level Summary Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div>
+          <p className="text-3xs font-bold text-slate-400 uppercase tracking-wider">Mã chứng từ / Khách</p>
+          <p className="text-xs font-mono font-bold text-slate-850 mt-0.5 truncate">{docCode}</p>
+        </div>
+        <div>
+          <p className="text-3xs font-bold text-slate-400 uppercase tracking-wider">Khách hàng / Đối tác</p>
+          <p className="text-xs font-semibold text-slate-850 mt-0.5 truncate">{customerName}</p>
+        </div>
+        <div>
+          <p className="text-3xs font-bold text-slate-400 uppercase tracking-wider">Giá trị / Số tiền</p>
+          <p className="text-xs font-mono font-bold text-blue-700 mt-0.5">
+            {amount ? formatVND(Number(amount)) : '--'}
+          </p>
+        </div>
+        <div>
+          <p className="text-3xs font-bold text-slate-400 uppercase tracking-wider">Phân loại / Trạng thái</p>
+          <p className="text-xs font-semibold text-slate-700 mt-0.5">
+            {snapshot.loai || snapshot.trangThai || snapshot.status || 'Hợp lệ'}
+          </p>
+        </div>
+      </div>
+
+      {/* Products Sub-table if present */}
+      {products.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Danh mục sản phẩm ({products.length})</span>
+          </div>
+          <div className="divide-y divide-slate-100 max-h-56 overflow-y-auto custom-scrollbar">
+            {products.map((item: any, idx: number) => (
+              <div key={idx} className="px-4 py-2.5 flex items-center justify-between text-xs hover:bg-slate-50">
+                <div className="min-w-0 flex-1 pr-4">
+                  <div className="font-semibold text-slate-800 truncate">{item.tenSanPham || item.name || item.tenVatTu || `Sản phẩm #${idx + 1}`}</div>
+                  <div className="text-2xs text-slate-400 font-mono flex items-center gap-2 mt-0.5">
+                    {item.maSanPham && <span>Mã: {item.maSanPham}</span>}
+                    {item.itemType && <span className="uppercase px-1 rounded bg-slate-100 text-slate-600 font-medium">{item.itemType}</span>}
+                    {item.danhSachMaMay && Array.isArray(item.danhSachMaMay) && item.danhSachMaMay.length > 0 && (
+                      <span className="text-emerald-700 font-bold">Serial: {item.danhSachMaMay.join(', ')}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-mono font-semibold text-slate-900">
+                    {item.soLuong || item.quantity || 1} {item.donViTinh || item.unit || ''}
+                  </div>
+                  {item.thanhTien && (
+                    <div className="text-2xs font-mono text-slate-500">{formatVND(item.thanhTien)}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Structured Key-Value Property Matrix */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Thuộc tính chi tiết</span>
+          <span className="text-2xs text-slate-400 font-mono">{Object.keys(snapshot).length} trường</span>
+        </div>
+        <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto custom-scrollbar">
+          {Object.entries(snapshot).filter(([k]) => k !== 'products' && k !== 'items').map(([key, val]) => (
+            <div key={key} className="grid grid-cols-3 px-4 py-2.5 text-xs hover:bg-slate-50 items-center">
+              <span className="font-mono text-2xs text-slate-600 font-semibold truncate pr-2" title={key}>{key}</span>
+              <div className="col-span-2 text-slate-850 font-sans break-words">{formatVal(key, val)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function DiffViewer({ before, after }: { before: any, after: any }) {
-  if (!before || !after) return null;
-  
+  if (!before && !after) {
+    return (
+      <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-200 text-xs font-medium">
+        Không có dữ liệu so sánh khác biệt (Diff payload trống)
+      </div>
+    );
+  }
+
+  // If one side is null, show formatted inspector of the existing side
+  if (!before && after) {
+    const keys = Object.keys(after).filter(k => k !== 'id' && k !== 'timestamp');
+    return (
+      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+        <div className="bg-blue-50/70 border-b border-blue-200 text-xs font-bold text-blue-900 uppercase tracking-wider p-3">
+          Dữ liệu khởi tạo mới (Initial State)
+        </div>
+        <div className="divide-y divide-slate-100 max-h-[450px] overflow-y-auto custom-scrollbar">
+          {keys.map(key => (
+            <div key={key} className="grid grid-cols-3 p-3 text-xs items-center hover:bg-slate-50">
+              <div className="font-semibold text-slate-700 font-mono text-2xs truncate pr-2" title={key}>{key}</div>
+              <div className="col-span-2 font-mono text-xs text-emerald-800 font-medium">{formatVal(key, after[key])}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (before && !after) {
+    const keys = Object.keys(before).filter(k => k !== 'id' && k !== 'timestamp');
+    return (
+      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+        <div className="bg-red-50/70 border-b border-red-200 text-xs font-bold text-red-900 uppercase tracking-wider p-3">
+          Dữ liệu trước khi xóa (Pre-deletion State)
+        </div>
+        <div className="divide-y divide-slate-100 max-h-[450px] overflow-y-auto custom-scrollbar">
+          {keys.map(key => (
+            <div key={key} className="grid grid-cols-3 p-3 text-xs items-center hover:bg-slate-50">
+              <div className="font-semibold text-slate-700 font-mono text-2xs truncate pr-2" title={key}>{key}</div>
+              <div className="col-span-2 font-mono text-xs text-red-700 font-medium">{formatVal(key, before[key])}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   // Collect all unique keys from both sides
   const keys = Array.from(new Set([
     ...Object.keys(before || {}),
     ...Object.keys(after || {})
   ])).filter(key => key !== 'id' && key !== 'timestamp' && key !== 'lastIndexOffset');
-
-  const formatVal = (k: string, v: any) => {
-    if (v === null || v === undefined || v === '') return <span className="text-slate-400 italic">-- Trống --</span>;
-    if (typeof v === 'object') return JSON.stringify(v);
-    
-    // Resolve relation IDs if applicable
-    if (typeof v === 'string' && v.length > 5 && k.endsWith('Id') && !k.endsWith('UserId')) {
-      const entityTypeMap: Record<string, string> = {
-        customerId: 'customers',
-        quotationId: 'quotations',
-        contractId: 'contracts',
-        paymentId: 'payments',
-        deliveryId: 'deliveries',
-      };
-      const entityType = entityTypeMap[k];
-      if (entityType) {
-        return <span className="font-semibold text-blue-700 underline decoration-blue-200 underline-offset-2"><InlineEntityLabel entityType={entityType} entityId={v} fallbackId={v} /></span>;
-      }
-    }
-    
-    return String(v);
-  };
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
@@ -132,13 +392,13 @@ function DiffViewer({ before, after }: { before: any, after: any }) {
 }
 
 export default function AuditLogsFeature() {
-  const { data: logs, loading, loadMore, hasMore } = useRepoPaginatedAuditLogs(25);
+  const { data: logs, loading, loadMore, hasMore, refresh } = useRepoPaginatedAuditLogs(25);
 
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 250);
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
   const [activeFilterAction, setActiveFilterAction] = useState<string>('ALL');
-  const [detailTab, setDetailTab] = useState<'diff' | 'json'>('diff');
+  const [detailTab, setDetailTab] = useState<'snapshot' | 'diff' | 'json'>('snapshot');
 
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
@@ -178,6 +438,7 @@ export default function AuditLogsFeature() {
       case 'UPDATE': 
       case 'TRANSACTION_UPDATE': return 'bg-amber-100 text-amber-700 border border-amber-200/55';
       case 'DELETE': return 'bg-red-100 text-red-700 border border-red-200/55';
+      case 'RESTORE': return 'bg-emerald-100 text-emerald-800 border border-emerald-200/55 font-bold';
       case 'ZNS_SEND': 
       case 'ZNS_ENQUEUED': return 'bg-emerald-100 text-emerald-700 border border-emerald-200/55';
       case 'ZNS_CALLBACK': 
@@ -226,7 +487,21 @@ export default function AuditLogsFeature() {
 
   const beforeData = selectedLog?.details?.oldValues || selectedLog?.details?.before || null;
   const afterData = selectedLog?.details?.newValues || selectedLog?.details?.after || null;
-  const isDiffAvailable = beforeData && afterData;
+  const isDiffAvailable = Boolean(beforeData && afterData);
+
+  // Extract snapshot data for reconstitution
+  const snapshotData = useMemo(() => {
+    if (!selectedLog) return null;
+    const d = selectedLog.details;
+    if (!d) return null;
+    if (d.snapshot) return d.snapshot;
+    if (d.after) return d.after;
+    if (d.newValues) return d.newValues;
+    if (d.before) return d.before;
+    if (d.oldValues) return d.oldValues;
+    if (typeof d === 'object') return d;
+    return null;
+  }, [selectedLog]);
 
   return (
     <div className="flex flex-col h-full bg-[#F8FAFC] relative overflow-hidden">
@@ -249,6 +524,7 @@ export default function AuditLogsFeature() {
                  { id: 'CREATE', label: 'CREATE' },
                  { id: 'UPDATE', label: 'UPDATE' },
                  { id: 'DELETE', label: 'DELETE' },
+                 { id: 'RESTORE', label: 'RESTORE' },
                  { id: 'WORKFLOW_EVENT_EMITTED', label: 'WORKFLOW' },
                  { id: 'ZNS_ENQUEUED', label: 'ZNS' }
                ].map(chip => (
@@ -324,7 +600,10 @@ export default function AuditLogsFeature() {
                           {groupLogs.map(log => (
                              <div 
                                key={log.id} 
-                               onClick={() => setSelectedLogId(log.id || null)}
+                               onClick={() => {
+                                 setSelectedLogId(log.id || null);
+                                 setDetailTab('snapshot');
+                               }}
                                className={`px-5 py-4 border-b border-slate-100 cursor-pointer transition-colors group relative ${
                                  selectedLogId === log.id 
                                    ? 'bg-blue-50/55 border-blue-100' 
@@ -367,13 +646,13 @@ export default function AuditLogsFeature() {
             )}
          </div>
 
-         {/* Right Panel: Detail with Diff */}
+         {/* Right Panel: Detail with Forensic Snapshot & Diff */}
          <div className="flex-1 bg-[#F8FAFC] overflow-y-auto custom-scrollbar">
             {selectedLog ? (
                <div className="w-full max-w-4xl mx-auto p-4 md:p-8 animate-in fade-in duration-200 flex flex-col gap-6">
                   <div className="flex items-center justify-between">
                      <h2 className={tokens.typography.heading.lg + " text-slate-900 flex items-center gap-2"}>
-                        {t('audit.timeline.selectLog')}
+                        Chi tiết nhật ký hoạt động
                      </h2>
                      <Button 
                         aria-label="Export JSON" 
@@ -414,45 +693,67 @@ export default function AuditLogsFeature() {
                              {t('audit.fields.ref_id')}
                            </p>
                            <code className="text-xs font-mono bg-slate-50 px-3 py-1.5 rounded-lg text-slate-850 border border-slate-200 inline-block font-semibold">
-                             <InlineEntityLabel entityType={selectedLog.entityType} entityId={selectedLog.entityId} fallbackId={selectedLog.entityId} snapshotData={selectedLog.details?.after || selectedLog.details?.newValues || selectedLog.details?.before || selectedLog.details?.oldValues || selectedLog.details} />
+                             <InlineEntityLabel entityType={selectedLog.entityType} entityId={selectedLog.entityId} fallbackId={selectedLog.entityId} snapshotData={snapshotData} />
                            </code>
                         </div>
                      </div>
                   </div>
 
-                  {/* DIFF VIEWER PANEL */}
+                  {/* SNAPSHOT & DIFF VIEWER PANEL */}
                   <div className="bg-white rounded-xl shadow-[0_1px_3px_rgba(15,23,42,0.04)] border border-slate-200 overflow-hidden">
                      <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
                         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
                           <CodeSquare size={14} className="text-blue-500" /> {t('audit.timeline.compiled_title')}
                         </h3>
 
-                        {isDiffAvailable && (
-                          <div className="flex bg-slate-200/50 p-0.5 rounded-lg border border-slate-250">
+                        <div className="flex bg-slate-200/60 p-0.5 rounded-lg border border-slate-250 gap-1">
+                           <Button 
+                             onClick={() => setDetailTab('snapshot')}
+                             className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                               detailTab === 'snapshot' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                             }`}
+                           >
+                             <Eye size={13} /> Trực quan / Snapshot
+                           </Button>
+                           
+                           {isDiffAvailable && (
                              <Button 
                                onClick={() => setDetailTab('diff')}
-                               className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
-                                 detailTab === 'diff' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                               className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                                 detailTab === 'diff' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
                                }`}
                              >
-                               So sánh trực quan
+                               <GitCompare size={13} /> So sánh (Diff)
                              </Button>
-                             <Button 
-                               onClick={() => setDetailTab('json')}
-                               className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
-                                 detailTab === 'json' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
-                               }`}
-                             >
-                               JSON Thô
-                             </Button>
-                          </div>
-                        )}
+                           )}
+
+                           <Button 
+                             onClick={() => setDetailTab('json')}
+                             className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                               detailTab === 'json' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                             }`}
+                           >
+                             <FileJson size={13} /> JSON Thô
+                           </Button>
+                        </div>
                      </div>
 
                      <div className="p-5 bg-white">
-                        {isDiffAvailable && detailTab === 'diff' ? (
+                        {detailTab === 'snapshot' && (
+                          <ForensicSnapshotCard 
+                            snapshot={snapshotData} 
+                            entityType={selectedLog.entityType} 
+                            entityId={selectedLog.entityId} 
+                            action={selectedLog.action}
+                            onRestored={refresh}
+                          />
+                        )}
+
+                        {detailTab === 'diff' && (
                           <DiffViewer before={beforeData} after={afterData} />
-                        ) : (
+                        )}
+
+                        {detailTab === 'json' && (
                           <div className="bg-slate-950 rounded-xl p-4 overflow-x-auto shadow-inner border border-slate-800">
                              <pre className="font-mono text-2xs text-slate-300 leading-relaxed select-auto">
                                 {JSON.stringify(selectedLog.details, null, 2)}

@@ -430,15 +430,19 @@ interface DeliveryTransportSectionProps {
   errors: FieldErrors<Delivery>;
   watch?: UseFormWatch<Delivery>;
   setValue?: UseFormSetValue<Delivery>;
+  transportersList?: string[];
 }
 
 export function DeliveryTransportSection({
   register,
   errors,
   watch,
-  setValue
+  setValue,
+  transportersList
 }: DeliveryTransportSectionProps) {
-  const commonTransporters = ['Xe CNV', 'A Hùng Xe Tải', 'GHTK', 'Viettel Post', 'Chành xe Miền Tây', 'Chành xe Bắc Nam'];
+  const commonTransporters = (transportersList && transportersList.length > 0)
+    ? transportersList
+    : ['Xe CNV', 'A Hùng Xe Tải', 'GHTK', 'Viettel Post', 'Chành xe Miền Tây', 'Chành xe Bắc Nam'];
 
   return (
     <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
@@ -477,6 +481,7 @@ export function DeliveryTransportSection({
             )}
             {errors.donViVanChuyen && <p className="text-red-600 text-2xs font-medium mt-0.5">{errors.donViVanChuyen.message as string}</p>}
           </div>
+
 
           <div className="space-y-1.5 focus-within:text-blue-600 transition-colors">
             <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block" htmlFor="soDienThoaiDonViVanChuyen">Hotline / SĐT Tài xế</label>

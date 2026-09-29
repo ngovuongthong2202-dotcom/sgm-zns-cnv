@@ -14,6 +14,8 @@ import { aggregateProducts, computeLineItem } from '@/src/domain/pricing/quotati
 import { formatUserOfficer } from '@/src/shared/utils/userProfile';
 import { zodResolver } from '@hookform/resolvers/zod';
 
+import { detectItemType } from '@/src/widgets/product-list-input/useProductItemSemantic';
+
 interface UseQuotationFormProps {
   quotation: Quotation | null;
   quotations: Quotation[];
@@ -56,7 +58,7 @@ export function useQuotationForm({
       hieuLuc: 7,
       trangThaiGuiTinBaoGia: EntityZnsStatus.CHUA_GUI,
       products: [],
-      loai: QUOTATION_LOAI.MAY,
+      loai: '',
       nguoiPhuTrach: defaultOfficer
     } as any
   });
@@ -173,6 +175,42 @@ export function useQuotationForm({
     }
     return () => { isCancelled = true; };
   }, [currentLoai, isCreating, setValue, getValues, quotations]);
+
+  // Reactive ERP / Classification itemType synchronization
+  useEffect(() => {
+    if (!currentLoai) return;
+    const normLoai = normalizeLoai(currentLoai);
+    const currentProducts = getValues('products') || [];
+    if (currentProducts.length > 0) {
+      let hasChanges = false;
+      const updated = currentProducts.map(p => {
+        const isService = p.itemType === 'SERVICE' || detectItemType((p as any).tenSanPham || p.productName) === 'SERVICE';
+        if (isService) {
+          if (p.itemType !== 'SERVICE') {
+            hasChanges = true;
+            return { ...p, itemType: 'SERVICE' as const };
+          }
+          return p;
+        }
+        if (normLoai === QUOTATION_LOAI.MAY && p.itemType !== 'MACHINE') {
+          hasChanges = true;
+          return { ...p, itemType: 'MACHINE' as const };
+        }
+        if (normLoai === QUOTATION_LOAI.VAT_TU && p.itemType !== 'MATERIAL') {
+          hasChanges = true;
+          return { ...p, itemType: 'MATERIAL' as const };
+        }
+        if (normLoai === QUOTATION_LOAI.DICH_VU && p.itemType !== 'SERVICE') {
+          hasChanges = true;
+          return { ...p, itemType: 'SERVICE' as const };
+        }
+        return p;
+      });
+      if (hasChanges) {
+        setValue('products', updated, { shouldDirty: true });
+      }
+    }
+  }, [currentLoai, setValue, getValues]);
 
   const products = watch('products') || [];
   const ngayBaoGia = watch('ngayBaoGia');

@@ -37,6 +37,22 @@ export async function apiCreateEntity(entityType: string, data: any) {
 }
 
 export async function apiDeleteEntity(entityType: string, id: string, userId?: string) {
+  const colMap: Record<string, string> = {
+    payment: 'payments',
+    contract: 'contracts',
+    delivery: 'deliveries',
+    quotation: 'quotations',
+    customer: 'customers'
+  };
+  const colName = colMap[entityType] || entityType;
+
+  // Optimistic UI Removal (0ms delay)
+  realtimeStore.mutateOptimistic(colName, 'delete', { id });
+  try {
+    clearSwrColCache(colName);
+  } catch {}
+  realtimeStore.refresh(colName);
+
   const res = await fetch(`/api/workflow/delete/${entityType}/${id}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
@@ -44,11 +60,44 @@ export async function apiDeleteEntity(entityType: string, id: string, userId?: s
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
+    // Revert optimistic removal on error
+    realtimeStore.refresh(colName);
     const err = new Error(json.error || `HTTP ${res.status}`);
     (err as any).blockingDocuments = json.blockingDocuments;
     (err as any).detailedBlocks = json.detailedBlocks;
     throw err;
   }
+  return json;
+}
+
+export async function apiRestoreEntity(entityType: string, id: string, userId?: string) {
+  const res = await fetch(`/api/workflow/restore/${entityType}/${id}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: userId || 'system' })
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.error || `HTTP ${res.status}`);
+  }
+
+  const colMap: Record<string, string> = {
+    payment: 'payments',
+    contract: 'contracts',
+    delivery: 'deliveries',
+    quotation: 'quotations',
+    customer: 'customers'
+  };
+  const colName = colMap[entityType] || entityType;
+
+  if (json.data) {
+    realtimeStore.mutateOptimistic(colName, 'create', json.data);
+  }
+  try {
+    clearSwrColCache(colName);
+  } catch {}
+  realtimeStore.refresh(colName);
+
   return json;
 }
 

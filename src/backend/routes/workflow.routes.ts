@@ -727,6 +727,78 @@ router.delete('/delete/:entityType/:id', async (req, res) => {
   }
 });
 
+// UNIVERSAL RESTORE ENDPOINT (Khôi phục nguyên trạng chứng từ đã xóa)
+router.post('/restore/:entityType/:id', async (req, res) => {
+  try {
+    const rawType = req.params.entityType;
+    const entityType = normalizeEntityType(rawType);
+    const id = req.params.id;
+    const targetTable = toTableName(entityType);
+    const effectiveUserId = req.body?.userId || (req as any).user?.uid || 'system';
+
+    const docRef = adminDb.collection(targetTable).doc(id);
+    const docSnap = await docRef.get();
+
+    let restoredData: any = null;
+
+    if (docSnap.exists) {
+      restoredData = {
+        ...docSnap.data(),
+        deletedAt: null,
+        deletedBy: null,
+        isDeleted: false,
+        updatedAt: new Date().toISOString()
+      };
+      await docRef.update({
+        deletedAt: null,
+        deletedBy: null,
+        isDeleted: false,
+        updatedAt: new Date().toISOString()
+      });
+    } else {
+      // Fallback: Tìm snapshot trong Audit Logs
+      const auditSnap = await adminDb.collection('auditLogs')
+        .where('entityId', '==', id)
+        .where('action', '==', 'DELETE')
+        .orderBy('timestamp', 'desc')
+        .limit(1)
+        .get();
+
+      if (auditSnap.empty || !auditSnap.docs[0].data()?.details?.snapshot) {
+        return res.status(404).json({ error: 'Không tìm thấy dữ liệu hoặc snapshot để khôi phục chứng từ này.' });
+      }
+
+      const snapshot = auditSnap.docs[0].data().details.snapshot;
+      restoredData = {
+        ...snapshot,
+        deletedAt: null,
+        deletedBy: null,
+        isDeleted: false,
+        updatedAt: new Date().toISOString()
+      };
+      await docRef.set(restoredData);
+    }
+
+    // Ghi nhận nhật ký khôi phục
+    const auditRef = adminDb.collection('auditLogs').doc();
+    await auditRef.set({
+      action: 'RESTORE',
+      entityId: id,
+      entityType: targetTable,
+      details: { restored: true, snapshot: restoredData },
+      userId: effectiveUserId,
+      timestamp: new Date().toISOString()
+    });
+
+    const eventName = `${entityType.charAt(0).toUpperCase() + entityType.slice(1)}Restored`;
+    emitDomainEvent(eventName, { entityId: id, entityType: targetTable, userId: effectiveUserId });
+
+    return res.json({ success: true, data: restoredData });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || String(error) });
+  }
+});
+
 router.post('/check-gate', async (req, res) => {
   try {
     const { targetEntity, parentId, parentDocType: requestedParentDocType } = req.body;

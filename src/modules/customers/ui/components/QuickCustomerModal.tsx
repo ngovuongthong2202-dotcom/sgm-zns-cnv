@@ -1,5 +1,23 @@
 import React, { useState, useMemo } from 'react';
-import { UserPlus, Building, Phone, MapPin, Search, Check, AlertCircle, X, Sparkles, Wand2, ClipboardCheck, AlertTriangle } from 'lucide-react';
+import { 
+  UserPlus, 
+  Building, 
+  Phone, 
+  MapPin, 
+  Search, 
+  Check, 
+  AlertCircle, 
+  X, 
+  Sparkles, 
+  Wand2, 
+  ClipboardCheck, 
+  AlertTriangle,
+  Plus,
+  Trash2,
+  Users,
+  ArrowRightCircle,
+  MessageSquare
+} from 'lucide-react';
 import { SmartPhoneInput } from '@/src/platform/ui/design-system/form/SmartPhoneInput';
 import { parseVietQRBusinessData } from './CustomerFormHelpers';
 import { VIETNAM_PROVINCES_63 } from '@/src/hooks/useSharedFields';
@@ -10,23 +28,33 @@ import { cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressParser';
 
+export interface QuickContactItem {
+  id: string;
+  danhXung: string;
+  nguoiDaiDien: string;
+  sdt: string;
+  chucVu: 'Đại diện' | 'Kế toán' | 'Kỹ thuật' | 'Thu mua' | string;
+  email?: string;
+  isPrimary?: boolean;
+}
+
 interface QuickCustomerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCustomerCreated: (customer: any) => void;
   defaultOfficer?: string;
+  onSendZnsImmediately?: (customer: any, contact?: QuickContactItem) => void;
 }
 
 export function QuickCustomerModal({
   isOpen,
   onClose,
   onCustomerCreated,
-  defaultOfficer = ''
+  defaultOfficer = '',
+  onSendZnsImmediately
 }: QuickCustomerModalProps) {
   const [tenKhachHang, setTenKhachHang] = useState('');
   const [maSoThue, setMaSoThue] = useState('');
-  const [sdt, setSdt] = useState('');
-  const [nguoiDaiDien, setNguoiDaiDien] = useState('');
   const [diaChi, setDiaChi] = useState('');
   const [tinhThanh, setTinhThanh] = useState('TP. Hồ Chí Minh');
   const [loaiKh, setLoaiKh] = useState<'Doanh nghiệp' | 'Cá nhân'>('Doanh nghiệp');
@@ -35,6 +63,18 @@ export function QuickCustomerModal({
   const [taxLookupSuccess, setTaxLookupSuccess] = useState(false);
   const [showMagicPaste, setShowMagicPaste] = useState(false);
   const [magicPasteText, setMagicPasteText] = useState('');
+
+  // Multi-contact matrix state
+  const [contacts, setContacts] = useState<QuickContactItem[]>([
+    {
+      id: `ct_${Date.now()}_1`,
+      danhXung: 'Anh/Chị',
+      nguoiDaiDien: '',
+      sdt: '',
+      chucVu: 'Đại diện',
+      isPrimary: true
+    }
+  ]);
 
   // Lấy danh sách khách hàng để cảnh báo trùng lặp realtime
   const existingCustomers = useMemo(() => {
@@ -45,35 +85,49 @@ export function QuickCustomerModal({
     }
   }, [isOpen]);
 
-  // Kiểm tra trùng lặp MST hoặc SĐT
+  // Kiểm tra trùng lặp MST hoặc SĐT trên tất cả các đầu mối
   const duplicateWarning = useMemo(() => {
     const cleanTax = maSoThue.trim().replace(/[\s.-]/g, '');
-    const cleanPhone = sdt.trim().replace(/[\s.-]/g, '');
+    const currentPhones = contacts
+      .map(c => (c.sdt || '').trim().replace(/[\s.-]/g, ''))
+      .filter(p => p.length >= 9);
 
-    if (!cleanTax && !cleanPhone) return null;
+    if (!cleanTax && currentPhones.length === 0) return null;
 
     for (const c of existingCustomers) {
-      if (c.deletedAt || c.deleted_at) continue;
+      if (c.deletedAt || c.deleted_at || c.isDeleted) continue;
+      
+      // 1. Kiểm tra MST
       const cTax = (c.maSoThue || '').trim().replace(/[\s.-]/g, '');
-      const cPhone = (c.sdt || '').trim().replace(/[\s.-]/g, '');
-
       if (cleanTax && cTax && cleanTax === cTax) {
         return {
-          type: 'MST',
+          type: 'Mã số thuế (MST)',
           value: cleanTax,
           matchedCustomer: c
         };
       }
-      if (cleanPhone && cPhone && cleanPhone === cPhone) {
-        return {
-          type: 'SĐT',
-          value: cleanPhone,
-          matchedCustomer: c
-        };
+
+      // 2. Kiểm tra Phone (cả sdt gốc và trong contacts[])
+      const existingCustomerPhones = new Set<string>();
+      if (c.sdt) existingCustomerPhones.add(c.sdt.trim().replace(/[\s.-]/g, ''));
+      if (Array.isArray(c.contacts)) {
+        c.contacts.forEach((item: any) => {
+          if (item?.sdt) existingCustomerPhones.add(item.sdt.trim().replace(/[\s.-]/g, ''));
+        });
+      }
+
+      for (const phone of currentPhones) {
+        if (existingCustomerPhones.has(phone)) {
+          return {
+            type: 'Số điện thoại',
+            value: phone,
+            matchedCustomer: c
+          };
+        }
       }
     }
     return null;
-  }, [maSoThue, sdt, existingCustomers]);
+  }, [maSoThue, contacts, existingCustomers]);
 
   if (!isOpen) return null;
 
@@ -123,13 +177,21 @@ export function QuickCustomerModal({
       setMaSoThue(parsedTax);
       setLoaiKh('Doanh nghiệp');
     }
-    if (parsedPhone) setSdt(parsedPhone);
-    if (parsedRepresentative) setNguoiDaiDien(cleanProperVietnameseText(parsedRepresentative));
     if (parsedAddress) {
       setDiaChi(parsedAddress);
       const detected = detectProvinceFromAddress(parsedAddress, VIETNAM_PROVINCES_63);
       if (detected) setTinhThanh(detected);
     }
+
+    // Update primary contact
+    setContacts(prev => {
+      const next = [...prev];
+      if (next.length > 0) {
+        if (parsedPhone) next[0].sdt = parsedPhone;
+        if (parsedRepresentative) next[0].nguoiDaiDien = cleanProperVietnameseText(parsedRepresentative);
+      }
+      return next;
+    });
 
     setShowMagicPaste(false);
     setMagicPasteText('');
@@ -171,11 +233,59 @@ export function QuickCustomerModal({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const updateContact = (index: number, patch: Partial<QuickContactItem>) => {
+    setContacts(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], ...patch };
+      return next;
+    });
+  };
+
+  const addContact = () => {
+    setContacts(prev => [
+      ...prev,
+      {
+        id: `ct_${Date.now()}_${prev.length + 1}`,
+        danhXung: 'Anh/Chị',
+        nguoiDaiDien: '',
+        sdt: '',
+        chucVu: 'Kỹ thuật',
+        isPrimary: false
+      }
+    ]);
+  };
+
+  const removeContact = (index: number) => {
+    if (contacts.length <= 1) {
+      notify.warning('Khách hàng cần tối thiểu 1 đầu mối liên hệ chính.');
+      return;
+    }
+    setContacts(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUseExistingCustomer = (matchedCust: any) => {
+    notify.success(`Đã nạp hồ sơ khách hàng [${matchedCust.tenKhachHang}] vào Báo Giá!`);
+    onCustomerCreated(matchedCust);
+    onClose();
+  };
+
+  const handleSaveAndAttach = async (e?: React.MouseEvent, sendZnsAfter = false) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
     const cleanName = tenKhachHang.trim();
     if (!cleanName) {
       notify.error('Vui lòng nhập Tên khách hàng hoặc tên công ty.');
+      return;
+    }
+
+    const primaryContact = contacts.find(c => c.isPrimary) || contacts[0];
+    const primaryPhone = primaryContact?.sdt?.trim() || '';
+
+    if (!primaryPhone && loaiKh === 'Cá nhân') {
+      notify.error('Vui lòng nhập Số điện thoại liên hệ cho khách hàng cá nhân.');
       return;
     }
 
@@ -185,24 +295,29 @@ export function QuickCustomerModal({
       const highestSeq = computeMaxCustomerSequence(existingCustomers);
       const nextMaKh = `KH${String(highestSeq + 1).padStart(4, '0')}`;
 
-      // 2. Chuẩn bị payload
+      const formattedContacts = contacts
+        .filter(c => c.nguoiDaiDien.trim() || c.sdt.trim())
+        .map((c, idx) => ({
+          danhXung: c.danhXung || 'Anh/Chị',
+          nguoiDaiDien: cleanProperVietnameseText(c.nguoiDaiDien.trim()) || (idx === 0 ? cleanName : 'Đầu mối'),
+          sdt: c.sdt.trim(),
+          chucVu: c.chucVu || (idx === 0 ? 'Đại diện' : 'Liên hệ'),
+          email: c.email?.trim() || '',
+          chiNhanh: 'Trụ sở chính'
+        }));
+
+      // 2. Chuẩn bị payload khách hàng
       const payload: any = {
         maKh: nextMaKh,
         tenKhachHang: cleanName,
         maSoThue: maSoThue.trim(),
-        sdt: sdt.trim(),
-        nguoiDaiDien: cleanProperVietnameseText(nguoiDaiDien.trim()) || cleanName,
+        sdt: primaryPhone,
+        nguoiDaiDien: cleanProperVietnameseText(primaryContact?.nguoiDaiDien?.trim() || '') || cleanName,
         diaChi: diaChi.trim(),
         tinhThanh: tinhThanh || 'TP. Hồ Chí Minh',
         loaiKh,
         nguoiPhuTrach: defaultOfficer,
-        contacts: (sdt.trim() || nguoiDaiDien.trim()) ? [{
-          danhXung: 'Anh/Chị',
-          nguoiDaiDien: cleanProperVietnameseText(nguoiDaiDien.trim()) || cleanName,
-          sdt: sdt.trim(),
-          chucVu: loaiKh === 'Doanh nghiệp' ? 'Đại diện' : 'Chủ tài khoản',
-          chiNhanh: 'Trụ sở chính'
-        }] : [],
+        contacts: formattedContacts,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -220,6 +335,11 @@ export function QuickCustomerModal({
 
       notify.success(`Đã tạo nhanh khách hàng [${nextMaKh}] thành công!`);
       onCustomerCreated(createdCustomer);
+      
+      if (sendZnsAfter && onSendZnsImmediately) {
+        onSendZnsImmediately(createdCustomer, primaryContact);
+      }
+
       onClose();
     } catch (err: any) {
       notify.error(`Lỗi khi tạo khách hàng: ${err?.message || 'Không thể lưu'}`);
@@ -229,17 +349,26 @@ export function QuickCustomerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header - Glassmorphism Deep Navy với Chữ Trắng Tinh Khiết */}
-        <div className="px-6 py-4 bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white flex items-center justify-between border-b border-white/10">
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+      onClick={(e) => {
+        // Prevent closing when clicking outside accidentally
+        e.stopPropagation();
+      }}
+    >
+      <div 
+        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header - Navy Premium */}
+        <div className="px-6 py-4 bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white flex items-center justify-between border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/15 rounded-xl border border-white/20 backdrop-blur-md shadow-xs">
               <UserPlus size={18} className="text-white" />
             </div>
             <div>
-              <h3 className="text-sm font-bold tracking-tight text-white !text-white flex items-center gap-2">
-                Tạo Nhanh Khách Hàng
+              <h3 className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
+                Tạo Nhanh Khách Hàng & Gắn Vào Báo Giá
               </h3>
               <p className="text-3xs text-blue-100 font-medium">Khởi tạo hồ sơ khách hàng ngay trong phiên báo giá & hợp đồng</p>
             </div>
@@ -256,7 +385,10 @@ export function QuickCustomerModal({
             </button>
             <button
               type="button"
-              onClick={onClose}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
               className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition-colors cursor-pointer"
             >
               <X size={18} />
@@ -266,7 +398,7 @@ export function QuickCustomerModal({
 
         {/* Magic Paste Multi-Field Unpacker Popover */}
         {showMagicPaste && (
-          <div className="bg-amber-50/95 border-b border-amber-200 p-4 animate-in slide-in-from-top-2 duration-150 space-y-2.5">
+          <div className="bg-amber-50/95 border-b border-amber-200 p-4 animate-in slide-in-from-top-2 duration-150 space-y-2.5 shrink-0">
             <div className="flex items-center justify-between">
               <span className="text-2xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
                 <Sparkles size={13} className="text-amber-600" />
@@ -275,7 +407,7 @@ export function QuickCustomerModal({
               <button
                 type="button"
                 onClick={() => setShowMagicPaste(false)}
-                className="text-amber-700 hover:text-amber-900 text-2xs font-bold"
+                className="text-amber-700 hover:text-amber-900 text-2xs font-bold cursor-pointer"
               >
                 ✕ Đóng
               </button>
@@ -301,18 +433,33 @@ export function QuickCustomerModal({
           </div>
         )}
 
-        {/* Realtime Duplicate Warning Banner */}
+        {/* Realtime Duplicate Warning & 1-Click Attach Banner */}
         {duplicateWarning && (
-          <div className="bg-amber-50 border-b border-amber-200 px-5 py-2.5 flex items-center gap-2 text-2xs text-amber-950 font-medium animate-fadeIn">
-            <AlertTriangle size={14} className="text-amber-600 shrink-0" />
-            <span>
-              <strong>Cảnh báo trùng lặp:</strong> {duplicateWarning.type} <code>{duplicateWarning.value}</code> đã tồn tại cho khách hàng <strong>{duplicateWarning.matchedCustomer.tenKhachHang}</strong> ({duplicateWarning.matchedCustomer.maKh}).
-            </span>
+          <div className="bg-amber-50 border-b border-amber-200 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950 font-medium animate-fadeIn shrink-0">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-amber-900">
+                  Phát hiện khách hàng đã tồn tại trên hệ thống!
+                </p>
+                <p className="text-2xs text-amber-800 mt-0.5">
+                  {duplicateWarning.type} <code className="bg-amber-100/80 px-1 py-0.5 rounded font-mono font-bold text-amber-950">{duplicateWarning.value}</code> khớp với khách hàng: <strong>{duplicateWarning.matchedCustomer.tenKhachHang}</strong> ({duplicateWarning.matchedCustomer.maKh})
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleUseExistingCustomer(duplicateWarning.matchedCustomer)}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+            >
+              <ArrowRightCircle size={14} />
+              <span>Nạp ngay vào Báo Giá</span>
+            </button>
           </div>
         )}
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 text-xs">
+        {/* Modal Body Container (NO NESTED FORM TAG TO AVOID BUBBLING) */}
+        <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1 custom-scrollbar">
           {/* Loại khách hàng */}
           <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
             <button
@@ -335,7 +482,7 @@ export function QuickCustomerModal({
             </button>
           </div>
 
-          {/* Tra cứu MST (Chỉ áp dụng cho Doanh nghiệp) */}
+          {/* Tra cứu MST (Doanh nghiệp) */}
           {loaiKh === 'Doanh nghiệp' && (
             <div className="space-y-1">
               <div className="flex items-center justify-between">
@@ -349,7 +496,7 @@ export function QuickCustomerModal({
                       setMaSoThue('');
                       setTaxLookupSuccess(false);
                     }}
-                    className="text-3xs text-slate-400 hover:text-slate-700 font-bold"
+                    className="text-3xs text-slate-400 hover:text-slate-700 font-bold cursor-pointer"
                   >
                     ✕ Xóa MST
                   </button>
@@ -400,43 +547,99 @@ export function QuickCustomerModal({
               value={tenKhachHang}
               onChange={(e) => setTenKhachHang(e.target.value)}
               onBlur={(e) => setTenKhachHang(cleanProperVietnameseText(e.target.value))}
-              placeholder={loaiKh === 'Doanh nghiệp' ? 'VD: CÔNG TY TNHH CÔNG NGHỆ VÀ THIẾT BỊ SÀI GÒN MÁY' : 'VD: Nguyễn Văn An'}
+              placeholder={loaiKh === 'Doanh nghiệp' ? 'VD: CÔNG TY TNHH THIẾT BỊ SÀI GÒN MÁY' : 'VD: Nguyễn Văn An'}
               className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-bold text-slate-900"
             />
           </div>
 
-          {/* SĐT & Người đại diện */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-3xs font-bold uppercase tracking-wider text-slate-600" htmlFor="quick-phone">
-                Số Điện Thoại Liên Hệ <span className="text-red-500">*</span>
+          {/* Danh sách Đầu Mối Liên Hệ (Multi-Contact Matrix) */}
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <label className="text-3xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                <Users size={12} className="text-blue-600" />
+                Danh Sách Đầu Mối Liên Hệ ({contacts.length}) <span className="text-red-500">*</span>
               </label>
-              <SmartPhoneInput
-                id="quick-phone"
-                value={sdt}
-                onChange={setSdt}
-                placeholder="09xx xxx xxx"
-                compact
-              />
+              <button
+                type="button"
+                onClick={addContact}
+                className="text-3xs font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-blue-50 transition-colors cursor-pointer"
+              >
+                <Plus size={12} /> Thêm đầu mối
+              </button>
             </div>
-            <div className="space-y-1">
-              <label className="text-3xs font-bold uppercase tracking-wider text-slate-600" htmlFor="quick-rep">
-                Người Đại Diện / Liên Hệ
-              </label>
-              <input
-                id="quick-rep"
-                type="text"
-                value={nguoiDaiDien}
-                onChange={(e) => setNguoiDaiDien(e.target.value)}
-                onBlur={(e) => setNguoiDaiDien(cleanProperVietnameseText(e.target.value))}
-                placeholder="VD: Anh Nam (GĐ)"
-                className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-medium text-slate-900"
-              />
+
+            <div className="space-y-2">
+              {contacts.map((contact, idx) => (
+                <div 
+                  key={contact.id || idx}
+                  className={`p-3 rounded-xl border ${contact.isPrimary ? 'bg-blue-50/40 border-blue-200' : 'bg-slate-50/60 border-slate-200'} space-y-2.5 transition-all`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-3xs font-bold uppercase px-2 py-0.5 rounded ${contact.isPrimary ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                        {contact.isPrimary ? 'Đầu mối chính' : `Đầu mối #${idx + 1}`}
+                      </span>
+                    </div>
+                    {contacts.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeContact(idx)}
+                        className="text-slate-400 hover:text-red-600 p-1 rounded transition-colors cursor-pointer"
+                        title="Xóa đầu mối này"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    {/* Tên người liên hệ */}
+                    <div className="space-y-0.5 sm:col-span-1">
+                      <span className="text-3xs text-slate-500 font-medium">Họ & Tên</span>
+                      <input
+                        type="text"
+                        value={contact.nguoiDaiDien}
+                        onChange={(e) => updateContact(idx, { nguoiDaiDien: e.target.value })}
+                        onBlur={(e) => updateContact(idx, { nguoiDaiDien: cleanProperVietnameseText(e.target.value) })}
+                        placeholder="VD: Anh Nam"
+                        className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:border-blue-500 bg-white font-medium text-slate-900"
+                      />
+                    </div>
+
+                    {/* Số điện thoại */}
+                    <div className="space-y-0.5 sm:col-span-1">
+                      <span className="text-3xs text-slate-500 font-medium">Số điện thoại {contact.isPrimary && <span className="text-red-500">*</span>}</span>
+                      <SmartPhoneInput
+                        value={contact.sdt}
+                        onChange={(val) => updateContact(idx, { sdt: val })}
+                        placeholder="09xx xxx xxx"
+                        compact
+                      />
+                    </div>
+
+                    {/* Vai trò / Chức vụ */}
+                    <div className="space-y-0.5 sm:col-span-1">
+                      <span className="text-3xs text-slate-500 font-medium">Vai trò / Bộ phận</span>
+                      <select
+                        value={contact.chucVu}
+                        onChange={(e) => updateContact(idx, { chucVu: e.target.value })}
+                        className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-blue-500 bg-white cursor-pointer font-medium text-slate-800"
+                      >
+                        <option value="Đại diện">Đại diện (Giám đốc/Chủ)</option>
+                        <option value="Kế toán">Kế toán / Tài chính</option>
+                        <option value="Kỹ thuật">Kỹ thuật / Vận hành</option>
+                        <option value="Thu mua">Thu mua / Mua sắm</option>
+                        <option value="Khác">Khác</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
           {/* Địa chỉ & Tỉnh thành */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
             <div className="sm:col-span-2 space-y-1">
               <label className="text-3xs font-bold uppercase tracking-wider text-slate-600" htmlFor="quick-address">
                 Địa Chỉ Chi Tiết
@@ -472,47 +675,45 @@ export function QuickCustomerModal({
               </select>
             </div>
           </div>
+        </div>
 
-          {/* Quick Province Chips */}
-          <div className="space-y-1 pt-1">
-            <span className="text-3xs font-bold uppercase tracking-wider text-slate-400 block">Gợi ý nhanh Tỉnh/Thành:</span>
-            <div className="flex flex-wrap gap-1">
-              {['TP. Hồ Chí Minh', 'Hà Nội', 'Bình Dương', 'Đồng Nai', 'Long An', 'Cần Thơ', 'Đà Nẵng'].map((prov) => (
-                <button
-                  key={prov}
-                  type="button"
-                  onClick={() => setTinhThanh(prov)}
-                  className={`text-3xs px-2 py-0.5 rounded border transition-colors cursor-pointer ${
-                    tinhThanh === prov 
-                      ? 'bg-blue-600 text-white border-blue-600 font-bold' 
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
-                  }`}
-                >
-                  {prov}
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Footer Actions */}
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+            className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded-xl transition-colors cursor-pointer shadow-2xs"
+          >
+            Hủy Bỏ
+          </button>
+          
+          <div className="w-full sm:w-auto flex items-center gap-2">
+            {onSendZnsImmediately && (
+              <button
+                type="button"
+                disabled={isSaving || !tenKhachHang.trim()}
+                onClick={(e) => handleSaveAndAttach(e, true)}
+                className="flex-1 sm:flex-initial px-4 py-2 text-xs font-bold text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-xl border border-blue-300 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <MessageSquare size={13} />
+                <span>Tạo & Gửi ZNS Ngay</span>
+              </button>
+            )}
 
-          {/* Footer Actions */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
-            >
-              Hủy Bỏ
-            </button>
-            <button
-              type="submit"
               disabled={isSaving || !tenKhachHang.trim()}
-              className="px-5 py-2 text-xs font-bold text-white bg-blue-700 hover:bg-blue-800 active:bg-blue-900 rounded-xl shadow-md transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+              onClick={(e) => handleSaveAndAttach(e, false)}
+              className="flex-1 sm:flex-initial px-5 py-2 text-xs font-bold text-white bg-blue-700 hover:bg-blue-800 active:bg-blue-900 rounded-xl shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Sparkles size={13} className={isSaving ? 'animate-spin' : ''} />
               <span>{isSaving ? 'Đang Lưu...' : 'Tạo & Gắn Vào Báo Giá'}</span>
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
