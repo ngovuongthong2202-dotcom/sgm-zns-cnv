@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   STANDARDIZED_BUSINESS_TYPES,
   autoDetectBusinessName,
+  generateEnterpriseNameSuggestions,
   parseVietQRBusinessData,
   normalizeCustomerFormValues,
 } from './CustomerFormHelpers';
@@ -31,6 +32,28 @@ describe('CustomerFormHelpers - Business Type Standardization & Smart Extraction
     expect(result.loaiHinh).toBe('CÔNG TY TNHH MỘT THÀNH VIÊN');
     expect(result.tenNgayNgan).toBe('Thương Mại Tôn Long Phát');
     expect(result.tenNgayNgan.length).toBeLessThan(30);
+  });
+
+  it('handles complex conglomerate branch names with multiple keywords without double dashes or lost province', () => {
+    const complexName = '5800921584-247 - CÔNG TY TNHH TẬP ĐOÀN ĐẦU TƯ HOA SEN - CHI NHÁNH THÀNH PHỐ CẦN THƠ';
+    const result = generateEnterpriseNameSuggestions(complexName);
+
+    // Phải nhận đúng CÔNG TY TNHH, không nhầm thành CÔNG TY CỔ PHẦN
+    expect(result.loaiHinh).toBe('CÔNG TY TNHH');
+    
+    // Tên ZNS phải <= 30 ký tự và chứa cả Hoa Sen và Cần Thơ
+    expect(result.tenZns.length).toBeLessThanOrEqual(30);
+    expect(result.tenZns).toContain('Hoa Sen');
+    expect(result.tenZns).toContain('Cần Thơ');
+    expect(result.tenZns).not.toContain('- -');
+
+    // Có đủ 4 biến thể gợi ý
+    expect(result.suggestions.length).toBeGreaterThanOrEqual(2);
+    const znsSafeSuggestions = result.suggestions.filter(s => s.isZnsSafe);
+    expect(znsSafeSuggestions.length).toBeGreaterThanOrEqual(1);
+    znsSafeSuggestions.forEach(s => {
+      expect(s.charCount).toBeLessThan(30);
+    });
   });
 
   it('normalizes common abbreviation variants to standard legal business types', () => {

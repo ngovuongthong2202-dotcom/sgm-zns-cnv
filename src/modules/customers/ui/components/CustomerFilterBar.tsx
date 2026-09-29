@@ -1,6 +1,7 @@
 import React from 'react';
 import { FilterDropdown } from '@/src/design-system/dataview/FilterDropdown';
 import { DateRangePopover } from '@/src/design-system/dataview/DateRangePopover';
+import { EntityZnsStatus } from '@/src/domain/enums/zns-status';
 
 interface CustomersFiltersProps {
   nguoiPhuTrachList: string[];
@@ -20,14 +21,14 @@ interface CustomersFiltersProps {
 
 export function CustomerFilterBar({
   nguoiPhuTrachList,
-  tinhThanhList: _tinhThanhList,
+  tinhThanhList,
   loaiKhachHangList,
   selectedNguoiPhuTrach,
   setSelectedNguoiPhuTrach,
-  selectedZnsStatus: _selectedZnsStatus,
-  setSelectedZnsStatus: _setSelectedZnsStatus,
-  selectedTinhThanh: _selectedTinhThanh,
-  setSelectedTinhThanh: _setSelectedTinhThanh,
+  selectedZnsStatus,
+  setSelectedZnsStatus,
+  selectedTinhThanh,
+  setSelectedTinhThanh,
   selectedLoaiKh,
   setSelectedLoaiKh,
   selectedCreatedDateRange,
@@ -36,11 +37,21 @@ export function CustomerFilterBar({
   
   const nguoiPhuTrachOptions = nguoiPhuTrachList.map(item => ({ value: item, label: item }));
   const loaiKhOptions = loaiKhachHangList.map(item => ({ value: item, label: item }));
+  const tinhThanhOptions = tinhThanhList.map(item => ({ value: item, label: item }));
+
+  const znsOptions = [
+    { value: EntityZnsStatus.THANH_CONG, label: 'Thành công' },
+    { value: EntityZnsStatus.THAT_BAI, label: 'Thất bại' },
+    { value: EntityZnsStatus.CHUA_GUI, label: 'Chưa gửi' },
+    { value: EntityZnsStatus.DANG_DAY, label: 'Đang gửi' },
+  ];
 
   const getActiveChipsCount = () => {
     let count = 0;
     if (selectedNguoiPhuTrach) count++;
     if (selectedLoaiKh) count++;
+    if (selectedTinhThanh) count++;
+    if (selectedZnsStatus) count++;
     if (selectedCreatedDateRange[0] || selectedCreatedDateRange[1]) count++;
     return count;
   };
@@ -60,6 +71,22 @@ export function CustomerFilterBar({
         options={loaiKhOptions}
         selectedValues={selectedLoaiKh ? [selectedLoaiKh] : []}
         onChange={(vals) => setSelectedLoaiKh(vals[0] || '')}
+        isMulti={false}
+      />
+
+      <FilterDropdown
+        label="Tỉnh/Thành"
+        options={tinhThanhOptions}
+        selectedValues={selectedTinhThanh ? [selectedTinhThanh] : []}
+        onChange={(vals) => setSelectedTinhThanh(vals[0] || '')}
+        isMulti={false}
+      />
+
+      <FilterDropdown
+        label="ZNS"
+        options={znsOptions}
+        selectedValues={selectedZnsStatus ? [selectedZnsStatus] : []}
+        onChange={(vals) => setSelectedZnsStatus(vals[0] || '')}
         isMulti={false}
       />
 

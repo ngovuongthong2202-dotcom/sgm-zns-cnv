@@ -9,6 +9,7 @@ import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
 import useSWR from 'swr';
 import { swrDocFetcher } from '@/src/data/swr-fetchers';
 import { parseVietnamAddressComplete } from '@/src/shared/services/vietnamAddressParser';
+import { ExportHandoverPdf } from './ExportHandoverPdf';
 
 interface DeliveryConfirmationModalProps {
   delivery: Delivery;
@@ -266,14 +267,23 @@ export function DeliveryConfirmationModal({
                     </Button>
                   ) : <div />}
 
-                  <Button
-                    type="button"
-                    onClick={onClose}
-                    variant="secondary"
-                    className="h-[38px] px-5 font-semibold text-slate-700 hover:text-slate-900 shadow-xs"
-                  >
-                    Đóng
-                  </Button>
+                  <div className="flex items-center gap-2.5">
+                    <ExportHandoverPdf
+                      delivery={delivery}
+                      variant="secondary"
+                      className="h-[38px] px-4 font-bold border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900"
+                      label="In / Xuất BB Nghiệm Thu"
+                    />
+
+                    <Button
+                      type="button"
+                      onClick={onClose}
+                      variant="secondary"
+                      className="h-[38px] px-5 font-semibold text-slate-700 hover:text-slate-900 shadow-xs"
+                    >
+                      Đóng
+                    </Button>
+                  </div>
                 </div>
               </motion.div>
             </div>

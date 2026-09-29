@@ -152,7 +152,7 @@ export function DataViewToolbar({
           <div className="w-px h-5 bg-slate-200 mx-1 hidden md:block shrink-0" />
 
           {/* Filters & View Switches Inline */}
-          <div className="flex items-center gap-2 flex-1 min-w-0 shrink py-1 flex-nowrap overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-2 flex-1 min-w-0 shrink py-1 overflow-visible">
             {entityFilters}
           </div>
 
@@ -285,6 +285,12 @@ export function DataViewToolbar({
                   </span>
                 );
               })}
+              {hasActiveDomainFilters && columnFilters.length === 0 && (
+                <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-blue-50/80 text-blue-700 text-2xs font-bold border border-blue-200/60 shrink-0 shadow-sm leading-none">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+                  <span>Đang áp dụng bộ lọc nâng cao</span>
+                </span>
+              )}
             </div>
 
             <div className="flex items-center shrink-0">

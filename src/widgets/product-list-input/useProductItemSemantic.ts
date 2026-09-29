@@ -119,7 +119,10 @@ export function smartAllocateSerials(
   const availablePool = cleanRootSerials.filter(sn => !assigned.has(sn));
 
   return products.map(p => {
-    const inferredType = p.itemType || detectItemType(p.productName, p.unit || (p as any).dvt);
+    const detectedFromText = detectItemType(p.productName, p.unit || (p as any).dvt);
+    const inferredType = (detectedFromText === 'SERVICE' || detectedFromText === 'MATERIAL') 
+      ? detectedFromText 
+      : (p.itemType || detectedFromText);
     
     // Non-machine items should not have serials
     if (inferredType !== 'MACHINE') {

@@ -147,8 +147,8 @@ export function DrawerProductList({
                             </p>
                           )}
 
-                          {/* Machine Codes / Serials */}
-                          {serials.length > 0 && (
+                          {/* Machine Codes / Serials - Strictly for MACHINE items only */}
+                          {itemType === 'MACHINE' && serials.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1 items-center">
                               <span className="text-3xs font-bold text-slate-800 uppercase">Mã máy:</span>
                               {serials.map((sn, sIdx) => (

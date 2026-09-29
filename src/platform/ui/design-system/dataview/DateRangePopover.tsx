@@ -107,7 +107,7 @@ export function DateRangePopover({
       </div>
 
       {isOpen && (
-        <div className="absolute left-0 mt-1 z-50 w-[240px] p-3 bg-white border border-slate-200 rounded-lg shadow-[0_8px_24px_-8px_rgba(15,23,42,0.12)]">
+        <div className="absolute left-0 mt-1 z-[60] w-[240px] p-3 bg-white border border-slate-200 rounded-lg shadow-xl ring-1 ring-slate-900/5">
           <span className="text-2xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
             Chọn nhanh khoảng
           </span>

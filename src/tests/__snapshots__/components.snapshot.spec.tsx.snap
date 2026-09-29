@@ -1313,24 +1313,28 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                     <div
                       class="space-y-1 sm:col-span-2 relative"
                     >
-                      <label
-                        class="text-2xs font-medium uppercase text-slate-500"
-                        for="tenKhachHang"
+                      <div
+                        class="flex items-center justify-between"
                       >
-                        Tên KH / Pháp nhân
-                         
-                        <span
-                          class="text-red-500"
+                        <label
+                          class="text-2xs font-medium uppercase text-slate-500 flex items-center gap-1.5"
+                          for="tenKhachHang"
                         >
-                          *
-                        </span>
-                      </label>
+                          Tên KH / Pháp nhân
+                           
+                          <span
+                            class="text-red-500"
+                          >
+                            *
+                          </span>
+                        </label>
+                      </div>
                       <div
                         class="relative"
                       >
                         <input
                           autocomplete="off"
-                          class="w-full placeholder:text-slate-300 h-8 border border-slate-200 rounded-lg pl-3 pr-8 text-sm"
+                          class="w-full placeholder:text-slate-300 h-8 border border-slate-200 rounded-lg pl-3 pr-8 text-sm font-semibold text-slate-900"
                           id="tenKhachHang"
                           name="tenKhachHang"
                           placeholder="Mô tả và tên đầy đủ của doanh nghiệp..."
@@ -2256,7 +2260,7 @@ exports[`Component Snapshots (Baseline) > renders DataViewEngine 1`] = `
           class="w-px h-5 bg-slate-200 mx-1 hidden md:block shrink-0"
         />
         <div
-          class="flex items-center gap-2 flex-1 min-w-0 shrink py-1 flex-nowrap overflow-x-auto no-scrollbar"
+          class="flex items-center gap-2 flex-1 min-w-0 shrink py-1 overflow-visible"
         />
         <div
           class="flex items-center gap-2 shrink-0 ml-auto"

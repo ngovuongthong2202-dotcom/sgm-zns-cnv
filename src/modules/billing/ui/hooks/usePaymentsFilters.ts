@@ -68,7 +68,22 @@ export function usePaymentsFilters(payments: Payment[], customers: Customer[] = 
     }
 
     if (selectedTinhTrangThanhToan) {
-      result = result.filter(p => p.tinhTrangThanhToan === selectedTinhTrangThanhToan);
+      const selNorm = selectedTinhTrangThanhToan.trim().toLowerCase();
+      result = result.filter(p => {
+        const pStatus = (p.tinhTrangThanhToan || '').trim().toLowerCase();
+        if (pStatus === selNorm) return true;
+        
+        if (selNorm === 'tất toán' || selNorm === 'đã thanh toán' || selNorm === 'paid' || selNorm === 'paid_full') {
+          return pStatus === 'tất toán' || pStatus === 'đã thanh toán' || pStatus === 'paid' || pStatus === 'paid_full' || pStatus === 'miễn phí';
+        }
+        if (selNorm === 'tạm ứng' || selNorm === 'thanh toán 1 phần' || selNorm === 'thanh toán một phần' || selNorm === 'paid_partial') {
+          return pStatus === 'tạm ứng' || pStatus === 'thanh toán 1 phần' || pStatus === 'thanh toán một phần' || pStatus === 'paid_partial';
+        }
+        if (selNorm === 'công nợ' || selNorm === 'chưa tt' || selNorm === 'chưa thanh toán' || selNorm === 'unpaid') {
+          return pStatus === 'công nợ' || pStatus === 'chưa tt' || pStatus === 'chưa thanh toán' || pStatus === 'unpaid';
+        }
+        return false;
+      });
     }
     if (selectedPhanLoai) {
       const selectedNorm = normalizeLoai(selectedPhanLoai);

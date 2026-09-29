@@ -64,6 +64,26 @@ export interface BuildPayloadOptions {
   strictMode?: boolean;
 }
 
+export function sanitizeZnsCustomerName(rawName: string): string {
+  const trimmed = (rawName || 'Quý Khách Hàng').toString().trim();
+  if (trimmed.length <= 30) return trimmed;
+  const condensed = trimmed
+    .replace(/\bCông Ty TNHH\b/gi, 'TNHH')
+    .replace(/\bCông Ty CP\b/gi, 'CP')
+    .replace(/\bCông Ty Cổ Phần\b/gi, 'CP')
+    .replace(/\bThương Mại Dịch Vụ\b/gi, 'TMDV')
+    .replace(/\bThương Mại & Dịch Vụ\b/gi, 'TM&DV')
+    .replace(/\bThương Mại Và Dịch Vụ\b/gi, 'TM&DV')
+    .replace(/\bSản Xuất Thương Mại\b/gi, 'SX-TM')
+    .replace(/\bChi Nhánh\b/gi, 'CN')
+    .replace(/\bThành Phố\b/gi, 'TP.')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+    
+  if (condensed.length <= 30) return condensed;
+  return condensed.substring(0, 30).trim();
+}
+
 export class ZnsPayloadBuilder {
   generateIdempotencyKey(
     entityType: string, entityId: string, messageType: string,
@@ -322,7 +342,7 @@ export class ZnsPayloadBuilder {
     const stt = p.stt?.toString() || p.id?.toString() || idempotencyKey;
     const phoneObj = message.phone || variables.phone || '';
 
-    // Format values with ultimate fallback ensuring Zalo parameter is never empty
+    // Format values with ultimate fallback ensuring Zalo parameter is never empty and strictly <= 30 chars
     const rawCustomerName = (
       variables.customer_name || 
       p.tenKhachHang || 
@@ -334,7 +354,7 @@ export class ZnsPayloadBuilder {
       ''
     ).toString().trim();
     
-    const cleanCustomerName = (rawCustomerName || 'Quý Khách Hàng').substring(0, 60);
+    const cleanCustomerName = sanitizeZnsCustomerName(rawCustomerName);
     variables.customer_name = cleanCustomerName;
     const cleanPhone = (variables.phone || p.sdt || p.phone || phoneObj || '').toString().trim();
     variables.phone = cleanPhone;

@@ -17,6 +17,7 @@ import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
 import { DrawerHeaderCockpitHUD } from '@/src/widgets/DrawerHeaderCockpitHUD';
 import { parseVietnamAddressComplete } from '@/src/shared/services/vietnamAddressParser';
 import { ExportDeliveryPdf } from './ExportDeliveryPdf';
+import { ExportHandoverPdf } from './ExportHandoverPdf';
 import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
 
 import { Button } from '@/src/design-system/Button';
@@ -733,7 +734,7 @@ export function DeliveryDetailDrawer({
                   <span className="text-3xs text-blue-600 font-semibold italic">Chuyên máy công nghiệp</span>
                 </div>
                 <div className="space-y-1">
-                  {smartAddressInfo.suggestedCarriers.map((carrier, cIdx) => (
+                  {smartAddressInfo.suggestedCarriers.map((carrier: any, cIdx: number) => (
                     <div key={cIdx} className="bg-white p-2 rounded border border-blue-200/80 text-2xs space-y-0.5 shadow-2xs">
                       <div className="flex justify-between items-center">
                         <strong className="text-slate-900 font-bold">{carrier.carrierName}</strong>
@@ -1122,7 +1123,24 @@ export function DeliveryDetailDrawer({
               </div>
             </div>
 
-            <ExportDeliveryPdf delivery={drawerDelivery} variant="secondary" />
+            <ExportDeliveryPdf delivery={drawerDelivery} variant="secondary" label="In Phiếu Xuất" />
+
+            {isCompleted && (
+              <>
+                <ExportHandoverPdf delivery={drawerDelivery} variant="secondary" label="In BB Nghiệm Thu" />
+                {onViewConfirmation && (
+                  <Button
+                    aria-label="Xem biên bản giao hàng"
+                    variant="subtle"
+                    size="sm"
+                    onClick={() => { onViewConfirmation(drawerDelivery); onClose(); }}
+                    className="h-9 font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200"
+                  >
+                    Xem Biên Bản
+                  </Button>
+                )}
+              </>
+            )}
 
             <Button aria-label="Chỉnh sửa" variant="dark" size="sm" onClick={() => { onEdit(drawerDelivery); onClose(); }} className="h-9 font-bold">Chỉnh sửa</Button>
           </div>

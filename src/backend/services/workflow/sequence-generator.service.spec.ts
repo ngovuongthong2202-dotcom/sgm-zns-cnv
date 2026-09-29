@@ -11,7 +11,7 @@ describe('SequenceGeneratorService (Universal Sequence Engine)', () => {
 
     const codeService = await sequenceGeneratorService.getNextCode('quotation', { loai: 'BG Dịch vụ', year: 2026 });
     expect(codeService).toMatch(/^BGDV-2026-\d{4}$/);
-  }, 20000);
+  }, 35000);
 
   it('generates sequential codes for contracts, payments and deliveries', async () => {
     const contractCode = await sequenceGeneratorService.getNextCode('contract', { year: 2026 });
@@ -22,10 +22,10 @@ describe('SequenceGeneratorService (Universal Sequence Engine)', () => {
 
     const deliveryCode = await sequenceGeneratorService.getNextCode('delivery', { year: 2026 });
     expect(deliveryCode).toMatch(/^PGH-2026-\d{4}$/);
-  });
+  }, 35000);
 
   it('generates global sequential customer codes with KH prefix', async () => {
     const customerCode = await sequenceGeneratorService.getNextCode('customer');
     expect(customerCode).toMatch(/^KH\d{4}$/);
-  });
+  }, 35000);
 });

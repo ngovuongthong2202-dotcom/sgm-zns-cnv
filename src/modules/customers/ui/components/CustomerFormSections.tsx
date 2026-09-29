@@ -5,7 +5,7 @@ import { Button } from '@/src/design-system/Button';
 import { cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
 import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
-import { autoDetectBusinessName, STANDARDIZED_BUSINESS_TYPES } from './CustomerFormHelpers';
+import { autoDetectBusinessName, generateEnterpriseNameSuggestions, STANDARDIZED_BUSINESS_TYPES } from './CustomerFormHelpers';
 
 import { sanitizeTaxCode, sanitizeText } from '@/src/shared/utils/inputSanitizer';
 import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressParser';
@@ -169,9 +169,22 @@ export function CustomerFormProfileSection({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1 sm:col-span-2 relative">
-          <label className="text-2xs font-medium uppercase text-slate-500" htmlFor="tenKhachHang">
-            {isIndividual ? 'Họ và tên Khách hàng (Cá nhân)' : 'Tên KH / Pháp nhân'} <span className="text-red-500">*</span>
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-2xs font-medium uppercase text-slate-500 flex items-center gap-1.5" htmlFor="tenKhachHang">
+              {isIndividual ? 'Họ và tên Khách hàng (Cá nhân)' : 'Tên KH / Pháp nhân'} <span className="text-red-500">*</span>
+              {!isIndividual && (watch('tenKhachHang') || '').length > 0 && (
+                <span className={`text-3xs font-black px-1.5 py-0.2 rounded border select-none ${
+                  (watch('tenKhachHang') || '').length <= 29 
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                    : (watch('tenKhachHang') || '').length <= 35
+                    ? 'bg-amber-50 text-amber-900 border-amber-300'
+                    : 'bg-rose-50 text-rose-800 border-rose-300'
+                }`}>
+                  {(watch('tenKhachHang') || '').length}/30 kt {(watch('tenKhachHang') || '').length <= 29 ? '✓ Chuẩn ZNS' : '⚠️ Vượt hạn ZNS'}
+                </span>
+              )}
+            </label>
+          </div>
           <div className="relative">
             <input
               id="tenKhachHang"
@@ -185,8 +198,10 @@ export function CustomerFormProfileSection({
               }}
               onBlur={(e) => {
                 register('tenKhachHang').onBlur(e);
+                const val = (e.target.value || '').trim();
+                if (!val) return;
                 if (isIndividual) {
-                  const cleaned = cleanProperVietnameseText(e.target.value);
+                  const cleaned = cleanProperVietnameseText(val);
                   if (cleaned !== e.target.value) {
                     setValue('tenKhachHang', cleaned, { shouldDirty: true });
                   }
@@ -194,16 +209,13 @@ export function CustomerFormProfileSection({
                     setValue('nguoiDaiDien', cleaned, { shouldDirty: true });
                   }
                 } else {
-                  const { loaiHinh, tenNgayNgan } = autoDetectBusinessName(e.target.value);
-                  if (loaiHinh) {
+                  const { loaiHinh } = autoDetectBusinessName(val);
+                  if (loaiHinh && !watch('loaiHinhDoanhNghiep')) {
                     setValue('loaiHinhDoanhNghiep', loaiHinh, { shouldDirty: true });
-                  }
-                  if (tenNgayNgan && e.target.value !== tenNgayNgan) {
-                     setValue('tenKhachHang', tenNgayNgan, { shouldDirty: true });
                   }
                 }
               }}
-              className="w-full placeholder:text-slate-300 h-8 border border-slate-200 rounded-lg pl-3 pr-8 text-sm"
+              className="w-full placeholder:text-slate-300 h-8 border border-slate-200 rounded-lg pl-3 pr-8 text-sm font-semibold text-slate-900"
               placeholder={isIndividual ? "Ví dụ: Nguyễn Văn An, Trần Thị Bích..." : "Mô tả và tên đầy đủ của doanh nghiệp..."}
             />
             {isAiFormatting ? (
@@ -220,6 +232,44 @@ export function CustomerFormProfileSection({
             )}
           </div>
           {errors.tenKhachHang && <p className="text-xs text-red-650 mt-1">{errors.tenKhachHang.message as string}</p>}
+
+          {/* Interactive Suggestion Chips */}
+          {!isIndividual && (watch('tenKhachHang') || '').trim().length >= 3 && (() => {
+            const identityResult = generateEnterpriseNameSuggestions(watch('tenKhachHang') || '');
+            if (!identityResult?.suggestions || identityResult.suggestions.length === 0) return null;
+            const currentVal = (watch('tenKhachHang') || '').trim();
+            return (
+              <div className="pt-1.5 flex flex-wrap items-center gap-1.5 animate-in fade-in duration-200">
+                <span className="text-3xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                  <Sparkles size={10} className="text-amber-500" /> Gợi ý chuẩn ZNS:
+                </span>
+                {identityResult.suggestions.map((sug) => {
+                  const isSelected = sug.value.toLowerCase() === currentVal.toLowerCase();
+                  return (
+                    <button
+                      key={sug.id}
+                      type="button"
+                      onClick={() => {
+                        setValue('tenKhachHang', sug.value, { shouldDirty: true });
+                        if (identityResult.loaiHinh && !watch('loaiHinhDoanhNghiep')) {
+                          setValue('loaiHinhDoanhNghiep', identityResult.loaiHinh, { shouldDirty: true });
+                        }
+                      }}
+                      className={`px-2 py-0.5 rounded text-3xs font-bold border transition-all cursor-pointer shadow-2xs flex items-center gap-1 ${
+                        isSelected 
+                          ? 'ring-2 ring-blue-500 bg-blue-50 text-blue-900 border-blue-300 font-black' 
+                          : `${sug.badgeClass} hover:scale-105 active:scale-95`
+                      }`}
+                      title={`Bấm để chọn: ${sug.label} (${sug.charCount} ký tự)`}
+                    >
+                      <span>{sug.value}</span>
+                      <span className="opacity-75 font-mono text-3xs font-normal">({sug.charCount} kt)</span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
 
         <div className="space-y-1">

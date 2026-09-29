@@ -19,7 +19,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { SmartPhoneInput } from '@/src/platform/ui/design-system/form/SmartPhoneInput';
-import { parseVietQRBusinessData } from './CustomerFormHelpers';
+import { parseVietQRBusinessData, generateEnterpriseNameSuggestions } from './CustomerFormHelpers';
 import { VIETNAM_PROVINCES_63 } from '@/src/hooks/useSharedFields';
 import { computeMaxCustomerSequence } from '../hooks/useCustomerForm';
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
@@ -537,19 +537,66 @@ export function QuickCustomerModal({
 
           {/* Tên khách hàng */}
           <div className="space-y-1">
-            <label className="text-3xs font-bold uppercase tracking-wider text-slate-600" htmlFor="quick-name">
-              {loaiKh === 'Doanh nghiệp' ? 'Tên Công Ty / Doanh Nghiệp' : 'Họ và Tên Khách Hàng'} <span className="text-red-500">*</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-3xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5" htmlFor="quick-name">
+                {loaiKh === 'Doanh nghiệp' ? 'Tên Công Ty / Doanh Nghiệp' : 'Họ và Tên Khách Hàng'} <span className="text-red-500">*</span>
+                {loaiKh === 'Doanh nghiệp' && tenKhachHang.trim().length > 0 && (
+                  <span className={`text-3xs font-black px-1.5 py-0.2 rounded border select-none ${
+                    tenKhachHang.length <= 29 
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                      : tenKhachHang.length <= 35
+                      ? 'bg-amber-50 text-amber-900 border-amber-300'
+                      : 'bg-rose-50 text-rose-800 border-rose-300'
+                  }`}>
+                    {tenKhachHang.length}/30 kt {tenKhachHang.length <= 29 ? '✓ Chuẩn ZNS' : '⚠️ Vượt hạn ZNS'}
+                  </span>
+                )}
+              </label>
+            </div>
             <input
               id="quick-name"
               type="text"
               required
               value={tenKhachHang}
               onChange={(e) => setTenKhachHang(e.target.value)}
-              onBlur={(e) => setTenKhachHang(cleanProperVietnameseText(e.target.value))}
+              onBlur={(e) => {
+                const cleaned = cleanProperVietnameseText(e.target.value);
+                if (cleaned) setTenKhachHang(cleaned);
+              }}
               placeholder={loaiKh === 'Doanh nghiệp' ? 'VD: CÔNG TY TNHH THIẾT BỊ SÀI GÒN MÁY' : 'VD: Nguyễn Văn An'}
               className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-bold text-slate-900"
             />
+            {/* Suggestion Chips */}
+            {loaiKh === 'Doanh nghiệp' && tenKhachHang.trim().length >= 3 && (() => {
+              const res = generateEnterpriseNameSuggestions(tenKhachHang);
+              if (!res?.suggestions || res.suggestions.length === 0) return null;
+              return (
+                <div className="pt-1 flex flex-wrap items-center gap-1 animate-in fade-in duration-150">
+                  <span className="text-3xs text-slate-400 font-semibold flex items-center gap-0.5">
+                    <Sparkles size={10} className="text-amber-500" /> Gợi ý:
+                  </span>
+                  {res.suggestions.map((sug) => {
+                    const isSelected = sug.value.toLowerCase() === tenKhachHang.trim().toLowerCase();
+                    return (
+                      <button
+                        key={sug.id}
+                        type="button"
+                        onClick={() => setTenKhachHang(sug.value)}
+                        className={`px-1.5 py-0.5 rounded text-3xs font-bold border transition-all cursor-pointer shadow-2xs flex items-center gap-1 ${
+                          isSelected 
+                            ? 'ring-2 ring-blue-500 bg-blue-50 text-blue-900 border-blue-300 font-black' 
+                            : `${sug.badgeClass} hover:scale-105 active:scale-95`
+                        }`}
+                        title={`Bấm để chọn: ${sug.label} (${sug.charCount} kt)`}
+                      >
+                        <span>{sug.value}</span>
+                        <span className="opacity-75 font-mono text-3xs font-normal">({sug.charCount} kt)</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Danh sách Đầu Mối Liên Hệ (Multi-Contact Matrix) */}

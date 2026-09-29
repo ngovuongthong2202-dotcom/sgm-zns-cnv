@@ -197,7 +197,16 @@ export default function PaymentsFeature() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [setEditingPayment, setIsFormOpen]);
 
-  if (loading) return <PageSkeleton />;
+  const hasActiveDomainFilters = !!(
+    selectedTinhTrangThanhToan ||
+    selectedPhanLoai ||
+    selectedTinhThanh ||
+    selectedZns ||
+    selectedNguoiPhuTrach ||
+    selectedDateRange[0] ||
+    selectedDateRange[1] ||
+    (activeTab && activeTab !== 'ALL')
+  );
 
   return (
     <div className="flex flex-col h-full bg-surface-sunken relative overflow-hidden select-none animate-in fade-in duration-150">
@@ -242,6 +251,7 @@ export default function PaymentsFeature() {
               canCreate={can('create', 'payment', userData?.role)}
               dataView={dataView as any}
               columns={columns as any}
+              hasActiveDomainFilters={hasActiveDomainFilters}
               entityFilters={
                 <PaymentFilterBar
                   nguoiPhuTrachList={nguoiPhuTrachList}

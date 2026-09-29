@@ -82,9 +82,9 @@ export function FilterDropdown({
       </Button>
 
       {isOpen && (
-        <div className="absolute left-0 mt-1 z-50 w-[280px] p-2 bg-white border border-slate-200 rounded-lg shadow-[0_8px_24px_-8px_rgba(15,23,42,0.12)]">
-          {/* Internal Search if options > 8 */}
-          {options.length > 8 && (
+        <div className="absolute left-0 mt-1 z-[60] w-[280px] p-2 bg-white border border-slate-200 rounded-lg shadow-xl ring-1 ring-slate-900/5">
+          {/* Internal Search if options > 5 */}
+          {options.length > 5 && (
             <div className="relative flex items-center h-8 mb-1.5 border-b border-slate-100 pb-1.5 gap-1.5">
               <Search className="w-3 h-3 text-slate-400 ml-1 shrink-0" />
               <input

@@ -211,7 +211,17 @@ export default function ContractsFeature() {
     return smartAllocateSerials(raw, contract.danhSachMaMay || []);
   };
 
-  if (loading) return <PageSkeleton />;
+  const hasActiveDomainFilters = !!(
+    selectedNguoiPhuTrach ||
+    selectedZns ||
+    selectedTinhThanh ||
+    selectedDkHoanThanh ||
+    selectedTienDoTT ||
+    selectedTienDoGiao ||
+    selectedDateRange[0] ||
+    selectedDateRange[1] ||
+    (activeKpiFilter && activeKpiFilter !== 'ALL')
+  );
 
   return (
     <div className="flex flex-col h-full bg-surface-sunken relative overflow-hidden">
@@ -241,6 +251,7 @@ export default function ContractsFeature() {
             canCreate={can('create', 'contract', userData?.role)}
             dataView={dataView as any}
             columns={columns as any}
+            hasActiveDomainFilters={hasActiveDomainFilters}
             entityFilters={
               <ContractFilterBar
                 nguoiPhuTrachList={nguoiPhuTrachList}

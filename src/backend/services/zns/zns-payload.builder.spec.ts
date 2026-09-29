@@ -139,4 +139,22 @@ describe('ZnsPayloadBuilder TRUTHFUL', () => {
     const payload = await znsPayloadBuilder.buildPayload(message, 'k1');
     expect((payload.newValues as any).customer_name).toBe('Cty ABC');
   });
+
+  it('guarantees customer_name is strictly <= 30 chars for Zalo ZNS limits', async () => {
+    const longName = 'Công Ty TNHH Thương Mại Dịch Vụ Cơ Khí Chế Tạo Máy Việt Nam Chi Nhánh Cần Thơ';
+    const message = {
+      entityType: 'QUOTATION', messageType: 'BAOGIA',
+      payload: { tenKhachHang: longName, sdt: '0912345678', soPhieuBaoGia:'BG-001', 
+                ngayBaoGia:'2026-01-01', ngayHetHan:'2026-01-08', slMay: 1, nguoiPhuTrach:'NV A' }
+    } as any;
+    vi.mocked(templateRendererService.render).mockResolvedValue({
+      __version: 1,
+      customer_name: longName,
+      so_phieu_bao_gia: 'BG-001', ngay_bao_gia: '2026-01-01', ngay_het_han: '2026-01-08', sl_may: 1, nguoi_phu_trach: 'NV A'
+    });
+    const payload = await znsPayloadBuilder.buildPayload(message, 'k1');
+    const resultName = (payload.newValues as any).customer_name;
+    expect(resultName.length).toBeLessThanOrEqual(30);
+  });
 });
+

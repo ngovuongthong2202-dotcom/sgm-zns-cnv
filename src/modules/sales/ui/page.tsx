@@ -237,7 +237,16 @@ export default function QuotationsFeature() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [drawerQuotation, currentData]);
 
-  if (loading) return <PageSkeleton />;
+  const hasActiveDomainFilters = !!(
+    selectedLoai ||
+    selectedZns ||
+    selectedNguoiPhuTrach ||
+    selectedTinhThanh ||
+    selectedTienDo ||
+    selectedHieuLuc ||
+    selectedDateRange[0] ||
+    selectedDateRange[1]
+  );
 
   return (
     <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">
@@ -264,6 +273,7 @@ export default function QuotationsFeature() {
             canCreate={can('create', 'quotation', userData?.role)}
             dataView={dataView}
             columns={columns}
+            hasActiveDomainFilters={hasActiveDomainFilters}
             entityFilters={
               <QuotationFilterBar
                 nguoiPhuTrachList={nguoiPhuTrachList}

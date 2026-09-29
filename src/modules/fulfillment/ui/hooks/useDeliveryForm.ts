@@ -534,23 +534,14 @@ export function useDeliveryForm(
 
       const limits: Record<string, number> = {};
       const quoRootSerials: string[] = Array.isArray(q.danhSachMaMay) ? q.danhSachMaMay : [];
-      const currentDeliverySerials: string[] = [];
       const baseDateStr = getValues('ngayGiaoMay') || getValues('ngayLapPgh') || todayStr;
 
-      const remainingProducts = productList.map((cp: any, idx: number) => {
+      const remainingCandidates = productList.map((cp: any, idx: number) => {
         const itemKey = getProductItemKey(cp, idx);
         const delivered = actualDeliveredMap[itemKey] || (cp.productId ? actualDeliveredMap[cp.productId] : 0) || 0;
-        const reqQty = Number(cp.quantity || 0);
+        const reqQty = Number(cp.quantity || cp.soLuong || 0);
         const remaining = Math.max(0, reqQty - delivered);
         limits[itemKey] = remaining;
-
-        let itemSerials: string[] = Array.isArray(cp.danhSachMaMay) && cp.danhSachMaMay.length > 0
-          ? [...cp.danhSachMaMay]
-          : [];
-        if (itemSerials.length === 0 && quoRootSerials.length > 0) {
-          itemSerials = quoRootSerials.slice(0, remaining);
-        }
-        currentDeliverySerials.push(...itemSerials);
 
         const rawWarranty = cp.soNgayBaoHanh ?? q.soNgayBaoHanh;
         const sanitizedWarranty = (rawWarranty !== undefined && rawWarranty !== null && Number(rawWarranty) > 0)
@@ -569,21 +560,28 @@ export function useDeliveryForm(
         return {
           ...cp,
           id: itemKey,
+          productName: cp.productName || cp.tenSanPham || '',
           quantity: remaining,
+          price: cp.price || cp.donGia || 0,
           soNgayBaoHanh: sanitizedWarranty,
           ngayHetHanBaoHanh: computedExpiry,
-          danhSachMaMay: itemSerials
+          danhSachMaMay: Array.isArray(cp.danhSachMaMay) ? [...cp.danhSachMaMay] : []
         };
       }).filter((cp: any) => limits[cp.id] > 0);
 
-      const allUniqueSerials = Array.from(new Set(currentDeliverySerials));
+      // Phân bổ thông minh mã máy báo giá chỉ vào các dòng MÁY
+      const allocatedProducts = smartAllocateSerials(remainingCandidates, quoRootSerials);
+      setValue('products', allocatedProducts);
+
+      const allUniqueSerials = Array.from(new Set(allocatedProducts.flatMap((p: any) => p.danhSachMaMay || [])));
       if (allUniqueSerials.length > 0) {
         setValue('danhSachMaMay', allUniqueSerials, { shouldDirty: true });
+      } else if (quoRootSerials.length > 0) {
+        setValue('danhSachMaMay', quoRootSerials, { shouldDirty: true });
       }
 
-      setValue('products', remainingProducts);
-      const totalRemainingQty = remainingProducts.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0);
-      setValue('slMay', totalRemainingQty);
+      const actualMachineCount = calculateActualMachineCount(allocatedProducts);
+      setValue('slMay', actualMachineCount);
       setMaxQuantities(limits);
     }
   }, [customers, deliveries, setValue, getValues, defaultOfficer, todayStr]);

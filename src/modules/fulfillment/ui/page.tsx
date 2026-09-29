@@ -273,7 +273,17 @@ export default function DeliveriesFeature() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  if (loading) return <PageSkeleton />;
+  const hasActiveDomainFilters = !!(
+    selectedStatus ||
+    selectedSchedule ||
+    selectedNguoiGiao ||
+    selectedTinhThanh ||
+    selectedZns ||
+    selectedNgayDuKien[0] ||
+    selectedNgayDuKien[1] ||
+    selectedNgayThucTe[0] ||
+    selectedNgayThucTe[1]
+  );
 
   return (
     <div className="flex flex-col h-full bg-surface-sunken relative overflow-hidden">
@@ -294,6 +304,7 @@ export default function DeliveriesFeature() {
             canCreate={can('create', 'delivery', userData?.role)}
             dataView={dataView}
             columns={columns}
+            hasActiveDomainFilters={hasActiveDomainFilters}
             entityFilters={entityFilters}
             onResetAllFilters={handleResetAllFilters}
             searchTemplate="Tìm theo mã vận đơn, khách hàng, số ĐH..."

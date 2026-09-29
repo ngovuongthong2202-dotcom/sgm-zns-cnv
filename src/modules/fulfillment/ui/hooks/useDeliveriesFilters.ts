@@ -66,8 +66,16 @@ export function useDeliveriesFilters(
       result = result.filter(d => !d.ngayGiaoThucTe && (!d.ngayGiaoMay || new Date(d.ngayGiaoMay).getTime() < now));
     }
 
-    if (selectedStatus === 'DELIVERED') result = result.filter(d => !!d.ngayGiaoThucTe);
-    if (selectedStatus === 'PENDING') result = result.filter(d => !d.ngayGiaoThucTe);
+    if (selectedStatus) {
+      const statusUpper = selectedStatus.toUpperCase().trim();
+      if (statusUpper === 'DELIVERED' || statusUpper === 'COMPLETED' || selectedStatus === 'completed' || selectedStatus === 'Đã hoàn tất' || selectedStatus === 'Đã giao') {
+        result = result.filter(d => !!d.ngayGiaoThucTe || (d as any).trangThai === 'COMPLETED' || (d as any).trangThai === 'DELIVERED');
+      } else if (statusUpper === 'PENDING' || selectedStatus === 'pending' || selectedStatus === 'Chờ giao') {
+        result = result.filter(d => !d.ngayGiaoThucTe && ((d as any).trangThai !== 'ONGOING' && (d as any).trangThai !== 'Đang đi giao'));
+      } else if (statusUpper === 'ONGOING' || selectedStatus === 'ongoing' || selectedStatus === 'Đang đi giao') {
+        result = result.filter(d => !d.ngayGiaoThucTe && ((d as any).trangThai === 'ONGOING' || (d as any).trangThai === 'Đang đi giao' || Boolean((d as any).taiXe) || Boolean((d as any).thoGiaoMay)));
+      }
+    }
 
     if (selectedSchedule) {
       if (selectedSchedule === 'OVERDUE') {

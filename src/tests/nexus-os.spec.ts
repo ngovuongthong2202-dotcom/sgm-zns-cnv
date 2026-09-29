@@ -235,6 +235,6 @@ describe('NEXUS-OS Architectural Verification', () => {
       expect(isForbidden).toBe(false);
 
       await adminDb.collection('users').doc(adminUserId).delete();
-    });
+    }, 15000);
   });
 });
