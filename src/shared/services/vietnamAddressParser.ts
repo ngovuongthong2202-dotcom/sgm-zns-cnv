@@ -80,7 +80,7 @@ export const PROVINCE_ALIASES: Record<string, string[]> = {
     'thanh hóa', 'thanh hoa', 'sầm sơn', 'bỉm sơn', 'nghi sơn', 'tĩnh gia', 'hà trung', 'hậu lộc', 'hoằng hóa', 'nga sơn', 'triệu sơn', 'thọ xuân', 'yên định'
   ],
   'Nghệ An': [
-    'nghệ an', 'nghe an', 'vinh', 'cửa lò', 'hoàng mai nghệ an', 'thái hòa', 'diễn châu', 'quỳnh lưu', 'yên thành', 'nghi lộc', 'đô lương', 'thanh chương'
+    'nghệ an', 'nghe an', 'tp vinh', 'tp. vinh', 'thành phố vinh', 'cửa lò', 'hoàng mai nghệ an', 'thái hòa', 'diễn châu', 'quỳnh lưu', 'yên thành', 'nghi lộc', 'đô lương', 'thanh chương'
   ],
   'Hà Tĩnh': [
     'hà tĩnh', 'ha tinh', 'kỳ anh', 'hồng lĩnh', 'cẩm xuyên', 'thạch hà', 'nghi xuân', 'đức thọ', 'hương sơn', 'hương khê'
@@ -116,7 +116,7 @@ export const PROVINCE_ALIASES: Record<string, string[]> = {
     'đồng tháp', 'dong thap', 'cao lãnh', 'sa đéc', 'hồng ngự', 'lấp vò', 'lai vung', 'châu thành đồng tháp', 'thanh bình', 'tháp mười', 'tam nông'
   ],
   'Vĩnh Long': [
-    'vĩnh long', 'vinh long', 'bình minh', 'long hồ', 'mang thít', 'tam bình', 'trà ôn', 'vũng liêm', 'bình tân vĩnh long', 'bình tân vl'
+    'vĩnh long', 'vinh long', 'tp vĩnh long', 'thành phố vĩnh long', 'tp. vĩnh long', 'vl', 'long hồ', 'huyện long hồ', 'xã long hồ', 'tt long hồ', 'bình minh', 'tx bình minh', 'thị xã bình minh', 'mang thít', 'huyện mang thít', 'tam bình', 'huyện tam bình', 'trà ôn', 'huyện trà ôn', 'vũng liêm', 'huyện vũng liêm', 'bình tân vĩnh long', 'bình tân vl'
   ],
   'Trà Vinh': [
     'trà vinh', 'tra vinh', 'duyên hải', 'càng long', 'châu thành trà vinh', 'cầu kè', 'tiểu cần', 'cầu ngang', 'trà cú'

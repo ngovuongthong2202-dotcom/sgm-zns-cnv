@@ -64,6 +64,15 @@ describe('vietnamAddressParser - Hierarchical Right-to-Left Geocoding & Logistic
     expect(detected).toBe('Bà Rịa - Vũng Tàu');
   });
 
+  it('nhận diện đúng Vĩnh Long từ Nguyễn Tăng Ngừng (Long Hồ, Vĩnh Long) không bị dính bẫy Nghệ An', () => {
+    const address = 'Số 14c, Tổ 2, Ấp An Phú A, Xã Long Hồ, Tỉnh Vĩnh Long';
+    const detected = detectProvinceFromAddress(address, VIETNAM_PROVINCES_2025);
+    expect(detected).toBe('Vĩnh Long');
+
+    const region = resolveLogisticsRegion(detected);
+    expect(region).toBe('Tây Nam Bộ');
+  });
+
   it('trả về null nếu chuỗi rỗng hoặc không xác định được', () => {
     expect(detectProvinceFromAddress('', VIETNAM_PROVINCES_2025)).toBeNull();
     expect(detectProvinceFromAddress('Số 10 hẻm 2', VIETNAM_PROVINCES_2025)).toBeNull();

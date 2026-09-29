@@ -191,7 +191,26 @@ export function useCustomerForm(
 
   useEffect(() => {
     if (!customer?.id) {
-      setValue('nguoiPhuTrach', currentUserName, { shouldDirty: false });
+      reset({
+        loaiHinhDoanhNghiep: '',
+        loaiKh: '',
+        tinhThanh: '',
+        nguoiPhuTrach: currentUserName,
+        tags: [],
+        maKh: '',
+        tenKhachHang: '',
+        maSoThue: '',
+        diaChi: '',
+        xaPhuong: '',
+        sdt: '',
+        nguoiDaiDien: '',
+        chiNhanh: '',
+        nhuCauKhachHang: '',
+        gioiTinh: '',
+        ngaySinh: '',
+        contacts: [{ danhXung: '', nguoiDaiDien: '', sdt: '', chiNhanh: '', chucVu: '' }]
+      });
+      generateNextMaKh();
     } else {
       const normalizedLoai = customer.loaiKh
         ? ((loaiKhachHangList || []).find((l) => l.toLowerCase() === customer.loaiKh?.toLowerCase()) || customer.loaiKh)
@@ -233,10 +252,11 @@ export function useCustomerForm(
         contacts: cContacts
       });
     }
-  }, [customer, currentUserName, setValue, reset, loaiKhachHangList]);
+  }, [customer, currentUserName, reset, loaiKhachHangList]);
 
   useEffect(() => {
-    if (draft && isRestored) {
+    // Only restore draft for explicit existing customer editing or when customer is defined
+    if (draft && isRestored && customer?.id) {
       Object.keys(draft).forEach((key) => {
         setValue(key as any, draft[key], { shouldDirty: true });
       });

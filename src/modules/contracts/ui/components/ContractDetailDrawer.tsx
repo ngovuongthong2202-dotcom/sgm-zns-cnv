@@ -281,12 +281,12 @@ export function ContractDetailDrawer({
                     </span>
                   )}
                 </span>
-                <span className="font-mono text-2xs font-bold text-slate-800 flex items-center gap-1.5">
+                <span className="font-sans text-2xs font-semibold text-slate-800 flex items-center gap-1.5 tabular-nums">
                   <span className="text-slate-500 font-normal">Hạn hoàn thành:</span>
-                  <span className="bg-white border border-slate-200 px-2 py-0.5 rounded text-blue-700 font-black">
+                  <span className="bg-white border border-slate-200 px-2 py-0.5 rounded text-blue-700 font-bold">
                     {completionTimeline.completionDateFormatted}
                   </span>
-                  <span className={completionTimeline.isDelayed ? 'text-rose-600 font-extrabold' : 'text-slate-600'}>
+                  <span className={completionTimeline.isDelayed ? 'text-rose-600 font-bold' : 'text-slate-600'}>
                     {completionTimeline.isActuallyDelivered
                       ? `(Đã giao máy${(completionTimeline.earlyDeliveryWorkingDays || 0) > 0 ? ` sớm ${completionTimeline.earlyDeliveryWorkingDays} ngày` : ''})`
                       : dPct >= 100 
@@ -303,13 +303,13 @@ export function ContractDetailDrawer({
                   style={{ width: `${completionTimeline.timeProgressPercent}%` }} 
                 />
               </div>
-              <div className="flex justify-between text-3xs text-slate-500 font-mono items-center">
-                <span className="font-semibold text-slate-600 flex items-center gap-1">
+              <div className="flex justify-between text-3xs text-slate-600 font-sans items-center tabular-nums">
+                <span className="font-semibold text-slate-700 flex items-center gap-1">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-600" />
-                  Mốc tính: <strong className="text-slate-800 font-bold">{completionTimeline.baseDateLabel}</strong>
+                  Mốc tính: <strong className="text-slate-900 font-bold">{completionTimeline.baseDateLabel}</strong>
                   <span className="text-slate-500 font-normal ml-0.5">(Trừ CN & Lễ/Tết VN)</span>
                 </span>
-                <span className="font-bold text-slate-700">
+                <span className="font-semibold text-slate-700">
                   Tiến độ: {completionTimeline.timeProgressPercent}% (Đã qua {completionTimeline.workingDaysElapsed}/{completionTimeline.effectiveWorkingDays || completionTimeline.workingDaysTotal} ngày)
                 </span>
               </div>
@@ -320,9 +320,9 @@ export function ContractDetailDrawer({
                   <div className="flex items-center gap-1.5 font-bold">
                     <span>{completionTimeline.productionTrigger.isTriggered ? '✓' : '⚠️'}</span>
                     <span>Lệnh sản xuất:</span>
-                    <span className="font-black uppercase tracking-wider">{completionTimeline.productionTrigger.statusLabel}</span>
+                    <span className="font-bold uppercase tracking-wider">{completionTimeline.productionTrigger.statusLabel}</span>
                   </div>
-                  <span className="font-mono">
+                  <span className="font-sans tabular-nums">
                     Đã thu: <strong>{new Intl.NumberFormat('vi-VN').format(completionTimeline.productionTrigger.totalPaid)} ₫</strong>
                     {completionTimeline.productionTrigger.requiredThresholdAmount > 0 && ` / Cần: ${new Intl.NumberFormat('vi-VN').format(completionTimeline.productionTrigger.requiredThresholdAmount)} ₫ (ngưỡng ${completionTimeline.productionTrigger.thresholdPercent}%)`}
                   </span>
@@ -336,7 +336,7 @@ export function ContractDetailDrawer({
                     <span>📜 <strong>Phụ lục gia hạn:</strong> +{completionTimeline.extendedWorkingDays} ngày làm việc</span>
                     {completionTimeline.addendumReason && <span className="text-blue-600">({completionTimeline.addendumReason})</span>}
                   </span>
-                  <span className="font-mono text-blue-700 font-bold">Hạn gốc ban đầu: {completionTimeline.originalCompletionDateFormatted}</span>
+                  <span className="font-sans text-blue-700 font-bold tabular-nums">Hạn gốc ban đầu: {completionTimeline.originalCompletionDateFormatted}</span>
                 </div>
               )}
 
@@ -375,7 +375,7 @@ export function ContractDetailDrawer({
               <div className="p-3.5 bg-slate-50/70 border border-slate-150 rounded-lg">
                 <div className="flex justify-between items-end mb-2">
                   <span className="text-3xs uppercase font-bold tracking-wider text-slate-500">Vận chuyển (Đã giao)</span>
-                  <span className="text-2xs font-mono font-bold text-slate-800">
+                  <span className="text-2xs font-sans font-bold text-slate-800 tabular-nums">
                     {totalDeliveredQty} / {totalContractQty} máy
                     <span className="text-cyan-700 ml-1 font-bold">({dPct}%)</span>
                   </span>
@@ -386,24 +386,23 @@ export function ContractDetailDrawer({
                     style={{ width: `${dPct}%` }} 
                   />
                 </div>
-                <span className="text-3xs text-slate-500 block text-right font-mono">
+                <span className="text-3xs text-slate-500 block text-right font-sans tabular-nums">
                   {totalContractQty - totalDeliveredQty > 0 ? `Còn thiếu: ${totalContractQty - totalDeliveredQty} máy` : '✓ Đã xuất xưởng đủ máy'}
                 </span>
               </div>
             </div>
-          </section>
 
-          {/* Khối 2: Danh mục Sản phẩm & Serial Xuất xưởng */}
-          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                <Layers size={13} className="text-emerald-700" />
-                THIẾT BỊ SẢN PHẨM PHỤ LỤC HỢP ĐỒNG
-              </h3>
-              <span className="font-mono text-3xs font-bold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">
-                {drawerContract.products?.length || 0} hạng mục
-              </span>
-            </div>
+            {/* Khối 2: Danh mục Sản phẩm & Serial Xuất xưởng */}
+            <div className="border-t border-slate-100 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                  <Layers size={13} className="text-emerald-700" />
+                  THIẾT BỊ SẢN PHẨM PHỤ LỤC HỢP ĐỒNG
+                </h3>
+                <span className="font-sans text-3xs font-bold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">
+                  {drawerContract.products?.length || 0} hạng mục
+                </span>
+              </div>
 
             <DrawerProductList 
               products={drawerContract.products || []}
@@ -445,6 +444,7 @@ export function ContractDetailDrawer({
                 </div>
               </div>
             )}
+            </div>
           </section>
         </div>
 

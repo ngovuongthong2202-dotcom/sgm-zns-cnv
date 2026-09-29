@@ -20,6 +20,16 @@ import {
 import { t } from '@/src/i18n/vi';
 import { MetricDrilldownDrawer, MetricDrilldownType } from './components/MetricDrilldownDrawer';
 import { ProductAnalyticsTab } from './components/ProductAnalyticsTab';
+import { CustomerDetailDrawer } from '@/src/modules/customers/ui/components/CustomerDetailDrawer';
+import { QuotationDetailDrawer } from '@/src/modules/sales/ui/components/QuotationDetailDrawer';
+import { ContractDetailDrawer } from '@/src/modules/contracts/ui/components/ContractDetailDrawer';
+import { PaymentDetailDrawer } from '@/src/modules/billing/ui/components/PaymentDetailDrawer';
+import { DeliveryDetailDrawer } from '@/src/modules/fulfillment/ui/components/DeliveryDetailDrawer';
+import { Customer } from '@/src/domain/schema/customer.schema';
+import { Quotation } from '@/src/domain/schema/quotation.schema';
+import { Contract } from '@/src/domain/schema/contract.schema';
+import { Payment } from '@/src/domain/schema/payment.schema';
+import { Delivery } from '@/src/domain/schema/delivery.schema';
 
 export default function DashboardPage() {
   const { user: _user } = useAuth();
@@ -35,8 +45,57 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'groups' | 'products'>('overview');
   const [drilldownMetric, setDrilldownMetric] = useState<MetricDrilldownType | null>(null);
 
+  // In-Place Universal Continuum Inspector States
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
+
+  const handleViewDoc = (type: 'customer' | 'quotation' | 'contract' | 'payment' | 'delivery', idOrCode: string) => {
+    const clean = (idOrCode || '').toLowerCase().trim();
+    if (type === 'customer') {
+      const found = customers.find(c => 
+        c.id === idOrCode || 
+        (c.maKh && c.maKh.toLowerCase() === clean) || 
+        (c.tenKhachHang && c.tenKhachHang.toLowerCase() === clean) ||
+        ((c as any).name && (c as any).name.toLowerCase() === clean)
+      );
+      if (found) setSelectedCustomer(found);
+    } else if (type === 'quotation') {
+      const found = quotations.find(q => 
+        q.id === idOrCode || 
+        (q.soPhieuBaoGia && q.soPhieuBaoGia.toLowerCase() === clean) ||
+        (q.tenKhachHang && q.tenKhachHang.toLowerCase() === clean)
+      );
+      if (found) setSelectedQuotation(found);
+    } else if (type === 'contract') {
+      const found = contracts.find(c => 
+        c.id === idOrCode || 
+        (c.soHopDong && c.soHopDong.toLowerCase() === clean) ||
+        (c.tenKhachHang && c.tenKhachHang.toLowerCase() === clean)
+      );
+      if (found) setSelectedContract(found);
+    } else if (type === 'payment') {
+      const found = payments.find(p => 
+        p.id === idOrCode || 
+        ((p as any).soPhieuThu && (p as any).soPhieuThu.toLowerCase() === clean) ||
+        (p.soHopDong && p.soHopDong.toLowerCase() === clean) ||
+        (p.soPhieuBaoGia && p.soPhieuBaoGia.toLowerCase() === clean)
+      );
+      if (found) setSelectedPayment(found);
+    } else if (type === 'delivery') {
+      const found = deliveries.find(d => 
+        d.id === idOrCode || 
+        ((d as any).soPhieuGiao && (d as any).soPhieuGiao.toLowerCase() === clean) ||
+        (d.soHopDong && d.soHopDong.toLowerCase() === clean)
+      );
+      if (found) setSelectedDelivery(found);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full bg-surface-sunken relative overflow-hidden animate-in fade-in pb-24">
+    <div className="flex flex-col h-full bg-surface-sunken relative overflow-y-auto min-h-full animate-in fade-in pb-24">
       <PageHeader 
         title="Pipeline Analytics" 
         meta="Real-time Conversion Tracking • Workflow Analytics • Interactive Cockpit" 
@@ -134,7 +193,7 @@ export default function DashboardPage() {
                   className="flex justify-between items-center border-b border-slate-100 pb-2.5 cursor-pointer hover:text-blue-700 transition-colors"
                 >
                   <span className="text-xs font-semibold">Khách có báo giá:</span>
-                  <span className="font-bold text-slate-850 font-mono bg-blue-50 px-2 py-0.5 rounded text-blue-700">
+                  <span className="font-bold text-slate-850 bg-blue-50 px-2 py-0.5 rounded text-blue-700 tabular-nums">
                     {analytics.customersWithQuotesCount}
                   </span>
                 </div>
@@ -143,7 +202,7 @@ export default function DashboardPage() {
                   className="flex justify-between items-center pt-2.5 cursor-pointer hover:text-amber-700 transition-colors"
                 >
                   <span className="text-xs font-semibold text-slate-700">Khách trắng (Chưa BG):</span>
-                  <span className="font-bold text-amber-600 font-mono bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  <span className="font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 tabular-nums">
                     {Math.max(0, analytics.totalCustomers - analytics.customersWithQuotesCount)}
                   </span>
                 </div>
@@ -168,7 +227,7 @@ export default function DashboardPage() {
                   onClick={() => setDrilldownMetric('totalMachineQuotes')}
                   className="flex flex-col items-center bg-white border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer w-full p-4 rounded-xl text-center group active:scale-[0.99]"
                 >
-                  <span className="text-3xl font-black text-slate-850 group-hover:text-blue-600 transition-colors">
+                  <span className="text-3xl font-black text-slate-850 group-hover:text-blue-600 transition-colors tabular-nums">
                     {analytics.pipelineMay.total}
                   </span>
                   <span className="text-2xs font-bold text-slate-500 tracking-wide uppercase mt-1">
@@ -185,7 +244,7 @@ export default function DashboardPage() {
                     className="flex flex-col items-center bg-emerald-50/70 border border-emerald-200 hover:border-emerald-400 hover:shadow-md transition-all cursor-pointer p-4 rounded-xl group active:scale-[0.99]"
                   >
                     <CheckCircle2 size={24} className="text-emerald-600 mb-2 group-hover:scale-110 transition-transform" />
-                    <span className="text-2xl font-black text-emerald-700">{analytics.pipelineMay.withContracts}</span>
+                    <span className="text-2xl font-black text-emerald-700 tabular-nums">{analytics.pipelineMay.withContracts}</span>
                     <span className="text-2xs font-bold text-emerald-700 text-center uppercase tracking-tight mt-1">
                       Đã có Hợp đồng
                     </span>
@@ -197,7 +256,7 @@ export default function DashboardPage() {
                     className="flex flex-col items-center bg-amber-50/70 border border-amber-200 hover:border-amber-400 hover:shadow-md transition-all cursor-pointer p-4 rounded-xl group active:scale-[0.99]"
                   >
                     <AlertCircle size={24} className="text-amber-600 mb-2 group-hover:scale-110 transition-transform" />
-                    <span className="text-2xl font-black text-amber-700">{analytics.pipelineMay.withoutContracts}</span>
+                    <span className="text-2xl font-black text-amber-700 tabular-nums">{analytics.pipelineMay.withoutContracts}</span>
                     <span className="text-2xs font-bold text-amber-700 text-center uppercase tracking-tight mt-1">
                       {t('missing.contract')}
                     </span>
@@ -222,7 +281,7 @@ export default function DashboardPage() {
                   onClick={() => setDrilldownMetric('totalSupplyQuotes')}
                   className="flex flex-col items-center bg-white border border-slate-200 hover:border-teal-400 hover:shadow-md transition-all cursor-pointer w-full p-4 rounded-xl text-center group active:scale-[0.99]"
                 >
-                  <span className="text-3xl font-black text-slate-850 group-hover:text-teal-600 transition-colors">
+                  <span className="text-3xl font-black text-slate-850 group-hover:text-teal-600 transition-colors tabular-nums">
                     {analytics.pipelineVatTuDv.total}
                   </span>
                   <span className="text-2xs font-bold text-slate-500 tracking-wide uppercase mt-1">
@@ -239,7 +298,7 @@ export default function DashboardPage() {
                     className="flex flex-col items-center bg-teal-50/70 border border-teal-200 hover:border-teal-400 hover:shadow-md transition-all cursor-pointer p-4 rounded-xl group active:scale-[0.99]"
                   >
                     <CheckCircle2 size={24} className="text-teal-600 mb-2 group-hover:scale-110 transition-transform" />
-                    <span className="text-2xl font-black text-teal-700">{analytics.pipelineVatTuDv.withPayments}</span>
+                    <span className="text-2xl font-black text-teal-700 tabular-nums">{analytics.pipelineVatTuDv.withPayments}</span>
                     <span className="text-2xs font-bold text-teal-700 text-center uppercase tracking-tight mt-1">
                       Đã có Thanh toán
                     </span>
@@ -251,7 +310,7 @@ export default function DashboardPage() {
                     className="flex flex-col items-center bg-red-50/70 border border-red-200 hover:border-red-400 hover:shadow-md transition-all cursor-pointer p-4 rounded-xl group active:scale-[0.99]"
                   >
                     <AlertCircle size={24} className="text-red-600 mb-2 group-hover:scale-110 transition-transform" />
-                    <span className="text-2xl font-black text-red-700">{analytics.pipelineVatTuDv.withoutPayments}</span>
+                    <span className="text-2xl font-black text-red-700 tabular-nums">{analytics.pipelineVatTuDv.withoutPayments}</span>
                     <span className="text-2xs font-bold text-red-700 text-center uppercase tracking-tight mt-1">
                       Chưa Thanh toán
                     </span>
@@ -278,7 +337,7 @@ export default function DashboardPage() {
                >
                  <div>
                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Tổng Hợp đồng</p>
-                   <p className="text-4xl font-black text-white">{analytics.contractFulfillment.total}</p>
+                   <p className="text-4xl font-black text-white tabular-nums">{analytics.contractFulfillment.total}</p>
                  </div>
                  <Handshake size={48} className="text-slate-600 opacity-50" />
                </div>
@@ -290,7 +349,7 @@ export default function DashboardPage() {
                >
                  <div>
                    <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider mb-1">Đã Thanh Toán</p>
-                   <p className="text-4xl font-black text-emerald-400">{analytics.contractFulfillment.paid}</p>
+                   <p className="text-4xl font-black text-emerald-400 tabular-nums">{analytics.contractFulfillment.paid}</p>
                  </div>
                  <CreditCard size={48} className="text-emerald-500 opacity-25" />
                </div>
@@ -302,7 +361,7 @@ export default function DashboardPage() {
                >
                  <div>
                    <p className="text-xs text-sky-400 font-bold uppercase tracking-wider mb-1">Đã Giao Hàng</p>
-                   <p className="text-4xl font-black text-sky-400">{analytics.contractFulfillment.delivered}</p>
+                   <p className="text-4xl font-black text-sky-400 tabular-nums">{analytics.contractFulfillment.delivered}</p>
                  </div>
                  <Truck size={48} className="text-sky-500 opacity-25" />
                </div>
@@ -319,10 +378,10 @@ export default function DashboardPage() {
                {analytics.groupings.byProvince.length > 0 ? analytics.groupings.byProvince.map(([province, count], idx) => (
                  <li key={province} className="flex items-center justify-between bg-white px-4 py-3 border border-slate-200 rounded-lg">
                    <div className="flex items-center gap-3">
-                      <span className="w-6 text-center text-xs font-mono font-bold text-slate-400">#{idx + 1}</span>
+                      <span className="w-6 text-center text-xs font-bold text-slate-400 tabular-nums">#{idx + 1}</span>
                       <span className="font-semibold text-slate-800">{province}</span>
                    </div>
-                   <span className="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded text-xs">{count} BG</span>
+                   <span className="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded text-xs tabular-nums">{count} BG</span>
                  </li>
                )) : <li className="text-sm text-slate-500 italic">{t('empty.noData')}</li>}
              </ul>
@@ -334,10 +393,10 @@ export default function DashboardPage() {
                {analytics.groupings.bySalesRep.length > 0 ? analytics.groupings.bySalesRep.map(([rep, count], idx) => (
                  <li key={rep} className="flex items-center justify-between bg-white px-4 py-3 border border-slate-200 rounded-lg">
                    <div className="flex items-center gap-3">
-                      <span className="w-6 text-center text-xs font-mono font-bold text-slate-400">#{idx + 1}</span>
+                      <span className="w-6 text-center text-xs font-bold text-slate-400 tabular-nums">#{idx + 1}</span>
                       <span className="font-semibold text-slate-800">{rep}</span>
                    </div>
-                   <span className="font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded text-xs">{count} BG</span>
+                   <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded text-xs tabular-nums">{count} BG</span>
                  </li>
                )) : <li className="text-sm text-slate-500 italic">{t('empty.noData')}</li>}
              </ul>
@@ -352,6 +411,7 @@ export default function DashboardPage() {
           contracts={contracts}
           payments={payments}
           deliveries={deliveries}
+          onViewDoc={handleViewDoc}
         />
       )}
 
@@ -367,7 +427,76 @@ export default function DashboardPage() {
           payments,
           deliveries
         }}
+        onViewDoc={handleViewDoc}
       />
+
+      {/* In-Place Universal Continuum Inspector Drawers */}
+      {selectedCustomer && (
+        <CustomerDetailDrawer
+          isOpen={Boolean(selectedCustomer)}
+          onClose={() => setSelectedCustomer(null)}
+          customer={selectedCustomer}
+          prevCustomer={null}
+          nextCustomer={null}
+          onNavigatePrev={() => {}}
+          onNavigateNext={() => {}}
+          onEdit={() => {}}
+          onSendZns={() => {}}
+          onDeleteCustomer={() => {}}
+          modal={true}
+        />
+      )}
+
+      {selectedQuotation && (
+        <QuotationDetailDrawer
+          quotation={selectedQuotation}
+          onClose={() => setSelectedQuotation(null)}
+          customers={customers}
+          owners={[]}
+          statuses={[]}
+          contracts={contracts}
+          payments={payments}
+          deliveries={deliveries}
+          onEdit={() => {}}
+          onDelete={async () => {}}
+          onUpdate={async () => {}}
+          modal={true}
+        />
+      )}
+
+      {selectedContract && (
+        <ContractDetailDrawer
+          drawerContract={selectedContract}
+          onClose={() => setSelectedContract(null)}
+          payments={payments}
+          deliveries={deliveries}
+          customers={customers}
+          onEdit={() => {}}
+          modal={true}
+        />
+      )}
+
+      {selectedPayment && (
+        <PaymentDetailDrawer
+          isOpen={Boolean(selectedPayment)}
+          payment={selectedPayment}
+          onClose={() => setSelectedPayment(null)}
+          modal={true}
+        />
+      )}
+
+      {selectedDelivery && (
+        <DeliveryDetailDrawer
+          drawerDelivery={selectedDelivery}
+          onClose={() => setSelectedDelivery(null)}
+          onEdit={() => {}}
+          onSendZns={() => {}}
+          onCancelDelivery={async () => {}}
+          drawerContract={selectedDelivery.contractId ? contracts.find(c => c.id === selectedDelivery.contractId) : null}
+          drawerQuotation={null}
+          modal={true}
+        />
+      )}
     </div>
   );
 }

@@ -42,13 +42,15 @@ interface MetricDrilldownDrawerProps {
     payments: any[];
     deliveries: any[];
   };
+  onViewDoc?: (type: 'customer' | 'quotation' | 'contract' | 'payment' | 'delivery', idOrCode: string) => void;
 }
 
 export function MetricDrilldownDrawer({
   isOpen,
   onClose,
   metricType,
-  data
+  data,
+  onViewDoc
 }: MetricDrilldownDrawerProps) {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -74,10 +76,15 @@ export function MetricDrilldownDrawer({
             badge: c.loaiKh || 'Doanh nghiệp',
             badgeClass: c.loaiKh === 'Cá nhân' ? 'bg-slate-100 text-slate-700' : 'bg-blue-50 text-blue-700 border-blue-100',
             meta: c.diaChi || 'Chưa cập nhật địa chỉ',
-            link: `/customers?search=${encodeURIComponent(c.maKh || c.tenKhachHang || '')}`,
             actionLabel: 'Xem hồ sơ',
             actionIcon: <ExternalLink size={13} />,
-            onAction: () => navigate(`/customers?search=${encodeURIComponent(c.maKh || c.tenKhachHang || '')}`)
+            onAction: () => {
+              if (onViewDoc) {
+                onViewDoc('customer', c.id || c.maKh);
+              } else {
+                navigate(`/customers?search=${encodeURIComponent(c.maKh || c.tenKhachHang || '')}`);
+              }
+            }
           })
         };
       }
@@ -106,10 +113,15 @@ export function MetricDrilldownDrawer({
             badge: 'Đã có BG',
             badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
             meta: `Phụ trách: ${c.nguoiPhuTrach || 'Chưa gán'} · ${c.tinhThanh || ''}`,
-            link: `/sales?search=${encodeURIComponent(c.tenKhachHang || '')}`,
-            actionLabel: 'Xem báo giá',
-            actionIcon: <FileText size={13} />,
-            onAction: () => navigate(`/sales?search=${encodeURIComponent(c.tenKhachHang || '')}`)
+            actionLabel: 'Xem hồ sơ',
+            actionIcon: <Users size={13} />,
+            onAction: () => {
+              if (onViewDoc) {
+                onViewDoc('customer', c.id || c.maKh);
+              } else {
+                navigate(`/sales?search=${encodeURIComponent(c.tenKhachHang || '')}`);
+              }
+            }
           })
         };
       }
@@ -138,10 +150,15 @@ export function MetricDrilldownDrawer({
             badge: 'Chưa có BG',
             badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
             meta: `Tỉnh: ${c.tinhThanh || '---'} · Đại diện: ${c.nguoiDaiDien || '---'}`,
-            link: `/sales?action=new&customerId=${c.id}`,
-            actionLabel: '+ Lập Báo Giá',
-            actionIcon: <PlusCircle size={13} />,
-            onAction: () => navigate(`/sales?action=new&customerId=${c.id}`)
+            actionLabel: 'Xem hồ sơ',
+            actionIcon: <Users size={13} />,
+            onAction: () => {
+              if (onViewDoc) {
+                onViewDoc('customer', c.id || c.maKh);
+              } else {
+                navigate(`/sales?action=new&customerId=${c.id}`);
+              }
+            }
           })
         };
       }
@@ -162,10 +179,15 @@ export function MetricDrilldownDrawer({
             badge: q.loai || 'BG Máy',
             badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
             meta: `Sản phẩm: ${(q.products || []).length} mục · Phụ trách: ${q.nguoiPhuTrach || '--'}`,
-            link: `/sales?search=${encodeURIComponent(q.soPhieuBaoGia || '')}`,
-            actionLabel: 'Xem chi tiết',
-            actionIcon: <ExternalLink size={13} />,
-            onAction: () => navigate(`/sales?search=${encodeURIComponent(q.soPhieuBaoGia || '')}`)
+            actionLabel: 'Xem Báo Giá',
+            actionIcon: <FileText size={13} />,
+            onAction: () => {
+              if (onViewDoc) {
+                onViewDoc('quotation', q.id || q.soPhieuBaoGia);
+              } else {
+                navigate(`/sales?search=${encodeURIComponent(q.soPhieuBaoGia || '')}`);
+              }
+            }
           })
         };
       }
@@ -195,10 +217,15 @@ export function MetricDrilldownDrawer({
             badge: 'Đã có HĐ',
             badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
             meta: `Phụ trách: ${q.nguoiPhuTrach || '--'} · Ngày: ${q.ngayBaoGia || '--'}`,
-            link: `/contracts?search=${encodeURIComponent(q.soPhieuBaoGia || q.tenKhachHang || '')}`,
-            actionLabel: 'Xem Hợp đồng',
-            actionIcon: <Handshake size={13} />,
-            onAction: () => navigate(`/contracts?search=${encodeURIComponent(q.soPhieuBaoGia || q.tenKhachHang || '')}`)
+            actionLabel: 'Xem Báo Giá',
+            actionIcon: <FileText size={13} />,
+            onAction: () => {
+              if (onViewDoc) {
+                onViewDoc('quotation', q.id || q.soPhieuBaoGia);
+              } else {
+                navigate(`/contracts?search=${encodeURIComponent(q.soPhieuBaoGia || q.tenKhachHang || '')}`);
+              }
+            }
           })
         };
       }
@@ -228,10 +255,15 @@ export function MetricDrilldownDrawer({
             badge: 'Thiếu HĐ',
             badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
             meta: `Sản phẩm máy: ${(q.products || []).length} mục · Ngày tạo: ${q.ngayBaoGia || '--'}`,
-            link: `/contracts?action=new&quotationId=${q.id}`,
-            actionLabel: '+ Tạo Hợp Đồng',
-            actionIcon: <PlusCircle size={13} />,
-            onAction: () => navigate(`/contracts?action=new&quotationId=${q.id}`)
+            actionLabel: 'Xem Báo Giá',
+            actionIcon: <FileText size={13} />,
+            onAction: () => {
+              if (onViewDoc) {
+                onViewDoc('quotation', q.id || q.soPhieuBaoGia);
+              } else {
+                navigate(`/contracts?action=new&quotationId=${q.id}`);
+              }
+            }
           })
         };
       }
@@ -252,10 +284,15 @@ export function MetricDrilldownDrawer({
             badge: q.loai || 'Vật tư / DV',
             badgeClass: 'bg-teal-50 text-teal-700 border-teal-200',
             meta: `Mục: ${(q.products || []).length} linh kiện · Phụ trách: ${q.nguoiPhuTrach || '--'}`,
-            link: `/sales?search=${encodeURIComponent(q.soPhieuBaoGia || '')}`,
-            actionLabel: 'Xem chi tiết',
-            actionIcon: <ExternalLink size={13} />,
-            onAction: () => navigate(`/sales?search=${encodeURIComponent(q.soPhieuBaoGia || '')}`)
+            actionLabel: 'Xem Báo Giá',
+            actionIcon: <FileText size={13} />,
+            onAction: () => {
+              if (onViewDoc) {
+                onViewDoc('quotation', q.id || q.soPhieuBaoGia);
+              } else {
+                navigate(`/sales?search=${encodeURIComponent(q.soPhieuBaoGia || '')}`);
+              }
+            }
           })
         };
       }
@@ -285,10 +322,15 @@ export function MetricDrilldownDrawer({
             badge: 'Đã thanh toán',
             badgeClass: 'bg-teal-50 text-teal-700 border-teal-200',
             meta: `Khách: ${q.tenKhachHang || '--'} · Ngày: ${q.ngayBaoGia || '--'}`,
-            link: `/payments?search=${encodeURIComponent(q.soPhieuBaoGia || q.tenKhachHang || '')}`,
-            actionLabel: 'Xem Phiếu Thu',
-            actionIcon: <CreditCard size={13} />,
-            onAction: () => navigate(`/payments?search=${encodeURIComponent(q.soPhieuBaoGia || q.tenKhachHang || '')}`)
+            actionLabel: 'Xem Báo Giá',
+            actionIcon: <FileText size={13} />,
+            onAction: () => {
+              if (onViewDoc) {
+                onViewDoc('quotation', q.id || q.soPhieuBaoGia);
+              } else {
+                navigate(`/payments?search=${encodeURIComponent(q.soPhieuBaoGia || q.tenKhachHang || '')}`);
+              }
+            }
           })
         };
       }
@@ -318,10 +360,15 @@ export function MetricDrilldownDrawer({
             badge: 'Chưa thu tiền',
             badgeClass: 'bg-red-50 text-red-700 border-red-200',
             meta: `Phân loại: ${q.loai || 'BG Vật Tư'} · Phụ trách: ${q.nguoiPhuTrach || '--'}`,
-            link: `/payments?action=new&quotationId=${q.id}`,
-            actionLabel: '+ Thu Tiền',
-            actionIcon: <PlusCircle size={13} />,
-            onAction: () => navigate(`/payments?action=new&quotationId=${q.id}`)
+            actionLabel: 'Xem Báo Giá',
+            actionIcon: <FileText size={13} />,
+            onAction: () => {
+              if (onViewDoc) {
+                onViewDoc('quotation', q.id || q.soPhieuBaoGia);
+              } else {
+                navigate(`/payments?action=new&quotationId=${q.id}`);
+              }
+            }
           })
         };
       }
@@ -350,10 +397,15 @@ export function MetricDrilldownDrawer({
             badge: 'Đã có TT',
             badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
             meta: `Ngày ký: ${c.ngayKy || '--'} · Đại diện: ${c.nguoiDaiDien || '--'}`,
-            link: `/payments?search=${encodeURIComponent(c.soHopDong || '')}`,
-            actionLabel: 'Xem Thu Tiền',
-            actionIcon: <CreditCard size={13} />,
-            onAction: () => navigate(`/payments?search=${encodeURIComponent(c.soHopDong || '')}`)
+            actionLabel: 'Xem Hợp Đồng',
+            actionIcon: <Handshake size={13} />,
+            onAction: () => {
+              if (onViewDoc) {
+                onViewDoc('contract', c.id || c.soHopDong);
+              } else {
+                navigate(`/payments?search=${encodeURIComponent(c.soHopDong || '')}`);
+              }
+            }
           })
         };
       }
@@ -382,10 +434,15 @@ export function MetricDrilldownDrawer({
             badge: 'Đã xuất kho',
             badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
             meta: `Khách: ${c.tenKhachHang || '--'} · Ngày ký: ${c.ngayKy || '--'}`,
-            link: `/fulfillment?search=${encodeURIComponent(c.soHopDong || '')}`,
-            actionLabel: 'Xem Giao Hàng',
-            actionIcon: <Truck size={13} />,
-            onAction: () => navigate(`/fulfillment?search=${encodeURIComponent(c.soHopDong || '')}`)
+            actionLabel: 'Xem Hợp Đồng',
+            actionIcon: <Handshake size={13} />,
+            onAction: () => {
+              if (onViewDoc) {
+                onViewDoc('contract', c.id || c.soHopDong);
+              } else {
+                navigate(`/fulfillment?search=${encodeURIComponent(c.soHopDong || '')}`);
+              }
+            }
           })
         };
       }
@@ -393,7 +450,7 @@ export function MetricDrilldownDrawer({
       default:
         return null;
     }
-  }, [metricType, customers, quotations, contracts, payments, deliveries, navigate]);
+  }, [metricType, customers, quotations, contracts, payments, deliveries, navigate, onViewDoc]);
 
   const filteredItems = useMemo(() => {
     if (!drilldownConfig) return [];
@@ -503,7 +560,7 @@ export function MetricDrilldownDrawer({
                         onClose();
                         item.onAction();
                       }}
-                      className="px-2.5 py-1 text-2xs font-bold text-blue-700 hover:bg-blue-50 border-blue-200 flex items-center gap-1 shrink-0"
+                      className="px-2.5 py-1 text-2xs font-bold text-blue-700 hover:bg-blue-50 border-blue-200 flex items-center gap-1 shrink-0 cursor-pointer"
                     >
                       {item.actionIcon}
                       <span>{item.actionLabel}</span>
