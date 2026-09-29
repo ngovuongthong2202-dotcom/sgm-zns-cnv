@@ -322,30 +322,30 @@ export function DataViewEngine<T>({
            </span>
          </div>
          
-         <div className="flex items-center justify-center gap-1 w-1/3">
-           <Button 
-             title="Trang trước"
+         <div className="flex items-center justify-center gap-1.5 w-1/3">
+           <button 
+             title="Trang trước (Alt + ←)"
              type="button"
              onClick={() => table.previousPage()}
              disabled={!table.getCanPreviousPage()}
-             className="w-7 h-7 flex items-center justify-center rounded-[6px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors outline-none cursor-pointer"
+             className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-100 hover:border-slate-300 text-slate-700 shadow-2xs transition-all disabled:opacity-35 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:border-slate-200 disabled:text-slate-400 cursor-pointer"
            >
-             <ChevronLeft className="w-4 h-4" /> 
-           </Button>
+             <ChevronLeft className="w-4 h-4 text-current" strokeWidth={2.2} /> 
+           </button>
            
-           <div className="px-2 flex items-center h-7 rounded-[6px] hover:bg-slate-50 cursor-default select-none border border-transparent hover:border-slate-200/60 transition-colors">
-              Trang <span className="font-bold text-slate-800 mx-1 w-4 text-center">{table.getPageCount() > 0 ? pageIndex + 1 : 0}</span> / <span className="ml-1 w-4 text-center">{table.getPageCount()}</span>
+           <div className="px-2.5 flex items-center h-7 rounded-lg bg-slate-50 border border-slate-200/60 select-none text-2xs font-semibold text-slate-600">
+              Trang <span className="font-bold text-slate-900 mx-1 min-w-[12px] text-center">{table.getPageCount() > 0 ? pageIndex + 1 : 0}</span> / <span className="ml-1 min-w-[12px] text-center">{table.getPageCount()}</span>
            </div>
            
-           <Button 
-             title="Trang sau"
+           <button 
+             title="Trang sau (Alt + →)"
              type="button"
              onClick={() => table.nextPage()}
              disabled={!table.getCanNextPage()}
-             className="w-7 h-7 flex items-center justify-center rounded-[6px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors outline-none cursor-pointer"
+             className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-100 hover:border-slate-300 text-slate-700 shadow-2xs transition-all disabled:opacity-35 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:border-slate-200 disabled:text-slate-400 cursor-pointer"
            >
-             <ChevronRight className="w-4 h-4" />
-           </Button>
+             <ChevronRight className="w-4 h-4 text-current" strokeWidth={2.2} />
+           </button>
          </div>
          <div className="flex items-center justify-end w-1/3">
            <div className="flex items-center gap-2">

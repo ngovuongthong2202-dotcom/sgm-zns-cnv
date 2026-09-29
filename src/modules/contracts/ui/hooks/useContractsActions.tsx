@@ -86,24 +86,17 @@ export function useContractsActions(
 
     const duplicateCheck = checkZnsResendAllowed(c as any, phone, userRole);
     let forceResend = false;
-    if (!duplicateCheck.allowed) {
-      if (duplicateCheck.canAdminOverride) {
-        const force = await confirm({
-          title: 'Xác nhận gửi lại ZNS Hợp Đồng (Admin)',
-          message: `Hợp đồng này đã được gửi ZNS thành công đến số điện thoại ${phone}. Bạn đang thao tác với quyền Quản trị viên, bạn có chắc chắn muốn buộc gửi lại (Force Resend) tin này không?`,
-          variant: 'warning',
-          confirmText: 'Buộc gửi lại',
-          cancelText: 'Hủy bỏ'
-        });
-        if (!force) return;
-        forceResend = true;
-      } else {
-        notify.warning(duplicateCheck.reason || 'Hợp đồng này đã được gửi ZNS thành công đến số điện thoại này.');
-        return;
-      }
-    }
-
-    if (!forceResend) {
+    if (duplicateCheck.isAlreadySent) {
+      const force = await confirm({
+        title: 'Xác nhận gửi lại ZNS Hợp Đồng',
+        message: `Hợp đồng này (${c.soHopDong || c.id}) đã từng gửi ZNS thành công đến số điện thoại ${phone}. Bạn có chắc chắn muốn gửi lại tin nhắn ZNS này không?`,
+        variant: 'info',
+        confirmText: 'Gửi lại ZNS',
+        cancelText: 'Hủy bỏ'
+      });
+      if (!force) return;
+      forceResend = true;
+    } else {
       if (!await confirm({ title: "Gửi ZNS Hợp Đồng", message: `Gửi ZNS Hợp đồng đến khách hàng ${customerName}?` })) return;
     }
     await sendZnsAndToast({

@@ -41,32 +41,26 @@ export function useQuotationActions(
     }
 
     const duplicateCheck = checkZnsResendAllowed(q as any, phone, userData?.role);
-    let forceResend = false;
-    if (!duplicateCheck.allowed) {
-      if (duplicateCheck.canAdminOverride) {
-        const force = await confirm({
-          title: 'Xác nhận gửi lại ZNS Báo Giá (Admin)',
-          message: `Báo giá này đã được gửi ZNS thành công đến số điện thoại ${phone}. Bạn đang thao tác với quyền Quản trị viên, bạn có chắc chắn muốn buộc gửi lại (Force Resend) tin này không?`,
-          variant: 'warning',
-          confirmText: 'Buộc gửi lại',
-          cancelText: 'Hủy bỏ'
-        });
-        if (!force) return;
-        forceResend = true;
-      } else {
-        notify.warning(duplicateCheck.reason || 'Báo giá này đã được gửi ZNS thành công đến số điện thoại này.');
-        return;
-      }
+    const isResend = Boolean(duplicateCheck.isAlreadySent);
+    
+    if (isResend) {
+      const confirmResend = await confirm({
+        title: 'Xác nhận gửi lại ZNS Báo Giá',
+        message: `Báo giá ${q.soPhieuBaoGia || q.id} đã từng được gửi ZNS trước đó. Bạn có chắc chắn muốn gửi lại tin nhắn ZNS cho khách hàng ${customerName || ''} (${phone}) không?`,
+        variant: 'info',
+        confirmText: 'Gửi lại ZNS',
+        cancelText: 'Hủy bỏ'
+      });
+      if (!confirmResend) return;
+    } else {
+      if (!await confirm({ title: 'Gửi ZNS Báo Giá', message: `Gửi ZNS Báo giá đến khách hàng ${customerName || ''} (${phone})?` })) return;
     }
 
-    if (!forceResend) {
-      if (!await confirm({ title: 'Gửi ZNS Báo Giá', message: `Gửi ZNS Báo giá đến khách hàng ${customerName}?` })) return;
-    }
     await sendZnsAndToast({
       entityId: q.id, entityType: 'QUOTATION', messageType: ZnsMessageType.BAOGIA, phone: phone, payload: { ...q },
       attemptBucket: nextAttempt(q.trangThaiGuiTinBaoGia || undefined),
       userRole: userData?.role,
-      forceResend
+      forceResend: isResend
     });
   }, [confirm, userData]);
 
@@ -147,36 +141,28 @@ export function useQuotationActions(
     }
 
     const duplicateCheck = checkZnsResendAllowed(drawerQuotation as any, phone, userData?.role);
-    let forceResend = false;
-    if (!duplicateCheck.allowed) {
-      if (duplicateCheck.canAdminOverride) {
-        const force = await confirm({
-          title: 'Xác nhận gửi lại ZNS Báo Giá (Admin)',
-          message: `Báo giá này đã được gửi ZNS thành công đến số điện thoại ${phone}. Bạn đang thao tác với quyền Quản trị viên, bạn có chắc chắn muốn buộc gửi lại (Force Resend) tin này không?`,
-          variant: 'warning',
-          confirmText: 'Buộc gửi lại',
-          cancelText: 'Hủy bỏ'
-        });
-        if (!force) return;
-        forceResend = true;
-      } else {
-        notify.warning(duplicateCheck.reason || 'Báo giá này đã được gửi ZNS thành công đến số điện thoại này.');
-        return;
-      }
+    const isResend = Boolean(duplicateCheck.isAlreadySent);
+    const custName = drawerQuotation.tenKhachHang || drawerCustomer?.tenKhachHang || '';
+
+    if (isResend) {
+      const confirmResend = await confirm({
+        title: 'Xác nhận gửi lại ZNS Báo Giá',
+        message: `Báo giá ${drawerQuotation.soPhieuBaoGia || drawerQuotation.id} đã từng được gửi ZNS trước đó. Bạn có chắc chắn muốn gửi lại tin nhắn ZNS cho khách hàng ${custName} (${phone}) không?`,
+        variant: 'info',
+        confirmText: 'Gửi lại ZNS',
+        cancelText: 'Hủy bỏ'
+      });
+      if (!confirmResend) return;
+    } else {
+      if (!await confirm({ title: 'Gửi ZNS Báo Giá', message: `Gửi ZNS Báo giá đến khách hàng ${custName} (${phone})?` })) return;
     }
 
-    const recent = await checkRecentZnsDoc(drawerQuotation.id, ZnsMessageType.BAOGIA);
-    if (recent && !forceResend) {
-      if (!await confirm({ title: 'Cảnh báo gửi đúp', message: `Tin nhắn này đã được gửi lúc ${new Date(recent.createdAt).toLocaleTimeString()} bởi user khác. Bạn vẫn muốn gửi lại?`, confirmText: 'Vẫn gửi', cancelText: 'Hủy' })) return;
-    } else if (!forceResend) {
-      if (!await confirm({ title: 'Gửi ZNS Báo Giá', message: `Gửi ZNS Báo giá đến khách hàng ${drawerQuotation.tenKhachHang || drawerCustomer?.tenKhachHang}?` })) return;
-    }
     await sendZnsAndToast({
       entityId: drawerQuotation.id, entityType: 'QUOTATION', messageType: ZnsMessageType.BAOGIA,
       phone: phone, payload: { ...drawerQuotation },
       attemptBucket: nextAttempt(drawerQuotation.trangThaiGuiTinBaoGia || undefined),
       userRole: userData?.role,
-      forceResend
+      forceResend: isResend
     });
   }, [drawerQuotation, drawerCustomer, confirm, userData]);
 

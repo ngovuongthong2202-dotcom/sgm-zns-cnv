@@ -302,37 +302,31 @@ export function useCustomerActions({
     try {
       const duplicateCheck = checkZnsResendAllowed(c, phone, userData?.role);
       let forceResend = false;
-      if (!duplicateCheck.allowed) {
-        if (duplicateCheck.canAdminOverride) {
-          const force = await confirm({
-            title: 'Xác nhận gửi lại ZNS (Admin)',
-            message: `Tin ZNS này đã được gửi thành công đến số điện thoại ${phone}. Bạn đang thao tác với quyền Quản trị viên, bạn có chắc chắn muốn buộc gửi lại (Force Resend) tin này không?`,
-            variant: 'warning',
-            confirmText: 'Buộc gửi lại',
-            cancelText: 'Hủy bỏ'
-          });
-          if (!force) {
+      if (duplicateCheck.isAlreadySent) {
+        const force = await confirm({
+          title: 'Xác nhận gửi lại ZNS Chăm Sóc KH',
+          message: `Khách hàng này (${phone}) đã từng nhận tin ZNS trước đó. Bạn có muốn gửi lại thông điệp ZNS Chăm sóc Khách hàng không?`,
+          variant: 'info',
+          confirmText: 'Gửi lại ZNS',
+          cancelText: 'Hủy bỏ'
+        });
+        if (!force) {
+          setSendingZnsIds(prev => ({ ...prev, [customerId]: false }));
+          return;
+        }
+        forceResend = true;
+      } else {
+        const recent = await checkRecentZnsDoc(customerId, ZnsMessageType.CUSTOMER_PRE_QUOTE);
+        if (recent) {
+          if (!await confirm({ title: 'Cảnh báo gửi đúp', message: `Tin nhắn này đã được gửi lúc ${new Date(recent.createdAt).toLocaleTimeString()} bởi user khác. Bạn vẫn muốn gửi lại?`, confirmText: 'Vẫn gửi', cancelText: 'Hủy' })) {
             setSendingZnsIds(prev => ({ ...prev, [customerId]: false }));
             return;
           }
-          forceResend = true;
         } else {
-          notify.warning(duplicateCheck.reason || 'Tin ZNS đã được gửi thành công đến số điện thoại này.');
-          setSendingZnsIds(prev => ({ ...prev, [customerId]: false }));
-          return;
-        }
-      }
-
-      const recent = await checkRecentZnsDoc(customerId, ZnsMessageType.CUSTOMER_PRE_QUOTE);
-      if (recent && !forceResend) {
-        if (!await confirm({ title: 'Cảnh báo gửi đúp', message: `Tin nhắn này đã được gửi lúc ${new Date(recent.createdAt).toLocaleTimeString()} bởi user khác. Bạn vẫn muốn gửi lại?`, confirmText: 'Vẫn gửi', cancelText: 'Hủy' })) {
-          setSendingZnsIds(prev => ({ ...prev, [customerId]: false }));
-          return;
-        }
-      } else if (!forceResend) {
-        if (!await confirm({ title: 'Gửi ZNS Khách Hàng', message: `Gửi tin ZNS đến ${c.tenKhachHang} (${phone})?` })) {
-          setSendingZnsIds(prev => ({ ...prev, [customerId]: false }));
-          return;
+          if (!await confirm({ title: 'Gửi ZNS Khách Hàng', message: `Gửi tin ZNS đến ${c.tenKhachHang} (${phone})?` })) {
+            setSendingZnsIds(prev => ({ ...prev, [customerId]: false }));
+            return;
+          }
         }
       }
       await sendZnsAndToast({

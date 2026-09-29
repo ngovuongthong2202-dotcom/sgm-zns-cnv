@@ -81,24 +81,12 @@ export function checkZnsResendAllowed(
   targetPhone: string,
   userRole?: string
 ): { allowed: boolean; reason?: string; isAlreadySent?: boolean; canAdminOverride?: boolean } {
-  if (!entity || !isZnsAlreadySent(entity)) {
-    return { allowed: true };
-  }
-
-  const cleanTarget = normalizePhoneVN(targetPhone);
-  const cleanOriginal = normalizePhoneVN((entity.znsLastSentPhone || entity.sdt || entity.phone) as string);
-
-  // If phone changed, allow sending to new phone!
-  if (cleanTarget && cleanOriginal && cleanTarget !== cleanOriginal) {
-    return { allowed: true };
-  }
-
-  const isAdmin = userRole === 'Administrator' || userRole === 'Ban Giám Đốc';
+  const isSent = Boolean(entity && isZnsAlreadySent(entity));
   return {
-    allowed: false,
-    isAlreadySent: true,
-    canAdminOverride: isAdmin,
-    reason: `Tin nhắn ZNS đã được gửi thành công đến số điện thoại ${targetPhone}. Hệ thống đã chặn gửi trùng để bảo vệ chi phí và tránh làm phiền khách hàng. (Nếu khách hàng đổi số, vui lòng cập nhật SĐT mới trước khi gửi).`
+    allowed: true,
+    isAlreadySent: isSent,
+    canAdminOverride: true,
+    reason: isSent ? `Tin nhắn ZNS đã được gửi trước đó đến số ${targetPhone}.` : undefined
   };
 }
 

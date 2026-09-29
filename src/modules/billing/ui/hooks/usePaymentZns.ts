@@ -25,28 +25,21 @@ export function usePaymentZns(
        return;
     }
 
-    // Kiểm tra gửi trùng lặp nếu đã gửi thành công trước đó
+    // Kiểm tra gửi lại nếu đã gửi thành công trước đó
     const duplicateCheck = checkZnsResendAllowed(payment as any, phone, userRole);
-    let forceResend = false;
-    if (!duplicateCheck.allowed) {
-      if (duplicateCheck.canAdminOverride) {
-        const force = await confirm({
-          title: 'Xác nhận gửi lại ZNS Thanh Toán (Admin)',
-          message: `Phiếu thu này đã được gửi ZNS thành công đến số điện thoại ${phone}. Bạn đang thao tác với quyền Quản trị viên, bạn có chắc chắn muốn buộc gửi lại (Force Resend) tin này không?`,
-          variant: 'warning',
-          confirmText: 'Buộc gửi lại',
-          cancelText: 'Hủy bỏ'
-        });
-        if (!force) return;
-        forceResend = true;
-      } else {
-        notify.warning(duplicateCheck.reason || 'Phiếu thu này đã được gửi ZNS thành công đến số điện thoại này.');
-        return;
-      }
-    }
-
-    if (!forceResend) {
-      if (!await confirm({ title: "Gửi ZNS Thanh Toán", message: `Gửi ZNS Thanh toán đến ${customerName}?` })) return;
+    const isResend = Boolean(duplicateCheck.isAlreadySent);
+    
+    if (isResend) {
+      const confirmResend = await confirm({
+        title: 'Xác nhận gửi lại ZNS Thanh Toán',
+        message: `Phiếu thu ${payment.paymentId || payment.id} đã từng được gửi ZNS trước đó. Bạn có chắc chắn muốn gửi lại tin nhắn ZNS cho khách hàng ${customerName || ''} (${phone}) không?`,
+        variant: 'info',
+        confirmText: 'Gửi lại ZNS',
+        cancelText: 'Hủy bỏ'
+      });
+      if (!confirmResend) return;
+    } else {
+      if (!await confirm({ title: "Gửi ZNS Thanh Toán", message: `Gửi ZNS Thanh toán đến ${customerName || ''} (${phone})?` })) return;
     }
     
     const enrichedPayment = { ...payment };
@@ -91,7 +84,7 @@ export function usePaymentZns(
        entityId: payment.id!, entityType: 'PAYMENT', messageType, phone: phone, payload: enrichedPayment as Record<string, unknown>,
        attemptBucket: nextAttempt(payment.trangThaiGuiTinThanhToan as string | undefined),
        userRole,
-       forceResend
+       forceResend: isResend
     });
     refresh();
   };

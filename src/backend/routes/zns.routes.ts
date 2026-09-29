@@ -182,38 +182,6 @@ router.post('/send', async (req, res) => {
       }
     }
 
-    // Chặn gửi trùng: Nếu đã gửi thành công trước đó và số điện thoại không thay đổi
-    if (!body.forceResend) {
-      const existingStatus = normalizeLegacyStatus(
-        (dbEntity.trangThaiGuiTinQuangCao ||
-         dbEntity.trangThaiGuiTinBaoGia ||
-         dbEntity.trangThaiGuiTinHopDong ||
-         dbEntity.trangThaiGuiTinThanhToan ||
-         dbEntity.trangThaiGuiTinGiaoHang ||
-         dbEntity.trangThaiZns ||
-         clientEntity.trangThaiGuiTinQuangCao ||
-         clientEntity.trangThaiGuiTinBaoGia ||
-         clientEntity.trangThaiGuiTinHopDong ||
-         clientEntity.trangThaiGuiTinThanhToan ||
-         clientEntity.trangThaiGuiTinGiaoHang ||
-         clientEntity.trangThaiZns) as string | undefined
-      );
-
-      if (existingStatus === EntityZnsStatus.THANH_CONG) {
-        const lastSentPhone = normalizeVNPhone(
-          (dbEntity.znsLastSentPhone || dbEntity.sdt || dbEntity.phone ||
-           clientEntity.znsLastSentPhone || clientEntity.sdt || clientEntity.phone) as string
-        );
-
-        if (lastSentPhone && lastSentPhone === normalizedPhone) {
-          return res.status(409).json({
-            success: false,
-            code: 'DUPLICATE_SENT',
-            error: `Tin nhắn ZNS đã được gửi thành công đến số điện thoại ${normalizedPhone}. Hệ thống đã chặn gửi trùng để bảo vệ chi phí.`
-          });
-        }
-      }
-    }
 
     const mergedPayload: Record<string, unknown> = {
       ...dbEntity,

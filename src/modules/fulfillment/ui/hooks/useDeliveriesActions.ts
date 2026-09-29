@@ -307,29 +307,22 @@ export function useDeliveriesActions(
      
      if (!phone) { notify.error("Khách hàng thiếu SĐT"); return; }
 
-     // Kiểm tra gửi trùng lặp nếu đã gửi thành công trước đó
+     // Kiểm tra gửi lại nếu đã gửi thành công trước đó
      const duplicateCheck = checkZnsResendAllowed(del as any, phone, userRole);
-     let forceResend = false;
-     if (!duplicateCheck.allowed) {
-       if (duplicateCheck.canAdminOverride) {
-         const force = await confirm({
-           title: 'Xác nhận gửi lại ZNS Giao Hàng (Admin)',
-           message: `Phiếu giao hàng này đã được gửi ZNS thành công đến số điện thoại ${phone}. Bạn đang thao tác với quyền Quản trị viên, bạn có chắc chắn muốn buộc gửi lại (Force Resend) tin này không?`,
-           variant: 'warning',
-           confirmText: 'Buộc gửi lại',
-           cancelText: 'Hủy bỏ'
-         });
-         if (!force) return;
-         forceResend = true;
-       } else {
-         notify.warning(duplicateCheck.reason || 'Phiếu giao hàng này đã được gửi ZNS thành công đến số điện thoại này.');
-         return;
-       }
-     }
+     const isResend = Boolean(duplicateCheck.isAlreadySent);
+     const textTemplateLabel = templateCode === ZnsMessageType.GIAOHANG_ZNS ? 'CẬP NHẬT GIAO HÀNG (ZNS)' : 'HOÀN TẤT (GIAOHANG_HOANTAT)';
 
-     if (!forceResend) {
-       const textTemplateLabel = templateCode === ZnsMessageType.GIAOHANG_ZNS ? 'CẬP NHẬT GIAO HÀNG (ZNS)' : 'HOÀN TẤT (GIAOHANG_HOANTAT)';
-       if (!await confirm({ title: `Gửi ZNS Giao Hàng`, message: `Gửi tin Zalo ${textTemplateLabel} đến số ${phone} của ${customerName}?` })) return;
+     if (isResend) {
+       const confirmResend = await confirm({
+         title: 'Xác nhận gửi lại ZNS Giao Hàng',
+         message: `Phiếu giao hàng ${del.deliveryId || del.id} đã từng được gửi ZNS trước đó. Bạn có chắc chắn muốn gửi lại tin nhắn Zalo ${textTemplateLabel} cho khách hàng ${customerName || ''} (${phone}) không?`,
+         variant: 'info',
+         confirmText: 'Gửi lại ZNS',
+         cancelText: 'Hủy bỏ'
+       });
+       if (!confirmResend) return;
+     } else {
+       if (!await confirm({ title: `Gửi ZNS Giao Hàng`, message: `Gửi tin Zalo ${textTemplateLabel} đến số ${phone} của ${customerName || ''}?` })) return;
      }
      
      await sendZnsAndToast({
@@ -340,7 +333,7 @@ export function useDeliveriesActions(
         payload: { ...del } as Record<string, unknown>,
         attemptBucket: nextAttempt(del.trangThaiGuiTinGiaoHang as string | undefined),
         userRole,
-        forceResend
+        forceResend: isResend
      });
   }, [confirm, userRole]);
 
