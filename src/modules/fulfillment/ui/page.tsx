@@ -101,6 +101,14 @@ export default function DeliveriesFeature() {
     }
   }, [location, isFormOpen]);
   
+  const customerTinhThanhMap = useMemo(() => {
+    const map = new Map<string, string>();
+    customers.forEach(c => {
+      if (c.id && c.tinhThanh) map.set(c.id, c.tinhThanh);
+    });
+    return map;
+  }, [customers]);
+
   const activeTab: string = 'all';
   const {
     selectedStatus, setSelectedStatus,
@@ -110,7 +118,8 @@ export default function DeliveriesFeature() {
     selectedZns, setSelectedZns,
     selectedNgayDuKien, setSelectedNgayDuKien,
     selectedNgayThucTe, setSelectedNgayThucTe,
-  } = useDeliveriesFilters(deliveries, activeTab);
+    filteredDeliveries
+  } = useDeliveriesFilters(deliveries, activeTab, customerTinhThanhMap);
 
   const { 
     handleDeleteDelivery, handleMarkDelivered, onCompleteDeliverySubmit, 
@@ -194,8 +203,8 @@ export default function DeliveriesFeature() {
 
   // Evaluate multi-dimensional filters
   const processedDeliveries = useMemo(() => {
-    if (!deliveries || deliveries.length === 0) return EMPTY_PROCESSED_DELIVERIES;
-    return deliveries.map((d) => {
+    if (!filteredDeliveries || filteredDeliveries.length === 0) return EMPTY_PROCESSED_DELIVERIES;
+    return filteredDeliveries.map((d) => {
       const cust = customers.length > 0 ? customers.find((c) => c.id === d.customerId) : undefined;
       const contract = contracts.length > 0 ? contracts.find((c) => (d.contractId && c.id === d.contractId) || (d.soHopDong && c.soHopDong === d.soHopDong)) : undefined;
       const payment = payments.length > 0 ? payments.find((p) => (d.paymentId && (p.id === d.paymentId || p.paymentId === d.paymentId))) : undefined;
@@ -227,7 +236,7 @@ export default function DeliveriesFeature() {
         tinhTrangThanhToan: finalTinhTrangThanhToan
       };
     });
-  }, [deliveries, customers, quotations, contracts, payments]);
+  }, [filteredDeliveries, customers, quotations, contracts, payments]);
 
   const processedDeliveriesWithStt = useMemo(() => enrichWithStt(processedDeliveries), [processedDeliveries]);
 

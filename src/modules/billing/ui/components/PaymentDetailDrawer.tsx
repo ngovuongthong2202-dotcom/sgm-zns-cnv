@@ -7,6 +7,7 @@ import { DetailDrawer } from '@/src/design-system/DetailDrawer';
 import { Payment, PaymentInstallment } from '@/src/domain/schema/payment.schema';
 import { CreditCard, Calendar, Clock, Send, DollarSign, Edit, Package, User, FileText, Plus } from 'lucide-react';
 import { formatDate } from '@/src/shared/utils/formatDate';
+import { formatCurrency } from '@/src/shared/utils/formatCurrency';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { DrawerProductList } from '@/src/widgets/DrawerProductList';
 import { DocumentOmniFlowRibbon } from '@/src/widgets/DocumentOmniFlowRibbon';
@@ -263,9 +264,6 @@ export function PaymentDetailDrawer({
 
   if (!payment) return null;
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
-  };
 
   const handleSaveInstallment = async (
     newInstallment: PaymentInstallment,
@@ -810,7 +808,7 @@ export function PaymentDetailDrawer({
             {(
               [
                 { id: 'overview', label: 'Tổng quan' },
-                { id: 'flow', label: 'Dòng chảy 360°', count: (_quotationDoc ? 1 : 0) + (contractDoc ? 1 : 0) + allRelatedPayments.length + deliveries.length, loading: dLoading || pLoading },
+                { id: 'flow', label: 'Dòng chảy 360°', count: allRelatedPayments.length > 1 ? allRelatedPayments.length : 1, loading: dLoading || pLoading },
                 { id: 'nexus', label: 'Nhật ký & Hoạt động' },
               ] as const
             ).map((tab) => {

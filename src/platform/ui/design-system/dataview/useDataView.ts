@@ -31,6 +31,7 @@ export const vietnameseTextFilter: FilterFn<any> = (row, columnId, value) => {
     String(str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
   
   const normalizedValue = normalize(value as string);
+  if (!normalizedValue) return true;
 
   // 1. Check cell value
   const rowValue = row.getValue(columnId);
@@ -38,34 +39,76 @@ export const vietnameseTextFilter: FilterFn<any> = (row, columnId, value) => {
     return true;
   }
 
-  // 2. Search other representative name and contact options inside original
+  // 2. Search other representative name, product names, codes, contacts inside original & relations
   const original = row.original as any;
   if (!original) return false;
 
   const checkFields = (obj: any): boolean => {
-    if (!obj) return false;
+    if (!obj || typeof obj !== 'object') return false;
 
-    // Direct match check on the object's various name / contact / manager fields
-    if (obj.nguoiDaiDien && normalize(String(obj.nguoiDaiDien)).includes(normalizedValue)) {
-      return true;
-    }
-    if (obj.tenKhachHang && normalize(String(obj.tenKhachHang)).includes(normalizedValue)) {
-      return true;
-    }
-    if (obj.nguoiPhuTrach && normalize(String(obj.nguoiPhuTrach)).includes(normalizedValue)) {
-      return true;
+    // A. Direct string fields
+    const directFields = [
+      obj.nguoiDaiDien, obj.tenKhachHang, obj.nguoiPhuTrach, obj.maKh,
+      obj.soPhieuBaoGia, obj.soBaoGia, obj.soHopDong, obj.soPhieuThu,
+      obj.maPhieuThu, obj.soPhieuGiao, obj.maGiaoHang, obj.maDonHang,
+      obj.sdt, obj.soDienThoai, obj.diaChi, obj.diaChiGiaoHang, obj.tinhThanh,
+      obj.taiXe, obj.thoGiaoMay, obj.nguoiGiao, obj.donViVanChuyen, obj.noiDung
+    ];
+    for (const f of directFields) {
+      if (f && normalize(String(f)).includes(normalizedValue)) return true;
     }
 
-    // Checking embedded contacts array
+    // B. Checking embedded contacts array
     if (Array.isArray(obj.contacts)) {
       for (const contact of obj.contacts) {
         if (contact) {
-          if (contact.nguoiDaiDien && normalize(String(contact.nguoiDaiDien)).includes(normalizedValue)) {
-            return true;
+          if (contact.nguoiDaiDien && normalize(String(contact.nguoiDaiDien)).includes(normalizedValue)) return true;
+          if (contact.sdt && String(contact.sdt).includes(normalizedValue)) return true;
+          if (contact.chucVu && normalize(String(contact.chucVu)).includes(normalizedValue)) return true;
+        }
+      }
+    }
+
+    // C. Deep Product / Item Search (productName, tenSanPham, model, serial, machine codes)
+    const productLists = [obj.products, obj.items, obj.danhSachSanPham, obj.hangMuc];
+    for (const list of productLists) {
+      if (Array.isArray(list)) {
+        for (const item of list) {
+          if (!item) continue;
+          if (typeof item === 'string') {
+            if (normalize(item).includes(normalizedValue)) return true;
+            continue;
           }
-          if (contact.sdt && String(contact.sdt).includes(normalizedValue)) {
-            return true;
+          if (item.productName && normalize(String(item.productName)).includes(normalizedValue)) return true;
+          if (item.tenSanPham && normalize(String(item.tenSanPham)).includes(normalizedValue)) return true;
+          if (item.name && normalize(String(item.name)).includes(normalizedValue)) return true;
+          if (item.model && normalize(String(item.model)).includes(normalizedValue)) return true;
+          if (item.productId && normalize(String(item.productId)).includes(normalizedValue)) return true;
+          if (item.sku && normalize(String(item.sku)).includes(normalizedValue)) return true;
+          if (item.serial && normalize(String(item.serial)).includes(normalizedValue)) return true;
+          if (item.ghiChu && normalize(String(item.ghiChu)).includes(normalizedValue)) return true;
+          if (Array.isArray(item.danhSachMaMay)) {
+            for (const mm of item.danhSachMaMay) {
+              if (mm && normalize(String(mm)).includes(normalizedValue)) return true;
+            }
           }
+        }
+      }
+    }
+
+    // D. danhSachMaMay at root
+    if (Array.isArray(obj.danhSachMaMay)) {
+      for (const mm of obj.danhSachMaMay) {
+        if (mm && normalize(String(mm)).includes(normalizedValue)) return true;
+      }
+    }
+
+    // E. Payment installments (cacDotThu)
+    if (Array.isArray(obj.cacDotThu)) {
+      for (const dot of obj.cacDotThu) {
+        if (dot) {
+          if (dot.tenDot && normalize(String(dot.tenDot)).includes(normalizedValue)) return true;
+          if (dot.ghiChu && normalize(String(dot.ghiChu)).includes(normalizedValue)) return true;
         }
       }
     }
@@ -76,6 +119,8 @@ export const vietnameseTextFilter: FilterFn<any> = (row, columnId, value) => {
   if (checkFields(original)) return true;
   if (original.__customerInfo && checkFields(original.__customerInfo)) return true;
   if (original.__quotationInfo && checkFields(original.__quotationInfo)) return true;
+  if (original.__contractInfo && checkFields(original.__contractInfo)) return true;
+  if (original.__paymentInfo && checkFields(original.__paymentInfo)) return true;
 
   return false;
 };

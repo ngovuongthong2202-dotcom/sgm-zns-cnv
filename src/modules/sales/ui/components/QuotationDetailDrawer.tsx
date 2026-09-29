@@ -187,7 +187,7 @@ export function QuotationDetailDrawer({
   );
 
   // CUSTOM TABS CONTROLLERS - Kiến trúc Tam Điểm (The Sovereign Triad)
-  const totalFlowDocs = 1 + matchingContracts.length + matchingPayments.length + matchingDeliveries.length;
+  const totalFlowDocs = 1;
   const tabsConfig = [
     { id: 'overview', label: 'Tổng quan' },
     { id: 'flow', label: 'Dòng chảy 360°', count: totalFlowDocs },

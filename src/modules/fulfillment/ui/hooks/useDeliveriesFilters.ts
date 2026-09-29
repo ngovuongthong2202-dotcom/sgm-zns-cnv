@@ -1,10 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
+import { Customer } from '@/src/domain/schema/customer.schema';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
+import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 
 const STATE_KEY = 'dataview:deliveries:state';
 
-export function useDeliveriesFilters(deliveries: Delivery[], activeTab: string) {
+export function useDeliveriesFilters(
+  deliveries: Delivery[], 
+  activeTab: string = 'all', 
+  customerTinhThanhMap: Map<string, string> = new Map()
+) {
   const getInitialFilter = (key: string, defaultVal: string | string[] = '') => {
     try {
       const saved = localStorage.getItem(STATE_KEY);
@@ -73,27 +79,41 @@ export function useDeliveriesFilters(deliveries: Delivery[], activeTab: string) 
     }
 
     if (selectedNguoiGiao) {
-      result = result.filter(d => d.nguoiPhuTrach === selectedNguoiGiao);
+      result = result.filter(d => 
+        d.nguoiPhuTrach === selectedNguoiGiao ||
+        (d as any).taiXe === selectedNguoiGiao ||
+        (d as any).thoGiaoMay === selectedNguoiGiao
+      );
     }
 
     if (selectedTinhThanh) {
-      result = result.filter(d => d.customerId?.includes(selectedTinhThanh));
+      const target = selectedTinhThanh.toLowerCase().trim();
+      result = result.filter(d => {
+        const custProv = (d.customerId ? customerTinhThanhMap.get(d.customerId) : '')
+          || (d.customerId ? entityCachePool.get<Customer>('customers', d.customerId)?.tinhThanh : '')
+          || '';
+        return (
+          custProv.toLowerCase().includes(target) ||
+          (d.diaChiGiaoHang && d.diaChiGiaoHang.toLowerCase().includes(target))
+        );
+      });
     }
 
     if (selectedZns) {
       result = result.filter(d => {
          const s1 = normalizeLegacyStatus(d.trangThaiGuiTinGiaoHang);
-         const s2 = normalizeLegacyStatus(d.trangThaiGuiTinGiaoHang);
-         return s1 === selectedZns || s2 === selectedZns;
+         return s1 === selectedZns;
       });
     }
 
     if (selectedNgayDuKien[0] || selectedNgayDuKien[1]) {
       const [start, end] = selectedNgayDuKien;
       result = result.filter(d => {
-        if (!d.ngayGiaoMay) return false;
-        if (start && d.ngayGiaoMay < start) return false;
-        if (end && d.ngayGiaoMay > end) return false;
+        const dateVal = d.ngayGiaoMay || (d as any).ngayLapPgh || (d as any).createdAt || '';
+        if (!dateVal) return false;
+        const dtStr = String(dateVal).substring(0, 10);
+        if (start && dtStr < start) return false;
+        if (end && dtStr > end) return false;
         return true;
       });
     }
@@ -101,15 +121,17 @@ export function useDeliveriesFilters(deliveries: Delivery[], activeTab: string) 
     if (selectedNgayThucTe[0] || selectedNgayThucTe[1]) {
       const [start, end] = selectedNgayThucTe;
       result = result.filter(d => {
-        if (!d.ngayGiaoThucTe) return false;
-        if (start && d.ngayGiaoThucTe < start) return false;
-        if (end && d.ngayGiaoThucTe > end) return false;
+        const dateVal = d.ngayGiaoThucTe;
+        if (!dateVal) return false;
+        const dtStr = String(dateVal).substring(0, 10);
+        if (start && dtStr < start) return false;
+        if (end && dtStr > end) return false;
         return true;
       });
     }
     
     return result;
-  }, [deliveries, activeTab, selectedStatus, selectedSchedule, selectedNguoiGiao, selectedTinhThanh, selectedZns, selectedNgayDuKien, selectedNgayThucTe]);
+  }, [deliveries, activeTab, selectedStatus, selectedSchedule, selectedNguoiGiao, selectedTinhThanh, selectedZns, selectedNgayDuKien, selectedNgayThucTe, customerTinhThanhMap]);
 
   return {
     selectedStatus, setSelectedStatus,

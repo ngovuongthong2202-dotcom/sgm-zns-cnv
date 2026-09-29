@@ -70,7 +70,11 @@ export function useContractsFilters(
       res = res.filter(c => normalizeLegacyStatus(c.trangThaiGuiTinHopDong) === selectedZns);
     }
     if (selectedTinhThanh) {
-      res = res.filter(c => customerTinhThanhMap.get(c.customerId || '') === selectedTinhThanh);
+      const target = selectedTinhThanh.toLowerCase().trim();
+      res = res.filter(c => {
+        const prov = (c as any).tinhThanh || customerTinhThanhMap.get(c.customerId || '') || '';
+        return String(prov).toLowerCase().trim() === target || String(prov).toLowerCase().includes(target);
+      });
     }
     if (selectedDkHoanThanh) {
       const today = new Date();
@@ -125,10 +129,11 @@ export function useContractsFilters(
     if (selectedDateRange[0] || selectedDateRange[1]) {
       const [start, end] = selectedDateRange;
       res = res.filter(c => {
-        const d = c.ngayKy || '';
+        const d = c.ngayKy || (c as any).ngayHopDong || (c as any).createdAt || '';
         if (!d) return false;
-        if (start && d < start) return false;
-        if (end && d > end) return false;
+        const dtStr = String(d).substring(0, 10);
+        if (start && dtStr < start) return false;
+        if (end && dtStr > end) return false;
         return true;
       });
     }

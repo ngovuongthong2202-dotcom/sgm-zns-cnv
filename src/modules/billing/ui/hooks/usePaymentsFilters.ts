@@ -78,9 +78,10 @@ export function usePaymentsFilters(payments: Payment[], customers: Customer[] = 
       });
     }
     if (selectedTinhThanh) {
+      const target = selectedTinhThanh.toLowerCase().trim();
       result = result.filter(p => {
-        const prov = (p as any).tinhThanh || customers.find(x => x.id === p.customerId)?.tinhThanh || entityCachePool.get('customers', p.customerId || '')?.tinhThanh;
-        return prov === selectedTinhThanh;
+        const prov = (p as any).tinhThanh || customers.find(x => x.id === p.customerId)?.tinhThanh || entityCachePool.get<Customer>('customers', p.customerId || '')?.tinhThanh || '';
+        return String(prov).toLowerCase().trim() === target || String(prov).toLowerCase().includes(target);
       });
     }
     if (selectedZns) {
@@ -92,10 +93,11 @@ export function usePaymentsFilters(payments: Payment[], customers: Customer[] = 
     if (selectedDateRange[0] || selectedDateRange[1]) {
       const [start, end] = selectedDateRange;
       result = result.filter(p => {
-        const d = p.ngayThanhToan || '';
+        const d = p.ngayThanhToan || (p as any).ngayThu || (p as any).createdAt || '';
         if (!d) return false;
-        if (start && d < start) return false;
-        if (end && d > end) return false;
+        const dtStr = String(d).substring(0, 10);
+        if (start && dtStr < start) return false;
+        if (end && dtStr > end) return false;
         return true;
       });
     }

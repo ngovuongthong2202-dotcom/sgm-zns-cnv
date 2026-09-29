@@ -6,6 +6,9 @@ import { formatDate } from '@/src/shared/utils/formatDate';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/src/design-system/Button';
 import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
+import useSWR from 'swr';
+import { swrDocFetcher } from '@/src/data/swr-fetchers';
+import { parseVietnamAddressComplete } from '@/src/shared/services/vietnamAddressParser';
 
 interface DeliveryConfirmationModalProps {
   delivery: Delivery;
@@ -22,6 +25,11 @@ export function DeliveryConfirmationModal({
 }: DeliveryConfirmationModalProps) {
   const [mounted, setMounted] = useState(false);
   const [isReverting, setIsReverting] = useState(false);
+
+  const { data: customerDoc } = useSWR<any>(
+    delivery.customerId ? `customers:${delivery.customerId}` : null,
+    swrDocFetcher
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -43,7 +51,14 @@ export function DeliveryConfirmationModal({
 
   if (!mounted) return null;
 
-  const diaChi = (delivery as any).diaChiGiaoHang || (delivery as any).diaChi || '---';
+  let rawAddr = (delivery as any).diaChiGiaoHang || (delivery as any).diaChi || customerDoc?.diaChi || '';
+  const custProvince = customerDoc?.tinhThanh || (delivery as any).tinhThanh;
+  if (custProvince && !rawAddr.toLowerCase().includes(custProvince.toLowerCase())) {
+    rawAddr = rawAddr ? `${rawAddr}, ${custProvince}` : custProvince;
+  }
+  const parsedAddress = parseVietnamAddressComplete(rawAddr, custProvince ? [custProvince] : []);
+  const resolvedProvince = parsedAddress.province || custProvince;
+  const diaChi = rawAddr || 'Chưa cập nhật địa chỉ';
 
   return (
     <Dialog.Root open={true} onOpenChange={(open) => !open && onClose()}>
@@ -151,7 +166,14 @@ export function DeliveryConfirmationModal({
                     <div className="col-span-1 sm:col-span-2 p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 flex items-start gap-2.5">
                       <MapPin size={15} className="text-slate-400 shrink-0 mt-0.5" />
                       <div className="min-w-0 flex-1">
-                        <span className="text-2xs text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Địa chỉ giao hàng</span>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-2xs text-slate-500 font-bold uppercase tracking-wider block">Địa chỉ giao hàng</span>
+                          {resolvedProvince && (
+                            <span className="text-3xs font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                              🏙️ Tỉnh/Thành: {resolvedProvince} {parsedAddress.logisticsRegion && `• ${parsedAddress.logisticsRegion}`}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-xs text-slate-700 font-medium leading-relaxed block">{diaChi}</span>
                       </div>
                     </div>

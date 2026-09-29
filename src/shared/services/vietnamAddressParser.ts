@@ -68,49 +68,145 @@ export const PROVINCE_ALIASES: Record<string, string[]> = {
     'bắc ninh', 'bac ninh', 'từ sơn', 'yên phong', 'quế võ', 'tiên du', 'thuận thành', 'gia bình', 'lương tài'
   ],
   'Quảng Ninh': [
-    'quảng ninh', 'quang ninh', 'hạ long', 'cẩm phả', 'uông bí', 'móng cái', 'đông triều', 'quảng yên'
+    'quảng ninh', 'quang ninh', 'hạ long', 'cẩm phả', 'uông bí', 'móng cái', 'đông triều', 'quảng yên', 'vân đồn', 'tiên yên', 'hải hà', 'đầm hà', 'bình liêu', 'ba chẽ', 'cô tô'
   ],
   'Khánh Hòa': [
-    'khánh hòa', 'khanh hoa', 'nha trang', 'cam ranh', 'ninh hòa', 'vạn ninh', 'diên khánh', 'cam lâm'
+    'khánh hòa', 'khanh hoa', 'nha trang', 'cam ranh', 'ninh hòa', 'vạn ninh', 'diên khánh', 'cam lâm', 'khánh vĩnh', 'khánh sơn'
   ],
   'Lâm Đồng': [
-    'lâm đồng', 'lam dong', 'đà lạt', 'bảo lộc', 'đức trọng', 'di linh', 'đơn dương', 'lạc dương'
+    'lâm đồng', 'lam dong', 'đà lạt', 'bảo lộc', 'đức trọng', 'di linh', 'đơn dương', 'lạc dương', 'bảo lâm', 'đạ huoai', 'đạ tẻh', 'cát tiên', 'đam rông'
   ],
   'Thanh Hóa': [
-    'thanh hóa', 'thanh hoa', 'sầm sơn', 'bỉm sơn', 'nghi sơn', 'tĩnh gia'
+    'thanh hóa', 'thanh hoa', 'sầm sơn', 'bỉm sơn', 'nghi sơn', 'tĩnh gia', 'hà trung', 'hậu lộc', 'hoằng hóa', 'nga sơn', 'triệu sơn', 'thọ xuân', 'yên định'
   ],
   'Nghệ An': [
-    'nghệ an', 'nghe an', 'vinh', 'cửa lò', 'hoàng mai nghệ an', 'thái hòa'
+    'nghệ an', 'nghe an', 'vinh', 'cửa lò', 'hoàng mai nghệ an', 'thái hòa', 'diễn châu', 'quỳnh lưu', 'yên thành', 'nghi lộc', 'đô lương', 'thanh chương'
+  ],
+  'Hà Tĩnh': [
+    'hà tĩnh', 'ha tinh', 'kỳ anh', 'hồng lĩnh', 'cẩm xuyên', 'thạch hà', 'nghi xuân', 'đức thọ', 'hương sơn', 'hương khê'
   ],
   'Huế': [
-    'huế', 'thừa thiên huế', 'thừa thiên - huế', 'tt huế', 'tt. huế', 'tp huế'
+    'huế', 'thừa thiên huế', 'thừa thiên - huế', 'tt huế', 'tt. huế', 'tp huế', 'hương thủy', 'hương trà', 'phong điền huế', 'quảng điền', 'phú vang', 'phú lộc'
+  ],
+  'Quảng Nam': [
+    'quảng nam', 'quang nam', 'hội an', 'tam kỳ', 'điện bàn', 'núi thành', 'thăng bình', 'đại lộc', 'duy xuyên'
+  ],
+  'Quảng Ngãi': [
+    'quảng ngãi', 'quang ngai', 'đức phổ', 'bình sơn', 'sơn tịnh', 'tư nghĩa', 'mộ đức', 'nghĩa hành'
+  ],
+  'Bình Định': [
+    'bình định', 'binh dinh', 'quy nhơn', 'an nhơn', 'hoài nhơn', 'tây sơn', 'phù mỹ', 'phù cát', 'tuy phước'
+  ],
+  'Phú Yên': [
+    'phú yên', 'phu yen', 'tuy hòa', 'sông cầu', 'đông hòa', 'tây hòa', 'phú hòa', 'tuy an'
+  ],
+  'Ninh Thuận': [
+    'ninh thuận', 'ninh thuan', 'phan rang', 'tháp chàm', 'ninh hải', 'ninh phước', 'thuận nam', 'thuận bắc'
   ],
   'Tây Ninh': [
-    'tây ninh', 'tay ninh', 'trảng bàng', 'hòa thành'
+    'tây ninh', 'tay ninh', 'trảng bàng', 'hòa thành', 'gò dầu', 'bến cầu', 'châu thành tây ninh', 'tân biên', 'tân châu'
   ],
   'Tiền Giang': [
-    'tiền giang', 'tien giang', 'mỹ tho', 'gò công', 'cai lậy'
-  ],
-  'An Giang': [
-    'an giang', 'long xuyên', 'châu đốc', 'tân châu an giang'
+    'tiền giang', 'tien giang', 'mỹ tho', 'gò công', 'cai lậy', 'châu thành tiền giang', 'chợ gạo', 'cái bè', 'tân phước', 'gò công đông', 'gò công tây'
   ],
   'Bến Tre': [
-    'bến tre', 'ben tre', 'ba tri', 'mỏ cày'
+    'bến tre', 'ben tre', 'ba tri', 'mỏ cày', 'mỏ cày nam', 'mỏ cày bắc', 'châu thành bến tre', 'giồng trôm', 'bình đại', 'thạnh phú', 'chợ lách'
   ],
-  'Bình Thuận': [
-    'bình thuận', 'binh thuan', 'phan thiết', 'la gi'
-  ],
-  'Bình Phước': [
-    'bình phước', 'binh phuoc', 'đồng xoài', 'chơn thành', 'phước long', 'bình long'
-  ],
-  'Đắk Lắk': [
-    'đắk lắk', 'đăk lăk', 'dak lak', 'daklak', 'buôn ma thuột', 'bmt'
-  ],
-  'Gia Lai': [
-    'gia lai', 'pleiku', 'an khê', 'ayun pa'
+  'Đồng Tháp': [
+    'đồng tháp', 'dong thap', 'cao lãnh', 'sa đéc', 'hồng ngự', 'lấp vò', 'lai vung', 'châu thành đồng tháp', 'thanh bình', 'tháp mười', 'tam nông'
   ],
   'Vĩnh Long': [
-    'vĩnh long', 'vinh long', 'bình minh'
+    'vĩnh long', 'vinh long', 'bình minh', 'long hồ', 'mang thít', 'tam bình', 'trà ôn', 'vũng liêm', 'bình tân vĩnh long', 'bình tân vl'
+  ],
+  'Trà Vinh': [
+    'trà vinh', 'tra vinh', 'duyên hải', 'càng long', 'châu thành trà vinh', 'cầu kè', 'tiểu cần', 'cầu ngang', 'trà cú'
+  ],
+  'Hậu Giang': [
+    'hậu giang', 'hau giang', 'vị thanh', 'ngã bảy', 'châu thành hậu giang', 'châu thành a', 'phụng hiệp', 'vị thủy', 'long mỹ'
+  ],
+  'Sóc Trăng': [
+    'sóc trăng', 'soc trang', 'ngã năm', 'vĩnh châu', 'mỹ xuyên', 'trần đề', 'long phú', 'kế sách', 'châu thành sóc trăng', 'mỹ tú', 'thạnh trị'
+  ],
+  'Bạc Liêu': [
+    'bạc liêu', 'bac lieu', 'giá rai', 'hòa bình bạc liêu', 'đông hải', 'vĩnh lợi', 'phước long bạc liêu', 'hồng dân'
+  ],
+  'Cà Mau': [
+    'cà mau', 'ca mau', 'năm căn', 'cái nước', 'đầm dơi', 'trần văn thời', 'thới bình', 'u minh', 'ngọc hiển', 'phú tân cà mau'
+  ],
+  'An Giang': [
+    'an giang', 'long xuyên', 'châu đốc', 'tân châu an giang', 'châu phú', 'châu thành an giang', 'chợ mới an giang', 'thoại sơn', 'phú tân an giang', 'tri tôn', 'tịnh biên'
+  ],
+  'Kiên Giang': [
+    'kiên giang', 'kien giang', 'rạch giá', 'hà tiên', 'phú quốc', 'kiên lương', 'hòn đất', 'tân hiệp', 'châu thành kiên giang', 'giồng riềng', 'gò quao', 'an biên', 'an minh', 'vĩnh thuận'
+  ],
+  'Bình Thuận': [
+    'bình thuận', 'binh thuan', 'phan thiết', 'la gi', 'hàm thuận bắc', 'hàm thuận nam', 'bắc bình', 'tuy phong', 'tánh linh', 'hàm tân', 'đức linh', 'phú quý'
+  ],
+  'Bình Phước': [
+    'bình phước', 'binh phuoc', 'đồng xoài', 'chơn thành', 'phước long', 'bình long', 'hớn quản', 'đồng phú', 'bù đăng', 'bù đốp', 'bù gia mập', 'lộc ninh'
+  ],
+  'Đắk Lắk': [
+    'đắk lắk', 'đăk lăk', 'dak lak', 'daklak', 'buôn ma thuột', 'bmt', 'buôn hồ', 'krông pắc', 'krông ana', 'krông búp', 'krông năng', 'krông bông', 'ea kar', 'ea hleo', 'cư mgar', 'cư kuin'
+  ],
+  'Đắk Nông': [
+    'đắk nông', 'đăk nông', 'dak nong', 'gia nghĩa', 'đắk r lấp', 'đắk mil', 'cư jút', 'đắk song', 'krông nô', 'tuy đức', 'đắk glong'
+  ],
+  'Gia Lai': [
+    'gia lai', 'pleiku', 'an khê', 'ayun pa', 'chư sê', 'chư păh', 'chư prông', 'chư pưh', 'đak đoa', 'đak pơ', 'đức cơ', 'ia grai', 'ia pa', 'kbang', 'kông chro', 'krông pa', 'phú thiện'
+  ],
+  'Kon Tum': [
+    'kon tum', 'kontum', 'đắk hà', 'đắk tô', 'ngọc hồi', 'sa thầy', 'kon plông', 'kon rẫy', 'tu mơ rông', 'ia h drai'
+  ],
+  'Hưng Yên': [
+    'hưng yên', 'hung yen', 'mỹ hào', 'văn giang', 'văn lâm', 'yên mỹ', 'khoái châu', 'ân thi', 'kim động', 'tiên lữ', 'phù cừ'
+  ],
+  'Hải Dương': [
+    'hải dương', 'hai duong', 'chí linh', 'kinh môn', 'cẩm giàng', 'bình giang', 'nam sách', 'kim thành', 'thanh hà', 'thanh miện', 'gia lộc', 'tứ kỳ', 'ninh giang'
+  ],
+  'Nam Định': [
+    'nam định', 'nam dinh', 'mỹ lộc', 'vụ bản', 'ý yên', 'nghĩa hưng', 'nam trực', 'trực ninh', 'xuân trường', 'giao thủy', 'hải hậu'
+  ],
+  'Thái Bình': [
+    'thái bình', 'thai binh', 'vũ thư', 'kiến xương', 'tiền hải', 'đông hưng', 'quỳnh phụ', 'hưng hà', 'thái thụy'
+  ],
+  'Hà Nam': [
+    'hà nam', 'ha nam', 'phủ lý', 'duy tiên', 'kim bảng', 'thanh liêm', 'bình lục', 'lý nhân'
+  ],
+  'Ninh Bình': [
+    'ninh bình', 'ninh binh', 'tam điệp', 'hoa lư', 'gia viễn', 'nho quan', 'yên khánh', 'kim sơn', 'yên mô'
+  ],
+  'Vĩnh Phúc': [
+    'vĩnh phúc', 'vinh phuc', 'vĩnh yên', 'phúc yên', 'bình xuyên', 'lập thạch', 'sông lô', 'tam dương', 'tam đảo', 'vĩnh tường', 'yên lạc'
+  ],
+  'Phú Thọ': [
+    'phú thọ', 'phu tho', 'việt trì', 'thị xã phú thọ', 'lâm thao', 'phù ninh', 'tam nông', 'thanh thủy', 'thanh ba', 'hạ hòa', 'cẩm khê', 'đoan hùng', 'thanh sơn', 'yên lập', 'tân sơn'
+  ],
+  'Bắc Giang': [
+    'bắc giang', 'bac giang', 'việt yên', 'hiệp hòa', 'lạng giang', 'lục nam', 'lục ngạn', 'tân yên', 'yên dũng', 'yên thế', 'sơn động'
+  ],
+  'Thái Nguyên': [
+    'thái nguyên', 'thai nguyen', 'sông công', 'phổ yên', 'đại từ', 'định hóa', 'đồng hỷ', 'phú bình', 'phú lương', 'võ nhai'
+  ],
+  'Hòa Bình': [
+    'hòa bình', 'hoa binh', 'lương sơn', 'cao phong', 'đà bắc', 'kim bôi', 'lạc sơn', 'lạc thủy', 'mai châu', 'tân lạc', 'yên thủy'
+  ],
+  'Sơn La': [
+    'sơn la', 'son la', 'mộc châu', 'thuận châu', 'mường la', 'yên châu', 'sông mã', 'mai sơn', 'phù yên', 'bắc yên', 'vân hồ', 'quỳnh nhai', 'sốp cộp'
+  ],
+  'Lào Cai': [
+    'lào cai', 'lao cai', 'sa pa', 'sapa', 'bát xát', 'bảo thắng', 'bảo yên', 'bắc hà', 'mường khương', 'si ma cai', 'văn bàn'
+  ],
+  'Yên Bái': [
+    'yên bái', 'yen bai', 'nghĩa lộ', 'lục yên', 'mù cang chải', 'trấn yên', 'trạm tấu', 'văn chấn', 'văn yên', 'yên bình'
+  ],
+  'Tuyên Quang': [
+    'tuyên quang', 'tuyen quang', 'chiêm hóa', 'hàm yên', 'lâm bình', 'na hang', 'sơn dương', 'yên sơn'
+  ],
+  'Hà Giang': [
+    'hà giang', 'ha giang', 'bắc mê', 'bắc quang', 'đồng văn', 'hoàng su phì', 'mèo vạc', 'quản bạ', 'quang bình', 'vị xuyên', 'xín mần'
+  ],
+  'Lạng Sơn': [
+    'lạng sơn', 'lang son', 'bắc sơn', 'bình gia', 'cao lộc', 'chi lăng', 'đình lập', 'hữu lũng', 'lộc bình', 'tràng định', 'văn lãng', 'văn quan'
   ]
 };
 
@@ -174,7 +270,14 @@ export const DISTRICT_MAP: Record<string, string[]> = {
   'Huyện Bến Lức': ['bến lức', 'ben luc'],
   'Huyện Cần Giuộc': ['cần giuộc', 'can giuoc'],
   'Huyện Cần Đước': ['cần đước', 'can duoc'],
-  'TP Tân An': ['tân an', 'tan an']
+  'TP Tân An': ['tân an', 'tan an'],
+  // Vĩnh Long
+  'Huyện Long Hồ': ['long hồ', 'long ho', 'huyện long hồ', 'xã long hồ', 'tt long hồ'],
+  'TX Bình Minh': ['bình minh', 'binh minh', 'thị xã bình minh'],
+  'Huyện Mang Thít': ['mang thít', 'mang thit'],
+  'Huyện Tam Bình': ['tam bình', 'tam binh'],
+  'Huyện Trà Ôn': ['trà ôn', 'tra on'],
+  'Huyện Vũng Liêm': ['vũng liêm', 'vung liem']
 };
 
 /**

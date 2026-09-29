@@ -78,9 +78,10 @@ export function useQuotationsFilters(
       res = res.filter(q => q.nguoiPhuTrach === selectedNguoiPhuTrach);
     }
     if (selectedTinhThanh) {
+      const target = selectedTinhThanh.toLowerCase().trim();
       res = res.filter(q => {
-        const prov = (q as any).tinhThanh || customerTinhThanhMap.get(q.customerId || '') || entityCachePool.get('customers', q.customerId || '')?.tinhThanh;
-        return prov === selectedTinhThanh;
+        const prov = (q as any).tinhThanh || customerTinhThanhMap.get(q.customerId || '') || entityCachePool.get<any>('customers', q.customerId || '')?.tinhThanh || '';
+        return String(prov).toLowerCase().trim() === target || String(prov).toLowerCase().includes(target);
       });
     }
     if (selectedTienDo) {
@@ -122,10 +123,11 @@ export function useQuotationsFilters(
     if (selectedDateRange[0] || selectedDateRange[1]) {
       const [start, end] = selectedDateRange;
       res = res.filter(q => {
-        const d = q.ngayBaoGia || '';
+        const d = q.ngayBaoGia || (q as any).createdAt || '';
         if (!d) return false;
-        if (start && d < start) return false;
-        if (end && d > end) return false;
+        const dtStr = String(d).substring(0, 10);
+        if (start && dtStr < start) return false;
+        if (end && dtStr > end) return false;
         return true;
       });
     }

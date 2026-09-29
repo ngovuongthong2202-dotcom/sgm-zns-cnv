@@ -14,10 +14,12 @@ import {
   Truck, 
   BarChart3, 
   PieChart,
-  MousePointerClick
+  MousePointerClick,
+  Cpu
 } from 'lucide-react';
 import { t } from '@/src/i18n/vi';
 import { MetricDrilldownDrawer, MetricDrilldownType } from './components/MetricDrilldownDrawer';
+import { ProductAnalyticsTab } from './components/ProductAnalyticsTab';
 
 export default function DashboardPage() {
   const { user: _user } = useAuth();
@@ -30,7 +32,7 @@ export default function DashboardPage() {
     deliveries 
   } = usePipelineAnalytics();
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'groups'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'groups' | 'products'>('overview');
   const [drilldownMetric, setDrilldownMetric] = useState<MetricDrilldownType | null>(null);
 
   return (
@@ -59,6 +61,15 @@ export default function DashboardPage() {
           >
             <PieChart size={14} />
             Phân bổ danh mục
+          </Button>
+          <Button
+            onClick={() => setActiveTab('products')}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-xs font-bold tracking-tight transition-all cursor-pointer ${
+              activeTab === 'products' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Cpu size={14} />
+            Báo cáo Sản phẩm
           </Button>
         </div>
       </div>
@@ -332,6 +343,16 @@ export default function DashboardPage() {
              </ul>
            </section>
         </div>
+      )}
+
+      {activeTab === 'products' && (
+        <ProductAnalyticsTab
+          customers={customers}
+          quotations={quotations}
+          contracts={contracts}
+          payments={payments}
+          deliveries={deliveries}
+        />
       )}
 
       {/* Slide-over Drilldown Cockpit Drawer */}

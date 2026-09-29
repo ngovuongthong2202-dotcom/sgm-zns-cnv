@@ -172,7 +172,7 @@ export function ContractDetailDrawer({
   const lockResult = checkContractLock(drawerContract, pays, dels);
 
   // TABS HEADERS - Kiến trúc Tam Điểm (The Sovereign Triad: 3 Tab chuẩn)
-  const totalFlowDocs = (quotationDoc ? 1 : 0) + 1 + dels.length + pays.length;
+  const totalFlowDocs = 1;
   const customTabsList = (
     <div className="flex items-center gap-6 border-b border-slate-100 pb-px -mb-[9px] select-none pl-1 overflow-x-auto scrollbar-hide">
       {(

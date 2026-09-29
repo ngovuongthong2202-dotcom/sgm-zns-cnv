@@ -78,6 +78,12 @@ export function DeliveryDetailDrawer({
     return Array.from(map.values());
   }, [singlePaymentDoc, contractPayments]);
 
+  const customerId = drawerDelivery?.customerId || drawerContract?.customerId || drawerQuotation?.customerId;
+  const { data: customerDoc } = useSWR<any>(
+    customerId ? `customers:${customerId}` : null,
+    swrDocFetcher
+  );
+
   const paymentDoc = allPayments[0] || null;
   const [activeTab, setActiveTab] = useState<'overview' | 'flow' | 'nexus'>('overview');
   const [flowFocusTarget, setFlowFocusTarget] = useState<'quotation' | 'contract' | 'delivery' | 'payment'>('delivery');
@@ -90,7 +96,7 @@ export function DeliveryDetailDrawer({
     }
   }, [drawerDelivery?.id]);
 
-  const totalFlowDocs = (drawerQuotation ? 1 : 0) + (drawerContract ? 1 : 0) + 1 + allPayments.length;
+  const totalFlowDocs = 1;
 
   const customTabsList = (
     <div className="flex items-center gap-6 border-b border-slate-100 pb-px -mb-[9px] select-none pl-1 overflow-x-auto scrollbar-hide">
@@ -154,16 +160,28 @@ export function DeliveryDetailDrawer({
         }
       }
     }
+    if (!rawAddr && customerDoc?.diaChi) {
+      rawAddr = customerDoc.diaChi;
+    }
     if (!rawAddr) {
       rawAddr = drawerDelivery.tenKhachHang || 'Chưa cập nhật địa chỉ';
     }
 
-    const parsed = parseVietnamAddressComplete(rawAddr);
+    const custProv = customerDoc?.tinhThanh || (drawerDelivery as any).tinhThanh || drawerContract?.tinhThanh;
+    if (custProv && !rawAddr.toLowerCase().includes(custProv.toLowerCase())) {
+      rawAddr = `${rawAddr}, ${custProv}`;
+    }
+
+    const parsed = parseVietnamAddressComplete(rawAddr, custProv ? [custProv] : []);
     return {
       fullAddress: rawAddr,
-      ...parsed
+      province: parsed.province || custProv || null,
+      district: parsed.district,
+      industrialZone: parsed.industrialZone,
+      logisticsRegion: parsed.logisticsRegion,
+      suggestedCarriers: parsed.suggestedCarriers
     };
-  }, [drawerDelivery, drawerContract]);
+  }, [drawerDelivery, drawerContract, customerDoc]);
 
   const smartAddress = smartAddressInfo.fullAddress;
 

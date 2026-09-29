@@ -50,14 +50,19 @@ export function filterCustomersList({
 
   // 4. Filter by Tỉnh/Thành
   if (selectedTinhThanh) {
-    result = result.filter(c => c.tinhThanh === selectedTinhThanh);
+    const target = selectedTinhThanh.toLowerCase().trim();
+    result = result.filter(c => {
+      const prov = (c.tinhThanh || '').toLowerCase().trim();
+      return prov === target || prov.includes(target);
+    });
   }
 
   // 4.1 Filter by created date range
   if (selectedCreatedDateRange && (selectedCreatedDateRange[0] || selectedCreatedDateRange[1])) {
     const [start, end] = selectedCreatedDateRange;
     result = result.filter(c => {
-      const dateStr = c.ngayTao ? String(c.ngayTao).substring(0, 10) : '';
+      const rawDate = c.ngayTao || (c as any).createdAt || '';
+      const dateStr = rawDate ? String(rawDate).substring(0, 10) : '';
       if (!dateStr) return false;
       if (start && dateStr < start) return false;
       if (end && dateStr > end) return false;
