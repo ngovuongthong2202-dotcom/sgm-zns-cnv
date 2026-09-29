@@ -51,7 +51,16 @@ export default function VendorPage() {
   const handleTestWebhook = async () => {
     setTesting(true);
     try {
-      const res = await fetch('/api/zns/test-webhook-dryrun', { method: 'POST' });
+      // Get the currently entered URL from the form if present, else let backend resolve from DB
+      const warmUpInput = document.getElementById('vendorUrl_CUSTOMER_PRE_QUOTE') as HTMLInputElement | null;
+      const quoteInput = document.getElementById('vendorUrl_BAOGIA') as HTMLInputElement | null;
+      const testUrl = warmUpInput?.value?.trim() || quoteInput?.value?.trim() || znsConfigDoc?.vendorUrl_CUSTOMER_PRE_QUOTE || znsConfigDoc?.vendorUrl_BAOGIA || '';
+
+      const res = await fetch('/api/zns/test-webhook-dryrun', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testUrl })
+      });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
         throw new Error(data?.error || `Lỗi HTTP ${res.status}`);

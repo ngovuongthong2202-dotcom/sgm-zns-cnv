@@ -13,6 +13,8 @@ import { normalizeLegacyStatus, EntityZnsStatus } from '../../domain/enums/zns-s
 const router = Router();
 const sendZnsUseCase = new SendZnsMessageUseCase(znsRepository, znsVendor);
 
+import { resilientFetch } from '../lib/resilient-transport';
+
 // Modern unified endpoint for vendor webhook results
 router.post('/vendor-webhook/zns-result', (req, res) => vendorWebhookHandler.handleResult(req, res));
 router.post('/webhook/cnv', (req, res) => vendorWebhookHandler.handleResult(req, res));
@@ -20,12 +22,22 @@ router.post('/webhook/cnv', (req, res) => vendorWebhookHandler.handleResult(req,
 // Endpoint for testing connection to vendor webhook
 router.post('/test-webhook-dryrun', async (req, res) => {
   try {
-    const settingsDoc = await adminDb.collection('settings').doc('zns_config').get();
-    const configData = settingsDoc.exists ? settingsDoc.data() || {} : {};
-    const testUrl = configData.vendorUrl_CUSTOMER_PRE_QUOTE || 
-                    configData.vendorUrl_DEFAULT || 
-                    process.env.CNV_DEFAULT_WEBHOOK_URL ||
-                    configData.vendorUrl_BAOGIA;
+    let testUrl = (req.body?.testUrl || req.body?.url || '').trim();
+
+    if (!testUrl) {
+      const settingsDoc = await adminDb.collection('settings').doc('zns_config').get();
+      const configData = settingsDoc.exists ? settingsDoc.data() || {} : {};
+      testUrl = (
+        configData.vendorUrl_CUSTOMER_PRE_QUOTE || 
+        configData.vendorUrl_BAOGIA || 
+        configData.vendorUrl_HOPDONG_SIGN_ZNS || 
+        configData.vendorUrl_THANH_TOAN_TAT_TOAN || 
+        configData.vendorUrl_GIAOHANG_ZNS || 
+        configData.vendorUrl_DEFAULT || 
+        process.env.CNV_DEFAULT_WEBHOOK_URL ||
+        ''
+      ).trim();
+    }
     
     if (!testUrl || typeof testUrl !== 'string' || !testUrl.trim()) {
       return res.status(400).json({ 
@@ -35,38 +47,56 @@ router.post('/test-webhook-dryrun', async (req, res) => {
     }
 
     const trimmedUrl = testUrl.trim();
-    const pingResponse = await fetch(trimmedUrl, {
+    const pingPayload = {
+      action: 'Gửi tin',
+      message_type: 'TEST_DRY_RUN',
+      request_id: `test_dryrun_${Date.now()}`,
+      customer_name: 'Khách Hàng Thử Nghiệm Webhook SGM',
+      phone: '0900000000',
+      so_dien_thoai: '0900000000',
+      source: 'SGM_CRM_DRY_RUN',
+      dry_run: true,
+      timestamp: new Date().toISOString()
+    };
+
+    const pingResponse = await resilientFetch(trimmedUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        action: 'Ping',
-        source: 'SGM_CRM_DRY_RUN',
-        timestamp: new Date().toISOString() 
-      })
+      headers: { 
+        'Content-Type': 'application/json',
+        'User-Agent': 'SGM-CRM-ZNS-Outbound/1.0'
+      },
+      body: JSON.stringify(pingPayload)
     });
 
     const status = pingResponse.status;
     const responseText = await pingResponse.text().catch(() => '');
+    let parsedBody: any = null;
+    try {
+      parsedBody = JSON.parse(responseText);
+    } catch {
+      parsedBody = responseText;
+    }
 
     if (status >= 200 && status < 300) {
       return res.json({ 
         success: true, 
-        message: `Kết nối thành công tới Webhook CNV (HTTP ${status}). Hệ thống đã liên kết tốt với CNV.`,
+        message: `Kết nối thành công tới Webhook CNV (HTTP ${status}). Hệ thống đã liên kết và nhận phản hồi tốt từ CNV.`,
         url: trimmedUrl,
-        response: responseText
+        response: parsedBody
       });
     } else {
       return res.status(502).json({
         success: false,
         error: `Webhook CNV phản hồi mã lỗi HTTP ${status}. Kiểm tra lại trạng thái kịch bản trên CNV.`,
         url: trimmedUrl,
-        response: responseText
+        response: parsedBody
       });
     }
   } catch (err: any) {
+    const errorDetail = err?.cause?.message || err?.message || String(err);
     return res.status(500).json({ 
       success: false, 
-      error: `Không thể kết nối tới Webhook CNV: ${err instanceof Error ? err.message : String(err)}` 
+      error: `Không thể kết nối tới Webhook CNV: ${errorDetail}` 
     });
   }
 });

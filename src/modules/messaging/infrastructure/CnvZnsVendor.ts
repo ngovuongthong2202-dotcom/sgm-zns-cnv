@@ -5,6 +5,8 @@ import { ZnsMessageAggregate } from '../domain/ZnsMessage';
 import { ZnsVendorPort } from '../domain/ZnsVendorPort';
 import { logger } from '../../../shared/lib/logger';
 
+import { resilientFetch } from '../../../backend/lib/resilient-transport';
+
 export class CnvZnsVendor implements ZnsVendorPort {
   async send(message: ZnsMessageAggregate): Promise<{ trackingId: string; success: boolean; rawResponse: any; error?: string }> {
     const props = message.props;
@@ -34,7 +36,7 @@ export class CnvZnsVendor implements ZnsVendorPort {
     }
 
     try {
-      const response = await fetch(url, {
+      const response = await resilientFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

@@ -24,8 +24,12 @@ import quotationRoutes from './src/backend/routes/quotation.routes';
 import itemsRoutes from './src/backend/routes/items.routes';
 import { correlationIdMiddleware } from './src/backend/middleware/correlationId.middleware';
 import { bootstrapMachines } from './src/backend/workflow/machines';
+import { initResilientTransport } from './src/backend/lib/resilient-transport';
 
 async function startServer() {
+  // Initialize resilient outbound transport with DNS fallback
+  initResilientTransport();
+
   // Bootstrap all workflow state machines
   bootstrapMachines();
 
