@@ -100,15 +100,24 @@ export default function CustomersFeature() {
     const map = new Map<string, Set<string>>();
     const addToMap = (key: string, qId: string) => {
       if (!key || !qId) return;
-      if (!map.has(key)) map.set(key, new Set());
-      map.get(key)!.add(qId);
+      const strKey = String(key).trim();
+      if (!strKey) return;
+      const normKey = strKey.toLowerCase();
+      
+      if (!map.has(normKey)) map.set(normKey, new Set());
+      map.get(normKey)!.add(qId);
+      
+      if (!map.has(strKey)) map.set(strKey, new Set());
+      map.get(strKey)!.add(qId);
     };
 
     for (const q of quotations) {
       const qId = q.id || q.soPhieuBaoGia;
       if (!qId) continue;
       if (q.customerId) addToMap(q.customerId, qId);
-      if (q.maKh && q.maKh !== q.customerId) addToMap(q.maKh, qId);
+      if (q.maKh) addToMap(q.maKh, qId);
+      if (q.sdt) addToMap(q.sdt, qId);
+      if (q.tenKhachHang) addToMap(q.tenKhachHang, qId);
     }
     return map;
   }, [quotations]);
@@ -129,7 +138,7 @@ export default function CustomersFeature() {
     );
   }, [handleDeleteCustomer, handleSendZns, sendingZnsIds, setDrawerState, userData?.role, quotationCountMap]);
 
-  const customersWithStt = useMemo(() => enrichWithStt(filteredCustomers), [filteredCustomers]);
+  const customersWithStt = useMemo(() => enrichWithStt(filteredCustomers), [filteredCustomers, quotations]);
 
   const dataView = useDataView<Customer>({
     viewId: 'customers_list',

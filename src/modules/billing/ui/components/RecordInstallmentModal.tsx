@@ -29,7 +29,7 @@ interface RecordInstallmentModalProps {
   onClose: () => void;
   payment: Payment;
   defaultPayerName?: string;
-  onSave: (installment: PaymentInstallment, newTotalPaid: number, newRemaining: number, newStatus: string) => Promise<void>;
+  onSave: (installment: PaymentInstallment, newTotalPaid: number, newRemaining: number, newStatus: string, shouldSendZns?: boolean) => Promise<void>;
 }
 
 export function RecordInstallmentModal({
@@ -51,6 +51,7 @@ export function RecordInstallmentModal({
   const [displayAmount, setDisplayAmount] = useState<string>(
     initialAmount > 0 ? new Intl.NumberFormat('vi-VN').format(initialAmount) : ''
   );
+  const [autoSendZns, setAutoSendZns] = useState<boolean>(true);
 
   const FormSchema = z.object({
     soTien: z.number().positive('Số tiền thu phải lớn hơn 0').max(
@@ -140,7 +141,7 @@ export function RecordInstallmentModal({
       createdAt: new Date().toISOString(),
     };
 
-    await onSave(newInstallment, newTotal, newRemaining, newStatus);
+    await onSave(newInstallment, newTotal, newRemaining, newStatus, autoSendZns);
     onClose();
   };
 
@@ -163,7 +164,7 @@ export function RecordInstallmentModal({
                 className="bg-white rounded-2xl shadow-2xl w-full flex flex-col max-h-[94vh] border border-slate-200 overflow-hidden"
               >
                 {/* Header */}
-                <div className="px-6 py-4 bg-gradient-to-r from-emerald-800 via-emerald-900 to-teal-950 text-white shrink-0 flex items-center justify-between gap-4">
+                <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white shrink-0 flex items-center justify-between gap-4 border-b border-slate-700">
                   <div className="flex items-center gap-3">
                     <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md border border-white/20">
                       <CreditCard size={22} className="text-white" />
@@ -172,12 +173,12 @@ export function RecordInstallmentModal({
                       <Dialog.Title className="text-base font-black tracking-tight text-white flex items-center gap-2">
                         Ghi nhận đợt thu mới (Đợt {nextInstallmentNumber})
                       </Dialog.Title>
-                      <Dialog.Description className="text-2xs text-emerald-200 font-semibold mt-0.5">
+                      <Dialog.Description className="text-2xs text-slate-300 font-semibold mt-0.5">
                         Phiếu thu: <strong className="font-mono text-white">{payment.paymentId}</strong> | HĐ: <strong className="font-mono text-white">{payment.soHopDong || '---'}</strong>
                       </Dialog.Description>
                     </div>
                   </div>
-                  <span className="text-3xs uppercase font-black px-2.5 py-1 rounded-full bg-emerald-500/30 text-emerald-100 border border-emerald-400/40">
+                  <span className="text-3xs uppercase font-black px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">
                     Sổ cái đa đợt
                   </span>
                 </div>
@@ -402,6 +403,30 @@ export function RecordInstallmentModal({
                       className="p-2.5 border border-slate-300 rounded-lg text-xs font-medium text-slate-900 w-full focus:border-emerald-600 outline-none bg-white resize-none"
                       placeholder="Ghi chú đợt thanh toán, ngân hàng chuyển, số hợp đồng căn cứ..."
                     />
+                  </div>
+
+                  {/* Kích hoạt ZNS Đa Đợt / Tất Toán */}
+                  <div className="p-3 bg-blue-50/80 border border-blue-200/80 rounded-xl flex items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                        ⚡
+                      </span>
+                      <div>
+                        <span className="text-xs font-bold text-slate-900 block">Kích hoạt gửi tin ZNS Thanh toán</span>
+                        <span className="text-2xs text-slate-600 font-medium">
+                          Tự động gửi ZNS ({willBeFullyPaid ? 'Tất toán 100%' : `Đợt ${nextInstallmentNumber}`}) đến khách hàng ngay sau khi ghi thu
+                        </span>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input 
+                        type="checkbox" 
+                        checked={autoSendZns} 
+                        onChange={(e) => setAutoSendZns(e.target.checked)} 
+                        className="sr-only peer" 
+                      />
+                      <div className="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
                   </div>
                 </form>
 

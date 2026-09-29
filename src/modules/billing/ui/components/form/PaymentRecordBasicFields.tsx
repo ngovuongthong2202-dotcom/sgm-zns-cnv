@@ -417,45 +417,49 @@ export function PaymentRecordBasicFields({
               )}
 
               <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 border border-slate-100 rounded-xl">
-                  <div className="col-span-2 grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                        <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block">
-                          {isContract ? 'Số Hợp Đồng' : 'Số Phiếu Báo Giá'}
-                        </label>
-                        {isContract ? (
-                          <input 
-                            aria-label="Số hợp đồng" 
-                            disabled={disabled} 
-                            {...register('soHopDong')} 
-                            onBlur={(e) => handleBlurUppercase(e, (val) => setValue('soHopDong', val, { shouldDirty: true }))}
-                            className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" 
-                            placeholder="HD..."
-                          />
-                        ) : (
-                          <input 
-                            aria-label="Số phiếu báo giá" 
-                            disabled={disabled} 
-                            {...register('soPhieuBaoGia')} 
-                            onBlur={(e) => handleBlurUppercase(e, (val) => setValue('soPhieuBaoGia', val, { shouldDirty: true }))}
-                            className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" 
-                            placeholder="BG..."
-                          />
-                        )}
+                {!isContract && (
+                  <div className="col-span-2 flex items-center justify-between p-2.5 bg-emerald-50/80 border border-emerald-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="text-3xs font-bold uppercase text-emerald-800 tracking-wide">
+                        Số phiếu báo giá:
+                      </span>
+                      <span className="font-mono text-xs font-bold text-emerald-900 bg-white px-2 py-0.5 rounded border border-emerald-300">
+                        {watchAll.soPhieuBaoGia || activeDoc?.soPhieuBaoGia || '---'}
+                      </span>
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block">
-                          Số Đơn Hàng {!isContract && <span className="text-red-650">*</span>}
-                        </label>
-                        <input 
-                          aria-label="Số đơn hàng" 
-                          disabled={disabled || isContract} 
-                          {...register('soDonHang')} 
-                          onBlur={(e) => handleBlurUppercase(e, (val) => setValue('soDonHang', val, { shouldDirty: true }))}
-                          className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" 
-                          placeholder={isContract ? (watchAll.soDonHang ? watchAll.soDonHang : "Tự động kế thừa từ HĐ") : "Nhập số đơn hàng..."}
-                        />
-                    </div>
+                    <span className="text-3xs text-emerald-700 font-semibold italic">
+                      ✓ Đã tự động liên kết từ Báo giá
+                    </span>
                   </div>
+                )}
+                <div className="col-span-2 grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-2xs font-medium uppercase tracking-wide text-slate-600 block">
+                      Số Hợp Đồng {!isContract && <span className="text-red-600 font-bold">*</span>}
+                    </label>
+                    <input 
+                      aria-label="Số hợp đồng" 
+                      disabled={disabled} 
+                      {...register('soHopDong', { required: !isContract })} 
+                      onBlur={(e) => handleBlurUppercase(e, (val) => setValue('soHopDong', val, { shouldDirty: true }))}
+                      className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" 
+                      placeholder={isContract ? "HD..." : "Nhập số hợp đồng (*)..."}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-2xs font-medium uppercase tracking-wide text-slate-600 block">
+                      Số Đơn Hàng {!isContract && <span className="text-red-600 font-bold">*</span>}
+                    </label>
+                    <input 
+                      aria-label="Số đơn hàng" 
+                      disabled={disabled} 
+                      {...register('soDonHang', { required: !isContract })} 
+                      onBlur={(e) => handleBlurUppercase(e, (val) => setValue('soDonHang', val, { shouldDirty: true }))}
+                      className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" 
+                      placeholder={isContract ? (watchAll.soDonHang ? watchAll.soDonHang : "Tự động kế thừa từ HĐ") : "Nhập số đơn hàng (*)..."}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
         </div>

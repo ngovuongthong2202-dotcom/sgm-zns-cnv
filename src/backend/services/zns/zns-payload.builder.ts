@@ -54,8 +54,8 @@ const ZALO_REQUIRED_VARS: Record<string, string[]> = {
   CUSTOMER_PRE_QUOTE: ['customer_name', 'phone'],
   BAOGIA:             ['customer_name', 'so_phieu_bao_gia', 'ngay_bao_gia', 'ngay_het_han', 'sl_may', 'nguoi_phu_trach'],
   HOPDONG_SIGN_ZNS:   ['customer_name', 'phone', 'order_code', 'So_don_hang', 'ngay_ky', 'so_ngay', 'so_phieu', 'nhan_vien'],
-  THANH_TOAN_TAT_TOAN:['customer_name', 'phone', 'order_code', 'ngay_thanh_toan'],
-  THANH_TOAN_CONG_NO: ['customer_name', 'phone', 'order_code', 'time', 'so_luong'],
+  THANH_TOAN_TAT_TOAN:['customer_name', 'phone', 'order_code', 'ngay_thanh_toan', 'so_luong', 'dvt', 'so_don_hang', 'so_hop_dong'],
+  THANH_TOAN_CONG_NO: ['customer_name', 'phone', 'order_code', 'time', 'so_luong', 'dvt', 'so_don_hang', 'so_hop_dong'],
   GIAOHANG_ZNS:       ['customer_name', 'phone', 'So_hop_dong', 'So_don_hang', 'so_phieu_xuat', 'ngay_giao_may', 'danh_sach_ma_may', 'so_luong', 'dvt'],
 };
 

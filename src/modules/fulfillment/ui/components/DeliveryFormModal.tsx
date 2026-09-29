@@ -29,6 +29,8 @@ import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotati
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { EntityZnsStatus } from '@/src/domain/enums/zns-status';
 import { useConfirm } from '@/src/design-system/Confirm';
+import { resolvePaymentLoai } from '@/src/modules/billing/domain/resolvePaymentLoai';
+import { QUOTATION_LOAI } from '@/src/domain/enums/quotation-loai';
 
 export function DeliveryFormModal({ delivery, payments, contracts, quotations, customers, deliveries, nguoiPhuTrachList: _nguoiPhuTrachList, onClose, onSave }: any) {
   const { user, userData } = useAuth();
@@ -499,10 +501,30 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                            }
                            return { disabled: false };
                         }}
-                        renderOption={(p: any) => ({
-                          label: getEntityDisplayLabel('payment', p), 
-                          subLabel: p.tenKhachHang
-                        })}
+                        renderOption={(p: any) => {
+                          const pLoai = resolvePaymentLoai(p);
+                          const typeTag = pLoai === QUOTATION_LOAI.MAY 
+                            ? '📜 [BG Máy]' 
+                            : pLoai === QUOTATION_LOAI.VAT_TU 
+                              ? '📦 [BG Vật Tư]' 
+                              : '🛠️ [BG Dịch Vụ]';
+                          
+                          const docRef = p.soHopDong 
+                            ? `HĐ: ${p.soHopDong}` 
+                            : p.soDonHang 
+                              ? `ĐH: ${p.soDonHang}` 
+                              : p.soPhieuBaoGia 
+                                ? `BG: ${p.soPhieuBaoGia}` 
+                                : '';
+                                
+                          const totalStr = new Intl.NumberFormat('vi-VN').format(p.totalAmount || p.soTien || 0);
+                          const paidStr = new Intl.NumberFormat('vi-VN').format(p.soTien || 0);
+
+                          return {
+                            label: `${typeTag} ${p.paymentId || 'PT'} — ${docRef ? docRef + ' — ' : ''}${p.tenKhachHang || ''}`,
+                            subLabel: `Đã thu: ${paidStr} ₫ / Tổng: ${totalStr} ₫ | Trạng thái: ${p.tinhTrangThanhToan || '---'}`
+                          };
+                        }}
                         renderItemWrapper={(p: any, children) => (
                           <PaymentHoverCard
                             payment={p}

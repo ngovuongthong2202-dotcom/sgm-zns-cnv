@@ -42,39 +42,68 @@ export function usePaymentZns(
       if (!await confirm({ title: "Gửi ZNS Thanh Toán", message: `Gửi ZNS Thanh toán đến ${customerName || ''} (${phone})?` })) return;
     }
     
-    const enrichedPayment = { ...payment };
-    if (!enrichedPayment.soDonHang || !enrichedPayment.soHopDong) {
-      if (payment.contractId) {
-        const contract = await repositoryFactory.get<any>('contracts').getById(payment.contractId);
-        if (contract) {
-          enrichedPayment.soDonHang = enrichedPayment.soDonHang || contract.soDonHang || '';
-          enrichedPayment.soHopDong = enrichedPayment.soHopDong || contract.soHopDong || '';
-          if (!enrichedPayment.slMay || enrichedPayment.slMay === 0) {
-            enrichedPayment.slMay = contract.slMay || 0;
-          }
-          if (!(enrichedPayment as typeof enrichedPayment & { soLuong?: number }).soLuong || (enrichedPayment as typeof enrichedPayment & { soLuong?: number }).soLuong === 0) {
-            (enrichedPayment as typeof enrichedPayment & { soLuong?: number }).soLuong = contract.slMay || (contract as typeof contract & { soLuong?: number }).soLuong || 0;
-          }
-          if (!(enrichedPayment as typeof enrichedPayment & { dvt?: string }).dvt) {
-            (enrichedPayment as typeof enrichedPayment & { dvt?: string }).dvt = contract.dvt || 'Máy';
-          }
+    const enrichedPayment: any = { ...payment };
+    
+    // 1. Luôn tra cứu Contract nếu có contractId hoặc soHopDong
+    if (payment.contractId || (payment.soHopDong && !enrichedPayment.products?.length)) {
+      const contract = payment.contractId 
+        ? await repositoryFactory.get<any>('contracts').getById(payment.contractId)
+        : (await repositoryFactory.get<any>('contracts').list({ limit: 10 })).find((c: any) => c.soHopDong === payment.soHopDong);
+      
+      if (contract) {
+        enrichedPayment.soDonHang = enrichedPayment.soDonHang || contract.soDonHang || '';
+        enrichedPayment.soHopDong = enrichedPayment.soHopDong || contract.soHopDong || '';
+        if (!enrichedPayment.products || enrichedPayment.products.length === 0) {
+          enrichedPayment.products = contract.products || [];
         }
-      } else if (payment.quotationId) {
-        const quotation = await repositoryFactory.get<any>('quotations').getById(payment.quotationId);
-        if (quotation) {
-           enrichedPayment.soHopDong = enrichedPayment.soHopDong || (quotation as typeof quotation & { soHopDong?: string }).soHopDong || '';
-           if (!enrichedPayment.slMay || enrichedPayment.slMay === 0) {
-               enrichedPayment.slMay = quotation.slMay || 0;
-           }
-           if (!(enrichedPayment as typeof enrichedPayment & { soLuong?: number }).soLuong || (enrichedPayment as typeof enrichedPayment & { soLuong?: number }).soLuong === 0) {
-               (enrichedPayment as typeof enrichedPayment & { soLuong?: number }).soLuong = (quotation as typeof quotation & { slMay?: number }).slMay || (quotation as typeof quotation & { soLuong?: number }).soLuong || 0;
-           }
-           if (!(enrichedPayment as typeof enrichedPayment & { dvt?: string }).dvt) {
-               (enrichedPayment as typeof enrichedPayment & { dvt?: string }).dvt = (quotation as typeof quotation & { dvt?: string }).dvt || 'Máy';
-           }
+        if (!enrichedPayment.slMay || enrichedPayment.slMay === 0) {
+          enrichedPayment.slMay = contract.slMay || 0;
+        }
+        if (!enrichedPayment.soLuong || enrichedPayment.soLuong === 0) {
+          enrichedPayment.soLuong = contract.slMay || contract.soLuong || 0;
+        }
+        if (!enrichedPayment.dvt) {
+          enrichedPayment.dvt = contract.dvt || (contract.products?.[0]?.unit) || 'Máy';
         }
       }
     }
+
+    // 2. Luôn tra cứu Quotation nếu có quotationId hoặc soPhieuBaoGia
+    if (payment.quotationId || (payment.soPhieuBaoGia && (!enrichedPayment.products?.length || !enrichedPayment.soLuong))) {
+      const quotation = payment.quotationId 
+        ? await repositoryFactory.get<any>('quotations').getById(payment.quotationId)
+        : (await repositoryFactory.get<any>('quotations').list({ limit: 10 })).find((q: any) => q.soPhieuBaoGia === payment.soPhieuBaoGia);
+      
+      if (quotation) {
+        enrichedPayment.soHopDong = enrichedPayment.soHopDong || quotation.soHopDong || quotation.soPhieuBaoGia || '';
+        enrichedPayment.soDonHang = enrichedPayment.soDonHang || quotation.soDonHang || quotation.soPhieuBaoGia || '';
+        if (!enrichedPayment.products || enrichedPayment.products.length === 0) {
+          enrichedPayment.products = quotation.products || [];
+        }
+        if (!enrichedPayment.slMay || enrichedPayment.slMay === 0) {
+          enrichedPayment.slMay = quotation.slMay || 0;
+        }
+        if (!enrichedPayment.soLuong || enrichedPayment.soLuong === 0) {
+          const prodSum = Array.isArray(quotation.products) 
+            ? quotation.products.reduce((sum: number, p: any) => sum + (Number(p.quantity) || 0), 0)
+            : 0;
+          enrichedPayment.soLuong = quotation.slMay || quotation.soLuong || prodSum || 1;
+        }
+        if (!enrichedPayment.dvt) {
+          enrichedPayment.dvt = quotation.dvt || (quotation.products?.[0]?.unit) || (quotation.products?.[0]?.dvt) || 'Cái';
+        }
+      }
+    }
+
+    // 3. Fallback tính tổng số lượng từ chính mảng products của payment nếu có
+    if ((!enrichedPayment.soLuong || enrichedPayment.soLuong === 0) && Array.isArray(enrichedPayment.products) && enrichedPayment.products.length > 0) {
+      enrichedPayment.soLuong = enrichedPayment.products.reduce((acc: number, p: any) => acc + (Number(p.quantity) || 0), 0);
+      if (!enrichedPayment.dvt && enrichedPayment.products[0]?.unit) {
+        enrichedPayment.dvt = enrichedPayment.products[0].unit;
+      }
+    }
+    if (!enrichedPayment.soLuong) enrichedPayment.soLuong = enrichedPayment.slMay || 1;
+    if (!enrichedPayment.dvt) enrichedPayment.dvt = 'Cái';
 
     const messageType = payment.tinhTrangThanhToan === 'Tất toán' 
       ? ZnsMessageType.THANH_TOAN_TAT_TOAN 

@@ -4472,32 +4472,60 @@ exports[`Component Snapshots (Baseline) > renders PaymentRecordDrawer 1`] = `
                   class="grid grid-cols-2 gap-4 bg-slate-50 p-4 border border-slate-100 rounded-xl"
                 >
                   <div
+                    class="col-span-2 flex items-center justify-between p-2.5 bg-emerald-50/80 border border-emerald-200 rounded-lg"
+                  >
+                    <div
+                      class="flex items-center gap-2"
+                    >
+                      <span
+                        class="text-3xs font-bold uppercase text-emerald-800 tracking-wide"
+                      >
+                        Số phiếu báo giá:
+                      </span>
+                      <span
+                        class="font-mono text-xs font-bold text-emerald-900 bg-white px-2 py-0.5 rounded border border-emerald-300"
+                      >
+                        ---
+                      </span>
+                    </div>
+                    <span
+                      class="text-3xs text-emerald-700 font-semibold italic"
+                    >
+                      ✓ Đã tự động liên kết từ Báo giá
+                    </span>
+                  </div>
+                  <div
                     class="col-span-2 grid grid-cols-2 gap-4"
                   >
                     <div
                       class="space-y-1"
                     >
                       <label
-                        class="text-2xs font-medium uppercase tracking-wide text-slate-500 block"
+                        class="text-2xs font-medium uppercase tracking-wide text-slate-600 block"
                       >
-                        Số Phiếu Báo Giá
+                        Số Hợp Đồng 
+                        <span
+                          class="text-red-600 font-bold"
+                        >
+                          *
+                        </span>
                       </label>
                       <input
-                        aria-label="Số phiếu báo giá"
+                        aria-label="Số hợp đồng"
                         class="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75"
-                        name="soPhieuBaoGia"
-                        placeholder="BG..."
+                        name="soHopDong"
+                        placeholder="Nhập số hợp đồng (*)..."
                       />
                     </div>
                     <div
                       class="space-y-1"
                     >
                       <label
-                        class="text-2xs font-medium uppercase tracking-wide text-slate-500 block"
+                        class="text-2xs font-medium uppercase tracking-wide text-slate-600 block"
                       >
                         Số Đơn Hàng 
                         <span
-                          class="text-red-650"
+                          class="text-red-600 font-bold"
                         >
                           *
                         </span>
@@ -4506,7 +4534,7 @@ exports[`Component Snapshots (Baseline) > renders PaymentRecordDrawer 1`] = `
                         aria-label="Số đơn hàng"
                         class="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75"
                         name="soDonHang"
-                        placeholder="Nhập số đơn hàng..."
+                        placeholder="Nhập số đơn hàng (*)..."
                       />
                     </div>
                   </div>

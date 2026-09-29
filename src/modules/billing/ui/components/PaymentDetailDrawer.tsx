@@ -233,7 +233,8 @@ export function PaymentDetailDrawer({
     newInstallment: PaymentInstallment,
     newTotalPaid: number,
     newRemaining: number,
-    newStatus: string
+    newStatus: string,
+    shouldSendZns?: boolean
   ) => {
     try {
       const updatedInstallments = [...effectiveInstallments, newInstallment];
@@ -254,6 +255,18 @@ export function PaymentDetailDrawer({
         await repositoryFactory.get('payments').update(payment.id, payload);
       }
       notify.success(`Đã ghi nhận Đợt ${newInstallment.lanThu} (${formatCurrency(newInstallment.soTien)}) thành công!`);
+
+      if (shouldSendZns && onSendZns) {
+        const mergedPayment: Payment = {
+          ...payment,
+          ...payload,
+          soTien: newTotalPaid,
+          congNoConLai: newRemaining,
+          tinhTrangThanhToan: newStatus,
+          cacDotThu: updatedInstallments,
+        };
+        onSendZns(mergedPayment);
+      }
     } catch (err: any) {
       notify.error('Lỗi khi ghi nhận đợt thu: ' + (err.message || 'Lỗi không xác định'));
     }
@@ -412,6 +425,7 @@ export function PaymentDetailDrawer({
                         <th className="p-2 px-3">Hình thức & Số UNC</th>
                         <th className="p-2 px-3">Người nộp</th>
                         <th className="p-2 px-3">Ghi chú</th>
+                        {onSendZns && <th className="p-2 px-3 text-center w-20">ZNS</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -449,6 +463,28 @@ export function PaymentDetailDrawer({
                           <td className="p-2 px-3 text-slate-500 italic text-3xs">
                             {inst.ghiChu || '---'}
                           </td>
+                          {onSendZns && (
+                            <td className="p-2 px-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const installmentPaymentSnapshot: Payment = {
+                                    ...payment,
+                                    soTien: inst.soTien || payment.soTien,
+                                    ngayThanhToan: inst.ngayThu || payment.ngayThanhToan,
+                                    phuongThucThanhToan: inst.phuongThucThanhToan || payment.phuongThucThanhToan,
+                                    tenNguoiNop: inst.nguoiNop || payerName,
+                                  };
+                                  onSendZns(installmentPaymentSnapshot);
+                                }}
+                                className="inline-flex items-center gap-1 text-3xs font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-1 rounded transition-colors cursor-pointer"
+                                title={`Gửi ZNS cho Đợt ${inst.lanThu || idx + 1}`}
+                              >
+                                <Send size={10} />
+                                Gửi
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>

@@ -120,22 +120,62 @@ export const getPaymentColumns = (
       const p = info.row.original as Payment;
       const hd = p.soHopDong || '';
       const order = p.soDonHang || '';
+      const quoCode = p.soPhieuBaoGia || '';
       const fallback = p.contractId || '';
       
       let displayNode;
       if (hd && order) {
          displayNode = (
-           <div className="flex flex-col gap-0.5" title={`${hd} | ${order}`}>
-              <span className="font-semibold text-blue-600 hover:text-blue-700 tracking-tight text-xs transition-colors">{hd.startsWith('HĐ') ? hd : `HĐ: ${hd}`}</span>
-              <span className="font-mono text-slate-500 font-medium text-2xs uppercase">{order.replace(/^ĐH/, '')}</span>
+           <div className="flex flex-col gap-0.5" title={`${hd} | ${order}${quoCode ? ` | BG: ${quoCode}` : ''}`}>
+              <span className="font-semibold text-blue-700 hover:text-blue-900 tracking-tight text-xs transition-colors">
+                {hd.startsWith('HĐ') || hd.startsWith('HD') ? hd : `HĐ: ${hd}`}
+              </span>
+              <div className="flex items-center gap-1">
+                <span className="font-mono text-slate-600 font-medium text-2xs uppercase">
+                  {order.startsWith('ĐH') || order.startsWith('DH') ? order : `ĐH: ${order}`}
+                </span>
+                {quoCode && quoCode !== hd && quoCode !== order && (
+                  <span className="font-mono text-3xs text-slate-500 bg-slate-100 px-1 py-0.2 rounded border border-slate-200">
+                    {quoCode}
+                  </span>
+                )}
+              </div>
            </div>
          );
       } else if (hd) {
-         displayNode = <span className="font-semibold text-blue-600 hover:text-blue-700 tracking-tight text-xs transition-colors">{hd.startsWith('HĐ') ? hd : `HĐ: ${hd}`}</span>;
+         displayNode = (
+           <div className="flex flex-col gap-0.5" title={hd}>
+             <span className="font-semibold text-blue-700 hover:text-blue-900 tracking-tight text-xs transition-colors">
+               {hd.startsWith('HĐ') || hd.startsWith('HD') ? hd : `HĐ: ${hd}`}
+             </span>
+             {quoCode && quoCode !== hd && (
+               <span className="font-mono text-3xs text-slate-500 bg-slate-100 px-1 py-0.2 rounded border border-slate-200 w-fit">
+                 {quoCode}
+               </span>
+             )}
+           </div>
+         );
       } else if (order) {
-         displayNode = <span className="font-semibold text-blue-600 hover:text-blue-700 tracking-tight text-xs transition-colors">{order}</span>;
+         displayNode = (
+           <div className="flex flex-col gap-0.5" title={order}>
+             <span className="font-semibold text-blue-700 hover:text-blue-900 tracking-tight text-xs transition-colors">
+               {order.startsWith('ĐH') || order.startsWith('DH') ? order : `ĐH: ${order}`}
+             </span>
+             {quoCode && quoCode !== order && (
+               <span className="font-mono text-3xs text-slate-500 bg-slate-100 px-1 py-0.2 rounded border border-slate-200 w-fit">
+                 {quoCode}
+               </span>
+             )}
+           </div>
+         );
+      } else if (quoCode) {
+         displayNode = (
+           <span className="font-semibold text-emerald-800 hover:text-emerald-950 tracking-tight text-xs transition-colors">
+             {quoCode.startsWith('BG') ? quoCode : `BG: ${quoCode}`}
+           </span>
+         );
       } else if (fallback) {
-         displayNode = <span className="font-mono text-slate-400 font-medium text-xs">{fallback}</span>;
+         displayNode = <span className="font-mono text-slate-500 font-medium text-xs">{fallback}</span>;
       } else {
          displayNode = <span className="text-slate-400 text-2xs italic">Chưa gắn</span>;
       }

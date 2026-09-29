@@ -210,10 +210,17 @@ export const getCustomerColumns = (
   {
     id: 'soBaoGia',
     accessorFn: (row) => {
-      // Set-based dedup: mỗi quotation chỉ đếm 1 lần dù match trên cả id lẫn maKh
+      // Set-based dedup: mỗi quotation chỉ đếm 1 lần dù match trên id, maKh, sdt hay tên KH
       const seen = new Set<string>();
       if (row.id) quotationCountMap.get(row.id)?.forEach(qId => seen.add(qId));
-      if (row.maKh) quotationCountMap.get(row.maKh)?.forEach(qId => seen.add(qId));
+      if (row.maKh) {
+        quotationCountMap.get(row.maKh)?.forEach(qId => seen.add(qId));
+        quotationCountMap.get(row.maKh.toLowerCase())?.forEach(qId => seen.add(qId));
+      }
+      if (row.sdt) quotationCountMap.get(row.sdt)?.forEach(qId => seen.add(qId));
+      if (row.tenKhachHang) {
+        quotationCountMap.get(row.tenKhachHang.toLowerCase().trim())?.forEach(qId => seen.add(qId));
+      }
       return seen.size;
     },
     header: 'Số BG',
