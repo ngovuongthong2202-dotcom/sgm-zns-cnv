@@ -25,6 +25,7 @@ import { useAuth } from '@/src/modules/iam';
 import { CustomerZnsContactModal } from './components/CustomerZnsContactModal';
 import { CustomerConsolidationModal } from './components/CustomerConsolidationModal';
 import { detectDuplicateCustomerGroups } from './utils/customerConsolidationEngine';
+import { extractVietnamesePhones } from './utils/vietnameseTelecomExtractor';
 
 export default function CustomersFeature() {
   const { userData } = useAuth();
@@ -109,7 +110,7 @@ export default function CustomersFeature() {
 
   const quotationCountMap = useMemo(() => {
     const map = new Map<string, Set<string>>();
-    const addToMap = (key: string, qId: string) => {
+    const addToMap = (key: string | undefined | null, qId: string) => {
       if (!key || !qId) return;
       const strKey = String(key).trim();
       if (!strKey) return;
@@ -127,7 +128,19 @@ export default function CustomersFeature() {
       if (!qId) continue;
       if (q.customerId) addToMap(q.customerId, qId);
       if (q.maKh) addToMap(q.maKh, qId);
-      if (q.sdt) addToMap(q.sdt, qId);
+      if (q.sdt) {
+        addToMap(q.sdt, qId);
+        const digits = q.sdt.replace(/\D/g, '');
+        if (digits) addToMap(digits, qId);
+        const ext = extractVietnamesePhones(q.sdt);
+        for (const p of ext.phones) {
+          addToMap(p.cleaned, qId);
+        }
+      }
+      if ((q as any).maSoThue) {
+        const cleanTax = String((q as any).maSoThue).trim().replace(/[\s\-_]/g, '');
+        if (cleanTax) addToMap(cleanTax, qId);
+      }
       if (q.tenKhachHang) addToMap(q.tenKhachHang, qId);
     }
     return map;

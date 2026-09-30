@@ -9,6 +9,7 @@ import { HoverCardPortal } from '@/src/design-system/HoverCardPortal';
 import { HoverCardProductsTab } from '@/src/widgets/HoverCardProductsTab';
 import { cn } from '@/src/shared/utils/textFormatter';
 import { computeContractCompletionTimeline, parseSafeDate } from '@/src/shared/utils/vietnamBusinessDays';
+import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 interface Props {
   delivery?: Delivery;
@@ -127,7 +128,14 @@ function DeliveryHoverCardContent({ delivery, deliveryId }: { delivery?: Deliver
               <div>
                 <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Số điện thoại:</span>
                 <span className="font-mono font-semibold text-slate-800 block flex items-center gap-1">
-                  <Phone size={10} className="text-slate-400" /> {customer?.sdt || activeDelivery.sdt || '—'}
+                  <Phone size={10} className="text-slate-400" /> {(() => {
+                    const raw = customer?.sdt || activeDelivery.sdt || '';
+                    if (!raw) return '—';
+                    const telecom = extractVietnamesePhones(raw);
+                    if (telecom.mobilePhones.length > 0) return telecom.mobilePhones.map(m => m.formatted).join(' • ');
+                    if (telecom.landlinePhones.length > 0) return `☎️ ${telecom.landlinePhones.map(m => m.formatted).join(' • ')}`;
+                    return raw;
+                  })()}
                 </span>
               </div>
               <div className="col-span-2 border-t border-slate-100 pt-3">

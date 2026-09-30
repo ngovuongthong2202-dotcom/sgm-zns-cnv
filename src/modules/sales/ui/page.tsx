@@ -373,17 +373,19 @@ export default function QuotationsFeature() {
         blockingDocuments={blockingModalState.blockingDocuments}
         detailedBlocks={blockingModalState.detailedBlocks}
       />
-      <CreateQuotationFromSalesOrderModal
-        isOpen={isSalesOrderModalOpen}
-        onClose={() => setIsSalesOrderModalOpen(false)}
-        customers={allCustomers}
-        quotations={quotations}
-        userOfficer={String((userData as any)?.name || (userData as any)?.email || '')}
-        onQuotationConstructed={(draft) => {
-          setEditingQuotation(draft as Quotation);
-          setIsFormOpen(true);
-        }}
-      />
+      {isSalesOrderModalOpen && (
+        <CreateQuotationFromSalesOrderModal
+          isOpen={isSalesOrderModalOpen}
+          onClose={() => setIsSalesOrderModalOpen(false)}
+          customers={allCustomers}
+          quotations={quotations}
+          userOfficer={String((userData as any)?.name || (userData as any)?.email || '')}
+          onQuotationConstructed={(draft) => {
+            setEditingQuotation(draft as Quotation);
+            setIsFormOpen(true);
+          }}
+        />
+      )}
     </div>
   );
 }

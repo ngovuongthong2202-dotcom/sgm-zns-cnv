@@ -277,7 +277,8 @@ export const DataViewRow = React.memo(({
   const nextRow = nextProps.row;
   const prevVirtualRow = prevProps.virtualRow;
   const nextVirtualRow = nextProps.virtualRow;
-  return (
+  
+  const structurallyEqual = (
     prevVirtualRow?.start === nextVirtualRow?.start &&
     prevVirtualRow?.size === nextVirtualRow?.size &&
     prevVirtualRow?.index === nextVirtualRow?.index &&
@@ -290,4 +291,18 @@ export const DataViewRow = React.memo(({
     (prevRow.original as any)?.id === (nextRow.original as any)?.id &&
     (prevRow.original as any)?.updatedAt === (nextRow.original as any)?.updatedAt
   );
+
+  if (!structurallyEqual) return false;
+
+  // Compare visible cell values to guarantee derived / external columns (like quotation count, balances) update instantly
+  const prevCells = prevRow.getVisibleCells();
+  const nextCells = nextRow.getVisibleCells();
+  if (prevCells.length !== nextCells.length) return false;
+  for (let i = 0; i < prevCells.length; i++) {
+    if (prevCells[i]?.getValue() !== nextCells[i]?.getValue()) {
+      return false;
+    }
+  }
+
+  return true;
 });

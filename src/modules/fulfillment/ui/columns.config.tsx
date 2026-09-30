@@ -10,6 +10,7 @@ import { t } from '@/src/i18n/vi';
 import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
 import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
 import { isPaymentFullyPaid, isPaymentPartial } from '@/src/domain/enums/payment-status';
+import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: any }>[] => [
   createSttColumn() as any,
@@ -67,35 +68,48 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
       const contacts = c?.contacts || [];
       
       const tenKH = normalizeBusinessName(c?.tenKhachHang || p.tenKhachHang || '---');
+      
+      const formatPhoneHelper = (rawPhone: string) => {
+        if (!rawPhone) return '';
+        const ext = extractVietnamesePhones(rawPhone);
+        if (ext.mobilePhones.length > 0) return ext.mobilePhones.map(m => m.formatted).join(' • ');
+        if (ext.landlinePhones.length > 0) return `☎️ ${ext.landlinePhones.map(m => m.formatted).join(' • ')}`;
+        return rawPhone;
+      };
+
+      const displaySpecificPhone = formatPhoneHelper(specificPhone);
 
       return (
         <div className="w-full min-w-0 flex flex-col py-1 justify-center space-y-0.5">
           <span className="font-semibold text-xs text-slate-800 line-clamp-3 whitespace-normal break-words leading-snug block" title={tenKH}>{tenKH}</span>
           
           {specificReceiver || specificPhone ? (
-            <span className="text-2xs text-slate-700 whitespace-normal break-words leading-tight block font-medium" title={`${normalizePersonName(specificReceiver)} ${specificPhone ? `- ${specificPhone}` : ''}`}>
+            <span className="text-2xs text-slate-700 whitespace-normal break-words leading-tight block font-medium" title={`${normalizePersonName(specificReceiver)} ${displaySpecificPhone ? `- ${displaySpecificPhone}` : ''}`}>
               👤 {normalizePersonName(specificReceiver || 'Người nhận')}
-              {specificPhone && (
+              {displaySpecificPhone && (
                 <>
                   <span className="mx-1 text-slate-400">-</span>
-                  <span className="font-mono text-blue-700">{specificPhone}</span>
+                  <span className="font-mono text-blue-700 font-semibold">{displaySpecificPhone}</span>
                 </>
               )}
             </span>
           ) : null}
 
           {contacts.length > 0 ? (
-            contacts.filter((ct: any) => ct.sdt !== specificPhone).slice(0, 2).map((contact: any, index: number) => (
-              <span key={index} className="text-2xs text-slate-500 whitespace-normal break-words leading-tight block" title={`${normalizePersonName(contact.nguoiDaiDien || '')} ${contact.sdt ? `- ${contact.sdt}` : ''}`}>
-                {normalizePersonName(contact.nguoiDaiDien || '')}
-                {contact.sdt && (
-                  <>
-                    <span className="mx-1 text-slate-400">-</span>
-                    <span className="font-mono">{contact.sdt}</span>
-                  </>
-                )}
-              </span>
-            ))
+            contacts.filter((ct: any) => ct.sdt !== specificPhone).slice(0, 2).map((contact: any, index: number) => {
+              const ctPhone = formatPhoneHelper(contact.sdt);
+              return (
+                <span key={index} className="text-2xs text-slate-500 whitespace-normal break-words leading-tight block" title={`${normalizePersonName(contact.nguoiDaiDien || '')} ${ctPhone ? `- ${ctPhone}` : ''}`}>
+                  {normalizePersonName(contact.nguoiDaiDien || '')}
+                  {ctPhone && (
+                    <>
+                      <span className="mx-1 text-slate-400">-</span>
+                      <span className="font-mono">{ctPhone}</span>
+                    </>
+                  )}
+                </span>
+              );
+            })
           ) : (
             !specificReceiver && (c?.nguoiDaiDien || c?.sdt) ? (
               <span className="text-2xs text-slate-500 whitespace-normal break-words leading-tight block">
@@ -103,7 +117,7 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
                 {c?.sdt && (
                   <>
                     <span className="mx-1 text-slate-400">-</span>
-                    <span className="font-mono">{c?.sdt}</span>
+                    <span className="font-mono">{formatPhoneHelper(c?.sdt)}</span>
                   </>
                 )}
               </span>

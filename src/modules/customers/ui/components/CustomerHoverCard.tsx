@@ -3,8 +3,9 @@ import { Customer } from '@/src/domain/schema/customer.schema';
 import useSWR from 'swr';
 import { Building2, FileText, Receipt, Truck, Calculator, CalendarClock, UserCheck, User, Phone, MapPin } from 'lucide-react';
 import { swrApiFetcher, swrColFetcher } from '@/src/data/swr-fetchers';
-import { HoverCardPortal } from '@/src/design-system';
 import { formatDate } from '@/src/shared/utils/formatDate';
+import { HoverCardPortal } from '@/src/design-system';
+import { extractVietnamesePhones } from '../utils/vietnameseTelecomExtractor';
 
 interface Props {
   customer: Customer;
@@ -64,24 +65,42 @@ function CustomerHoverCardContent({ customer }: { customer: Customer }) {
 
         {Array.isArray(customer.contacts) && customer.contacts.length > 0 ? (
           <div className="space-y-1.5 divide-y divide-slate-100">
-            {customer.contacts.map((ct, idx) => (
-              <div key={idx} className="pt-1.5 first:pt-0 flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <span className="font-semibold text-slate-800 block truncate">
-                    {ct.nguoiDaiDien || `Đầu mối ${idx + 1}`}
-                  </span>
-                  {ct.chucVu && <span className="text-3xs text-slate-600">{ct.chucVu}</span>}
+            {customer.contacts.map((ct, idx) => {
+              const telecom = ct.sdt ? extractVietnamesePhones(ct.sdt, customer.diaChi) : null;
+              const hasMobile = telecom && telecom.mobilePhones.length > 0;
+              return (
+                <div key={idx} className="pt-1.5 first:pt-0 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="font-semibold text-slate-800 block truncate">
+                      {ct.nguoiDaiDien || `Đầu mối ${idx + 1}`}
+                    </span>
+                    {ct.chucVu && <span className="text-3xs text-slate-600">{ct.chucVu}</span>}
+                  </div>
+                  <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
+                    {hasMobile ? (
+                      telecom.mobilePhones.map((p, pIdx) => (
+                        <span key={pIdx} className="font-mono text-2xs font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 block" title={`${p.formatted} • ${p.carrier || 'Di động'}`}>
+                          {p.formatted}
+                        </span>
+                      ))
+                    ) : telecom && telecom.landlinePhones.length > 0 ? (
+                      telecom.landlinePhones.map((p, pIdx) => (
+                        <span key={pIdx} className="font-mono text-3xs font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 block" title={`${p.formatted} • Máy bàn (Không ZNS)`}>
+                          ☎️ {p.formatted}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="font-mono text-2xs font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 block">
+                        {ct.sdt || '—'}
+                      </span>
+                    )}
+                    {ct.trangThaiZns === 'THANH_CONG' && (
+                      <span className="text-3xs text-emerald-700 block mt-0.5 font-bold">✓ Đã gửi ZNS</span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <span className="font-mono text-2xs font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 block">
-                    {ct.sdt || '—'}
-                  </span>
-                  {ct.trangThaiZns === 'THANH_CONG' && (
-                    <span className="text-3xs text-emerald-700 block mt-0.5 font-bold">✓ Đã gửi ZNS</span>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 pb-0.5">
@@ -91,9 +110,38 @@ function CustomerHoverCardContent({ customer }: { customer: Customer }) {
             </div>
             <div>
               <span className="text-slate-600 block text-2xs uppercase font-bold tracking-wide">Số điện thoại:</span>
-              <span className="font-mono font-semibold text-slate-900 block flex items-center gap-1">
-                <Phone size={10} className="text-slate-500" /> {customer.sdt || '—'}
-              </span>
+              <div className="font-mono font-semibold text-slate-900 block">
+                {(() => {
+                  const telecom = customer.sdt ? extractVietnamesePhones(customer.sdt, customer.diaChi) : null;
+                  if (telecom && telecom.mobilePhones.length > 0) {
+                    return (
+                      <div className="flex flex-col gap-0.5 mt-0.5">
+                        {telecom.mobilePhones.map((p, pIdx) => (
+                          <span key={pIdx} className="text-2xs text-blue-700 bg-blue-50 px-1 py-0.2 rounded border border-blue-100 inline-flex items-center gap-1 w-fit" title={`${p.formatted} • ${p.carrier || 'Di động'}`}>
+                            <Phone size={9} className="text-blue-500" /> {p.formatted}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  }
+                  if (telecom && telecom.landlinePhones.length > 0) {
+                    return (
+                      <div className="flex flex-col gap-0.5 mt-0.5">
+                        {telecom.landlinePhones.map((p, pIdx) => (
+                          <span key={pIdx} className="text-3xs text-slate-600 bg-slate-100 px-1 py-0.2 rounded border border-slate-200 inline-flex items-center gap-1 w-fit" title={`${p.formatted} • Máy bàn (Không ZNS)`}>
+                            ☎️ {p.formatted}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  }
+                  return (
+                    <span className="flex items-center gap-1">
+                      <Phone size={10} className="text-slate-500" /> {customer.sdt || '—'}
+                    </span>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         )}

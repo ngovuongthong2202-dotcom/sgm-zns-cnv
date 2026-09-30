@@ -9,6 +9,8 @@ describe('vietnameseTelecomExtractor', () => {
     expect(res.phones.map(p => p.cleaned)).toContain('0925017071');
     expect(res.isZaloEligible).toBe(true);
     expect(res.primaryPhone).toBe('0947889630');
+    expect(res.mobilePhones.length).toBe(2);
+    expect(res.landlinePhones.length).toBe(0);
   });
 
   it('giải mã chuỗi phân cách dấu gạch chéo (0983916267/ 0919389089)', () => {
@@ -18,6 +20,7 @@ describe('vietnameseTelecomExtractor', () => {
     expect(res.phones[0].carrier).toBe('Viettel');
     expect(res.phones[1].cleaned).toBe('0919389089');
     expect(res.phones[1].carrier).toBe('Vinaphone');
+    expect(res.mobilePhones.length).toBe(2);
   });
 
   it('giải mã chuỗi 32 số kết hợp di động và 2 số bàn TP.HCM (09839080070283989698302866569696)', () => {
@@ -29,6 +32,32 @@ describe('vietnameseTelecomExtractor', () => {
     // Số di động được ưu tiên lên đầu làm SĐT chính để gửi ZNS
     expect(res.primaryPhone).toBe('0983908007');
     expect(res.isZaloEligible).toBe(true);
+    expect(res.mobilePhones.length).toBe(1);
+    expect(res.landlinePhones.length).toBe(2);
+  });
+
+  it('giải mã chuỗi siêu phức hợp 31 số từ ERP (0683823249091393881902593823242) bóc tách chuẩn xác số di động và 2 số bàn pre-2017 & post-2017', () => {
+    const res = extractVietnamesePhones('0683823249091393881902593823242');
+    expect(res.phones.length).toBe(3);
+    expect(res.mobilePhones.length).toBe(1);
+    expect(res.mobilePhones[0].cleaned).toBe('0913938819');
+    expect(res.mobilePhones[0].carrier).toBe('Vinaphone');
+    expect(res.primaryPhone).toBe('0913938819');
+    expect(res.isZaloEligible).toBe(true);
+    expect(res.landlinePhones.length).toBe(2);
+    expect(res.landlinePhones.map(p => p.cleaned)).toEqual(
+      expect.arrayContaining(['0683823249', '02593823242'])
+    );
+  });
+
+  it('xử lý số điện thoại bàn độc lập (02703890418) xác định đúng loại bàn và không ZNS', () => {
+    const res = extractVietnamesePhones('02703890418');
+    expect(res.phones.length).toBe(1);
+    expect(res.phones[0].type).toBe('LANDLINE');
+    expect(res.isZaloEligible).toBe(false);
+    expect(res.mobilePhones.length).toBe(0);
+    expect(res.landlinePhones.length).toBe(1);
+    expect(res.primaryPhone).toBe('02703890418');
   });
 
   it('giải mã chuỗi 28 số có số bàn 8 số cục bộ và tự suy luận mã vùng 028 theo địa chỉ TP.HCM (0838643583376071730903814168)', () => {
@@ -43,6 +72,8 @@ describe('vietnameseTelecomExtractor', () => {
     const res = extractVietnamesePhones('');
     expect(res.primaryPhone).toBe('');
     expect(res.phones).toEqual([]);
+    expect(res.mobilePhones).toEqual([]);
+    expect(res.landlinePhones).toEqual([]);
     expect(res.isZaloEligible).toBe(false);
   });
 });

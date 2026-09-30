@@ -10,6 +10,7 @@ import { normalizeBusinessName, normalizeCode } from '@/src/shared/utils/textFor
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
 import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
+import { extractVietnamesePhones } from './utils/vietnameseTelecomExtractor';
 
 export const getCustomerColumns = (
   quotationCountMap: Map<string, Set<string>>,
@@ -124,7 +125,11 @@ export const getCustomerColumns = (
       return (
         <div className="w-full min-w-0 flex flex-col justify-center gap-1.5 py-1">
           {displayContacts.map((ct: any, idx: number) => {
-            const hasSentZns = ct.trangThaiZns === 'THANH_CONG' || Boolean(ct.ngayGuiZns) || Boolean((c as any)?.contactsZnsHistory?.[ct.sdt || '']);
+            const telecom = ct.sdt ? extractVietnamesePhones(ct.sdt, c.diaChi) : null;
+            const hasMobile = telecom && telecom.mobilePhones.length > 0;
+            const hasSentZns = ct.trangThaiZns === 'THANH_CONG' || Boolean(ct.ngayGuiZns) || 
+              (telecom?.mobilePhones.some(p => Boolean((c as any)?.contactsZnsHistory?.[p.cleaned])) ?? Boolean((c as any)?.contactsZnsHistory?.[ct.sdt || '']));
+
             return (
               <div key={idx} className="flex items-center gap-1.5 flex-wrap text-xs leading-tight">
                 <span className="font-semibold text-slate-800" title={ct.nguoiDaiDien || `Đầu mối ${idx + 1}`}>
@@ -135,11 +140,33 @@ export const getCustomerColumns = (
                     {ct.chucVu}
                   </span>
                 )}
-                {ct.sdt && (
+                {hasMobile ? (
+                  // Có số di động: Render từng Badge di động riêng biệt, tự động lược bỏ số máy bàn
+                  telecom.mobilePhones.map((p, pIdx) => (
+                    <span 
+                      key={pIdx} 
+                      className="font-mono text-2xs text-blue-700 bg-blue-50/90 hover:bg-blue-100 transition-colors px-1.5 py-0.5 rounded border border-blue-200 font-medium cursor-default shadow-2xs"
+                      title={`${p.formatted} • ${p.carrier || 'Di động'} (Zalo/ZNS OK)`}
+                    >
+                      {p.formatted}
+                    </span>
+                  ))
+                ) : telecom && telecom.landlinePhones.length > 0 ? (
+                  // Chỉ có số máy bàn: Render chip xám tinh tế cảnh báo không ZNS
+                  telecom.landlinePhones.map((p, pIdx) => (
+                    <span 
+                      key={pIdx} 
+                      className="font-mono text-3xs text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 font-medium cursor-default"
+                      title={`${p.formatted} • Máy bàn cố định (Không hỗ trợ ZNS)`}
+                    >
+                      ☎️ {p.formatted}
+                    </span>
+                  ))
+                ) : ct.sdt ? (
                   <span className="font-mono text-2xs text-blue-700 bg-blue-50/80 px-1.5 py-0.5 rounded border border-blue-100 font-medium">
                     {ct.sdt}
                   </span>
-                )}
+                ) : null}
                 {hasSentZns && (
                   <span className="text-3xs text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 font-medium" title="Đã gửi ZNS">
                     ✓ ZNS
@@ -228,14 +255,32 @@ export const getCustomerColumns = (
   {
     id: 'soBaoGia',
     accessorFn: (row) => {
-      // Set-based dedup: mỗi quotation chỉ đếm 1 lần dù match trên id, maKh, sdt hay tên KH
+      // Set-based dedup: mỗi quotation chỉ đếm 1 lần dù match trên id, maKh, sdt, MST hay tên KH
       const seen = new Set<string>();
       if (row.id) quotationCountMap.get(row.id)?.forEach(qId => seen.add(qId));
       if (row.maKh) {
         quotationCountMap.get(row.maKh)?.forEach(qId => seen.add(qId));
         quotationCountMap.get(row.maKh.toLowerCase())?.forEach(qId => seen.add(qId));
       }
-      if (row.sdt) quotationCountMap.get(row.sdt)?.forEach(qId => seen.add(qId));
+      if (row.sdt) {
+        quotationCountMap.get(row.sdt)?.forEach(qId => seen.add(qId));
+        const digits = row.sdt.replace(/\D/g, '');
+        if (digits) quotationCountMap.get(digits)?.forEach(qId => seen.add(qId));
+        const ext = extractVietnamesePhones(row.sdt);
+        ext.phones.forEach(p => quotationCountMap.get(p.cleaned)?.forEach(qId => seen.add(qId)));
+      }
+      if (row.maSoThue) {
+        const cleanTax = row.maSoThue.trim().replace(/[\s\-_]/g, '');
+        if (cleanTax) quotationCountMap.get(cleanTax)?.forEach(qId => seen.add(qId));
+      }
+      if (Array.isArray(row.contacts)) {
+        for (const ct of row.contacts) {
+          if (ct?.sdt) {
+            const ext = extractVietnamesePhones(ct.sdt);
+            ext.phones.forEach(p => quotationCountMap.get(p.cleaned)?.forEach(qId => seen.add(qId)));
+          }
+        }
+      }
       if (row.tenKhachHang) {
         quotationCountMap.get(row.tenKhachHang.toLowerCase().trim())?.forEach(qId => seen.add(qId));
       }

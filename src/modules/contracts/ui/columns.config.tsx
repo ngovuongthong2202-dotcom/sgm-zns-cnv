@@ -20,6 +20,7 @@ import { reconcileContractFinancials } from '@/src/domain/services/financial-rec
 
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
+import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 export const getContractColumns = (
   deliveries: Delivery[],
@@ -110,7 +111,14 @@ export const getContractColumns = (
       }
       
       const normalizedRep = normalizePersonName(rep);
-      const repPhone = [normalizedRep, phone].filter(Boolean).join(' - ');
+      const telecom = phone ? extractVietnamesePhones(phone) : null;
+      let displayPhone = phone;
+      if (telecom && telecom.mobilePhones.length > 0) {
+        displayPhone = telecom.mobilePhones.map(m => m.formatted).join(' • ');
+      } else if (telecom && telecom.landlinePhones.length > 0) {
+        displayPhone = `☎️ ${telecom.landlinePhones.map(m => m.formatted).join(' • ')}`;
+      }
+      const repPhone = [normalizedRep, displayPhone].filter(Boolean).join(' - ');
       const displayBizName = normalizeBusinessName(customerName || '---');
 
       return (

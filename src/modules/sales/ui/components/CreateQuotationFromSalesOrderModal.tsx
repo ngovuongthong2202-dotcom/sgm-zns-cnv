@@ -177,8 +177,6 @@ export function CreateQuotationFromSalesOrderModal({
     return () => clearTimeout(timer);
   }, [orderCode, isOpen]);
 
-  if (!isOpen) return null;
-
   const handleLookup = async (codeToSearch?: string) => {
     const target = (codeToSearch || orderCode).trim();
     if (!target) {
@@ -371,6 +369,8 @@ export function CreateQuotationFromSalesOrderModal({
     onQuotationConstructed(quotationDraft, targetCustomer || undefined);
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">

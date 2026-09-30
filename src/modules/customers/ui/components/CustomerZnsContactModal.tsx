@@ -22,6 +22,7 @@ import { sendZnsAndToast, nextAttempt } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { znsMessagesRepo } from '@/src/data/repositories/system.repo';
 import { useAuth } from '@/src/modules/iam';
+import { extractVietnamesePhones } from '../utils/vietnameseTelecomExtractor';
 
 interface Props {
   isOpen: boolean;
@@ -60,24 +61,50 @@ export function CustomerZnsContactModal({
     return () => unsub();
   }, [isOpen, customer?.id]);
 
-  // Extract all valid contacts of this customer
+  // Extract all valid contacts of this customer, disambiguating composite phones and omitting landlines
   const contactsList = useMemo<ContactItem[]>(() => {
     if (!customer) return [];
+    const rawList: ContactItem[] = [];
     if (Array.isArray(customer.contacts) && customer.contacts.length > 0) {
       const valid = customer.contacts.filter(c => c && (c.sdt || c.nguoiDaiDien));
-      if (valid.length > 0) return valid;
+      if (valid.length > 0) rawList.push(...valid);
     }
     // Fallback to primary customer fields
-    if (customer.sdt || customer.nguoiDaiDien) {
-      return [{
+    if (rawList.length === 0 && (customer.sdt || customer.nguoiDaiDien)) {
+      rawList.push({
         danhXung: '',
         nguoiDaiDien: customer.nguoiDaiDien || '',
         sdt: customer.sdt || '',
         chucVu: '',
         chiNhanh: customer.chiNhanh || ''
-      }];
+      });
     }
-    return [];
+
+    // Disambiguate composite phones and strictly prune landlines for ZNS
+    const processed: ContactItem[] = [];
+    for (const raw of rawList) {
+      if (!raw.sdt) {
+        processed.push(raw);
+        continue;
+      }
+      const ext = extractVietnamesePhones(raw.sdt, customer.diaChi);
+      if (ext.mobilePhones.length > 0) {
+        // Unpack each valid mobile number into its own selectable contact
+        ext.mobilePhones.forEach(m => {
+          processed.push({
+            ...raw,
+            sdt: m.cleaned,
+            chucVu: raw.chucVu ? `${raw.chucVu} (${m.carrier || 'Di động'})` : (m.carrier ? `Di động ${m.carrier}` : raw.chucVu)
+          });
+        });
+      } else if (ext.landlinePhones.length > 0) {
+        // Landline only: Do not include in ZNS recipients to prevent failed sends
+        continue;
+      } else {
+        processed.push(raw);
+      }
+    }
+    return processed;
   }, [customer]);
 
   // Map each phone to its ZNS logs and latest status
