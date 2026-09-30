@@ -18,7 +18,6 @@ import { KeepAliveShell } from './KeepAliveShell';
 export default function AppLayout() {
   const { user, userData, logout, switchRole } = useAuth();
   const location = useLocation();
-  console.log('[DEBUG AppLayout] rendered with location:', location.pathname);
   
   const [isPinned, setIsPinned] = useState<boolean>(() => {
     return localStorage.getItem('sgm_sidebar_pinned') === 'true';

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { formatDate } from '../../../shared/utils/formatDate';
 import { addVietnamWorkingDays } from '../../../shared/utils/vietnamBusinessDays';
 import { resolveDeliveryDisplayCode } from '../../../shared/utils/voucherResolver';
+import { extractVietnamesePhones } from '../../../modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 export const ZnsBasePayloadSchema = z.object({
   tinhTrangThanhToan: z.string().optional(),
@@ -363,7 +364,9 @@ export class ZnsPayloadBuilder {
     
     const cleanCustomerName = sanitizeZnsCustomerName(rawCustomerName);
     variables.customer_name = cleanCustomerName;
-    const cleanPhone = (variables.phone || p.sdt || p.phone || phoneObj || '').toString().trim();
+    const rawPhone = (variables.phone || p.sdt || p.phone || phoneObj || '').toString().trim();
+    const extPhone = rawPhone ? extractVietnamesePhones(rawPhone) : null;
+    const cleanPhone = (extPhone && extPhone.primaryPhone) ? extPhone.primaryPhone : rawPhone;
     variables.phone = cleanPhone;
     
     // 6. Compose commonData — CHỈ template variables + minimal system markers

@@ -6,6 +6,7 @@ import { Printer } from 'lucide-react';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 import { SGM_COMPANY_INFO } from '@/src/shared/constants/companyInfo';
+import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 interface ExportContractPdfProps {
   contract: Contract;
@@ -133,7 +134,17 @@ export function ExportContractPdf({
               <p><span className="text-slate-500">Địa chỉ:</span> {(contract as any).diaChiGiaoHang || (contract as any).diaChi || 'Theo đăng ký kinh doanh'}</p>
               <p><span className="text-slate-500">MST / CCCD:</span> <strong className="font-mono">{(contract as any).maSoThue || (contract as any).cccd || '---'}</strong></p>
               <p><span className="text-slate-500">Đại diện:</span> <strong>{contract.nguoiDaiDien || 'Theo ủy quyền'}</strong> - Chức vụ: {(contract as any).chucVu || 'Đại diện hợp pháp'}</p>
-              <p><span className="text-slate-500">Điện thoại:</span> <span className="font-mono font-bold">{contract.sdt || '---'}</span></p>
+              <p>
+                <span className="text-slate-500">Điện thoại:</span>{' '}
+                <span className="font-mono font-bold">
+                  {(() => {
+                    if (!contract.sdt) return '---';
+                    const ext = extractVietnamesePhones(contract.sdt);
+                    if (ext.phones.length === 0) return contract.sdt;
+                    return ext.phones.map(p => `${p.formatted}${p.type === 'LANDLINE' ? ' (Bàn)' : ' (DĐ)'}`).join(' - ');
+                  })()}
+                </span>
+              </p>
             </div>
           </div>
 

@@ -1,5 +1,6 @@
 import { Customer } from '@/src/domain/schema/customer.schema';
 import { normalizeLegacyStatus, EntityZnsStatus } from '@/src/domain/enums/zns-status';
+import { matchesEnterpriseSearch } from '@/src/shared/utils/vietnameseSearchEngine';
 
 export interface FilterParams {
   customers: Customer[];
@@ -71,34 +72,11 @@ export function filterCustomersList({
     });
   }
 
-  // 5. Filter by fuzzy search (diacritic and case insensitive)
+  // 5. Filter by Universal Enterprise Search (MST, SĐT mờ, Tiếng Việt không dấu, danh bạ)
   const query = debouncedFilter.trim();
   if (!query) {
     return result;
   }
 
-  const normalize = (str: string) => 
-    String(str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
-
-  const normalizedQuery = normalize(query);
-
-  return result.filter(c => {
-    if (c.tenKhachHang && normalize(c.tenKhachHang).includes(normalizedQuery)) return true;
-    if (c.nguoiDaiDien && normalize(c.nguoiDaiDien).includes(normalizedQuery)) return true;
-    if (c.maKh && normalize(c.maKh).includes(normalizedQuery)) return true;
-    if (c.sdt && String(c.sdt).includes(normalizedQuery)) return true;
-    if (c.nguoiPhuTrach && normalize(c.nguoiPhuTrach).includes(normalizedQuery)) return true;
-
-    // Check contacts array
-    if (Array.isArray(c.contacts)) {
-      for (const contact of c.contacts) {
-        if (contact) {
-          if (contact.nguoiDaiDien && normalize(contact.nguoiDaiDien).includes(normalizedQuery)) return true;
-          if (contact.sdt && String(contact.sdt).includes(normalizedQuery)) return true;
-        }
-      }
-    }
-
-    return false;
-  });
+  return result.filter(c => matchesEnterpriseSearch(c, query));
 }

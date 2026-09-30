@@ -71,22 +71,24 @@ export function useCustomerActions({
       let linkedPayments: any[];
       let linkedDeliveries: any[];
 
+      const candidateKeys = Array.from(new Set([id, originalCustomer.maKh, (originalCustomer as any).maKhachHang].filter(Boolean))) as string[];
+
       try {
         const [qSnap, cSnap, pSnap, dSnap] = await Promise.all([
-          repositoryFactory.get<any>('quotations').list({ limit: 5, fkField: 'customerId', fkId: id }),
-          repositoryFactory.get<any>('contracts').list({ limit: 5, fkField: 'customerId', fkId: id }),
-          repositoryFactory.get<any>('payments').list({ limit: 5, fkField: 'customerId', fkId: id }),
-          repositoryFactory.get<any>('deliveries').list({ limit: 5, fkField: 'customerId', fkId: id })
+          repositoryFactory.get<any>('quotations').list({ limit: 5, fkField: 'customerId', fkId: candidateKeys }),
+          repositoryFactory.get<any>('contracts').list({ limit: 5, fkField: 'customerId', fkId: candidateKeys }),
+          repositoryFactory.get<any>('payments').list({ limit: 5, fkField: 'customerId', fkId: candidateKeys }),
+          repositoryFactory.get<any>('deliveries').list({ limit: 5, fkField: 'customerId', fkId: candidateKeys })
         ]);
         linkedQuotes = qSnap.filter((d: any) => !d.deletedAt);
         linkedContracts = cSnap.filter((d: any) => !d.deletedAt);
         linkedPayments = pSnap.filter((d: any) => !d.deletedAt);
         linkedDeliveries = dSnap.filter((d: any) => !d.deletedAt);
       } catch (err) {
-        linkedQuotes = (allQuotations || []).filter(q => q.customerId === id);
-        linkedContracts = (allContracts || []).filter(co => co.customerId === id);
-        linkedPayments = (allPayments || []).filter(p => p.customerId === id);
-        linkedDeliveries = (allDeliveries || []).filter(d => d.customerId === id);
+        linkedQuotes = (allQuotations || []).filter(q => candidateKeys.includes(q.customerId) || candidateKeys.includes(q.maKh));
+        linkedContracts = (allContracts || []).filter(co => candidateKeys.includes(co.customerId) || candidateKeys.includes(co.maKh));
+        linkedPayments = (allPayments || []).filter(p => candidateKeys.includes(p.customerId) || candidateKeys.includes((p as any).maKh));
+        linkedDeliveries = (allDeliveries || []).filter(d => candidateKeys.includes(d.customerId) || candidateKeys.includes((d as any).maKh));
       }
 
       if (linkedQuotes.length || linkedContracts.length || linkedPayments.length || linkedDeliveries.length) {
@@ -140,14 +142,16 @@ export function useCustomerActions({
     let results;
 
     try {
+      const candidateKeys = Array.from(new Set([c.id, c.maKh, (c as any).maKhachHang].filter(Boolean))) as string[];
+
       // Rule 1: Khách hàng đã phát sinh giao dịch thì không được xóa
       // Rule 12: Không xóa bản ghi cha nếu còn bản ghi con
       // Fetch fresh, real-time links directly from Firestore to bypass old/stale SWR cache
       const [quotesSnap, contractsSnap, paymentsSnap, deliveriesSnap] = await Promise.all([
-        repositoryFactory.get<any>('quotations').list({ limit: 10, fkField: 'customerId', fkId: c.id }),
-        repositoryFactory.get<any>('contracts').list({ limit: 10, fkField: 'customerId', fkId: c.id }),
-        repositoryFactory.get<any>('payments').list({ limit: 10, fkField: 'customerId', fkId: c.id }),
-        repositoryFactory.get<any>('deliveries').list({ limit: 10, fkField: 'customerId', fkId: c.id })
+        repositoryFactory.get<any>('quotations').list({ limit: 10, fkField: 'customerId', fkId: candidateKeys }),
+        repositoryFactory.get<any>('contracts').list({ limit: 10, fkField: 'customerId', fkId: candidateKeys }),
+        repositoryFactory.get<any>('payments').list({ limit: 10, fkField: 'customerId', fkId: candidateKeys }),
+        repositoryFactory.get<any>('deliveries').list({ limit: 10, fkField: 'customerId', fkId: candidateKeys })
       ]);
 
       results = {
@@ -159,11 +163,12 @@ export function useCustomerActions({
     } catch (err: unknown) {
       logger.error('Lỗi khi kiểm tra tài liệu liên kết thời gian thực:', err);
       // fallback to SWR if Firestore query fails (e.g. offline/security issue)
+      const candidateKeys = Array.from(new Set([c.id, c.maKh, (c as any).maKhachHang].filter(Boolean))) as string[];
       results = {
-        quotes: (allQuotations || []).filter(q => q.customerId === c.id),
-        contracts: (allContracts || []).filter(co => co.customerId === c.id),
-        payments: (allPayments || []).filter(p => p.customerId === c.id),
-        deliveries: (allDeliveries || []).filter(d => d.customerId === c.id)
+        quotes: (allQuotations || []).filter(q => candidateKeys.includes(q.customerId) || candidateKeys.includes(q.maKh)),
+        contracts: (allContracts || []).filter(co => candidateKeys.includes(co.customerId) || candidateKeys.includes(co.maKh)),
+        payments: (allPayments || []).filter(p => candidateKeys.includes(p.customerId) || candidateKeys.includes((p as any).maKh)),
+        deliveries: (allDeliveries || []).filter(d => candidateKeys.includes(d.customerId) || candidateKeys.includes((d as any).maKh))
       };
     } finally {
       setIsSaving(false);

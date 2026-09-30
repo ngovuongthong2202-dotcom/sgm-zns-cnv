@@ -8,6 +8,7 @@ import { aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
 import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 
 import { SGM_COMPANY_INFO } from '@/src/shared/constants/companyInfo';
+import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 interface ExportQuotationPdfProps {
   quotation: Quotation;
@@ -106,7 +107,18 @@ export function ExportQuotationPdf({ quotation, variant = 'secondary', className
               <p className="font-bold text-base text-slate-950">{quotation.tenKhachHang || 'Khách hàng Không tên'}</p>
               {quotation.maKh && <p className="text-xs text-slate-600 font-semibold">Mã KH: <span className="font-mono text-slate-900">{quotation.maKh}</span></p>}
               {quotation.nguoiDaiDien && <p className="text-xs text-slate-600 font-semibold">Người liên hệ: <span className="text-slate-905">{quotation.nguoiDaiDien}</span></p>}
-              {quotation.sdt && <p className="text-xs text-slate-600 font-semibold">Điện thoại: <span className="font-mono text-slate-905">{quotation.sdt}</span></p>}
+              {quotation.sdt && (
+                <p className="text-xs text-slate-600 font-semibold">
+                  Điện thoại:{' '}
+                  <span className="font-mono text-slate-905">
+                    {(() => {
+                      const ext = extractVietnamesePhones(quotation.sdt);
+                      if (ext.phones.length === 0) return quotation.sdt;
+                      return ext.phones.map(p => `${p.formatted}${p.type === 'LANDLINE' ? ' (Bàn)' : ' (DĐ)'}`).join(' - ');
+                    })()}
+                  </span>
+                </p>
+              )}
             </div>
             <div className="space-y-1.5 border-l border-slate-100 pl-8">
               <h3 className="text-xs font-black uppercase text-slate-500 tracking-wider mb-2">ĐẠI DIỆN THƯƠNG MẠI</h3>

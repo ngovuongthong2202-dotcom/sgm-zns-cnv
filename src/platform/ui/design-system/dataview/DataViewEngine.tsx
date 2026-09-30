@@ -172,7 +172,7 @@ export function DataViewEngine<T>({
   const pageIndex = table.getState().pagination?.pageIndex ?? 0;
   const pageSize = table.getState().pagination?.pageSize ?? 25;
   const totalCount = filteredData.length;
-  const startItem = totalCount === 0 ? 0 : pageIndex * pageSize + 1;
+  const startItem = totalCount === 0 ? 0 : Math.min(pageIndex * pageSize + 1, totalCount);
   const endItem = Math.min((pageIndex + 1) * pageSize, totalCount);
 
   React.useLayoutEffect(() => {

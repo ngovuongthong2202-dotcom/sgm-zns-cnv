@@ -15,6 +15,7 @@ import { QUOTATION_LOAI } from '@/src/domain/enums/quotation-loai';
 import { resolvePaymentLoai } from '../domain/resolvePaymentLoai';
 import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
 import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
+import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 function QuickEditAmount({ value, onSave }: { value: number, onSave: (v: number) => void }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -233,13 +234,39 @@ export const getPaymentColumns = (
       const uniqueContacts = Array.from(new Map(contactsToDisplay.map(item => [`${item.name}-${item.phone}`, item])).values());
 
       return (
-        <div className="flex flex-col gap-0.5 py-1" title={cName}>
+        <div className="flex flex-col gap-1 py-1" title={cName}>
           <span className="font-semibold text-slate-900 tracking-tight line-clamp-3 break-words whitespace-normal leading-snug">{cName}</span>
-          {uniqueContacts.map((contact, idx) => (
-             <span key={idx} className="text-2xs text-slate-500 whitespace-normal break-words leading-tight">
-               {contact.name} {contact.phone ? `- ${contact.phone}` : ''}
-             </span>
-          ))}
+          {uniqueContacts.map((contact, idx) => {
+            const ext = contact.phone ? extractVietnamesePhones(contact.phone) : null;
+            const mobileList = ext?.mobilePhones || [];
+            const landlineList = ext?.landlinePhones || [];
+
+            return (
+              <div key={idx} className="flex flex-wrap items-center gap-1 text-2xs text-slate-600 leading-tight">
+                <span className="font-medium text-slate-700">{contact.name}</span>
+                {mobileList.length > 0 ? (
+                  mobileList.map((m, mIdx) => (
+                    <span 
+                      key={mIdx} 
+                      className="inline-flex items-center px-1.5 py-0.5 rounded text-3xs font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200/60 shadow-2xs"
+                      title={m.carrier ? `${m.carrier} - Zalo/ZNS OK` : 'Di động'}
+                    >
+                      {m.formatted}
+                    </span>
+                  ))
+                ) : landlineList.length > 0 ? (
+                  <span 
+                    className="inline-flex items-center px-1.5 py-0.5 rounded text-3xs font-mono text-slate-500 bg-slate-100 border border-slate-200"
+                    title="Máy bàn cố định (Không ZNS)"
+                  >
+                    ☎️ {landlineList[0].formatted}
+                  </span>
+                ) : contact.phone ? (
+                  <span className="text-3xs font-mono text-slate-400">{contact.phone}</span>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       );
     }

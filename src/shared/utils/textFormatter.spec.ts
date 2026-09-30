@@ -6,7 +6,8 @@ import {
   cleanCode,
   squeezeSpaces,
   cleanProperVietnameseText,
-  parseCurrencyToNumber
+  parseCurrencyToNumber,
+  normalizePhoneNumber
 } from './textFormatter';
 
 describe('Text Formatter Utility', () => {
@@ -78,5 +79,22 @@ describe('Text Formatter Utility', () => {
     // Clean number with trailing units
     expect(parseCurrencyToNumber('1500000')).toBe(1500000);
     expect(parseCurrencyToNumber('3500.50$')).toBe(3500.5);
+  });
+
+  it('normalizes single phone and multi-phone without destroying delimiters or concatenating into monster strings', () => {
+    // Single phone
+    expect(normalizePhoneNumber('0913 938 819')).toBe('0913938819');
+    expect(normalizePhoneNumber('+84 913 938 819')).toBe('0913938819');
+    expect(normalizePhoneNumber('(028) 3823-2490')).toBe('02838232490');
+
+    // Multi-phone with slashes, commas, semicolons
+    expect(normalizePhoneNumber('0983916267 / 0919389089')).toBe('0983916267 / 0919389089');
+    expect(normalizePhoneNumber('0983 916 267, 0919 389 089')).toBe('0983916267 / 0919389089');
+    expect(normalizePhoneNumber('0683823249 / 0913938819 / 02593823242')).toBe('0683823249 / 0913938819 / 02593823242');
+
+    // Empty/null
+    expect(normalizePhoneNumber('')).toBe('');
+    expect(normalizePhoneNumber(null)).toBe('');
+    expect(normalizePhoneNumber(undefined)).toBe('');
   });
 });

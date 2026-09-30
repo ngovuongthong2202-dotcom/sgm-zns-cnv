@@ -25,102 +25,27 @@ import { useDataViewSorting } from './hooks/useDataViewSorting';
 import { useDataViewGrouping } from './hooks/useDataViewGrouping';
 import { useDataViewPagination } from './hooks/useDataViewPagination';
 import { useDataViewBase } from './hooks/useDataViewBase';
+import { matchesEnterpriseSearch, normalizeVietnameseSearch } from '@/src/shared/utils/vietnameseSearchEngine';
 
 export const vietnameseTextFilter: FilterFn<any> = (row, columnId, value) => {
-  const normalize = (str: string) => 
-    String(str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
-  
-  const normalizedValue = normalize(value as string);
-  if (!normalizedValue) return true;
+  const queryStr = String(value || '').trim();
+  if (!queryStr) return true;
 
-  // 1. Check cell value
+  // 1. Kiểm tra trực tiếp giá trị của ô hiện tại
   const rowValue = row.getValue(columnId);
-  if (rowValue != null && normalize(String(rowValue)).includes(normalizedValue)) {
+  if (rowValue != null && normalizeVietnameseSearch(String(rowValue)).includes(normalizeVietnameseSearch(queryStr))) {
     return true;
   }
 
-  // 2. Search other representative name, product names, codes, contacts inside original & relations
+  // 2. Tìm kiếm doanh nghiệp toàn diện trên toàn bộ thực thể và các thông tin liên kết
   const original = row.original as any;
   if (!original) return false;
 
-  const checkFields = (obj: any): boolean => {
-    if (!obj || typeof obj !== 'object') return false;
-
-    // A. Direct string fields
-    const directFields = [
-      obj.nguoiDaiDien, obj.tenKhachHang, obj.nguoiPhuTrach, obj.maKh,
-      obj.soPhieuBaoGia, obj.soBaoGia, obj.soHopDong, obj.soPhieuThu,
-      obj.maPhieuThu, obj.soPhieuGiao, obj.maGiaoHang, obj.maDonHang,
-      obj.sdt, obj.soDienThoai, obj.diaChi, obj.diaChiGiaoHang, obj.tinhThanh,
-      obj.taiXe, obj.thoGiaoMay, obj.nguoiGiao, obj.donViVanChuyen, obj.noiDung
-    ];
-    for (const f of directFields) {
-      if (f && normalize(String(f)).includes(normalizedValue)) return true;
-    }
-
-    // B. Checking embedded contacts array
-    if (Array.isArray(obj.contacts)) {
-      for (const contact of obj.contacts) {
-        if (contact) {
-          if (contact.nguoiDaiDien && normalize(String(contact.nguoiDaiDien)).includes(normalizedValue)) return true;
-          if (contact.sdt && String(contact.sdt).includes(normalizedValue)) return true;
-          if (contact.chucVu && normalize(String(contact.chucVu)).includes(normalizedValue)) return true;
-        }
-      }
-    }
-
-    // C. Deep Product / Item Search (productName, tenSanPham, model, serial, machine codes)
-    const productLists = [obj.products, obj.items, obj.danhSachSanPham, obj.hangMuc];
-    for (const list of productLists) {
-      if (Array.isArray(list)) {
-        for (const item of list) {
-          if (!item) continue;
-          if (typeof item === 'string') {
-            if (normalize(item).includes(normalizedValue)) return true;
-            continue;
-          }
-          if (item.productName && normalize(String(item.productName)).includes(normalizedValue)) return true;
-          if (item.tenSanPham && normalize(String(item.tenSanPham)).includes(normalizedValue)) return true;
-          if (item.name && normalize(String(item.name)).includes(normalizedValue)) return true;
-          if (item.model && normalize(String(item.model)).includes(normalizedValue)) return true;
-          if (item.productId && normalize(String(item.productId)).includes(normalizedValue)) return true;
-          if (item.sku && normalize(String(item.sku)).includes(normalizedValue)) return true;
-          if (item.serial && normalize(String(item.serial)).includes(normalizedValue)) return true;
-          if (item.ghiChu && normalize(String(item.ghiChu)).includes(normalizedValue)) return true;
-          if (Array.isArray(item.danhSachMaMay)) {
-            for (const mm of item.danhSachMaMay) {
-              if (mm && normalize(String(mm)).includes(normalizedValue)) return true;
-            }
-          }
-        }
-      }
-    }
-
-    // D. danhSachMaMay at root
-    if (Array.isArray(obj.danhSachMaMay)) {
-      for (const mm of obj.danhSachMaMay) {
-        if (mm && normalize(String(mm)).includes(normalizedValue)) return true;
-      }
-    }
-
-    // E. Payment installments (cacDotThu)
-    if (Array.isArray(obj.cacDotThu)) {
-      for (const dot of obj.cacDotThu) {
-        if (dot) {
-          if (dot.tenDot && normalize(String(dot.tenDot)).includes(normalizedValue)) return true;
-          if (dot.ghiChu && normalize(String(dot.ghiChu)).includes(normalizedValue)) return true;
-        }
-      }
-    }
-
-    return false;
-  };
-
-  if (checkFields(original)) return true;
-  if (original.__customerInfo && checkFields(original.__customerInfo)) return true;
-  if (original.__quotationInfo && checkFields(original.__quotationInfo)) return true;
-  if (original.__contractInfo && checkFields(original.__contractInfo)) return true;
-  if (original.__paymentInfo && checkFields(original.__paymentInfo)) return true;
+  if (matchesEnterpriseSearch(original, queryStr)) return true;
+  if (original.__customerInfo && matchesEnterpriseSearch(original.__customerInfo, queryStr)) return true;
+  if (original.__quotationInfo && matchesEnterpriseSearch(original.__quotationInfo, queryStr)) return true;
+  if (original.__contractInfo && matchesEnterpriseSearch(original.__contractInfo, queryStr)) return true;
+  if (original.__paymentInfo && matchesEnterpriseSearch(original.__paymentInfo, queryStr)) return true;
 
   return false;
 };
@@ -285,14 +210,6 @@ export function useDataView<T>(props: UseDataViewProps<T>) {
   const { sorting, setSorting } = useDataViewSorting(props.initialState?.sorting, getSaved);
   const { grouping, setGrouping, expanded, setExpanded } = useDataViewGrouping(props.initialState?.grouping, getSaved);
   const { pagination, setPagination } = useDataViewPagination(undefined, storageKey || prefix);
-
-  // Boundary safe clamping: nếu tổng số bản ghi giảm khiến pageIndex hiện tại vượt quá số trang
-  useEffect(() => {
-    const totalPages = Math.ceil(props.data.length / pagination.pageSize);
-    if (totalPages > 0 && pagination.pageIndex >= totalPages) {
-      setPagination(prev => ({ ...prev, pageIndex: Math.max(0, totalPages - 1) }));
-    }
-  }, [props.data.length, pagination.pageSize, pagination.pageIndex, setPagination]);
 
   const {
     columnVisibility, setColumnVisibility,
@@ -500,6 +417,25 @@ export function useDataView<T>(props: UseDataViewProps<T>) {
     enableRowSelection: false,
     meta: props.meta,
   });
+
+  // User-Initiated Filter Transition: Reset pageIndex to 0 when search query or column filters change
+  const lastFilterFingerprintRef = useRef<string>('');
+  useEffect(() => {
+    const currentFingerprint = `${deferredGlobalFilter || ''}::${JSON.stringify(columnFilters || [])}`;
+    if (lastFilterFingerprintRef.current && lastFilterFingerprintRef.current !== currentFingerprint) {
+      setPagination(prev => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }));
+    }
+    lastFilterFingerprintRef.current = currentFingerprint;
+  }, [deferredGlobalFilter, columnFilters, setPagination]);
+
+  // Boundary safe clamping: nếu tổng số bản ghi đã lọc giảm khiến pageIndex hiện tại vượt quá số trang
+  const filteredRowsCount = table.getFilteredRowModel().rows.length;
+  useEffect(() => {
+    const totalPages = Math.ceil(filteredRowsCount / pagination.pageSize);
+    if (totalPages > 0 && pagination.pageIndex >= totalPages) {
+      setPagination(prev => ({ ...prev, pageIndex: Math.max(0, totalPages - 1) }));
+    }
+  }, [filteredRowsCount, pagination.pageSize, pagination.pageIndex, setPagination]);
 
   useDataViewKeyboard({
     onNextRow: () => {

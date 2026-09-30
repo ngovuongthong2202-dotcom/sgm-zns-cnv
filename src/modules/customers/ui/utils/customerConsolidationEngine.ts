@@ -1,6 +1,7 @@
 import { Customer, ContactItem } from '@/src/domain/schema/customer.schema';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { normalizeBusinessName, normalizePersonName } from '@/src/shared/utils/textFormatter';
+import { extractVietnamesePhones } from './vietnameseTelecomExtractor';
 
 export interface DuplicateCustomerGroup {
   taxCode: string;
@@ -159,10 +160,14 @@ export function buildConsolidationMigrationPlan(
   secondaries.forEach(sec => {
     // Đầu mối từ primary fields của secondary
     if (sec.nguoiDaiDien || sec.sdt) {
-      const isDuplicate = mergedContacts.some(
-        ct => (sec.sdt && ct.sdt === sec.sdt) || 
-              (sec.nguoiDaiDien && ct.nguoiDaiDien?.toLowerCase() === sec.nguoiDaiDien?.toLowerCase())
-      );
+      const secPhonePrimary = sec.sdt ? extractVietnamesePhones(sec.sdt).primaryPhone : '';
+      const isDuplicate = mergedContacts.some(ct => {
+        const ctPhonePrimary = ct.sdt ? extractVietnamesePhones(ct.sdt).primaryPhone : '';
+        if (secPhonePrimary && ctPhonePrimary && secPhonePrimary === ctPhonePrimary) return true;
+        if (sec.sdt && ct.sdt && sec.sdt.trim() === ct.sdt.trim()) return true;
+        if (sec.nguoiDaiDien && ct.nguoiDaiDien && sec.nguoiDaiDien.trim().toLowerCase() === ct.nguoiDaiDien.trim().toLowerCase()) return true;
+        return false;
+      });
       if (!isDuplicate) {
         mergedContacts.push({
           danhXung: 'Đại diện',
@@ -176,10 +181,14 @@ export function buildConsolidationMigrationPlan(
 
     // Các đầu mối trong mảng contacts của secondary
     (sec.contacts || []).forEach(secContact => {
-      const isDuplicate = mergedContacts.some(
-        ct => (secContact.sdt && ct.sdt === secContact.sdt) ||
-              (secContact.nguoiDaiDien && ct.nguoiDaiDien?.toLowerCase() === secContact.nguoiDaiDien?.toLowerCase())
-      );
+      const secPhonePrimary = secContact.sdt ? extractVietnamesePhones(secContact.sdt).primaryPhone : '';
+      const isDuplicate = mergedContacts.some(ct => {
+        const ctPhonePrimary = ct.sdt ? extractVietnamesePhones(ct.sdt).primaryPhone : '';
+        if (secPhonePrimary && ctPhonePrimary && secPhonePrimary === ctPhonePrimary) return true;
+        if (secContact.sdt && ct.sdt && secContact.sdt.trim() === ct.sdt.trim()) return true;
+        if (secContact.nguoiDaiDien && ct.nguoiDaiDien && secContact.nguoiDaiDien.trim().toLowerCase() === ct.nguoiDaiDien.trim().toLowerCase()) return true;
+        return false;
+      });
       if (!isDuplicate) {
         mergedContacts.push(secContact);
       }

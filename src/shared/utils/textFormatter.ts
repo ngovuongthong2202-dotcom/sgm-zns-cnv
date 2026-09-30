@@ -21,7 +21,7 @@ export function squeezeSpaces(s?: string | null): string {
   return s.trim().replace(/\s+/g, ' ');
 }
 
-export function normalizePhoneNumber(phone?: string | null): string {
+function normalizeSinglePhone(phone: string): string {
   if (!phone) return '';
   let cleaned = phone.trim().replace(/[\s.()]/g, '').replace(/-/g, '');
   if (cleaned.startsWith('+84')) {
@@ -30,6 +30,18 @@ export function normalizePhoneNumber(phone?: string | null): string {
     cleaned = '0' + cleaned.slice(2);
   }
   return cleaned.replace(/\D/g, '');
+}
+
+export function normalizePhoneNumber(phone?: string | null): string {
+  if (!phone) return '';
+  const trimmed = phone.trim();
+  // Nếu chuỗi chứa dấu phân cách nhiều số điện thoại (ví dụ: "0983916267 / 0919389089", dấu phẩy hoặc chấm phẩy)
+  if (trimmed.includes('/') || trimmed.includes(',') || trimmed.includes(';')) {
+    const parts = trimmed.split(/[\/,;]+/).map(p => p.trim()).filter(Boolean);
+    const normalizedParts = parts.map(p => normalizeSinglePhone(p)).filter(Boolean);
+    return normalizedParts.join(' / ');
+  }
+  return normalizeSinglePhone(trimmed);
 }
 
 export function cleanCode(s?: string | null): string {
