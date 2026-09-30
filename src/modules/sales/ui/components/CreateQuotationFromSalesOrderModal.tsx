@@ -177,7 +177,7 @@ export function CreateQuotationFromSalesOrderModal({
         }
       }
 
-      const res = await fetch(`/api/quotations/erp-sales-order/${encodeURIComponent(cleanCode)}`);
+      const res = await fetch(`/api/quotations/erp-sales-order?code=${encodeURIComponent(cleanCode)}`);
       const payload = await res.json();
 
       if (!payload.success || !payload.data) {

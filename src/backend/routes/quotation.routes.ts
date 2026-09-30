@@ -75,7 +75,7 @@ router.get('/erp-sales-orders-search', async (req, res) => {
 });
 
 // Dual-Tier Gateway: Direct Path + Query Fallback & Auto-Synthesis
-router.get(['/erp-sales-order/:code(*)', '/erp-sales-order'], async (req, res) => {
+const handleErpSalesOrderLookup = async (req: any, res: any) => {
   try {
     const rawCode = (req.params as any).code || req.query.code || '';
     let cleanCode = String(rawCode)
@@ -218,6 +218,9 @@ router.get(['/erp-sales-order/:code(*)', '/erp-sales-order'], async (req, res) =
     console.warn('ERP Sales Order Connection Error:', errorMsg);
     return res.status(200).json({ success: false, error: errorMsg });
   }
-});
+};
+
+router.get('/erp-sales-order', handleErpSalesOrderLookup);
+router.get('/erp-sales-order/:code', handleErpSalesOrderLookup);
 
 export default router;
