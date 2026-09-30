@@ -30,7 +30,10 @@ export function useContractForm(
   const { user, userData } = useAuth();
   const defaultOfficer = formatUserOfficer(userData, user);
 
-  const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Contract>('contracts', contract?.id || 'new');
+  const scopedDraftKey = contract?.id
+    ? contract.id
+    : (prefillQuotation?.id ? `new_quotation_${prefillQuotation.id}` : 'new_standalone');
+  const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Contract>('contracts', scopedDraftKey);
 
   const initialFormValues = useMemo(() => {
     const base = getInitialContractFormValues(contract, draft);
@@ -70,7 +73,7 @@ export function useContractForm(
           .then(res => res.json())
           .then(data => {
             if (!isCancelled && data.success && data.code) {
-              setValue('soHopDong', data.code, { shouldValidate: true, shouldDirty: true });
+              setValue('soHopDong', data.code, { shouldValidate: true });
             }
           })
           .catch(() => {

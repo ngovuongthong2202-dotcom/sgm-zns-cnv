@@ -27,7 +27,14 @@ export function useDeliveryForm(
   const defaultOfficer = formatUserOfficer(userData, user);
   const { lanhDaoPheDuyetList } = useSharedFields();
   const defaultLeader = (lanhDaoPheDuyetList && lanhDaoPheDuyetList.length > 0) ? lanhDaoPheDuyetList[0] : '';
-  const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Delivery>('deliveries', delivery?.id || 'new');
+  const scopedDraftKey = delivery?.id || (
+    delivery?.paymentId ? `new_pay_${delivery.paymentId}` : (
+      delivery?.contractId ? `new_ctr_${delivery.contractId}` : (
+        delivery?.quotationId ? `new_quo_${delivery.quotationId}` : 'new_standalone'
+      )
+    )
+  );
+  const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Delivery>('deliveries', scopedDraftKey);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -133,7 +140,7 @@ export function useDeliveryForm(
             .then(res => res.json())
             .then(data => {
               if (!isCancelled && data?.success && data?.code) {
-                setValue('deliveryId', data.code, { shouldValidate: true, shouldDirty: true });
+                setValue('deliveryId', data.code, { shouldValidate: true });
               }
             })
             .catch(() => {

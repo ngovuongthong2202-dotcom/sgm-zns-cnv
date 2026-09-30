@@ -278,6 +278,11 @@ export const DataViewRow = React.memo(({
   const prevVirtualRow = prevProps.virtualRow;
   const nextVirtualRow = nextProps.virtualRow;
   
+  const prevOrig = prevRow.original as any;
+  const nextOrig = nextRow.original as any;
+  const prevTs = prevOrig?.updatedAt || prevOrig?.updated_at || prevOrig?.ngayCapNhat;
+  const nextTs = nextOrig?.updatedAt || nextOrig?.updated_at || nextOrig?.ngayCapNhat;
+
   const structurallyEqual = (
     prevVirtualRow?.start === nextVirtualRow?.start &&
     prevVirtualRow?.size === nextVirtualRow?.size &&
@@ -288,8 +293,8 @@ export const DataViewRow = React.memo(({
     prevProps.isExpanded === nextProps.isExpanded &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isSomeSelected === nextProps.isSomeSelected &&
-    (prevRow.original as any)?.id === (nextRow.original as any)?.id &&
-    (prevRow.original as any)?.updatedAt === (nextRow.original as any)?.updatedAt
+    prevOrig?.id === nextOrig?.id &&
+    prevTs === nextTs
   );
 
   if (!structurallyEqual) return false;

@@ -11,6 +11,8 @@ import { clearSwrColCache } from '@/src/data/swr-fetchers';
 import { crossTabSync } from '@/src/shared/utils/crossTabSync';
 import { notify } from '@/src/shared/utils/notify';
 import { Button } from '@/src/design-system/Button';
+import { MergeCustomer } from '../../application/use-cases/MergeCustomer';
+import { useAuth } from '@/src/modules/iam';
 import { 
   Users, 
   GitMerge, 
@@ -46,6 +48,7 @@ export function CustomerConsolidationModal({
   deliveries = [],
   onConsolidationSuccess,
 }: Props) {
+  const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedGroupIndex, setSelectedGroupIndex] = useState<number>(0);
 
@@ -82,47 +85,53 @@ export function CustomerConsolidationModal({
         });
       }
 
-      // 2. Lưu trữ các khách hàng Secondary (soft-archive)
-      for (const sec of plan.archivedSecondaryCustomers) {
-        if (sec.id) {
-          await customerRepo.update(sec.id, {
-            isArchived: true,
-            mergedInto: plan.masterCustomer.id,
-            tenKhachHang: `[ĐÃ GỘP VÀO ${plan.masterCustomer.maKh}] ${sec.tenKhachHang}`,
-          });
+      // 2. Thực hiện hợp nhất nguyên tử qua Backend ACID Batch
+      const secondaryIds = group.secondaryCustomers.map(s => s.id).filter((id): id is string => Boolean(id));
+      let backendSuccess = false;
+      if (plan.masterCustomer.id) {
+        try {
+          await MergeCustomer.execute(plan.masterCustomer.id, secondaryIds, user?.email || undefined);
+          backendSuccess = true;
+        } catch (err) {
+          console.warn('[CustomerConsolidation] Backend atomic merge failed or offline, falling back to client-side migration:', err);
         }
       }
 
-      // 3. Chuyển giao Quotations sang Master ID nhưng giữ nguyên thông tin đầu mối gốc
-      for (const qId of plan.affectedQuotationIds) {
-        await quoteRepo.update(qId, {
-          customerId: plan.masterCustomer.id,
-          maKh: plan.masterCustomer.maKh,
-        });
-      }
-
-      // 4. Chuyển giao Contracts sang Master ID
-      for (const cId of plan.affectedContractIds) {
-        await contractRepo.update(cId, {
-          customerId: plan.masterCustomer.id,
-          maKh: plan.masterCustomer.maKh,
-        });
-      }
-
-      // 5. Chuyển giao Payments sang Master ID
-      for (const pId of plan.affectedBillingIds) {
-        await paymentRepo.update(pId, {
-          customerId: plan.masterCustomer.id,
-          maKh: plan.masterCustomer.maKh,
-        });
-      }
-
-      // 6. Chuyển giao Deliveries sang Master ID
-      for (const dId of plan.affectedDeliveryIds) {
-        await deliveryRepo.update(dId, {
-          customerId: plan.masterCustomer.id,
-          maKh: plan.masterCustomer.maKh,
-        });
+      // 3. Fallback client-side nếu backend không khả dụng
+      if (!backendSuccess) {
+        for (const sec of plan.archivedSecondaryCustomers) {
+          if (sec.id) {
+            await customerRepo.update(sec.id, {
+              isArchived: true,
+              mergedInto: plan.masterCustomer.id,
+              tenKhachHang: `[ĐÃ GỘP VÀO ${plan.masterCustomer.maKh}] ${sec.tenKhachHang}`,
+            });
+          }
+        }
+        for (const qId of plan.affectedQuotationIds) {
+          await quoteRepo.update(qId, {
+            customerId: plan.masterCustomer.id,
+            maKh: plan.masterCustomer.maKh,
+          });
+        }
+        for (const cId of plan.affectedContractIds) {
+          await contractRepo.update(cId, {
+            customerId: plan.masterCustomer.id,
+            maKh: plan.masterCustomer.maKh,
+          });
+        }
+        for (const pId of plan.affectedBillingIds) {
+          await paymentRepo.update(pId, {
+            customerId: plan.masterCustomer.id,
+            maKh: plan.masterCustomer.maKh,
+          });
+        }
+        for (const dId of plan.affectedDeliveryIds) {
+          await deliveryRepo.update(dId, {
+            customerId: plan.masterCustomer.id,
+            maKh: plan.masterCustomer.maKh,
+          });
+        }
       }
 
       // Clear caches and sync

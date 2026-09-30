@@ -7,6 +7,7 @@ import { formatDate } from '@/src/shared/utils/formatDate';
 import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 import { SGM_COMPANY_INFO } from '@/src/shared/constants/companyInfo';
 import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
+import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
 
 interface ExportContractPdfProps {
   contract: Contract;
@@ -29,7 +30,12 @@ export function ExportContractPdf({
   });
 
   const products = contract.products || [];
-  const totalAmount = contract.totalAmount || (contract as any).giaTriHopDong || 0;
+  const financialSummary = aggregateProducts(products);
+  const totalAmount = contract.totalAmount || (contract as any).giaTriHopDong || financialSummary.totalAfterTax || 0;
+  const subtotalGross = financialSummary.totalGross || totalAmount;
+  const totalDiscount = financialSummary.totalDiscount || 0;
+  const totalVat = financialSummary.totalVat || 0;
+  const effectiveVatRate = financialSummary.effectiveVatRate || 0;
   const isDraft = contract.tinhTrangHopDong !== 'ĐÃ KÝ';
 
   const formatCurrency = (val: number) => {
@@ -165,25 +171,45 @@ export function ExportContractPdf({
                 </thead>
                 <tbody className="divide-y divide-slate-150">
                   {products.map((item, idx) => {
-                    const price = item.price || (item as any).unitPrice || (item as any).donGia || 0;
+                    const line = computeLineItem(item);
+                    const rowPrice = line.price || 0;
+                    const lineTotal = line.subtotalAfterDiscount ?? (line.quantity * rowPrice);
                     return (
                       <tr key={idx}>
                         <td className="p-2 text-center text-slate-500 font-mono">{idx + 1}</td>
                         <td className="p-2 font-medium">
-                          <span className="font-bold text-slate-900">{item.productName}</span>
+                          <span className="font-bold text-slate-900">{line.productName || item.productName}</span>
                           {(item as any).description && <p className="text-3xs text-slate-500 mt-0.5">{(item as any).description}</p>}
                         </td>
-                        <td className="p-2 text-center text-slate-600">{item.unit || 'Máy'}</td>
-                        <td className="p-2 text-center font-bold font-mono">{item.quantity}</td>
-                        <td className="p-2 text-right font-mono">{formatCurrency(price)}</td>
+                        <td className="p-2 text-center text-slate-600">{line.unit || item.unit || 'Máy'}</td>
+                        <td className="p-2 text-center font-bold font-mono">{line.quantity}</td>
+                        <td className="p-2 text-right font-mono">{formatCurrency(rowPrice)}</td>
                         <td className="p-2 text-right font-bold font-mono text-slate-900">
-                          {formatCurrency((item.quantity || 1) * price)}
+                          {formatCurrency(lineTotal)}
                         </td>
                       </tr>
                     );
                   })}
-                  <tr className="bg-slate-50/80 font-bold border-t border-slate-200">
-                    <td colSpan={5} className="p-2 text-right uppercase">Tổng Giá Trị Hợp Đồng (Đã bao gồm VAT & Bàn Giao):</td>
+                  {totalDiscount > 0 && (
+                    <tr className="bg-slate-50 text-slate-700 font-medium border-t border-slate-200">
+                      <td colSpan={5} className="p-2 text-right">Cộng tiền hàng (Tạm tính):</td>
+                      <td className="p-2 text-right font-mono font-medium">{formatCurrency(subtotalGross || 0)}</td>
+                    </tr>
+                  )}
+                  {totalDiscount > 0 && (
+                    <tr className="bg-amber-50/50 text-amber-800 font-medium">
+                      <td colSpan={5} className="p-2 text-right">Chiết khấu thương mại:</td>
+                      <td className="p-2 text-right font-mono font-bold">-{formatCurrency(totalDiscount)}</td>
+                    </tr>
+                  )}
+                  {totalVat > 0 && (
+                    <tr className="bg-slate-50 text-slate-700 font-medium">
+                      <td colSpan={5} className="p-2 text-right">Thuế giá trị gia tăng ({effectiveVatRate > 0 ? `${effectiveVatRate}%` : 'VAT'}):</td>
+                      <td className="p-2 text-right font-mono font-medium">+{formatCurrency(totalVat)}</td>
+                    </tr>
+                  )}
+                  <tr className="bg-slate-100 font-bold border-t-2 border-slate-300">
+                    <td colSpan={5} className="p-2 text-right uppercase text-slate-900">Tổng Giá Trị Hợp Đồng (Đã bao gồm VAT & Bàn Giao):</td>
                     <td className="p-2 text-right font-black font-mono text-emerald-900 text-xs">
                       {formatCurrency(totalAmount)}
                     </td>

@@ -28,8 +28,8 @@ export function ExportQuotationPdf({ quotation, variant = 'secondary', className
   // Calculate items locally to ensure exact tabular-nums layout
   const items = quotation.products || [];
   
-  const { totalGross: subtotal, totalDiscount: discount, totalVat: vatAmount, totalAfterTax: total } = aggregateProducts(items);
-  const vatRate = quotation.vatRate ?? 10;
+  const { totalGross: subtotal, totalDiscount: discount, totalVat: vatAmount, totalAfterTax: total, effectiveVatRate } = aggregateProducts(items);
+  const vatRate = quotation.vatRate !== undefined && quotation.vatRate !== null ? quotation.vatRate : effectiveVatRate;
 
   const isDraft = quotation.tinhTrangBaoGia !== 'ĐÃ CHỐT';
 
@@ -183,7 +183,7 @@ export function ExportQuotationPdf({ quotation, variant = 'secondary', className
                 </div>
               )}
               <div className="flex justify-between text-xs text-slate-600 border-b border-dashed border-slate-100 pb-2">
-                <span>Thuế giá trị gia tăng ({vatRate}%):</span>
+                <span>Thuế giá trị gia tăng ({vatAmount === 0 ? '0% / Miễn thuế' : `${vatRate}%`}):</span>
                 <span className="font-mono text-slate-900 tabular-nums font-bold">+{formatCurrency(vatAmount)}</span>
               </div>
               <div className="flex justify-between text-sm text-slate-950 font-black pt-1 border-t-2 border-slate-900">

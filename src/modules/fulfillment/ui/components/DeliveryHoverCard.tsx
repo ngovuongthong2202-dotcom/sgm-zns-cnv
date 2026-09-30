@@ -1,5 +1,5 @@
 import { getEntityDisplayLabel } from '@/src/domain/mapping/entity-label';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import useSWR from 'swr';
 import { Truck, Receipt, Handshake, FileText, UserCheck, Phone, MapPin } from 'lucide-react';
@@ -10,6 +10,7 @@ import { HoverCardProductsTab } from '@/src/widgets/HoverCardProductsTab';
 import { cn } from '@/src/shared/utils/textFormatter';
 import { computeContractCompletionTimeline, parseSafeDate } from '@/src/shared/utils/vietnamBusinessDays';
 import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
+import { aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
 
 interface Props {
   delivery?: Delivery;
@@ -59,7 +60,15 @@ function DeliveryHoverCardContent({ delivery, deliveryId }: { delivery?: Deliver
     );
   }
 
-  const totalValue = activeDelivery.products?.reduce((acc: number, p: any) => acc + ((p.price || 0) * (p.quantity || 1)), 0) || 0;
+  const productAggregate = useMemo(() => {
+    if (!activeDelivery?.products?.length) return null;
+    return aggregateProducts(activeDelivery.products);
+  }, [activeDelivery?.products]);
+
+  const computedSubTotal = activeDelivery.subTotal || productAggregate?.totalGross || 0;
+  const computedDiscount = activeDelivery.discountAmount ?? productAggregate?.totalDiscount ?? 0;
+  const computedVat = activeDelivery.vatAmount ?? productAggregate?.totalVat ?? 0;
+  const totalValue = activeDelivery.totalAmount || (activeDelivery as any).giaTriDonHang || (activeDelivery as any).giaTriHopDong || linkedContract?.giaTriHopDong || productAggregate?.totalAfterTax || 0;
 
   const contractTimeline = linkedContract ? computeContractCompletionTimeline(linkedContract, linkedPayment ? [linkedPayment] : []) : null;
   const contractCompletionDate = contractTimeline?.completionDate || null;
@@ -252,12 +261,12 @@ function DeliveryHoverCardContent({ delivery, deliveryId }: { delivery?: Deliver
         {activeTab === 'products' && (
            <HoverCardProductsTab
              products={activeDelivery.products || []}
-             subTotal={activeDelivery.subTotal || totalValue}
+             subTotal={computedSubTotal || totalValue}
              discountRate={activeDelivery.discountRate}
-             discountAmount={activeDelivery.discountAmount}
-             vatRate={activeDelivery.vatRate}
-             vatAmount={activeDelivery.vatAmount}
-             totalAmount={activeDelivery.totalAmount || totalValue}
+             discountAmount={computedDiscount}
+             vatRate={activeDelivery.vatRate ?? productAggregate?.effectiveVatRate}
+             vatAmount={computedVat}
+             totalAmount={totalValue}
              accentColorClass="text-blue-700"
            />
         )}
