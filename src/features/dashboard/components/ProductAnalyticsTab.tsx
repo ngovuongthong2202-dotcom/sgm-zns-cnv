@@ -17,18 +17,8 @@ import {
   CheckCircle2, 
   Clock, 
   AlertTriangle,
-  FileSpreadsheet,
-  FileText,
-  CreditCard,
-  Building2,
-  ExternalLink,
-  ChevronRight,
-  Filter,
-  Wrench,
-  Sparkles,
-  DollarSign
+  FileSpreadsheet
 } from 'lucide-react';
-import { Button } from '@/src/design-system/Button';
 
 export type ProductTaxonomyCategory = 'MAY' | 'VAT_TU' | 'DICH_VU';
 

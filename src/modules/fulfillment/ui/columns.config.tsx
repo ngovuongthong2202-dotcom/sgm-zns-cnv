@@ -190,7 +190,7 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
             }
             return (
               <div className="flex items-center w-full mt-0.5" title={tooltip}>
-                <span className="text-3xs text-rose-700 font-bold bg-rose-50 px-1 py-0.5 rounded border border-rose-300 uppercase tracking-wider truncate flex items-center gap-0.5 animate-pulse">
+                <span className="text-3xs text-red-700 font-bold bg-red-50 px-1 py-0.5 rounded border border-red-300 uppercase tracking-wider truncate flex items-center gap-0.5 animate-pulse">
                   ⚡ Giao trước - Chưa thanh toán
                 </span>
               </div>

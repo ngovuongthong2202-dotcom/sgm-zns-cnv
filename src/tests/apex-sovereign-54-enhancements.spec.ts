@@ -119,7 +119,7 @@ describe('Apex Sovereign 54.0 - Universal Financial & Document Integrity', () =>
     const deliveryFromProducts = {
       totalAmount: 0,
       giaTriHopDong: 0,
-      products: [{ price: 50000000, quantity: 2, vatPct: 10 }]
+      products: [{ productName: 'Máy khắc laser Fiber', price: 50000000, quantity: 2, vatPct: 10 }]
     };
     const agg = aggregateProducts(deliveryFromProducts.products);
     const total3 = deliveryFromProducts.totalAmount || deliveryFromProducts.giaTriHopDong || agg.totalAfterTax;

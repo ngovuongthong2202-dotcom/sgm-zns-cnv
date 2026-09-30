@@ -50,7 +50,9 @@ export async function apiDeleteEntity(entityType: string, id: string, userId?: s
   realtimeStore.mutateOptimistic(colName, 'delete', { id });
   try {
     clearSwrColCache(colName);
-  } catch {}
+  } catch {
+    // SWR cache clear failure ignored in offline mode
+  }
   realtimeStore.refresh(colName);
 
   const res = await fetch(`/api/workflow/delete/${entityType}/${id}`, {
@@ -95,7 +97,9 @@ export async function apiRestoreEntity(entityType: string, id: string, userId?: 
   }
   try {
     clearSwrColCache(colName);
-  } catch {}
+  } catch {
+    // SWR cache clear failure ignored in offline mode
+  }
   realtimeStore.refresh(colName);
 
   return json;

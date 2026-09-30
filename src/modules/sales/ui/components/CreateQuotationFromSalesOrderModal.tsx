@@ -4,19 +4,15 @@ import {
   X, 
   FileText, 
   Building2, 
-  Package, 
   Scale, 
   CheckCircle2, 
-  AlertCircle, 
   AlertTriangle,
   ArrowRight, 
   RefreshCw, 
   Layers, 
   Image as ImageIcon,
-  Search,
   MapPin,
   Phone,
-  UserCheck,
   User,
   Sparkles
 } from 'lucide-react';
@@ -379,7 +375,7 @@ export function CreateQuotationFromSalesOrderModal({
         {/* Modal Header */}
         <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
               <Zap size={18} className="animate-pulse" />
             </div>
             <div>
@@ -529,7 +525,7 @@ export function CreateQuotationFromSalesOrderModal({
                 setOrderCode('238/VT-SGM/2026');
                 handleLookup('238/VT-SGM/2026');
               }}
-              className="px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 font-mono font-medium transition-colors cursor-pointer"
+              className="px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 font-mono font-medium transition-colors cursor-pointer"
             >
               238/VT-SGM/2026
             </button>
@@ -561,7 +557,7 @@ export function CreateQuotationFromSalesOrderModal({
                 <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 space-y-2.5">
                   <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
                     <div className="flex items-center gap-2">
-                      {customerType === 'Doanh nghiệp' ? <Building2 size={15} className="text-blue-600" /> : <User size={15} className="text-violet-600" />}
+                      {customerType === 'Doanh nghiệp' ? <Building2 size={15} className="text-blue-600" /> : <User size={15} className="text-emerald-600" />}
                       <span className="text-2xs font-extrabold uppercase tracking-wider text-slate-700">
                         Khách Hàng ({customerType === 'Doanh nghiệp' ? 'Doanh Nghiệp / Pháp Nhân' : 'Cá Nhân'})
                       </span>
@@ -592,7 +588,7 @@ export function CreateQuotationFromSalesOrderModal({
                           }
                         }}
                         className={`px-2 py-0.5 rounded text-3xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                          customerType === 'Cá nhân' ? 'bg-white text-violet-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                          customerType === 'Cá nhân' ? 'bg-white text-emerald-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
                         <User size={11} /> Cá nhân
@@ -604,10 +600,10 @@ export function CreateQuotationFromSalesOrderModal({
                   {classifiedCustomer && (
                     <div className={`p-2 rounded-lg text-3xs font-medium flex items-center gap-1.5 border animate-fadeIn ${
                       customerType === 'Cá nhân' 
-                        ? 'bg-violet-50 text-violet-900 border-violet-200' 
+                        ? 'bg-emerald-50 text-emerald-900 border-emerald-200' 
                         : 'bg-blue-50 text-blue-900 border-blue-200'
                     }`}>
-                      <Sparkles size={11} className={customerType === 'Cá nhân' ? 'text-violet-600 shrink-0' : 'text-blue-600 shrink-0'} />
+                      <Sparkles size={11} className={customerType === 'Cá nhân' ? 'text-emerald-600 shrink-0' : 'text-blue-600 shrink-0'} />
                       <span className="truncate">
                         <strong>AI Gợi Ý:</strong> {classifiedCustomer.confidenceReason}
                       </span>
@@ -655,7 +651,7 @@ export function CreateQuotationFromSalesOrderModal({
 
                     {/* Geocoding Province Field */}
                     <div className="flex items-center gap-2 text-2xs pt-0.5">
-                      <MapPin size={13} className="text-rose-600 shrink-0" />
+                      <MapPin size={13} className="text-red-600 shrink-0" />
                       <span className="text-slate-500 font-medium shrink-0">Tỉnh/Thành:</span>
                       <select
                         value={customProvince}
@@ -804,7 +800,7 @@ export function CreateQuotationFromSalesOrderModal({
                 <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <ImageIcon size={15} className="text-indigo-600" />
+                      <ImageIcon size={15} className="text-blue-600" />
                       <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-800">
                         Hồ Sơ Chứng Từ &amp; Ảnh Phiếu Cân Thực Tế ({erpData.files.length} tệp)
                       </h4>
@@ -958,7 +954,7 @@ export function CreateQuotationFromSalesOrderModal({
               type="button"
               disabled={!erpData || loading}
               onClick={handleConstructQuotation}
-              className="px-6 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+              className="px-6 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-xs shadow-md shadow-blue-500/20 flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
             >
               <span>KHỞI TẠO BÁO GIÁ NGAY</span>
               <ArrowRight size={15} />

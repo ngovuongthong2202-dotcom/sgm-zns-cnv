@@ -160,7 +160,7 @@ function DeliveryHoverCardContent({ delivery, deliveryId }: { delivery?: Deliver
                       {formatDate(activeDelivery.ngayGiaoMay || (activeDelivery as any).estimatedDeliveryDate) || '—'}
                     </span>
                     {slaAlignmentStatus !== 'NONE' && (
-                      <span className={`inline-block mt-1 text-3xs font-bold px-1.5 py-0.2 rounded border ${slaAlignmentStatus === 'MATCH' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-rose-700 bg-rose-50 border-rose-200'}`}>
+                      <span className={`inline-block mt-1 text-3xs font-bold px-1.5 py-0.2 rounded border ${slaAlignmentStatus === 'MATCH' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-red-700 bg-red-50 border-red-200'}`}>
                         {slaNotice}
                       </span>
                     )}

@@ -7,7 +7,6 @@ import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { useCustomersPage } from './hooks/useCustomersPage';
 import { CustomerFilterBar } from './components/CustomerFilterBar';
-import { PageHeader } from '@/src/design-system/PageHeader';
 import { CustomerDetailDrawer } from './components/CustomerDetailDrawer';
 import { CustomerReportModal } from './components/CustomerReportModal';
 import { CustomerForm } from './components/CustomerFormModal';

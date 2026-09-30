@@ -37,7 +37,7 @@ export function normalizePhoneNumber(phone?: string | null): string {
   const trimmed = phone.trim();
   // Nếu chuỗi chứa dấu phân cách nhiều số điện thoại (ví dụ: "0983916267 / 0919389089", dấu phẩy hoặc chấm phẩy)
   if (trimmed.includes('/') || trimmed.includes(',') || trimmed.includes(';')) {
-    const parts = trimmed.split(/[\/,;]+/).map(p => p.trim()).filter(Boolean);
+    const parts = trimmed.split(/[/,;]+/).map(p => p.trim()).filter(Boolean);
     const normalizedParts = parts.map(p => normalizeSinglePhone(p)).filter(Boolean);
     return normalizedParts.join(' / ');
   }

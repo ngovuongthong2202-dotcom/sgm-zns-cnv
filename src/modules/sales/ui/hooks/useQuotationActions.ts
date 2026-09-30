@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { notify } from '@/src/shared/utils/notify';
-import { sendZnsAndToast, nextAttempt, checkRecentZnsDoc, checkZnsResendAllowed } from '@/src/domain/zns-client';
+import { sendZnsAndToast, nextAttempt, checkZnsResendAllowed } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { handleDatabaseError, OperationType } from '@/src/shared/errors/database-error';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';

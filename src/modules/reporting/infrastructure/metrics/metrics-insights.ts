@@ -1,5 +1,5 @@
 import { Customer, Quotation, Contract, Payment, Delivery, ZnsMessage } from './metrics-interfaces';
-import { addVietnamWorkingDays, getFirstInstallment, countVietnamWorkingDays } from '../../../../shared/utils/vietnamBusinessDays';
+import { addVietnamWorkingDays, getFirstInstallment } from '../../../../shared/utils/vietnamBusinessDays';
 
 export function differenceInDays(a: Date, b: Date): number {
   return Math.floor((a.getTime() - b.getTime()) / (1000 * 3600 * 24));

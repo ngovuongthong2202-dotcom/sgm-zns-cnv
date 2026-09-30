@@ -13,7 +13,6 @@ import {
   ChevronUp, 
   History,
   Search,
-  Sparkles,
   ShieldCheck,
   Check
 } from 'lucide-react';
@@ -404,7 +403,7 @@ export function CustomerZnsContactModal({
     if (!role) return 'bg-slate-100 text-slate-700 border-slate-200';
     const r = role.toLowerCase();
     if (r.includes('giám đốc') || r.includes('lãnh đạo') || r.includes('chủ')) {
-      return 'bg-purple-50 text-purple-700 border-purple-200';
+      return 'bg-amber-50 text-amber-800 border-amber-300';
     }
     if (r.includes('kế toán') || r.includes('tài chính')) {
       return 'bg-emerald-50 text-emerald-700 border-emerald-200';

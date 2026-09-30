@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 import React, { useState } from 'react';
 import { Customer } from '@/src/domain/schema/customer.schema';
-import { MapPin, Briefcase, User, Calendar, DollarSign, Tag, Activity, Flame, Phone, FileText, CheckCircle2, Clock, Copy, Check, ShieldCheck, Info } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, Tag, Activity, Flame, FileText, Copy, Check, Info } from 'lucide-react';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';

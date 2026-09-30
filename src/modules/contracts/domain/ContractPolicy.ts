@@ -2,7 +2,6 @@ import { Contract } from '@/src/domain/schema/contract.schema';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { Payment } from '@/src/domain/schema/payment.schema';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
-import { EntityZnsStatus, normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 
 export function canCreateContract(quotation: Quotation | undefined | null): { allowed: boolean; reason?: string } {
   if (!quotation) return { allowed: false, reason: "Không tìm thấy báo giá." };

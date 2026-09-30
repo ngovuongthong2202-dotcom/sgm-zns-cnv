@@ -5,7 +5,7 @@ import { Button } from "@/src/design-system/Button";
 import { SmartPhoneInput } from "@/src/design-system";
 import { Plus, Trash, Contact, Users, Check } from "lucide-react";
 import { cleanProperVietnameseText } from "@/src/shared/utils/textFormatter";
-import { sanitizePhoneVN, sanitizeText } from "@/src/shared/utils/inputSanitizer";
+import { sanitizeText } from "@/src/shared/utils/inputSanitizer";
 
 interface CustomerContactsArrayProps {
   control: Control<Customer>;

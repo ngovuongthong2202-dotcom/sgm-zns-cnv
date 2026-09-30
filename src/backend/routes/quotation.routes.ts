@@ -101,8 +101,8 @@ const handleErpSalesOrderLookup = async (req: any, res: any) => {
     const salesOrdersBase = erpConfig.salesOrdersUrl || 'https://sgm.vnaisoft.com/api/public/sales-orders';
 
     // TẦNG 1: Thử gọi trực tiếp endpoint chi tiết
-    let erpUrl = `${salesOrdersBase}/${encodeURIComponent(cleanCode)}`;
-    let response = await axios.get(erpUrl, {
+    const erpUrl = `${salesOrdersBase}/${encodeURIComponent(cleanCode)}`;
+    const response = await axios.get(erpUrl, {
       timeout: (erpConfig.timeoutSeconds || 20) * 1000,
       headers: {
         'Accept': 'application/json',
@@ -156,7 +156,9 @@ const handleErpSalesOrderLookup = async (req: any, res: any) => {
                   return res.json({ success: true, data: altData });
                 }
               }
-            } catch {}
+            } catch {
+              // Ignore fallback fetch error
+            }
           }
 
           // Tự động tổng hợp đối tượng chuẩn từ matchedItem trong danh sách ERP

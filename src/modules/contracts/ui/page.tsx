@@ -24,14 +24,12 @@ import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { useContractsFilters } from './hooks/useContractsFilters';
 import { extractContractCustomerTinhThanhMap, extractContractTinhThanhList } from './utils/extractors';
 import { ContractFilterBar } from './components/ContractFilterBar';
-import { PageHeader } from '@/src/design-system/PageHeader';
 import { useContractsActions } from './hooks/useContractsActions';
 
 import { useSharedFields } from '@/src/hooks/useSharedFields';
 import { smartAllocateSerials } from '@/src/widgets/product-list-input/useProductItemSemantic';
  
 
-import { PageSkeleton } from '@/src/design-system/skeletons/PageSkeleton';
 import { ContractModalsContainer } from './components/ContractModalsContainer';
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
 

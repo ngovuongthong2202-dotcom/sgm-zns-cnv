@@ -3,7 +3,6 @@ import { ContractRepository } from '../../domain/ContractRepository';
 import { Result } from '../../../../platform/domain/Result';
 import { eventBus } from '../../../../platform/events/EventBus';
 import { GetQuotationDetailQuery } from '../../../sales';
-import { ZnsStatusVO } from '../../../../domain/value-objects/ZnsStatusVO';
 
 export interface CreateContractCommand extends ContractProps {
   id: string; // Provide ID for idempotency or allow auto-gen

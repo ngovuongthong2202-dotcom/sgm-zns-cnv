@@ -181,7 +181,7 @@ export function generateEnterpriseNameSuggestions(rawName: string): CorporateIde
   // 1. Loại bỏ tiền tố MST hoặc ID ngay trên chuỗi thô TRƯỚC KHI clean
   let raw = (rawName || '').trim();
   raw = raw.replace(/^[0-9]{10}(?:\s*-\s*[0-9]{3})?\s*[-–:]\s*/i, '').trim();
-  raw = raw.replace(/^(?:MST|Mã số thuế)\s*[:：\-]?\s*[0-9]{10,13}\s*[-–:]\s*/i, '').trim();
+  raw = raw.replace(/^(?:MST|Mã số thuế)\s*[-:：]?\s*[0-9]{10,13}\s*[-–:]\s*/i, '').trim();
 
   raw = cleanProperVietnameseText(raw).trim();
   const tenPhapLy = raw;

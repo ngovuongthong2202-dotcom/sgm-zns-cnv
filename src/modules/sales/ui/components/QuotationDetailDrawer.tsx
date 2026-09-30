@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { notify } from '@/src/shared/utils/notify';
 import { useNavigate } from 'react-router-dom';
-import { formatDate } from '@/src/shared/utils/formatDate';
 
 import useSWR from 'swr';
 import { swrColFetcher } from '@/src/data/swr-fetchers';
@@ -12,14 +11,11 @@ import { Customer } from '@/src/domain/schema/customer.schema';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
 import { DocumentOmniFlowRibbon } from '@/src/widgets/DocumentOmniFlowRibbon';
 import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
-import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
 import { DrawerHeaderCockpitHUD } from '@/src/widgets/DrawerHeaderCockpitHUD';
-import { normalizeLegacyStatus, EntityZnsStatus } from '@/src/domain/enums/zns-status';
 import { QuotationDetailOverview } from './QuotationDetailOverview';
 import { QuotationDetailFooter } from './QuotationDetailFooter';
 
 import { QuotationRevisionsPanel } from './QuotationRevisionsPanel';
-import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { QuotationSaveRevisionModal } from './QuotationSaveRevisionModal';
 
 import {

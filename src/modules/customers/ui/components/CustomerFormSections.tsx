@@ -7,7 +7,7 @@ import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 import { autoDetectBusinessName, generateEnterpriseNameSuggestions, STANDARDIZED_BUSINESS_TYPES } from './CustomerFormHelpers';
 
-import { sanitizeTaxCode, sanitizeText } from '@/src/shared/utils/inputSanitizer';
+import { sanitizeText } from '@/src/shared/utils/inputSanitizer';
 import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressParser';
 import { SmartTaxCodeInput } from '@/src/design-system';
 import { notify } from '@/src/shared/utils/notify';

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Search, FileText, CreditCard, Calendar } from 'lucide-react';
 import { QuotationSmartSearch } from '@/src/widgets/QuotationSmartSearch';
-import { normalizeLegacyStatus, EntityZnsStatus } from '@/src/domain/enums/zns-status';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 import { useAuth } from '@/src/modules/iam';
@@ -307,7 +306,7 @@ export function ContractFinanceSection({ subTotal, discountAmount, vatAmount, to
                 <span className="block opacity-75">Đợt 1 (30%)</span>
                 <span className="font-mono text-2xs">{new Intl.NumberFormat('vi-VN').format(Math.round(totalAmount * 0.3))} đ</span>
               </div>
-              <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-100">
+              <div className="p-1.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-100">
                 <span className="block opacity-75">Đợt 2 (60%)</span>
                 <span className="font-mono text-2xs">{new Intl.NumberFormat('vi-VN').format(Math.round(totalAmount * 0.6))} đ</span>
               </div>

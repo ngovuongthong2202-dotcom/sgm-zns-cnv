@@ -6,7 +6,6 @@ import { useRealtimeCollection } from '@/src/data/realtime-store';
 import { Customer } from '@/src/domain/schema/customer.schema';
 import { Contract } from '@/src/domain/schema/contract.schema';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
-import { PageHeader } from '@/src/design-system/PageHeader';
 import { DataViewEngine } from '@/src/design-system/dataview/DataViewEngine';
 import { useDataView } from '@/src/design-system/dataview/useDataView';
 import { getQuotationColumns } from './columns.config';
@@ -29,7 +28,6 @@ import { useConfirm } from '@/src/design-system/Confirm';
 import { useQuotationActions, validateQuotationUpdate } from './hooks/useQuotationActions';
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
 
-import { PageSkeleton } from '@/src/design-system/skeletons/PageSkeleton';
 import { ModalSkeleton } from '@/src/design-system/skeletons/ModalSkeleton';
 
 import { useAuth } from '@/src/modules/iam';
@@ -282,7 +280,7 @@ export default function QuotationsFeature() {
                   type="button"
                   size="sm"
                   onClick={() => setIsSalesOrderModalOpen(true)}
-                  className="h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-2xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                  className="h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-2xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
                 >
                   <Zap size={13} className="text-amber-300 animate-pulse" />
                   <span>Dựng từ ĐH ERP</span>

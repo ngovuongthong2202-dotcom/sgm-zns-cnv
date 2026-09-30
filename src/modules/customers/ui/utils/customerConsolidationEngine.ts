@@ -1,6 +1,6 @@
 import { Customer, ContactItem } from '@/src/domain/schema/customer.schema';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
-import { normalizeBusinessName, normalizePersonName } from '@/src/shared/utils/textFormatter';
+import { normalizeBusinessName } from '@/src/shared/utils/textFormatter';
 import { extractVietnamesePhones } from './vietnameseTelecomExtractor';
 
 export interface DuplicateCustomerGroup {

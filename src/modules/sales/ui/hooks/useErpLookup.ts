@@ -58,7 +58,7 @@ export function useErpLookup(
     setIsLookingUp(true);
     try {
       let isSalesOrder = /kddh|sales-orders|so:/i.test(soPhieu);
-      let targetUrl = isSalesOrder 
+      const targetUrl = isSalesOrder 
         ? `/api/quotations/erp-sales-order/${encodeURIComponent(soPhieu)}`
         : `/api/quotations/erp-lookup/${encodeURIComponent(soPhieu)}`;
 

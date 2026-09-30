@@ -18,7 +18,7 @@ export default tseslint.config(
       globals: globals.browser,
     },
     rules: {
-      'import/no-cycle': ['error', { maxDepth: 4 }],
+      'import/no-cycle': ['error', { maxDepth: 4, ignoreExternal: true }],
       'import/no-restricted-paths': [
         'error',
         {

@@ -2,7 +2,6 @@ import { sendZnsMessage } from './zns';
 import { notify } from '@/src/shared/utils/notify';
 import { auditLogsRepo, znsMessagesRepo } from '@/src/data/repositories/system.repo';
 import { normalizeLegacyStatus, EntityZnsStatus } from './enums/zns-status';
-import { normalizePhoneVN } from '@/src/shared/utils/phone';
 
 export type SendZnsArgs = Parameters<typeof sendZnsMessage>[0] & { 
   attemptBucket?: number;

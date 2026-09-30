@@ -20,14 +20,12 @@ import { useSharedFields } from '@/src/hooks/useSharedFields';
 import { PaymentRecordDrawer } from './components/PaymentRecordDrawer';
 import { PaymentDetailDrawer } from './components/PaymentDetailDrawer';
 import { useConfirm } from '@/src/design-system/Confirm';
-import { PageHeader } from '@/src/design-system/PageHeader';
 import { FinancialDashboardHeader } from './components/FinancialDashboardHeader';
 import { PaymentFilterBar } from './components/PaymentFilterBar';
 import { extractPaymentTinhThanhList } from './utils/extractors';
 import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { usePaymentsActions } from './hooks/usePaymentsActions';
  
-import { PageSkeleton } from '@/src/design-system/skeletons/PageSkeleton';
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
 

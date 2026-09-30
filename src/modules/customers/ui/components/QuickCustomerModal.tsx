@@ -1,12 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { 
   UserPlus, 
-  Building, 
-  Phone, 
-  MapPin, 
   Search, 
   Check, 
-  AlertCircle, 
   X, 
   Sparkles, 
   Wand2, 
@@ -141,21 +137,21 @@ export function QuickCustomerModal({
     let parsedRepresentative = '';
 
     // 1. Trích xuất MST
-    const taxMatch = text.match(/(?:MST|mã số thuế|tax(?:\s*code)?)\s*[:：\-]?\s*([0-9]{10}(?:-[0-9]{3})?|[0-9]{13})/i)
+    const taxMatch = text.match(/(?:MST|mã số thuế|tax(?:\s*code)?)\s*[-:：]?\s*([0-9]{10}(?:-[0-9]{3})?|[0-9]{13})/i)
       || text.match(/\b([0-9]{10}(?:-[0-9]{3})?|[0-9]{13})\b/);
     if (taxMatch) parsedTax = taxMatch[1].trim();
 
     // 2. Trích xuất SĐT
-    const phoneMatch = text.match(/(?:SĐT|ĐT|Điện thoại|Tel|Phone|Hotline|Zalo)\s*[:：\-]?\s*((?:\+84|84|0)[3|5|7|8|9][0-9]{8})/i)
+    const phoneMatch = text.match(/(?:SĐT|ĐT|Điện thoại|Tel|Phone|Hotline|Zalo)\s*[-:：]?\s*((?:\+84|84|0)[3|5|7|8|9][0-9]{8})/i)
       || text.match(/\b((?:\+84|84|0)[3|5|7|8|9][0-9]{8})\b/);
     if (phoneMatch) parsedPhone = phoneMatch[1].trim();
 
     // 3. Trích xuất Người đại diện
-    const repMatch = text.match(/(?:Người đại diện|Người liên hệ|Đại diện|Liên hệ|Anh|Chị|Ông|Bà|GĐ|Giám đốc)\s*[:：\-]?\s*([A-ZÀ-Ỹa-zà-ỹ\s]{2,30})/i);
+    const repMatch = text.match(/(?:Người đại diện|Người liên hệ|Đại diện|Liên hệ|Anh|Chị|Ông|Bà|GĐ|Giám đốc)\s*[-:：]?\s*([A-ZÀ-Ỹa-zà-ỹ\s]{2,30})/i);
     if (repMatch) parsedRepresentative = repMatch[1].trim();
 
     // 4. Trích xuất Địa chỉ
-    const addrMatch = text.match(/(?:Địa chỉ|Đ\/c|ĐC|Address)\s*[:：\-]?\s*([^,\n]+(?:,[^,\n]+){1,4})/i);
+    const addrMatch = text.match(/(?:Địa chỉ|Đ\/c|ĐC|Address)\s*[-:：]?\s*([^,\n]+(?:,[^,\n]+){1,4})/i);
     if (addrMatch) {
       parsedAddress = addrMatch[1].trim();
     }
@@ -337,7 +333,9 @@ export function QuickCustomerModal({
       // Đẩy vào cache tức thời
       try {
         entityCachePool.set('customers', createdCustomer);
-      } catch {}
+      } catch {
+        // Ignore cache pool set failure in offline mode
+      }
 
       notify.success(`Đã tạo nhanh khách hàng [${nextMaKh}] thành công!`);
       onCustomerCreated(createdCustomer);
@@ -367,7 +365,7 @@ export function QuickCustomerModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header - Navy Premium */}
-        <div className="px-6 py-4 bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white flex items-center justify-between border-b border-white/10 shrink-0">
+        <div className="px-6 py-4 bg-gradient-to-r from-blue-700 via-blue-800 to-slate-900 text-white flex items-center justify-between border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/15 rounded-xl border border-white/20 backdrop-blur-md shadow-xs">
               <UserPlus size={18} className="text-white" />

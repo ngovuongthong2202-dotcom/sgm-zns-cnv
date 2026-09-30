@@ -4,8 +4,6 @@ import { swrColFetcher } from '@/src/data/swr-fetchers';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
 import { Customer } from '@/src/domain/schema/customer.schema';
 import { CustomerOverviewBento } from './CustomerOverviewBento';
-import { CustomerActivityTimeline } from './CustomerActivityTimeline';
-import { CustomerNotesPanel } from './CustomerNotesPanel';
 import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
 import { reconcileEnterpriseReceivables } from '@/src/domain/services/financial-reconciler';
 import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';

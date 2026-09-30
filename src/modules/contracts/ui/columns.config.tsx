@@ -2,7 +2,7 @@ import { ProductItem } from '@/src/domain/schema/product.schema';
 import { Customer } from '@/src/domain/schema/customer.schema';
 /* eslint-disable max-lines */
 import { formatDate } from '@/src/shared/utils/formatDate';
-import { addVietnamWorkingDays, getFirstInstallment, computeContractCompletionTimeline } from '@/src/shared/utils/vietnamBusinessDays';
+import { computeContractCompletionTimeline } from '@/src/shared/utils/vietnamBusinessDays';
 import React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Contract } from '@/src/domain/schema/contract.schema';
@@ -168,7 +168,7 @@ export const getContractColumns = (
            {timeline.completionDateFormatted !== '---' ? (
               <div className="flex flex-col gap-0.5 mt-0.5">
                 <span 
-                  className={`text-2xs font-semibold px-1.5 py-0.5 rounded w-fit truncate ${timeline.isDelayed ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`} 
+                  className={`text-2xs font-semibold px-1.5 py-0.5 rounded w-fit truncate ${timeline.isDelayed ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`} 
                   title={timeline.isDelayed ? `Đã quá hạn ${timeline.delayedWorkingDays} ngày làm việc` : `Hạn hoàn thành: ${timeline.completionDateFormatted} (trừ CN & Lễ/Tết)`}
                 >
                   DK: {timeline.completionDateFormatted}

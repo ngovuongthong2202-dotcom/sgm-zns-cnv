@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import { swrColFetcher, swrDocFetcher } from '@/src/data/swr-fetchers';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
 import { Payment, PaymentInstallment } from '@/src/domain/schema/payment.schema';
-import { CreditCard, Calendar, Clock, Send, DollarSign, Edit, Package, User, FileText, Plus } from 'lucide-react';
+import { CreditCard, Calendar, Clock, Send, DollarSign, Edit, Package, Plus } from 'lucide-react';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
 import { StatusPill } from '@/src/widgets/StatusPill';
@@ -14,7 +14,6 @@ import { DocumentOmniFlowRibbon } from '@/src/widgets/DocumentOmniFlowRibbon';
 import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
 import { ContractHoverCard } from '@/src/modules/contracts/ui/components/ContractHoverCard';
 import { QuotationHoverCard } from '@/src/modules/sales/ui/components/QuotationHoverCard';
-import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
 import { DrawerHeaderCockpitHUD } from '@/src/widgets/DrawerHeaderCockpitHUD';
 import { RecordInstallmentModal } from './RecordInstallmentModal';
 import { repositoryFactory } from '@/src/data/repositories/factory';
@@ -515,7 +514,7 @@ export function PaymentDetailDrawer({
                                   ✓ Đã gửi ZNS
                                 </span>
                               ) : isFailed ? (
-                                <span className="inline-flex items-center gap-1 text-3xs font-bold text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                <span className="inline-flex items-center gap-1 text-3xs font-bold text-red-800 bg-red-50 px-2 py-0.5 rounded border border-red-200">
                                   ⚠️ Thất bại
                                 </span>
                               ) : (

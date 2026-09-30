@@ -7,19 +7,10 @@ import {
   Truck,
   CreditCard,
   CheckCircle2,
-  AlertCircle,
   Clock,
   ArrowRight,
   ExternalLink,
-  Package,
-  Layers,
-  Sparkles,
-  ShieldCheck,
-  Coins,
-  ChevronRight,
-  Check,
-  Compass,
-  ArrowUpRight
+  ShieldCheck
 } from 'lucide-react';
 import { hasActualCashCollected } from '@/src/domain/enums/payment-status';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';

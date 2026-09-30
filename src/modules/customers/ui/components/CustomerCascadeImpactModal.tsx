@@ -98,7 +98,7 @@ export function CustomerCascadeImpactModal({
   };
 
   checkField('tenKhachHang', 'Tên khách hàng / Doanh nghiệp', <Building2 size={13} className="text-blue-600" />);
-  checkField('nguoiDaiDien', 'Người đại diện / Đầu mối chính', <User size={13} className="text-indigo-600" />);
+  checkField('nguoiDaiDien', 'Người đại diện / Đầu mối chính', <User size={13} className="text-blue-600" />);
   checkField('sdt', 'Số điện thoại', <Phone size={13} className="text-emerald-600" />);
   checkField('diaChi', 'Địa chỉ chi tiết', <MapPin size={13} className="text-amber-600" />);
   checkField('tinhThanh', 'Tỉnh / Thành phố', <MapPin size={13} className="text-teal-600" />);
@@ -194,7 +194,7 @@ export function CustomerCascadeImpactModal({
                             {f.icon}
                             <span>{f.label}</span>
                           </td>
-                          <td className="px-4 py-2.5 text-slate-500 font-mono line-through decoration-rose-400 bg-rose-50/20">
+                          <td className="px-4 py-2.5 text-slate-500 font-mono line-through decoration-red-400 bg-red-50/20">
                             {f.oldVal}
                           </td>
                           <td className="px-4 py-2.5 font-mono font-bold text-emerald-800 bg-emerald-50/40">

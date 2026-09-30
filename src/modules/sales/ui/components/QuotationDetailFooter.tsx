@@ -64,9 +64,9 @@ export function QuotationDetailFooter({
             aria-label="Lập phiếu thu" 
             variant="ghost"
             size="sm"
-            className="px-3 h-9 font-bold text-xs text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 flex items-center gap-1.5"
+            className="px-3 h-9 font-bold text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 flex items-center gap-1.5"
             onClick={() => navigate(`/payments?fromQuotation=${quotation.id}`)}
-            leftIcon={<Zap size={13} className="text-purple-600" />}
+            leftIcon={<Zap size={13} className="text-blue-600" />}
           >
             Lập Phiếu Thu
           </Button>

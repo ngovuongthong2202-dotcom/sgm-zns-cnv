@@ -3,7 +3,7 @@ import { Button } from "@/src/design-system/Button";
 import { Payment } from "@/src/domain/schema/payment.schema";
 import { getPaymentDisplayLabel } from "@/src/domain/mapping/entity-label";
 import { formatDate } from "@/src/shared/utils/formatDate";
-import { ExternalLink, CreditCard, DollarSign, Calendar, Layers, ShieldCheck } from "lucide-react";
+import { ExternalLink, CreditCard, DollarSign, Calendar, Layers } from "lucide-react";
 import { useDrawerStack } from "@/src/contexts/DrawerStackContext";
 
 interface TabLichSuThanhToanProps {

@@ -2,7 +2,7 @@ import React from "react";
 import { Button } from "@/src/design-system/Button";
 import { Delivery } from "@/src/domain/schema/delivery.schema";
 import { formatDate } from "@/src/shared/utils/formatDate";
-import { Truck, Calendar, CheckCircle2, Clock, MapPin, Package, ExternalLink, User, ShieldCheck } from "lucide-react";
+import { Truck, Calendar, CheckCircle2, Clock, Package, ExternalLink, User } from "lucide-react";
 import { useDrawerStack } from "@/src/contexts/DrawerStackContext";
 import { resolveDeliveryVoucherMeta } from "@/src/shared/utils/voucherResolver";
 

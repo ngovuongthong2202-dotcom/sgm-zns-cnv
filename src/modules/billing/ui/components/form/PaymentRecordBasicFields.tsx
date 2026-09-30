@@ -5,7 +5,6 @@ import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 import { format } from 'date-fns';
 import { AsyncSearchableSelect } from '@/src/design-system/primitives/AsyncSearchableSelect';
-import { MoneyInput } from '../PaymentRecordDrawerHelpers';
 import { SmartFinancialInput } from '@/src/design-system';
 import { canCreatePayment } from '@/src/domain/policy/gate.policy';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';

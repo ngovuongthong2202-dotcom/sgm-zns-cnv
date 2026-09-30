@@ -12,7 +12,7 @@ import { Package, ScrollText } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { useConfirm } from '@/src/design-system/Confirm';
 import ProductListInput from '@/src/widgets/ProductListInput';
-import { normalizeCode, normalizePersonName } from '@/src/shared/utils/textFormatter';
+import { normalizePersonName } from '@/src/shared/utils/textFormatter';
 import { normalizePhoneVN } from '@/src/shared/utils/phone';
 import { sanitizeText, sanitizeCode, sanitizePhoneVN } from '@/src/shared/utils/inputSanitizer';
 import { MachineCodeChipInput } from './MachineCodeChipInput';

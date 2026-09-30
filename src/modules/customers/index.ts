@@ -11,6 +11,5 @@ export { CreateCustomer } from './application/use-cases/CreateCustomer';
 export { UpdateCustomer } from './application/use-cases/UpdateCustomer';
 
 // UI
-export { default as CustomersFeature } from './ui/page';
 export { CustomerHoverCard } from './ui/components/CustomerHoverCard';
 export { CustomerForm } from './ui/components/CustomerFormModal';

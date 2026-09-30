@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
-import { FileText, FileSignature, Wallet, Truck, ArrowRight, CheckCircle2, AlertTriangle, ExternalLink, Sparkles, Clock } from 'lucide-react';
+import { FileText, FileSignature, Wallet, Truck, ArrowRight, CheckCircle2, AlertTriangle, Sparkles, Clock } from 'lucide-react';
 import { useDrawerStack } from '@/src/contexts/DrawerStackContext';
 import { cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';
-import { formatDate } from '@/src/shared/utils/formatDate';
 import { resolveDeliveryDisplayCode, resolvePaymentDisplayCode } from '@/src/shared/utils/voucherResolver';
 import { resolveDocumentLifecycleBadge } from '@/src/domain/services/lifecycle-reconciler';
 
@@ -262,8 +261,8 @@ export function DrawerHeaderCockpitHUD({
                 ? 'bg-cyan-950/90 text-cyan-300 border border-cyan-600 ring-1 ring-cyan-500/20'
                 : lifecycleBadge.variant === 'blue'
                   ? 'bg-blue-950/90 text-blue-300 border border-blue-600'
-                  : lifecycleBadge.variant === 'indigo'
-                    ? 'bg-indigo-950/90 text-indigo-300 border border-indigo-600'
+                  : lifecycleBadge.variant === 'sky'
+                    ? 'bg-sky-950/90 text-sky-300 border border-sky-600'
                     : lifecycleBadge.variant === 'amber'
                       ? 'bg-amber-950/90 text-amber-200 border border-amber-600 ring-1 ring-amber-500/20'
                       : 'bg-slate-900 text-amber-300 border border-amber-800/80'
@@ -273,7 +272,7 @@ export function DrawerHeaderCockpitHUD({
           {lifecycleBadge.iconName === 'sparkles' && <Sparkles size={11} className="text-amber-400 animate-spin" />}
           {lifecycleBadge.iconName === 'truck' && <Truck size={11} className="text-cyan-400" />}
           {lifecycleBadge.iconName === 'wallet' && <Wallet size={11} className="text-emerald-400" />}
-          {lifecycleBadge.iconName === 'check-circle' && <CheckCircle2 size={11} className={lifecycleBadge.variant === 'emerald' ? 'text-emerald-400' : 'text-indigo-400'} />}
+          {lifecycleBadge.iconName === 'check-circle' && <CheckCircle2 size={11} className={lifecycleBadge.variant === 'emerald' ? 'text-emerald-400' : 'text-sky-400'} />}
           {lifecycleBadge.iconName === 'alert-triangle' && <AlertTriangle size={11} className="text-amber-300" />}
           {lifecycleBadge.iconName === 'clock' && <Clock size={11} className="text-slate-400" />}
           <span>{lifecycleBadge.label}</span>

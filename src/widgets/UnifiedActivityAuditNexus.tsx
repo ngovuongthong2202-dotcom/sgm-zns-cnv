@@ -6,14 +6,9 @@ import {
   Link2, 
   MessageSquare, 
   Plus, 
-  CheckCircle2, 
-  AlertCircle, 
   Tag, 
   User, 
-  CornerDownLeft, 
-  RefreshCw,
-  Sparkles,
-  Layers
+  CornerDownLeft
 } from 'lucide-react';
 import { useAuth } from '@/src/modules/iam';
 import { auditLogsRepo, znsMessagesRepo } from '@/src/data/repositories/system.repo';

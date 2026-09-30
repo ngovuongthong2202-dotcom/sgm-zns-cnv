@@ -1,7 +1,7 @@
 import { Contract } from '@/src/domain/schema/contract.schema';
 import { Payment } from '@/src/domain/schema/payment.schema';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
-import { reconcileContractStats, reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
+import { reconcileContractStats } from '@/src/domain/services/financial-reconciler';
 import { computeContractCompletionTimeline } from '@/src/shared/utils/vietnamBusinessDays';
 
 export const contractAggregates = {

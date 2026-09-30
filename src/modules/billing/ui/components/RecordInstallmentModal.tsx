@@ -12,17 +12,14 @@ import {
   FileText, 
   CheckCircle2, 
   AlertCircle,
-  FileCheck,
-  TrendingUp,
-  Percent,
-  Plus
+  FileCheck
 } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { SmartFinancialInput } from '@/src/design-system';
 import { Payment, PaymentInstallment } from '@/src/domain/schema/payment.schema';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
 import { sanitizeText } from '@/src/shared/utils/inputSanitizer';
-import { cleanProperVietnameseText, readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
+import { cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
 
 interface RecordInstallmentModalProps {
   isOpen: boolean;

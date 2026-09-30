@@ -16,7 +16,6 @@ import { DocumentOmniFlowRibbon } from '@/src/widgets/DocumentOmniFlowRibbon';
 import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
 import { checkContractLock } from '@/src/domain/policy/lock.policy';
 import { EntityBusinessLockWarning } from '@/src/widgets/EntityBusinessLockWarning';
-import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
 import { DrawerHeaderCockpitHUD } from '@/src/widgets/DrawerHeaderCockpitHUD';
 import { reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
 import { computeContractCompletionTimeline, cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';
@@ -286,7 +285,7 @@ export function ContractDetailDrawer({
                   <span className="bg-white border border-slate-200 px-2 py-0.5 rounded text-blue-700 font-bold">
                     {completionTimeline.completionDateFormatted}
                   </span>
-                  <span className={completionTimeline.isDelayed ? 'text-rose-600 font-bold' : 'text-slate-600'}>
+                  <span className={completionTimeline.isDelayed ? 'text-red-600 font-bold' : 'text-slate-600'}>
                     {completionTimeline.isActuallyDelivered
                       ? `(Đã giao máy${(completionTimeline.earlyDeliveryWorkingDays || 0) > 0 ? ` sớm ${completionTimeline.earlyDeliveryWorkingDays} ngày` : ''})`
                       : dPct >= 100 
@@ -299,7 +298,7 @@ export function ContractDetailDrawer({
               </div>
               <div className="h-2 bg-slate-200 rounded-full overflow-hidden mb-1.5">
                 <div 
-                  className={`h-full transition-all duration-500 ${completionTimeline.isActuallyDelivered || dPct >= 100 ? 'bg-emerald-500' : completionTimeline.isDelayed ? 'bg-rose-500' : 'bg-blue-500'}`} 
+                  className={`h-full transition-all duration-500 ${completionTimeline.isActuallyDelivered || dPct >= 100 ? 'bg-emerald-500' : completionTimeline.isDelayed ? 'bg-red-500' : 'bg-blue-500'}`} 
                   style={{ width: `${completionTimeline.timeProgressPercent}%` }} 
                 />
               </div>

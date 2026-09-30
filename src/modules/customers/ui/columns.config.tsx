@@ -213,7 +213,7 @@ export const getCustomerColumns = (
           </span>
           <div>
             {isIndiv ? (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-bold bg-violet-50 text-violet-700 border border-violet-200">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 👤 Cá nhân
               </span>
             ) : (

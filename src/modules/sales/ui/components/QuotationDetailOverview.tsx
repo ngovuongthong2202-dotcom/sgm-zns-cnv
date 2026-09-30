@@ -8,14 +8,14 @@ import { CustomerHoverCard } from '@/src/modules/customers';
 import { DrawerProductList } from '@/src/widgets/DrawerProductList';
 import { EntityBusinessLockWarning } from '@/src/widgets/EntityBusinessLockWarning';
 import { checkQuotationLock } from '@/src/domain/policy/lock.policy';
-import { User, ShieldCheck, MapPin, Calendar, FileText, ArrowUpRight, Zap, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { User, MapPin, FileText, ArrowUpRight, Zap, CheckCircle2 } from 'lucide-react';
 import { SearchableSelect } from '@/src/design-system/primitives/SearchableSelect';
 import { extractAvatarBadge } from '@/src/shared/utils/userProfile';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { hasActualCashCollected } from '@/src/domain/enums/payment-status';
-import { differenceInDays, differenceInHours } from 'date-fns';
+import { differenceInDays } from 'date-fns';
 
 interface QuotationDetailOverviewProps {
   quotation: Quotation;
@@ -64,7 +64,7 @@ export function QuotationDetailOverview({
       const primaryContract = matchingContracts[0];
       const timeline = computeContractCompletionTimeline(primaryContract, matchingPayments);
       return { 
-        dealHealthClass: timeline.isDelayed ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-blue-50 text-blue-700 border-blue-200', 
+        dealHealthClass: timeline.isDelayed ? 'bg-red-50 text-red-700 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200', 
         dealHealthLabel: timeline.executionStageLabel ? `HĐ: ${timeline.executionStageLabel} (${timeline.completionDateFormatted})` : 'Đã ký kết hợp đồng' 
       };
     }
@@ -74,7 +74,7 @@ export function QuotationDetailOverview({
     if (daysSinceCreation <= 7) {
       return { dealHealthClass: 'bg-amber-50 text-amber-700 border-amber-200', dealHealthLabel: 'Đang đàm phán (Ấm)' };
     }
-    return { dealHealthClass: 'bg-rose-50 text-rose-700 border-rose-200', dealHealthLabel: `Đã ngâm ${daysSinceCreation} ngày` };
+    return { dealHealthClass: 'bg-red-50 text-red-700 border-red-200', dealHealthLabel: `Đã ngâm ${daysSinceCreation} ngày` };
   })();
 
   const znsStatus = normalizeLegacyStatus(quotation.trangThaiGuiTinBaoGia);
@@ -308,8 +308,8 @@ export function QuotationDetailOverview({
                     {matchingContracts[0].soHopDong || 'Đã ký HĐ'}
                   </span>
                 ) : !isBgMay ? (
-                  <span className="font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 text-3xs flex items-center gap-1">
-                    <CheckCircle2 size={11} className="text-purple-600" /> Miễn HĐ (Thu tiền trực tiếp)
+                  <span className="font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-3xs flex items-center gap-1">
+                    <CheckCircle2 size={11} className="text-blue-600" /> Miễn HĐ (Thu tiền trực tiếp)
                   </span>
                 ) : (
                   <span className="text-slate-400 italic text-3xs">Chưa lập HĐ</span>
@@ -344,9 +344,9 @@ export function QuotationDetailOverview({
                   onClick={() => {
                     navigate(`/payments?fromQuotation=${quotation.id}`);
                   }}
-                  className="w-full mt-2 py-2 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-2xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  className="w-full mt-2 py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-2xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
                 >
-                  <Zap size={13} className="text-purple-600" />
+                  <Zap size={13} className="text-blue-600" />
                   Lập Phiếu Thu Nhanh (Không Cần HĐ)
                 </button>
               )}

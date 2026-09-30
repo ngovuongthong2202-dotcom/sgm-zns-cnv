@@ -8,7 +8,6 @@ import { znsRepository } from '../../modules/messaging/infrastructure/ZnsRepoSup
 import { znsVendor } from '../../modules/messaging/infrastructure/CnvZnsVendor';
 import { bulkEnqueueHelper } from '../services/zns/outbound-helpers';
 import '../../modules/messaging/application/handlers/EntityEventsHandler';
-import { normalizeLegacyStatus, EntityZnsStatus } from '../../domain/enums/zns-status';
 
 const router = Router();
 const sendZnsUseCase = new SendZnsMessageUseCase(znsRepository, znsVendor);

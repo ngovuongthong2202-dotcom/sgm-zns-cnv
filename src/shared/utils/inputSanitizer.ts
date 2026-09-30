@@ -16,6 +16,7 @@ export function removeInvisibleChars(val: string): string {
     // Non-breaking space
     .replace(/\u00A0/g, ' ')
     // Control characters (excluding \n, \r, \t)
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
 }
 

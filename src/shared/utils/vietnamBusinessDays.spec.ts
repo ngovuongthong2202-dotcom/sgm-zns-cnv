@@ -4,8 +4,6 @@ import {
   isVietnamHoliday,
   isVietnamWorkingDay,
   addVietnamWorkingDays,
-  countVietnamWorkingDays,
-  getFirstInstallment,
   checkProductionTriggerThreshold,
   checkWeekendDeliveryRisk,
   computeContractCompletionTimeline,

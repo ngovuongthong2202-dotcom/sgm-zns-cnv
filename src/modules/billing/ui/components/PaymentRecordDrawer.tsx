@@ -12,10 +12,9 @@ import { format } from 'date-fns';
 import { useConfirm } from '@/src/design-system/Confirm';
 import { Button } from '@/src/design-system/Button';
 import { useDraft } from '@/src/hooks/useDraft';
-import { squeezeSpaces, normalizeCode, cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
+import { cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
 import { normalizePhoneVN } from '@/src/shared/utils/phone';
 import { sanitizeText, sanitizeCode, sanitizePhoneVN } from '@/src/shared/utils/inputSanitizer';
-import { notify } from '@/src/shared/utils/notify';
 
 import { checkPaymentLock } from '@/src/domain/policy/lock.policy';
 import { checkA5Policy } from '@/src/modules/iam';
@@ -81,7 +80,9 @@ export function PaymentRecordDrawer({
     try {
       const cached = entityCachePool.getAll<any>('payments');
       if (cached) cached.forEach(p => p?.id && map.set(p.id, p));
-    } catch {}
+    } catch {
+      // Ignore cache pool lookup failure
+    }
     return Array.from(map.values());
   }, [payments]);
 

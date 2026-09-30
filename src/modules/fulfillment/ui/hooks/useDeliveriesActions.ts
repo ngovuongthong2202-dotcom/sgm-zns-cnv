@@ -125,7 +125,9 @@ export function useDeliveriesActions(
     if (del.paymentId) {
       try {
         linkedPayment = await repositoryFactory.get<any>('payments').getById(del.paymentId);
-      } catch (e) {}
+      } catch {
+        // Linked payment not found or offline
+      }
     } else if (del.dacCachGiaoTruoc && del.contractId) {
       try {
         const pList = await repositoryFactory.get<any>('payments').list({ fkField: 'contractId', fkId: del.contractId });
@@ -133,7 +135,9 @@ export function useDeliveriesActions(
           p.dacCachGiaoTruoc && 
           Number(p.soTien || 0) === 0
         );
-      } catch (e) {}
+      } catch {
+        // Linked payment list fetch failure ignored
+      }
     }
 
     if (isCompleted) {

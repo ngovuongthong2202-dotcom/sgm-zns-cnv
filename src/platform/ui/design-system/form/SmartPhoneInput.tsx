@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, forwardRef } from 'react';
+import React, { useMemo, forwardRef } from 'react';
 import { twMerge } from 'tailwind-merge';
-import { Phone, ExternalLink, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Phone, AlertCircle } from 'lucide-react';
 
 export interface SmartPhoneInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> {
   value: string | undefined | null;
@@ -41,7 +41,7 @@ export function detectCarrier(phone: string): CarrierInfo | null {
   }
   // Wintel
   if (['055'].includes(prefix3)) {
-    return { name: 'Wintel', color: '#e60012', badgeBg: 'bg-rose-50 text-rose-700 border-rose-200', textColor: 'text-rose-600' };
+    return { name: 'Wintel', color: '#e60012', badgeBg: 'bg-red-50 text-red-700 border-red-200', textColor: 'text-red-600' };
   }
   // Gmobile
   if (['059', '099'].includes(prefix3)) {

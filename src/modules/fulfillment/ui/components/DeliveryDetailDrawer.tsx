@@ -8,12 +8,11 @@ import { swrDocFetcher, swrColFetcher } from '@/src/data/swr-fetchers';
 import { PaymentHoverCard } from '@/src/modules/billing/ui/components/PaymentHoverCard';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
-import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, ShieldCheck, Clock, RotateCcw, ChevronDown, ChevronUp, Wrench, Info } from 'lucide-react';
+import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, Clock, RotateCcw, ChevronDown, ChevronUp, Wrench, Info } from 'lucide-react';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { DrawerProductList } from '@/src/widgets/DrawerProductList';
 import { DocumentOmniFlowRibbon } from '@/src/widgets/DocumentOmniFlowRibbon';
 import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
-import { HorizonFlowHUD } from '@/src/widgets/HorizonFlowHUD';
 import { DrawerHeaderCockpitHUD } from '@/src/widgets/DrawerHeaderCockpitHUD';
 import { parseVietnamAddressComplete } from '@/src/shared/services/vietnamAddressParser';
 import { ExportDeliveryPdf } from './ExportDeliveryPdf';
@@ -493,7 +492,7 @@ export function DeliveryDetailDrawer({
                           ? 'text-emerald-800 bg-emerald-100 border-emerald-300' 
                           : deliverySla.status === 'WARNING'
                           ? 'text-amber-900 bg-amber-100 border-amber-300'
-                          : 'text-rose-800 bg-rose-100 border-rose-300'
+                          : 'text-red-800 bg-red-100 border-red-300'
                       }`}>
                         {deliverySla.notice}
                       </span>
@@ -548,7 +547,7 @@ export function DeliveryDetailDrawer({
                       <span className={`inline-block text-3xs font-extrabold px-2 py-0.5 rounded-md border ${
                         deliverySla.status === 'MATCH' 
                           ? 'text-emerald-800 bg-emerald-100 border-emerald-300' 
-                          : 'text-rose-800 bg-rose-100 border-rose-300'
+                          : 'text-red-800 bg-red-100 border-red-300'
                       }`}>
                         {deliverySla.notice}
                       </span>

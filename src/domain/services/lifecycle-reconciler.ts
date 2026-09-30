@@ -31,7 +31,7 @@ export type LifecycleMilestoneKey =
 export interface LifecycleBadgeInfo {
   key: LifecycleMilestoneKey;
   label: string;
-  variant: 'emerald' | 'cyan' | 'blue' | 'indigo' | 'amber' | 'slate';
+  variant: 'emerald' | 'cyan' | 'blue' | 'sky' | 'amber' | 'slate';
   iconName: 'check-circle' | 'truck' | 'wallet' | 'sparkles' | 'alert-triangle' | 'clock';
   track: WorkflowTrack;
   paidRatio: number;
@@ -314,7 +314,7 @@ export function resolveDocumentLifecycleBadge(input: ReconcileLifecycleInput): L
     return {
       key: 'READY_DELIVERY_70',
       label,
-      variant: 'indigo',
+      variant: 'sky',
       iconName: 'check-circle',
       track,
       paidRatio,

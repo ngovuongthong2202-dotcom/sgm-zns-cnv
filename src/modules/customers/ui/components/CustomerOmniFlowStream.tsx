@@ -6,25 +6,15 @@ import {
   FileSignature, 
   Truck, 
   CreditCard, 
-  CheckCircle2, 
-  AlertCircle, 
-  Clock, 
-  ChevronRight, 
-  Package, 
-  ArrowRight,
+  Package,
   ExternalLink,
   Layers,
   Sparkles,
-  Info,
   Award,
   Search,
   X,
-  Filter,
   LayoutGrid,
-  Table as TableIcon,
-  Check,
-  TrendingUp,
-  ShieldCheck
+  Table as TableIcon
 } from 'lucide-react';
 import { hasActualCashCollected } from '@/src/domain/enums/payment-status';
 import { cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';

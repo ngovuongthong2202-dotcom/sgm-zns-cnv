@@ -76,7 +76,7 @@ export function parseSafeDate(input: any): Date | null {
     return isNaN(input.getTime()) ? null : new Date(input.getFullYear(), input.getMonth(), input.getDate());
   }
 
-  let str = '';
+  let str: string;
   if (typeof input?.toDate === 'function') {
     try {
       const d = input.toDate();
@@ -707,16 +707,16 @@ export function computeContractCompletionTimeline(
     statusColor = 'text-emerald-700 bg-emerald-50 border-emerald-200';
   } else if (isDelayed) {
     statusText = `Trễ tiến độ (${delayedWorkingDays} ngày)`;
-    statusColor = 'text-rose-700 bg-rose-50 border-rose-200';
+    statusColor = 'text-red-700 bg-red-50 border-red-200';
   } else if (hasAddendumExtension) {
     statusText = `Gia hạn +${extendedWorkingDays} ngày`;
     statusColor = 'text-blue-700 bg-blue-50 border-blue-200';
   }
 
   // Xác định 5 Chặng Thực thi Vật lý (Execution Stage Machine) - TUYỆT ĐỐI KHÔNG DÙNG MÀU TÍM
-  let executionStage: ContractExecutionStage = 'CHO_COC_KHOI_DONG';
-  let executionStageLabel = 'Chờ cọc khởi động';
-  let executionStageColor = 'text-blue-700 bg-blue-50 border-blue-200';
+  let executionStage: ContractExecutionStage;
+  let executionStageLabel: string;
+  let executionStageColor: string;
 
   if (contract.status === 'COMPLETED' || isActuallyDelivered || dPct >= 100) {
     executionStage = 'DA_NGHIEM_THU_BAN_GIAO';

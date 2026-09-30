@@ -3,7 +3,7 @@ import { twMerge } from 'tailwind-merge';
 import { parseFinancialInput } from '@/src/platform/ui/forms/useSmartFormInput';
 import { FinancialEngine } from '@/src/shared/utils/financialEngine';
 import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
-import { Calculator, Check, AlertCircle } from 'lucide-react';
+import { Calculator, AlertCircle } from 'lucide-react';
 
 export interface PresetRatio {
   label: string;

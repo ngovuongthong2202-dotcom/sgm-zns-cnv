@@ -25,10 +25,8 @@ import { DeliveryDetailDrawer } from './components/DeliveryDetailDrawer';
 import { extractDeliveryTinhThanhList } from './utils/extractors';
 import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { DeliveryFilterBar } from './components/DeliveryFilterBar';
-import { PageHeader } from '@/src/design-system/PageHeader';
- 
+
 import { DeliveryKPIs } from './components/DeliveryKPIs';
-import { PageSkeleton } from '@/src/design-system/skeletons/PageSkeleton';
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
 import { CompleteDeliveryModal } from './components/CompleteDeliveryModal';
 import { DeliveryConfirmationModal } from './components/DeliveryConfirmationModal';

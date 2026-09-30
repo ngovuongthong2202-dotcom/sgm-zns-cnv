@@ -1,5 +1,3 @@
-import { squeezeSpaces, normalizeCode, normalizeBusinessName } from '@/src/shared/utils/textFormatter';
-import { normalizePhoneVN } from '@/src/shared/utils/phone';
 import { sanitizeCode, sanitizeText, sanitizePhoneVN } from '@/src/shared/utils/inputSanitizer';
 import { getProductItemKey } from '@/src/shared/utils/product-key';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';

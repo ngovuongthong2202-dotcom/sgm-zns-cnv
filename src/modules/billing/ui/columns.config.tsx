@@ -436,7 +436,7 @@ export const getPaymentColumns = (
         ) : (
           <div className="flex items-center gap-1 mt-1">
             <span 
-              className="text-3xs text-rose-700 font-bold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-300 uppercase tracking-wider flex items-center gap-1 animate-pulse" 
+              className="text-3xs text-red-700 font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-300 uppercase tracking-wider flex items-center gap-1 animate-pulse" 
               title={`Sếp chỉ định xuất kho trước (Duyệt: ${(waiverDelivery as any)?.nguoiPheDuyetDacCach || 'Ban Giám Đốc'}). Lý do: ${(waiverDelivery as any)?.lyDoDacCach || 'Giao trước thanh toán sau'}. Kế toán cần đôn đốc thu nợ!`}
             >
               ⚡ Đã xuất kho đặc cách - Cần thu nợ!

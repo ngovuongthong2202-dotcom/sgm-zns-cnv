@@ -10,8 +10,7 @@ import {
   FileJson, 
   FileText, 
   RotateCcw, 
-  ShieldAlert, 
-  CheckCircle2,
+  ShieldAlert,
   Eye,
   GitCompare
 } from 'lucide-react';

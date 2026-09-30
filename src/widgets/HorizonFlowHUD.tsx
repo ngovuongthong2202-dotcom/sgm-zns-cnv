@@ -5,12 +5,9 @@ import {
   Truck, 
   Wallet, 
   CheckCircle2, 
-  Clock, 
-  AlertCircle, 
   ArrowRight,
   Compass
 } from 'lucide-react';
-import { cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { hasActualCashCollected } from '@/src/domain/enums/payment-status';
@@ -69,8 +66,8 @@ export function HorizonFlowHUD({
   const hasDeliveries = deliveries.length > 0;
 
   // Compute Overall Progress & Health Label
-  let progressPct = 0;
-  let statusSummary = '';
+  let progressPct: number;
+  let statusSummary: string;
 
   if (isRetail) {
     let score = 0;

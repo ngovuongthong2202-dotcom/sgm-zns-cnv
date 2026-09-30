@@ -1,6 +1,5 @@
 /* eslint-disable max-lines */
 import { getProductItemKey } from '@/src/shared/utils/product-key';
-import { getEntityDisplayLabel } from '@/src/domain/mapping/entity-label';
 import React from 'react';
 import { notify } from '@/src/shared/utils/notify';
 import { useAuth } from '@/src/modules/iam';
@@ -493,7 +492,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                           return true;
                         }}
                         isOptionDisabled={(p: any) => {
-                           const testDoc = Boolean(watch('dacCachGiaoTruoc')) ? { ...p, dacCachGiaoTruoc: true } : p;
+                           const testDoc = watch('dacCachGiaoTruoc') ? { ...p, dacCachGiaoTruoc: true } : p;
                            const gateResult = canCreateDelivery(testDoc);
                            if (!gateResult.allowed) return { disabled: true, reason: gateResult.reason };
                            if (p._isFullyDelivered || isDeliverySourceFullyDelivered(p, deliveries, contracts, quotations)) {
