@@ -213,6 +213,9 @@ export const getPaymentColumns = (
       const rawName = liveCustomer?.tenKhachHang || p.tenKhachHang || String(info.getValue() || 'Chưa rõ');
       const cName = normalizeBusinessName(rawName);
       
+      if (p.tenNguoiNop || p.sdt) {
+        contactsToDisplay.push({ name: normalizePersonName(p.tenNguoiNop || 'Người nộp tiền'), phone: p.sdt || '' });
+      }
       if (liveCustomer) {
         if (liveCustomer.nguoiDaiDien || liveCustomer.sdt) {
           contactsToDisplay.push({ name: normalizePersonName(liveCustomer.nguoiDaiDien || 'Không tên'), phone: liveCustomer.sdt || '' });
@@ -224,10 +227,6 @@ export const getPaymentColumns = (
             }
           });
         }
-      } else {
-         if (p.tenNguoiNop || p.sdt) {
-            contactsToDisplay.push({ name: p.tenNguoiNop || 'Không tên', phone: p.sdt || '' });
-         }
       }
 
       // Deduplicate contacts
@@ -237,7 +236,7 @@ export const getPaymentColumns = (
         <div className="flex flex-col gap-0.5 py-1" title={cName}>
           <span className="font-semibold text-slate-900 tracking-tight line-clamp-3 break-words whitespace-normal leading-snug">{cName}</span>
           {uniqueContacts.map((contact, idx) => (
-             <span key={idx} className="text-2xs text-slate-500 line-clamp-1">
+             <span key={idx} className="text-2xs text-slate-500 whitespace-normal break-words leading-tight">
                {contact.name} {contact.phone ? `- ${contact.phone}` : ''}
              </span>
           ))}
@@ -252,14 +251,14 @@ export const getPaymentColumns = (
     size: 140,
     cell: (info) => {
       const p = info.row.original as Payment;
-      let tinhThanh = '';
-      if (customers.length > 0 && p.customerId) {
-         const customer = customers.find(c => c.id === p.customerId);
+      let tinhThanh = (p as any).tinhThanh || '';
+      if (!tinhThanh && customers.length > 0 && p.customerId) {
+         const customer = customers.find(c => c.id === p.customerId || (c.maKh && c.maKh === p.customerId));
          if (customer && customer.tinhThanh) {
             tinhThanh = customer.tinhThanh;
          }
       }
-      return <span className="text-xs font-medium text-slate-700">{tinhThanh || '---'}</span>;
+      return <span className="text-xs font-medium text-slate-700 whitespace-normal break-words">{tinhThanh || '---'}</span>;
     }
   },
   {

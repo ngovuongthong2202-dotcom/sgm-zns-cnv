@@ -284,7 +284,15 @@ export function useDataView<T>(props: UseDataViewProps<T>) {
 
   const { sorting, setSorting } = useDataViewSorting(props.initialState?.sorting, getSaved);
   const { grouping, setGrouping, expanded, setExpanded } = useDataViewGrouping(props.initialState?.grouping, getSaved);
-  const { pagination, setPagination } = useDataViewPagination();
+  const { pagination, setPagination } = useDataViewPagination(undefined, storageKey || prefix);
+
+  // Boundary safe clamping: nếu tổng số bản ghi giảm khiến pageIndex hiện tại vượt quá số trang
+  useEffect(() => {
+    const totalPages = Math.ceil(props.data.length / pagination.pageSize);
+    if (totalPages > 0 && pagination.pageIndex >= totalPages) {
+      setPagination(prev => ({ ...prev, pageIndex: Math.max(0, totalPages - 1) }));
+    }
+  }, [props.data.length, pagination.pageSize, pagination.pageIndex, setPagination]);
 
   const {
     columnVisibility, setColumnVisibility,
@@ -488,6 +496,7 @@ export function useDataView<T>(props: UseDataViewProps<T>) {
     getExpandedRowModel: getExpandedRowModel(),
     getRowCanExpand: () => true,
     autoResetExpanded: false,
+    autoResetPageIndex: false,
     enableRowSelection: false,
     meta: props.meta,
   });

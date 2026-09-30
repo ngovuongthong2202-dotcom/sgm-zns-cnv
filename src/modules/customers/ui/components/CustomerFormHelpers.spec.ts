@@ -181,4 +181,38 @@ describe('CustomerFormHelpers - normalizeCustomerFormValues', () => {
     expect(normalized.contacts[0].chiNhanh).toBe('Chi Nhánh 1');
     expect(normalized.contacts[0].chucVu).toBe('Giám Đốc');
   });
+
+  it('xử lý thông minh công ty Sản Xuất Cơ Khí Và Xây Dựng Hồng Hà, không bao giờ xuất hiện từ "Và Hồng Hà"', () => {
+    const raw = 'Công Ty TNHH Sản Xuất Cơ Khí Và Xây Dựng Hồng Hà';
+    const res = generateEnterpriseNameSuggestions(raw);
+
+    // Kiểm tra tên ZNS
+    expect(res.tenZns.length).toBeLessThanOrEqual(30);
+    expect(res.tenZns).not.toContain('Và Hồng Hà');
+    expect(res.suggestions.map(s => s.value)).not.toContain('Và Hồng Hà');
+
+    // Có gợi ý chuẩn hóa công nghiệp SX CK & XD Hồng Hà hoặc Hồng Hà
+    const values = res.suggestions.map(s => s.value);
+    const hasSmartAbbr = values.some(v => v.includes('SX CK & XD') || v.includes('Hồng Hà'));
+    expect(hasSmartAbbr).toBe(true);
+  });
+
+  it('bảo toàn trọn vẹn thương hiệu Tập Đoàn Hoa Sen và Chi Nhánh Vĩnh Long, không cắt cụt thành Tập Đoàn Hoa', () => {
+    const raw = 'Công Ty Cổ Phần Tập Đoàn Hoa Sen - Chi Nhánh Tỉnh Vĩnh Long';
+    const res = generateEnterpriseNameSuggestions(raw);
+
+    expect(res.tenZns.length).toBeLessThanOrEqual(30);
+    // Tuyệt đối không được cắt ngang từ "Hoa Sen" thành "Hoa"
+    expect(res.tenZns).not.toMatch(/\bTập Đoàn Hoa\b(?!\s*Sen)/i);
+    expect(res.tenZns).not.toMatch(/\bHoa\s*-\s*CN\b/i);
+
+    // Phải bảo toàn chữ "Sen"
+    expect(res.tenZns).toContain('Sen');
+    expect(res.tenZns).toContain('Vĩnh Long');
+
+    // Các biến thể trong suggestions
+    const values = res.suggestions.map(s => s.value);
+    expect(values.some(v => v.includes('Hoa Sen'))).toBe(true);
+  });
 });
+

@@ -37,6 +37,7 @@ import { aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
 import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressParser';
 import { VIETNAM_PROVINCES_63 } from '@/src/hooks/useSharedFields';
 import { classifyErpCustomer, ErpCustomerClassificationResult } from '../utils/erpCustomerClassifier';
+import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 interface Props {
   isOpen: boolean;
@@ -233,9 +234,33 @@ export function CreateQuotationFromSalesOrderModal({
   const productItems = erpData ? convertErpLinesToProductItems(erpData.lines || [], tareInfo || undefined) : [];
   const aggs = productItems.length > 0 ? aggregateProducts(productItems) : null;
 
-  // Phone analysis
+  // Phone analysis & Vietnamese telecom extraction
   const rawCustomerPhone = erpData?.customer_snapshot?.phone || '';
-  const isLandline = rawCustomerPhone.startsWith('02') || (rawCustomerPhone.length > 0 && !/^(03|05|07|08|09)\d{8}$/.test(rawCustomerPhone.replace(/\D/g, '')));
+  const phoneExtraction = React.useMemo(() => {
+    return extractVietnamesePhones(
+      rawCustomerPhone,
+      erpData?.delivery_address || erpData?.customer_snapshot?.address || ''
+    );
+  }, [rawCustomerPhone, erpData]);
+
+  const isLandline = phoneExtraction.primaryPhone ? !phoneExtraction.isZaloEligible : (rawCustomerPhone.startsWith('02') || (rawCustomerPhone.length > 0 && !/^(03|05|07|08|09)\d{8}$/.test(rawCustomerPhone.replace(/\D/g, ''))));
+
+  // Tự động đối chiếu chống trùng Mã Số Thuế với khách hàng đã có trong CRM
+  const matchedCustomerByTax = React.useMemo(() => {
+    const rawTax = erpData?.customer_snapshot?.tax_code?.trim().replace(/[\s\-_]/g, '') || '';
+    if (!rawTax || rawTax.length < 8) return null;
+    return customers.find(c => {
+      const cTax = (c.maSoThue || '').trim().replace(/[\s\-_]/g, '');
+      return cTax === rawTax;
+    }) || null;
+  }, [erpData, customers]);
+
+  // Tự động điền số di động bóc tách được nếu người dùng chưa nhập
+  React.useEffect(() => {
+    if (phoneExtraction.primaryPhone && !customMobilePhone) {
+      setCustomMobilePhone(phoneExtraction.primaryPhone);
+    }
+  }, [phoneExtraction.primaryPhone, customMobilePhone]);
 
   // Generate sequence code for new quote
   const generateNextQuoteCode = () => {
@@ -258,9 +283,10 @@ export function CreateQuotationFromSalesOrderModal({
   const handleConstructQuotation = async () => {
     if (!erpData) return;
 
-    let targetCustomer = customerResolution?.matchedCustomer || null;
+    // Ưu tiên khớp theo MST để chống trùng khách hàng
+    let targetCustomer = matchedCustomerByTax || customerResolution?.matchedCustomer || null;
     const snapshot = erpData.customer_snapshot || {};
-    const finalPhone = customMobilePhone.trim() || rawCustomerPhone || '';
+    const finalPhone = customMobilePhone.trim() || phoneExtraction.primaryPhone || rawCustomerPhone || '';
     const finalProvince = customProvince || detectProvinceFromAddress(erpData.delivery_address || snapshot.address || '', VIETNAM_PROVINCES_63) || 'TP. Hồ Chí Minh';
     const finalRep = customRepresentative.trim() || snapshot.representative || '';
 
@@ -285,6 +311,23 @@ export function CreateQuotationFromSalesOrderModal({
           nextCustomerCode = `KH-${year}-${String(maxSeq + 1).padStart(4, '0')}`;
         }
 
+        // Tạo mảng contacts từ toàn bộ các số điện thoại bóc tách được
+        const structuredContacts = phoneExtraction.phones.length > 0 ? phoneExtraction.phones.map((p, idx) => ({
+          danhXung: isIndiv ? customSalutation : (idx === 0 ? 'Đại diện' : (p.type === 'MOBILE' ? 'Di động phụ' : 'Văn phòng')),
+          nguoiDaiDien: idx === 0 ? (finalRep || (isIndiv ? finalCustomerName : 'Đại diện')) : `Liên hệ phụ ${idx + 1}`,
+          sdt: p.cleaned,
+          chucVu: idx === 0 ? (isIndiv ? 'Chủ sở hữu / Cá nhân' : 'Đại diện') : (p.type === 'MOBILE' ? 'Di động' : 'Điện thoại bàn'),
+          chiNhanh: 'Trụ sở chính'
+        })) : [
+          {
+            danhXung: isIndiv ? customSalutation : 'Đại diện',
+            nguoiDaiDien: finalRep || (isIndiv ? finalCustomerName : 'Đại diện'),
+            sdt: finalPhone,
+            chucVu: isIndiv ? 'Chủ sở hữu / Cá nhân' : 'Đại diện',
+            chiNhanh: 'Trụ sở chính'
+          }
+        ];
+
         const newCustomerData: Partial<Customer> = {
           maKh: nextCustomerCode,
           tenKhachHang: finalCustomerName,
@@ -299,22 +342,7 @@ export function CreateQuotationFromSalesOrderModal({
           loaiKh: customerType,
           loaiHinhDoanhNghiep: isIndiv ? 'CÁ NHÂN' : (classifiedCustomer?.loaiHinhDoanhNghiep || 'CÔNG TY TNHH'),
           nguoiPhuTrach: userOfficer || erpData.created_by_name || 'Quản trị viên',
-          contacts: [
-            {
-              danhXung: isIndiv ? customSalutation : 'Đại diện',
-              nguoiDaiDien: finalRep || (isIndiv ? finalCustomerName : 'Đại diện'),
-              sdt: finalPhone,
-              chucVu: isIndiv ? 'Chủ sở hữu / Cá nhân' : 'Đại diện',
-              chiNhanh: 'Trụ sở chính'
-            },
-            ...(rawCustomerPhone && customMobilePhone.trim() && rawCustomerPhone !== customMobilePhone.trim() ? [{
-              danhXung: 'Văn phòng',
-              nguoiDaiDien: 'Điện thoại bàn',
-              sdt: rawCustomerPhone,
-              chucVu: 'Điện thoại bàn',
-              chiNhanh: 'Trụ sở chính'
-            }] : [])
-          ],
+          contacts: structuredContacts,
           ngayTao: new Date().toISOString(),
           ngayCapNhat: new Date().toISOString(),
           tags: ['ERP_IMPORT', 'SALES_ORDER', isIndiv ? 'INDIVIDUAL_CUSTOMER' : 'CORPORATE_CUSTOMER'],
@@ -326,6 +354,8 @@ export function CreateQuotationFromSalesOrderModal({
       } catch (err: any) {
         notify.warning('Không thể tự động tạo khách hàng, tiếp tục nạp dữ liệu tạm: ' + err.message);
       }
+    } else if (targetCustomer && matchedCustomerByTax) {
+      notify.info(`Đã khớp khách hàng [${targetCustomer.maKh} - ${targetCustomer.tenKhachHang}] theo MST. Không tạo trùng lặp.`);
     }
 
     const nextQuoteCode = generateNextQuoteCode();
@@ -645,6 +675,45 @@ export function CreateQuotationFromSalesOrderModal({
                       Địa chỉ: {erpData.delivery_address || erpData.customer_snapshot?.address || 'Theo thỏa thuận'}
                     </div>
 
+                    {/* Hiển thị đa số điện thoại bóc tách được từ ERP */}
+                    {phoneExtraction.phones.length > 1 && (
+                      <div className="bg-blue-50/90 border border-blue-200 rounded-lg p-2 text-xs space-y-1 mt-2">
+                        <div className="flex items-center gap-1.5 text-blue-900 font-bold text-3xs uppercase tracking-wider">
+                          <Phone size={11} className="text-blue-600" />
+                          <span>Bóc tách {phoneExtraction.phones.length} số điện thoại từ ERP (Bấm để chọn SĐT chính):</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {phoneExtraction.phones.map((p, idx) => {
+                            const isSelected = (customMobilePhone || phoneExtraction.primaryPhone) === p.cleaned;
+                            return (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setCustomMobilePhone(p.cleaned)}
+                                className={`px-2 py-0.5 rounded text-3xs font-mono font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                                  isSelected
+                                    ? 'bg-blue-600 text-white border-blue-700 shadow-2xs'
+                                    : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-300'
+                                }`}
+                              >
+                                <span>{p.type === 'MOBILE' ? '📱' : '☎️'}</span>
+                                <span>{p.formatted}</span>
+                                <span className="opacity-80">({p.carrier || (p.type === 'MOBILE' ? 'Di động' : 'Bàn')})</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Thông báo khớp khách hàng chống trùng theo MST */}
+                    {matchedCustomerByTax && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-3xs text-emerald-900 font-medium flex items-center gap-1.5 mt-2">
+                        <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                        <span>Đã khớp khách hàng <strong>[{matchedCustomerByTax.maKh} - {matchedCustomerByTax.tenKhachHang}]</strong> theo MST <strong>{erpData.customer_snapshot?.tax_code}</strong>. Sử dụng hồ sơ này để không tạo trùng lặp.</span>
+                      </div>
+                    )}
+
                     {/* Landline Warning & Inline Mobile ZNS Completion */}
                     {isLandline && (
                       <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-2.5 text-xs space-y-1.5 mt-2">
@@ -666,7 +735,7 @@ export function CreateQuotationFromSalesOrderModal({
                     )}
                   </div>
 
-                  {!customerResolution?.matchedCustomer && (
+                  {!matchedCustomerByTax && !customerResolution?.matchedCustomer && (
                     <label className="mt-2 pt-2 border-t border-slate-200 flex items-center gap-2 text-2xs font-semibold text-blue-700 cursor-pointer select-none">
                       <input
                         type="checkbox"

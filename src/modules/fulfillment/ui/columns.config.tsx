@@ -62,6 +62,8 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
     cell: (info) => {
       const p = info.row.original;
       const c = p.__customerInfo;
+      const specificReceiver = (p as any).nguoiNhanHang || (p as any).nguoiLienHe || p.nguoiDaiDien || '';
+      const specificPhone = (p as any).sdtNguoiNhan || (p as any).sdtLienHe || p.sdt || '';
       const contacts = c?.contacts || [];
       
       const tenKH = normalizeBusinessName(c?.tenKhachHang || p.tenKhachHang || '---');
@@ -70,9 +72,21 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
         <div className="w-full min-w-0 flex flex-col py-1 justify-center space-y-0.5">
           <span className="font-semibold text-xs text-slate-800 line-clamp-3 whitespace-normal break-words leading-snug block" title={tenKH}>{tenKH}</span>
           
+          {specificReceiver || specificPhone ? (
+            <span className="text-2xs text-slate-700 whitespace-normal break-words leading-tight block font-medium" title={`${normalizePersonName(specificReceiver)} ${specificPhone ? `- ${specificPhone}` : ''}`}>
+              👤 {normalizePersonName(specificReceiver || 'Người nhận')}
+              {specificPhone && (
+                <>
+                  <span className="mx-1 text-slate-400">-</span>
+                  <span className="font-mono text-blue-700">{specificPhone}</span>
+                </>
+              )}
+            </span>
+          ) : null}
+
           {contacts.length > 0 ? (
-            contacts.map((contact: any, index: number) => (
-              <span key={index} className="text-2xs text-slate-500 truncate block" title={`${normalizePersonName(contact.nguoiDaiDien || '')} ${contact.sdt ? `- ${contact.sdt}` : ''}`}>
+            contacts.filter((ct: any) => ct.sdt !== specificPhone).slice(0, 2).map((contact: any, index: number) => (
+              <span key={index} className="text-2xs text-slate-500 whitespace-normal break-words leading-tight block" title={`${normalizePersonName(contact.nguoiDaiDien || '')} ${contact.sdt ? `- ${contact.sdt}` : ''}`}>
                 {normalizePersonName(contact.nguoiDaiDien || '')}
                 {contact.sdt && (
                   <>
@@ -83,13 +97,13 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
               </span>
             ))
           ) : (
-            (c?.nguoiDaiDien || p.nguoiDaiDien || c?.sdt || p.sdt) ? (
-              <span className="text-2xs text-slate-500 truncate block">
-                {normalizePersonName(c?.nguoiDaiDien || p.nguoiDaiDien || '')}
-                {(c?.sdt || p.sdt) && (
+            !specificReceiver && (c?.nguoiDaiDien || c?.sdt) ? (
+              <span className="text-2xs text-slate-500 whitespace-normal break-words leading-tight block">
+                {normalizePersonName(c?.nguoiDaiDien || '')}
+                {c?.sdt && (
                   <>
                     <span className="mx-1 text-slate-400">-</span>
-                    <span className="font-mono">{c?.sdt || p.sdt}</span>
+                    <span className="font-mono">{c?.sdt}</span>
                   </>
                 )}
               </span>

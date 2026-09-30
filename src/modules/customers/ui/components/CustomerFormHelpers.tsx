@@ -237,6 +237,7 @@ export function generateEnterpriseNameSuggestions(rawName: string): CorporateIde
   }
 
   // Làm sạch dấu cách và dấu gạch thừa
+  // Làm sạch dấu cách và dấu gạch thừa
   const cleanFinal = (str: string) => {
     return str
       .replace(/\s+/g, ' ')
@@ -251,6 +252,17 @@ export function generateEnterpriseNameSuggestions(rawName: string): CorporateIde
   let brandCoreOnly = brandWithIndustry
     .replace(/(?:Đầu Tư|Thương Mại|Dịch Vụ|Sản Xuất|Xây Dựng|Cơ Khí|Xuất Nhập Khẩu|Nông Nghiệp)\s+/gi, '')
     .trim();
+  
+  // Xóa triệt để các liên từ và giới từ đơn lẻ còn sót ở đầu hoặc cuối chuỗi (Tránh lỗi "Và Hồng Hà")
+  brandCoreOnly = brandCoreOnly
+    .replace(/^(?:và|&|với|của|tại|ở|cho|thuộc|địa điểm)\s+/gi, '')
+    .replace(/\s+(?:và|&|với|của|tại|ở|cho|thuộc)$/gi, '')
+    .trim();
+
+  // Bóc tách thêm nếu có tiền tố Tập Đoàn / Tổng Công Ty trong brandCoreOnly
+  const prestigeMatch = brandCoreOnly.match(/^(?:Tập Đoàn|Tổng Công Ty)\s+(.*)/i);
+  const pureBrand = prestigeMatch ? prestigeMatch[1].trim() : brandCoreOnly;
+
   if (!brandCoreOnly || brandCoreOnly.length < 2) {
     brandCoreOnly = brandWithIndustry;
   }
@@ -259,8 +271,12 @@ export function generateEnterpriseNameSuggestions(rawName: string): CorporateIde
   const optCommercial = cleanFinal(`${brandWithIndustry}${branchSuffix}`);
 
   // Biến thể ZNS tinh gọn: Rút gọn các cụm từ ghép liên từ thương mại thông dụng (TM&DV, SX-TM, ĐT&PT, ĐT-XD, XNK)
-  // Tuyệt đối BẢO TOÀN danh xưng Tập Đoàn, Tổng Công Ty
+  // Bổ sung ma trận từ viết tắt công nghiệp thép (Industrial Abbreviation Matrix)
   let condensedIndustry = brandWithIndustry;
+  condensedIndustry = condensedIndustry.replace(/(?:Sản Xuất\s+(?:Cơ Khí\s+)?(?:Và|&)\s+Xây Dựng|Sản Xuất\s+Cơ Khí\s+Xây Dựng)/gi, 'SX CK & XD');
+  condensedIndustry = condensedIndustry.replace(/(?:Cơ Khí\s+(?:Và|&)\s+Xây Dựng|Cơ Khí\s+Xây Dựng)/gi, 'CK & XD');
+  condensedIndustry = condensedIndustry.replace(/(?:Sản Xuất\s+(?:Và|&)\s+Xây Dựng|Sản Xuất\s+Xây Dựng)/gi, 'SX & XD');
+  condensedIndustry = condensedIndustry.replace(/(?:Sản Xuất\s+(?:Và|&)\s+Cơ Khí|Sản Xuất\s+Cơ Khí)/gi, 'SX & CK');
   condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Thương Mại\s+(?:Và|&)\s+Dịch Vụ|Thương Mại\s+Dịch Vụ)(?![\p{L}\p{N}])/gui, 'TM&DV');
   condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Sản Xuất\s+(?:Và|&)\s+Thương Mại|Sản Xuất\s+Thương Mại)(?![\p{L}\p{N}])/gui, 'SX-TM');
   condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Đầu Tư\s+(?:Và|&)\s+Phát Triển)(?![\p{L}\p{N}])/gui, 'ĐT&PT');
@@ -269,27 +285,44 @@ export function generateEnterpriseNameSuggestions(rawName: string): CorporateIde
   condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Xuất Nhập Khẩu)(?![\p{L}\p{N}])/gui, 'XNK');
 
   let optStandardZns = cleanFinal(`${condensedIndustry}${branchSuffix}`);
-  if (optStandardZns.length > 29) {
-    // Nếu vẫn dài, dùng brandCoreOnly + branchLocation
-    optStandardZns = cleanFinal(`${brandCoreOnly}${branchLocation ? ` - CN ${branchLocation}` : branchSuffix}`);
-  }
-  if (optStandardZns.length > 29) {
-    // Cắt an toàn theo ranh giới từ ngữ (Word-boundary Preserving)
-    const cutLimit = 29 - branchSuffix.length;
-    if (cutLimit > 5) {
-      const truncatedCore = brandCoreOnly.slice(0, cutLimit).trim();
-      const lastSpace = truncatedCore.lastIndexOf(' ');
-      const safeCore = lastSpace > 3 ? truncatedCore.slice(0, lastSpace).trim() : truncatedCore;
-      optStandardZns = cleanFinal(`${safeCore}${branchSuffix}`);
+
+  // Chiến lược tối ưu độ dài ZNS thông minh bảo toàn trọn vẹn từ ngữ (Word-Boundary Invariant)
+  if (optStandardZns.length > 29 && branchLocation) {
+    // 1. Thử bỏ dấu gạch ngang phân cách chi nhánh: "Tập Đoàn Hoa Sen CN Vĩnh Long"
+    const noDashWithBranch = cleanFinal(`${condensedIndustry} CN ${branchLocation}`);
+    if (noDashWithBranch.length <= 29) {
+      optStandardZns = noDashWithBranch;
     } else {
-      optStandardZns = optStandardZns.slice(0, 29).trim();
+      // 2. Thử viết tắt Tập Đoàn -> TĐ: "TĐ Hoa Sen - CN Vĩnh Long"
+      const tdAbbr = condensedIndustry.replace(/^Tập Đoàn\s+/i, 'TĐ ');
+      const tdWithBranch = cleanFinal(`${tdAbbr}${branchSuffix}`);
+      if (tdWithBranch.length <= 29) {
+        optStandardZns = tdWithBranch;
+      } else {
+        // 3. Thử dùng pureBrand + branch: "Hoa Sen - CN Vĩnh Long"
+        const brandCoreBranch = cleanFinal(`${pureBrand || brandCoreOnly}${branchSuffix}`);
+        if (brandCoreBranch.length <= 29) {
+          optStandardZns = brandCoreBranch;
+        } else {
+          // 4. Thử pureBrand + CN: "Hoa Sen CN Vĩnh Long"
+          const brandCoreNoDash = cleanFinal(`${pureBrand || brandCoreOnly} CN ${branchLocation}`);
+          if (brandCoreNoDash.length <= 29) {
+            optStandardZns = brandCoreNoDash;
+          }
+        }
+      }
     }
   }
 
+  // Nếu vẫn > 29 mà không có chi nhánh, thử dùng brandCoreOnly
+  if (optStandardZns.length > 29 && brandCoreOnly.length <= 29) {
+    optStandardZns = brandCoreOnly;
+  }
+
   // Biến thể siêu tinh gọn (Brand Core Only)
-  let optUltraCompact = cleanFinal(`${brandCoreOnly}${branchSuffix}`);
+  let optUltraCompact = cleanFinal(`${pureBrand || brandCoreOnly}${branchSuffix}`);
   if (optUltraCompact.length > 29) {
-    optUltraCompact = optStandardZns;
+    optUltraCompact = pureBrand || brandCoreOnly;
   }
 
   // Biến thể pháp lý đầy đủ chuẩn ĐKKD & rút gọn loại hình
@@ -371,8 +404,13 @@ export function generateEnterpriseNameSuggestions(rawName: string): CorporateIde
     }
   });
 
-  // Chọn tên tối ưu cho từng tầng định danh
-  const bestZnsCandidate = cZns.length <= 29 ? cZns : (cCommercial.length <= 29 ? cCommercial : cUltra);
+  // Chọn tên tối ưu cho từng tầng định danh (Đảm bảo bắt buộc <= 29 ký tự cho ZNS)
+  let bestZnsCandidate = cZns.length <= 29 ? cZns : (cCommercial.length <= 29 ? cCommercial : cUltra);
+  if (bestZnsCandidate.length > 29) {
+    const truncated = bestZnsCandidate.slice(0, 29).trim();
+    const lastSpace = truncated.lastIndexOf(' ');
+    bestZnsCandidate = lastSpace > 3 ? truncated.slice(0, lastSpace).trim() : truncated;
+  }
   const bestCommercialCandidate = cCommercial;
 
   return {

@@ -12,6 +12,7 @@ import { t } from '@/src/i18n/vi';
 import { extractAvatarBadge } from '@/src/shared/utils/userProfile';
 import { reconcileEnterpriseReceivables } from '@/src/domain/services/financial-reconciler';
 import { cleanDuplicateAddress, formatCustomerRegionDisplay } from '@/src/shared/utils/vietnamRegionHelper';
+import { cleanDuplicateCorporatePrefix } from '@/src/shared/utils/textFormatter';
 
 interface Props {
   customer: Customer;
@@ -305,30 +306,8 @@ export function CustomerOverviewBento({
             <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">
               {customer.loaiKh === 'Cá nhân' || customer.loaiHinhDoanhNghiep === 'CÁ NHÂN' ? 'Họ và tên khách hàng' : 'Tên pháp nhân / ĐKKD đầy đủ'}
             </span>
-            <p className="font-bold text-slate-900 text-sm leading-snug line-clamp-2" title={customer.tenPhapLy || customer.tenKhachHang}>
-              {(() => {
-                if (customer.tenPhapLy) return customer.tenPhapLy;
-                const raw = (customer.tenKhachHang || '').trim();
-                const loaiHinh = (customer.loaiHinhDoanhNghiep || '').trim();
-                if (!loaiHinh || loaiHinh === 'CÁ NHÂN' || customer.loaiKh === 'Cá nhân') {
-                  return raw;
-                }
-                const lowerRaw = raw.toLowerCase();
-                const lowerLoaiHinh = loaiHinh.toLowerCase();
-                if (
-                  lowerRaw.startsWith(lowerLoaiHinh) ||
-                  lowerRaw.startsWith('công ty') ||
-                  lowerRaw.startsWith('cty') ||
-                  lowerRaw.startsWith('doanh nghiệp') ||
-                  lowerRaw.startsWith('dntn') ||
-                  lowerRaw.startsWith('hộ kinh doanh') ||
-                  lowerRaw.startsWith('hợp tác xã') ||
-                  lowerRaw.startsWith('chi nhánh')
-                ) {
-                  return raw;
-                }
-                return `${loaiHinh} ${raw}`;
-              })()}
+            <p className="whitespace-normal break-words font-bold text-slate-900 text-sm leading-snug" title={customer.tenPhapLy || customer.tenKhachHang}>
+              {cleanDuplicateCorporatePrefix(customer.tenPhapLy || customer.tenKhachHang || '')}
             </p>
           </div>
 

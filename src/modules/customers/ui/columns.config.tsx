@@ -60,9 +60,16 @@ export const getCustomerColumns = (
       const active = c.id && presenceMap?.[c.id] ? presenceMap[c.id] : [];
       const normalizedName = normalizeBusinessName(c.tenKhachHang);
       const isIndiv = c.loaiKh === 'Cá nhân' || c.loaiHinhDoanhNghiep === 'CÁ NHÂN';
-      const subInfo = isIndiv 
-        ? '' 
-        : [c.tenThuongMai, (c.loaiHinhDoanhNghiep && c.loaiHinhDoanhNghiep !== 'DOANH NGHIỆP') ? c.loaiHinhDoanhNghiep : ''].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i && v !== normalizedName).join(' • ');
+      
+      // Sub-info: ưu tiên hiển thị Tên ZNS hoặc Tên Thương Mại gọn, tuyệt đối không lặp lại loại hình doanh nghiệp vì đã có cột Phân loại
+      let subInfo = '';
+      if (!isIndiv) {
+        if (c.tenZns && c.tenZns !== normalizedName) {
+          subInfo = `ZNS: ${c.tenZns}`;
+        } else if (c.tenThuongMai && c.tenThuongMai !== normalizedName) {
+          subInfo = `TM: ${c.tenThuongMai}`;
+        }
+      }
       return (
         <CustomerHoverCard customer={c}>
           <div className="w-full min-w-0 flex flex-col justify-center gap-0.5 pointer-events-auto py-1">
@@ -77,7 +84,7 @@ export const getCustomerColumns = (
               )}
             </div>
             {subInfo && (
-              <span className="truncate block font-normal text-2xs text-slate-500 leading-tight" title={subInfo}>
+              <span className="whitespace-normal break-words font-normal text-2xs text-slate-500 leading-tight" title={subInfo}>
                 {subInfo}
               </span>
             )}
@@ -109,7 +116,7 @@ export const getCustomerColumns = (
         return (
           <div className="w-full min-w-0 flex flex-col justify-center gap-0.5">
             <span className="text-xs text-slate-400 italic">Chưa có đầu mối</span>
-            {c.diaChi && <span className="truncate block text-2xs text-slate-500" title={c.diaChi}>{c.diaChi}</span>}
+            {c.diaChi && <span className="whitespace-normal break-words line-clamp-2 text-2xs text-slate-500" title={c.diaChi}>{c.diaChi}</span>}
           </div>
         );
       }
@@ -142,7 +149,7 @@ export const getCustomerColumns = (
             );
           })}
           {c.diaChi && (
-            <span className="truncate block font-normal text-2xs text-slate-500 leading-tight mt-0.5" title={c.diaChi}>
+            <span className="whitespace-normal break-words line-clamp-2 font-normal text-2xs text-slate-500 leading-tight mt-0.5" title={c.diaChi}>
               {c.diaChi}
             </span>
           )}
@@ -174,7 +181,7 @@ export const getCustomerColumns = (
       const isIndiv = c.loaiKh === 'Cá nhân' || c.loaiHinhDoanhNghiep === 'CÁ NHÂN';
       return (
         <div className="w-full min-w-0 flex flex-col justify-center gap-1 py-0.5">
-          <span className="truncate block font-medium text-xs text-slate-800 leading-tight" title={c.tinhThanh}>
+          <span className="whitespace-normal break-words font-medium text-xs text-slate-800 leading-tight" title={c.tinhThanh}>
             {c.tinhThanh || '—'}
           </span>
           <div>

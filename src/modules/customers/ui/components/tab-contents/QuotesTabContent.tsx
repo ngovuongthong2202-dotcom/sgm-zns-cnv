@@ -36,6 +36,38 @@ export function QuotesTabContent({ loading, quotations }: QuotesTabContentProps)
     );
   }
 
+  const [selectedContact, setSelectedContact] = React.useState<string>('ALL');
+
+  // Nhóm các đầu mối phụ trách báo giá
+  const contactGroups = React.useMemo(() => {
+    const map = new Map<string, { name: string; phone: string; count: number; totalAmount: number }>();
+    
+    quotations.forEach(q => {
+      const rep = (q.nguoiDaiDien || '').trim() || 'Chưa gán đầu mối';
+      const phone = (q.sdt || '').trim();
+      const key = `${rep}___${phone}`;
+      
+      const total = q.totalAmount || q.subTotal || 0;
+      if (!map.has(key)) {
+        map.set(key, { name: rep, phone, count: 0, totalAmount: 0 });
+      }
+      const entry = map.get(key)!;
+      entry.count += 1;
+      entry.totalAmount += total;
+    });
+
+    return Array.from(map.entries()).map(([key, data]) => ({ key, ...data }));
+  }, [quotations]);
+
+  const filteredQuotes = React.useMemo(() => {
+    if (selectedContact === 'ALL') return quotations;
+    return quotations.filter(q => {
+      const rep = (q.nguoiDaiDien || '').trim() || 'Chưa gán đầu mối';
+      const phone = (q.sdt || '').trim();
+      return `${rep}___${phone}` === selectedContact;
+    });
+  }, [quotations, selectedContact]);
+
   const isMachineQuote = (q: Quotation) => {
     const typeLower = (q.loai || '').toLowerCase();
     if (typeLower.includes('máy') || typeLower.includes('may') || typeLower.includes('device') || typeLower.includes('equipment')) {
@@ -50,8 +82,8 @@ export function QuotesTabContent({ loading, quotations }: QuotesTabContentProps)
     return false;
   };
 
-  const machineQuotes = quotations.filter(isMachineQuote);
-  const materialQuotes = quotations.filter(q => !isMachineQuote(q));
+  const machineQuotes = filteredQuotes.filter(isMachineQuote);
+  const materialQuotes = filteredQuotes.filter(q => !isMachineQuote(q));
 
   const renderQuoteCard = (q: Quotation) => {
     const znsMeta = getStatusBadgeMeta((q as any).trangThaiGuiTinBaoGia || (q as any).trangThaiGuiTin);
@@ -84,6 +116,24 @@ export function QuotesTabContent({ loading, quotations }: QuotesTabContentProps)
         </div>
         
         <div className="p-4 space-y-3">
+          {/* Phả hệ đầu mối liên hệ rõ ràng (Contact Lineage) */}
+          <div className="flex items-center justify-between text-2xs bg-slate-50/90 px-3 py-1.5 rounded-lg border border-slate-150">
+            <div className="flex items-center gap-1.5 text-slate-700 flex-wrap">
+              <span className="font-semibold text-slate-500">Đầu mối phụ trách:</span>
+              <span className="font-bold text-blue-800">👤 {q.nguoiDaiDien || 'Chưa gán'}</span>
+              {q.sdt && (
+                <span className="font-mono text-2xs text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
+                  📞 {q.sdt}
+                </span>
+              )}
+            </div>
+            {q.tinhThanh && (
+              <span className="text-3xs text-slate-500 font-medium shrink-0">
+                📍 {q.tinhThanh}
+              </span>
+            )}
+          </div>
+
           {q.noiDungGhiChu && (
             <p className="text-xs text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
               <span className="font-semibold text-slate-700">Ghi chú:</span> {q.noiDungGhiChu}
@@ -127,7 +177,53 @@ export function QuotesTabContent({ loading, quotations }: QuotesTabContentProps)
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Segmented Filter Bar theo từng Đầu Mối nếu có từ 2 đầu mối trở lên */}
+      {contactGroups.length > 1 && (
+        <div className="p-2.5 bg-slate-100/90 rounded-xl border border-slate-200 space-y-1.5">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-3xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+              <span>🎯</span> Lọc báo giá theo đầu mối liên hệ:
+            </span>
+            <span className="text-3xs text-slate-500">
+              Tổng số: <strong>{quotations.length} Báo giá</strong>
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSelectedContact('ALL')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                selectedContact === 'ALL'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+              }`}
+            >
+              Tất cả ({quotations.length})
+            </button>
+            {contactGroups.map(grp => (
+              <button
+                key={grp.key}
+                type="button"
+                onClick={() => setSelectedContact(grp.key)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedContact === grp.key
+                    ? 'bg-blue-600 text-white shadow-xs font-bold'
+                    : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                <span>👤 {grp.name}</span>
+                <span className={`text-3xs px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                  selectedContact === grp.key ? 'bg-blue-700 text-blue-100' : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {grp.count} BG
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {machineQuotes.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 select-none">

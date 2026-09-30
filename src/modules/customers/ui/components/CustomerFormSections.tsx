@@ -46,6 +46,7 @@ export function CustomerFormProfileSection({
   const isIndividual = watch('loaiHinhDoanhNghiep') === 'CÁ NHÂN' || watch('loaiKh') === 'Cá nhân';
   const [magicPasteOpen, setMagicPasteOpen] = React.useState(false);
   const [magicPasteInput, setMagicPasteInput] = React.useState('');
+  const [showIdentityConsole, setShowIdentityConsole] = React.useState(false);
 
   const currentTax = (watch('maSoThue') || '').trim();
   const currentPhone = (watch('sdt') || '').trim();
@@ -295,6 +296,124 @@ export function CustomerFormProfileSection({
               </div>
             );
           })()}
+
+          {/* Bảng Điều Khiển Tùy Chỉnh Định Danh Đa Tầng Riêng Từng Trường */}
+          {!isIndividual && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowIdentityConsole(!showIdentityConsole)}
+                className="text-3xs text-blue-700 hover:text-blue-900 font-bold flex items-center gap-1.5 transition-colors cursor-pointer bg-blue-50/80 hover:bg-blue-100 px-2.5 py-1 rounded-md border border-blue-200"
+              >
+                <span>⚙️</span>
+                <span>{showIdentityConsole ? 'Thu gọn tùy chỉnh định danh đa tầng' : 'Tùy chỉnh riêng từng trường Tên: ZNS • Thương Mại • ĐKKD • Pháp Lý Gọn'}</span>
+                <span className="text-slate-400 font-normal">({showIdentityConsole ? '▲' : '▼'})</span>
+              </button>
+
+              {showIdentityConsole && (
+                <div className="mt-2.5 p-3.5 bg-slate-50/90 rounded-xl border border-slate-200/90 space-y-3 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                    <span className="text-3xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>🎯</span> Bảng điều khiển định danh đa tầng (ZNS &amp; Pháp lý)
+                    </span>
+                    <span className="text-3xs text-slate-500">Chỉnh sửa độc lập từng trường theo nhu cầu</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* 1. Tên Chuẩn ZNS */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-3xs font-bold text-slate-600 uppercase flex items-center gap-1" htmlFor="tenZns">
+                          <span>📱</span> Tên Chuẩn ZNS (&le; 30 kt)
+                        </label>
+                        <span className={`text-3xs font-mono font-bold px-1.5 py-0.2 rounded border ${
+                          (String(watch('tenZns' as any) || '').length) <= 29 
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}>
+                          {String(watch('tenZns' as any) || '').length}/30 kt
+                        </span>
+                      </div>
+                      <input
+                        id="tenZns"
+                        {...register('tenZns' as any)}
+                        placeholder="Ví dụ: SX CK & XD Hồng Hà"
+                        className="w-full h-7 bg-white border border-slate-200 rounded-lg px-2.5 text-xs font-semibold text-slate-800 placeholder:text-slate-300 focus:ring-1 focus:ring-blue-500"
+                      />
+                      <div className="text-3xs text-slate-500 italic bg-white/80 p-1.5 rounded border border-slate-100 flex items-center gap-1">
+                        <span>💬 Zalo:</span>
+                        <span className="font-semibold text-slate-700 truncate">
+                          "Kính gửi Quý khách <strong>{String(watch('tenZns' as any) || watch('tenKhachHang')).slice(0, 30)}</strong>, thông báo..."
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 2. Tên Thương Mại */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-3xs font-bold text-slate-600 uppercase flex items-center gap-1" htmlFor="tenThuongMai">
+                          <span>🏪</span> Tên Thương Mại (Biển hiệu / Giao dịch)
+                        </label>
+                        <span className="text-3xs font-mono text-slate-400">
+                          {String(watch('tenThuongMai' as any) || '').length} kt
+                        </span>
+                      </div>
+                      <input
+                        id="tenThuongMai"
+                        {...register('tenThuongMai' as any)}
+                        placeholder="Ví dụ: Sản Xuất Cơ Khí & Xây Dựng Hồng Hà"
+                        className="w-full h-7 bg-white border border-slate-200 rounded-lg px-2.5 text-xs text-slate-800 placeholder:text-slate-300 focus:ring-1 focus:ring-blue-500"
+                      />
+                      <span className="text-3xs text-slate-400 block">Dùng xưng hô gọi điện &amp; danh thiếp thương mại</span>
+                    </div>
+
+                    {/* 3. Tên Pháp Lý Đầy Đủ (ĐKKD) */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-3xs font-bold text-slate-600 uppercase flex items-center gap-1" htmlFor="tenPhapLy">
+                          <span>🏛️</span> Tên Pháp Lý Đầy Đủ (Hóa Đơn VAT / ĐKKD)
+                        </label>
+                        <span className="text-3xs font-mono text-slate-400">
+                          {String(watch('tenPhapLy' as any) || '').length} kt
+                        </span>
+                      </div>
+                      <input
+                        id="tenPhapLy"
+                        {...register('tenPhapLy' as any)}
+                        placeholder="Ví dụ: Công Ty TNHH Sản Xuất Cơ Khí Và Xây Dựng Hồng Hà"
+                        className="w-full h-7 bg-white border border-slate-200 rounded-lg px-2.5 text-xs text-slate-800 placeholder:text-slate-300 focus:ring-1 focus:ring-blue-500 font-medium"
+                      />
+                      <div className="text-3xs text-slate-500 italic bg-white/80 p-1.5 rounded border border-slate-100 flex items-center gap-1">
+                        <span>📄 VAT:</span>
+                        <span className="font-semibold text-slate-700 truncate">
+                          Đơn vị mua: <strong>{String(watch('tenPhapLy' as any) || watch('tenKhachHang'))}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 4. Tên Pháp Lý Rút Gọn */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-3xs font-bold text-slate-600 uppercase flex items-center gap-1" htmlFor="tenPhapLyGon">
+                          <span>🏷️</span> Tên Pháp Lý Rút Gọn (Tem nhãn / Cân bì)
+                        </label>
+                        <span className="text-3xs font-mono text-slate-400">
+                          {String(watch('tenPhapLyGon' as any) || '').length} kt
+                        </span>
+                      </div>
+                      <input
+                        id="tenPhapLyGon"
+                        {...register('tenPhapLyGon' as any)}
+                        placeholder="Ví dụ: TNHH SX CK & XD Hồng Hà"
+                        className="w-full h-7 bg-white border border-slate-200 rounded-lg px-2.5 text-xs text-slate-800 placeholder:text-slate-300 focus:ring-1 focus:ring-blue-500"
+                      />
+                      <span className="text-3xs text-slate-400 block">Dùng in tem mác vật tư &amp; phiếu cân xe vận chuyển</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="space-y-1">

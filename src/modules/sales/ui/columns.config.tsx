@@ -87,18 +87,21 @@ export const getQuotationColumns = (
       const liveCustomer = allCustomers?.find(c => c.id === q.customerId || (c.maKh && c.maKh === q.customerId));
       const displayName = liveCustomer?.tenKhachHang || q.tenKhachHang || '---';
       const name = normalizeBusinessName(displayName);
-      const normalizedNguoiDaiDien = normalizePersonName(liveCustomer?.nguoiDaiDien || q.nguoiDaiDien || '');
-      const phone = liveCustomer?.sdt || q.sdt;
-      const detailStr = [normalizedNguoiDaiDien, phone].filter(Boolean).join(' • ');
+      // Ưu tiên đầu mối & SĐT gốc của chính báo giá này, bảo toàn phả hệ khi khách hàng được gộp
+      const rawRep = q.nguoiDaiDien || liveCustomer?.nguoiDaiDien || '';
+      const normalizedNguoiDaiDien = normalizePersonName(rawRep);
+      const phone = q.sdt || liveCustomer?.sdt;
+      const contactPrefix = normalizedNguoiDaiDien ? `👤 Đầu mối: ${normalizedNguoiDaiDien}` : '';
+      const detailStr = [contactPrefix, phone].filter(Boolean).join(' • ');
       
       return (
-        <QuotationHoverCard quotation={{ ...q, tenKhachHang: displayName, sdt: phone }}>
+        <QuotationHoverCard quotation={{ ...q, tenKhachHang: displayName, nguoiDaiDien: rawRep, sdt: phone }}>
           <div className="w-full min-w-0 flex flex-col justify-center gap-0.5 pointer-events-auto py-1">
             <span className="font-semibold text-slate-900 text-xs leading-snug whitespace-normal break-words line-clamp-3 transition-colors group-hover:text-blue-600" title={name}>
               {name}
             </span>
             {detailStr && (
-              <span className="text-2xs text-slate-500 font-normal truncate" title={detailStr}>
+              <span className="text-2xs text-slate-600 font-medium whitespace-normal break-words line-clamp-2" title={detailStr}>
                 {detailStr}
               </span>
             )}

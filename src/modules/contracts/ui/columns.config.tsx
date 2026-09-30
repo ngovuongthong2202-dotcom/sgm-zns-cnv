@@ -117,8 +117,8 @@ export const getContractColumns = (
         <div className="w-full min-w-0 flex items-center py-1">
           <div className="flex flex-col min-w-0">
             <span className="font-semibold text-xs text-slate-800 line-clamp-3 whitespace-normal break-words leading-snug" title={customerName}>{displayBizName}</span>
-            <div className="flex items-center gap-1.5 text-2xs text-slate-500 truncate mt-0.5">
-               <span className="truncate" title={repPhone}>{repPhone}</span>
+            <div className="flex flex-wrap items-center gap-1.5 text-2xs text-slate-500 mt-0.5 leading-tight">
+               <span className="whitespace-normal break-words" title={repPhone}>{repPhone}</span>
             </div>
           </div>
         </div>
@@ -141,7 +141,7 @@ export const getContractColumns = (
       }
       if (!prov) return <span className="text-2xs text-slate-500">—</span>;
       return (
-        <span className="text-xs text-slate-700 truncate block" title={prov}>{prov}</span>
+        <span className="text-xs text-slate-700 whitespace-normal break-words block" title={prov}>{prov}</span>
       );
     }
   },
@@ -201,9 +201,9 @@ export const getContractColumns = (
       return (
         <div className="w-full min-w-0 flex items-center">
           <div className="flex flex-col min-w-0">
-             <div className="flex items-center gap-1.5 text-xs">
-               <span className="font-semibold text-slate-500 whitespace-nowrap">{firstProduct.quantity}x</span>
-               <span className="text-slate-800 font-medium truncate" title={firstProduct.productName}>{firstProduct.productName}</span>
+             <div className="flex items-start gap-1.5 text-xs">
+               <span className="font-semibold text-slate-500 whitespace-nowrap mt-0.5">{firstProduct.quantity}x</span>
+               <span className="text-slate-800 font-medium whitespace-normal break-words leading-snug" title={firstProduct.productName}>{firstProduct.productName}</span>
              </div>
              {hiddenCount > 0 && (
                 <span className="text-2xs text-blue-600 font-semibold mt-0.5 uppercase tracking-wide">

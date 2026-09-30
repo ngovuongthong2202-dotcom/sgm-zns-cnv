@@ -196,6 +196,41 @@ export function normalizePersonName(s?: string | null): string {
 }
 
 /**
+ * Eliminates duplicate corporate type prefixes (e.g., 'CÔNG TY TNHH Công Ty TNHH...', 'CÔNG TY CỔ PHẦN CP...')
+ * Ensuring clean, non-repetitive enterprise legal names.
+ */
+export function cleanDuplicateCorporatePrefix(name?: string | null): string {
+  if (!name) return '';
+  let s = squeezeSpaces(name);
+
+  const prefixes = [
+    /^(?:công ty\s+tnhh|cty\s+tnhh|tnhh)\s+(?:công ty\s+tnhh|cty\s+tnhh|tnhh)\s+/i,
+    /^(?:công ty\s+cổ phần|cty\s+cổ phần|công ty\s+cp|cty\s+cp|cp)\s+(?:công ty\s+cổ phần|cty\s+cổ phần|công ty\s+cp|cty\s+cp|cp)\s+/i,
+    /^(?:doanh nghiệp tư nhân|dntn)\s+(?:doanh nghiệp tư nhân|dntn)\s+/i,
+    /^(?:hộ kinh doanh|hkd)\s+(?:hộ kinh doanh|hkd)\s+/i,
+    /^(?:hợp tác xã|htx)\s+(?:hợp tác xã|htx)\s+/i,
+    /^(?:chi nhánh|cn)\s+(?:chi nhánh|cn)\s+/i,
+  ];
+
+  for (const re of prefixes) {
+    if (re.test(s)) {
+      s = s.replace(re, (match) => {
+        const lower = match.toLowerCase();
+        if (lower.includes('cổ phần') || lower.includes('cp')) return 'Công Ty Cổ Phần ';
+        if (lower.includes('tnhh')) return 'Công Ty TNHH ';
+        if (lower.includes('doanh nghiệp') || lower.includes('dntn')) return 'Doanh Nghiệp Tư Nhân ';
+        if (lower.includes('hộ kinh doanh') || lower.includes('hkd')) return 'Hộ Kinh Doanh ';
+        if (lower.includes('hợp tác xã') || lower.includes('htx')) return 'Hợp Tác Xã ';
+        if (lower.includes('chi nhánh') || lower.includes('cn')) return 'Chi Nhánh ';
+        return '';
+      });
+    }
+  }
+
+  return cleanProperVietnameseText(s);
+}
+
+/**
  * Safely parses any currency string (VND, USD, etc.) or number into a standard floating number.
  * Handles thousands separators (. or ,), decimal separators (dot or comma), currency units, spaces, and negative values.
  */

@@ -16,13 +16,15 @@ import { useDataView } from '@/src/design-system/dataview/useDataView';
 import { DataViewEngine } from '@/src/design-system/dataview/DataViewEngine';
 import { Customer, CustomerSchema } from '@/src/domain/schema/customer.schema';
 import { DataImportModal, Button } from '@/src/design-system';
-import { Upload, Printer } from 'lucide-react';
+import { Upload, Printer, GitMerge } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
 import { can } from '@/src/modules/iam';
 import { useAuth } from '@/src/modules/iam';
 import { CustomerZnsContactModal } from './components/CustomerZnsContactModal';
+import { CustomerConsolidationModal } from './components/CustomerConsolidationModal';
+import { detectDuplicateCustomerGroups } from './utils/customerConsolidationEngine';
 
 export default function CustomersFeature() {
   const { userData } = useAuth();
@@ -67,6 +69,11 @@ export default function CustomersFeature() {
 
   const { data: quotations = [] } = useRealtimeCollection<Quotation>('quotations');
   const [printingCustomer, setPrintingCustomer] = useState<Customer | null>(null);
+  const [isConsolidationOpen, setIsConsolidationOpen] = useState(false);
+
+  const duplicateGroups = useMemo(() => {
+    return detectDuplicateCustomerGroups(customers, quotations);
+  }, [customers, quotations]);
 
   // Sequential drawer navigation logic
   const currentIndex = useMemo(() => {
@@ -253,15 +260,31 @@ export default function CustomersFeature() {
             onResetAllFilters={handleResetFilters}
             hasActiveDomainFilters={hasActiveDomainFilters}
             extraActions={
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                leftIcon={<Upload size={14} className="shrink-0 text-slate-500" />}
-                className="h-8 px-2.5 text-slate-700 hover:text-slate-900 font-medium whitespace-nowrap shrink-0 inline-flex items-center shadow-xs" 
-                onClick={() => setIsImportOpen(true)}
-              >
-                Thêm Excel/CSV
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  leftIcon={<GitMerge size={14} className={duplicateGroups.length > 0 ? "shrink-0 text-amber-600" : "shrink-0 text-slate-500"} />}
+                  className={`h-8 px-2.5 font-medium whitespace-nowrap shrink-0 inline-flex items-center shadow-xs ${
+                    duplicateGroups.length > 0 
+                      ? 'border-amber-300 bg-amber-50/70 text-amber-900 hover:bg-amber-100' 
+                      : 'text-slate-700 hover:text-slate-900'
+                  }`} 
+                  onClick={() => setIsConsolidationOpen(true)}
+                  title="Kiểm tra và gộp khách hàng trùng mã số thuế"
+                >
+                  Gộp trùng MST {duplicateGroups.length > 0 && `(${duplicateGroups.length})`}
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  leftIcon={<Upload size={14} className="shrink-0 text-slate-500" />}
+                  className="h-8 px-2.5 text-slate-700 hover:text-slate-900 font-medium whitespace-nowrap shrink-0 inline-flex items-center shadow-xs" 
+                  onClick={() => setIsImportOpen(true)}
+                >
+                  Thêm Excel/CSV
+                </Button>
+              </div>
             }
             entityFilters={
               <CustomerFilterBar
@@ -350,6 +373,16 @@ export default function CustomersFeature() {
         customer={znsContactModalState.customer}
         onUpdateCustomer={handleUpdateCustomer}
         onRefresh={refresh}
+      />
+
+      <CustomerConsolidationModal
+        isOpen={isConsolidationOpen}
+        onClose={() => setIsConsolidationOpen(false)}
+        customers={customers}
+        quotations={quotations}
+        onConsolidationSuccess={() => {
+          refresh();
+        }}
       />
     </div>
   );
