@@ -6,6 +6,7 @@ export interface ErpConfig {
   itemsUrl: string;
   exportSaleUrl: string;
   quotationUrl: string;
+  salesOrdersUrl: string;
   timeoutSeconds?: number;
   apiKey?: string;
   updatedAt?: string;
@@ -16,6 +17,7 @@ export const DEFAULT_ERP_CONFIG: ErpConfig = {
   itemsUrl: 'https://sgm.vnaisoft.com/api/public/items',
   exportSaleUrl: 'https://sgm.vnaisoft.com/api/public/export-sale',
   quotationUrl: 'https://sgm.vnaisoft.com/api/public/bao-gia',
+  salesOrdersUrl: 'https://sgm.vnaisoft.com/api/public/sales-orders',
   timeoutSeconds: 20,
 };
 
@@ -36,6 +38,7 @@ export async function getErpConfig(): Promise<ErpConfig> {
         itemsUrl: data.itemsUrl?.trim() || DEFAULT_ERP_CONFIG.itemsUrl,
         exportSaleUrl: data.exportSaleUrl?.trim() || DEFAULT_ERP_CONFIG.exportSaleUrl,
         quotationUrl: data.quotationUrl?.trim() || DEFAULT_ERP_CONFIG.quotationUrl,
+        salesOrdersUrl: data.salesOrdersUrl?.trim() || DEFAULT_ERP_CONFIG.salesOrdersUrl,
         timeoutSeconds: Number(data.timeoutSeconds) || DEFAULT_ERP_CONFIG.timeoutSeconds,
         apiKey: data.apiKey?.trim() || '',
         updatedAt: data.updatedAt,

@@ -4,7 +4,6 @@ import { Button } from '@/src/design-system';
 import { ProductItem } from '@/src/domain/schema/product.schema';
 import { ProductBaoHanhFields } from './ProductBaoHanhFields';
 import { FinancialEngine } from '@/src/shared/utils/financialEngine';
-import { parseFinancialInput } from '@/src/platform/ui/forms/useSmartFormInput';
 import { computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
 import { SmartFinancialInput } from '@/src/design-system';
@@ -143,9 +142,10 @@ export function ProductFinanceCard({
         )}
         <div className="flex gap-2 mt-2">
           <input type="number"
+            step="any"
             placeholder="SL"
             value={p.quantity}
-            onChange={(e) => onUpdate(idx, 'quantity', parseInt(e.target.value) || 0)}
+            onChange={(e) => onUpdate(idx, 'quantity', parseFloat(e.target.value) || 0)}
             readOnly={(readOnly && maxQ === undefined) || disabled}
             className="w-1/4 text-xs font-bold text-center text-slate-800 bg-white border border-slate-200 rounded p-1.5 outline-none focus:border-blue-400"
           />

@@ -162,6 +162,57 @@ export function QuotationDetailOverview({
               </div>
             </div>
           </section>
+
+          {/* Khối Phả hệ Đơn hàng ERP & Hồ sơ cân bàn đính kèm (Nexus 50.0) */}
+          {(quotation.soDonHangErp || quotation.sourceRef || (quotation.attachments && quotation.attachments.length > 0)) && (
+            <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h4 className="text-2xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                  <Zap size={13} className="text-amber-500" />
+                  Phả Hệ Đơn Hàng ERP &amp; Hồ Sơ Chứng Từ Gốc
+                </h4>
+                {quotation.soDonHangErp && (
+                  <span className="font-mono text-3xs font-extrabold bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
+                    ERP: {quotation.soDonHangErp}
+                  </span>
+                )}
+              </div>
+
+              {(quotation.sourceRef as any)?.tareFormula && (
+                <div className="p-2.5 bg-emerald-50/60 border border-emerald-200 rounded-lg text-2xs text-emerald-900 font-mono font-medium">
+                  ⚖️ {(quotation.sourceRef as any).tareFormula}
+                </div>
+              )}
+
+              {Array.isArray(quotation.attachments) && quotation.attachments.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-3xs font-bold uppercase text-slate-400 block tracking-wider">
+                    Tệp đính kèm phiếu cân ({quotation.attachments.length} tệp):
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {quotation.attachments.map((att: any, idx: number) => {
+                      const isPdf = (att.name || '').toLowerCase().endsWith('.pdf');
+                      return (
+                        <a
+                          key={idx}
+                          href={att.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 transition-colors text-2xs group"
+                        >
+                          <FileText size={14} className={isPdf ? 'text-red-500' : 'text-blue-600'} />
+                          <span className="font-medium text-slate-700 group-hover:text-blue-700 line-clamp-1 flex-1">
+                            {att.name}
+                          </span>
+                          <ArrowUpRight size={11} className="text-slate-400 group-hover:text-blue-600" />
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
         </div>
 
         {/* ===================== CỘT VỆ TINH (28%): INTELLIGENCE INSPECTOR ===================== */}

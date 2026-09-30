@@ -61,6 +61,11 @@ export const QuotationSchema = z.object({
   // Delivery Tracking (For direct Quotation -> Payment -> Delivery flow)
   deliveredQuantities: z.record(z.string(), z.number()).optional(),
   
+  // Enterprise Lineage & Attachments (ERP Sales Order Nexus)
+  soDonHangErp: z.string().optional(),
+  sourceRef: z.record(z.string(), z.unknown()).optional(),
+  attachments: z.array(z.record(z.string(), z.unknown())).optional(),
+
   // ZNS & Workflow - not strictly validated
   trangThaiGuiTinQuangCao: z.string().optional().nullable(),
   thongTinGuiZnsBaoGia: z.record(z.string(), z.unknown()).optional(),

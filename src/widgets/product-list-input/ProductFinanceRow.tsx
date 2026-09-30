@@ -6,7 +6,6 @@ import { ProductBaoHanhFields } from './ProductBaoHanhFields';
 import { FinancialEngine } from '@/src/shared/utils/financialEngine';
 import { computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
-import { parseFinancialInput } from '@/src/platform/ui/forms/useSmartFormInput';
 import { SmartFinancialInput } from '@/src/design-system';
 
 import { detectItemType, ITEM_SEMANTIC_CONFIG, ItemSemanticType } from './useProductItemSemantic';
@@ -154,8 +153,8 @@ export function ProductFinanceRow({
         {/* Quantity & Unit */}
         <td className="p-3 align-top w-[90px]">
            <div className="flex flex-col gap-1.5">
-              <input type="number" placeholder="SL"
-                value={p.quantity} onChange={e => onUpdate(idx, 'quantity', parseInt(e.target.value)||0)}
+              <input type="number" placeholder="SL" step="any"
+                value={p.quantity} onChange={e => onUpdate(idx, 'quantity', parseFloat(e.target.value)||0)}
                 readOnly={readOnly || disabled}
                 className="w-full text-xs font-bold text-center text-slate-800 border border-slate-200 rounded p-1 outline-none focus:border-blue-400 bg-white font-mono"
               />

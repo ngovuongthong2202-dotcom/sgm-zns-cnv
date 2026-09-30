@@ -57,32 +57,55 @@ export function useErpLookup(
     
     setIsLookingUp(true);
     try {
-      // Proxy call
-      const res = await fetch(`/api/quotations/erp-lookup/${encodeURIComponent(soPhieu)}`);
-      
-      if (!res.ok) {
-        let errorMsg = `Lỗi hệ thống (${res.status})`;
-        try {
-          const text = await res.text();
-          if (text) errorMsg = text.length > 50 ? text.substring(0, 50) + '...' : text;
-        } catch (err) {
-          logger.error('Failed to parse error response text:', err);
-        }
-        notify.warning(`Tra cứu ERP thất bại: ${errorMsg}`);
-        return;
-      }
-      
+      let isSalesOrder = /kddh|sales-orders|so:/i.test(soPhieu);
+      let targetUrl = isSalesOrder 
+        ? `/api/quotations/erp-sales-order/${encodeURIComponent(soPhieu)}`
+        : `/api/quotations/erp-lookup/${encodeURIComponent(soPhieu)}`;
+
+      let res = await fetch(targetUrl);
       let payload;
-      try {
-        payload = await res.json();
-      } catch (jsonErr) {
-        logger.error('Invalid JSON response:', jsonErr);
-        notify.error('Lỗi định dạng phản hồi từ ERP.');
-        return;
+
+      // If quotation lookup fails with 404 or success: false, fallback to check if it's a sales order
+      if ((!res.ok || res.status === 404) && !isSalesOrder) {
+        try {
+          const soRes = await fetch(`/api/quotations/erp-sales-order/${encodeURIComponent(soPhieu)}`);
+          if (soRes.ok) {
+            const soPayload = await soRes.json();
+            if (soPayload.success && soPayload.data) {
+              res = soRes;
+              payload = soPayload;
+              isSalesOrder = true;
+            }
+          }
+        } catch {
+          // ignore fallback error and keep original response
+        }
+      }
+
+      if (!payload) {
+        if (!res.ok) {
+          let errorMsg = `Lỗi hệ thống (${res.status})`;
+          try {
+            const text = await res.text();
+            if (text) errorMsg = text.length > 50 ? text.substring(0, 50) + '...' : text;
+          } catch (err) {
+            logger.error('Failed to parse error response text:', err);
+          }
+          notify.warning(`Tra cứu ERP thất bại: ${errorMsg}`);
+          return;
+        }
+
+        try {
+          payload = await res.json();
+        } catch (jsonErr) {
+          logger.error('Invalid JSON response:', jsonErr);
+          notify.error('Lỗi định dạng phản hồi từ ERP.');
+          return;
+        }
       }
       
       if (!payload.success) {
-         notify.warning(payload.error || `Số phiếu báo giá "${soPhieu}" không tồn tại trên ERP`);
+         notify.warning(payload.error || `Số phiếu/đơn hàng "${soPhieu}" không tồn tại trên ERP`);
          return;
       }
       
@@ -112,13 +135,16 @@ export function useErpLookup(
         }
       }
 
-      // Auto-match customer from ERP data if found in existing CRM customers
-      const erpPhone = (data.so_dien_thoai || '').trim();
-      const erpCustomerCode = (data.ma_khach_hang || '').trim();
-      const erpCustomerName = (data.ten_khach_hang || '').trim();
+      // Auto-match customer from ERP data if found in existing CRM customers (Priority: Tax Code -> Phone -> Code -> Name)
+      const customerSnapshot = data.customer_snapshot || {};
+      const erpTaxCode = (customerSnapshot.tax_code || data.ma_so_thue || data.tax_code || data.customer_id || '').trim().replace(/[\s\-_]/g, '');
+      const erpPhone = (customerSnapshot.phone || data.so_dien_thoai || data.phone || data.our_contact_person || '').trim().replace(/[\s\-_]/g, '');
+      const erpCustomerCode = (data.customer_id || data.ma_khach_hang || '').trim();
+      const erpCustomerName = (customerSnapshot.customer_name || data.ten_khach_hang || data.customer_name || '').trim();
 
       if (Array.isArray(customers) && customers.length > 0) {
         const matched = customers.find((c: any) => 
+          (erpTaxCode && erpTaxCode.length >= 8 && ((c.maSoThue || '').replace(/[\s\-_]/g, '') === erpTaxCode || (c.taxCode || '').replace(/[\s\-_]/g, '') === erpTaxCode)) ||
           (erpPhone && (c.sdt === erpPhone || c.contacts?.[0]?.sdt === erpPhone)) ||
           (erpCustomerCode && c.maKh === erpCustomerCode) ||
           (erpCustomerName && c.tenKhachHang?.toLowerCase() === erpCustomerName.toLowerCase())
@@ -129,77 +155,106 @@ export function useErpLookup(
           setValue('maKh', matched.maKh || erpCustomerCode, { shouldDirty: true });
           setValue('tenKhachHang', matched.tenKhachHang || erpCustomerName, { shouldDirty: true });
           setValue('sdt', matched.sdt || matched.contacts?.[0]?.sdt || erpPhone, { shouldDirty: true });
-          setValue('nguoiDaiDien', matched.nguoiDaiDien || matched.contacts?.[0]?.nguoiDaiDien || '', { shouldDirty: true });
+          setValue('nguoiDaiDien', matched.nguoiDaiDien || matched.contacts?.[0]?.nguoiDaiDien || customerSnapshot.representative || '', { shouldDirty: true });
         } else {
           // If customer not yet in CRM, keep customer info visible from ERP without breaking validation
           if (erpCustomerName) setValue('tenKhachHang', erpCustomerName, { shouldDirty: true });
           if (erpPhone) setValue('sdt', erpPhone, { shouldDirty: true });
           if (erpCustomerCode) setValue('maKh', erpCustomerCode, { shouldDirty: true });
+          if (customerSnapshot.representative) setValue('nguoiDaiDien', customerSnapshot.representative, { shouldDirty: true });
         }
       } else {
         if (erpCustomerName) setValue('tenKhachHang', erpCustomerName, { shouldDirty: true });
         if (erpPhone) setValue('sdt', erpPhone, { shouldDirty: true });
         if (erpCustomerCode) setValue('maKh', erpCustomerCode, { shouldDirty: true });
+        if (customerSnapshot.representative) setValue('nguoiDaiDien', customerSnapshot.representative, { shouldDirty: true });
       }
 
-      if (data.noi_dung) {
-        setValue('noiDungGhiChu', data.noi_dung, { shouldDirty: true, shouldValidate: true });
+      // Address
+      const erpAddress = data.delivery_address || customerSnapshot.address || data.dia_chi || '';
+      if (erpAddress) {
+        setValue('diaChi', erpAddress, { shouldDirty: true });
       }
-      if (data.ngay_lap) {
-        const parsedDate = parseFlexibleDate(data.ngay_lap);
+
+      // Content & Notes
+      const noteContent = data.content || data.noi_dung || '';
+      if (noteContent) {
+        const fullNote = isSalesOrder && data.code ? `[Số ĐH ERP: ${data.code}] ${noteContent}` : noteContent;
+        setValue('noiDungGhiChu', fullNote, { shouldDirty: true, shouldValidate: true });
+      }
+
+      // Date
+      const dateRaw = data.order_date || data.ngay_lap || data.signed_date;
+      if (dateRaw) {
+        const parsedDate = parseFlexibleDate(dateRaw);
         if (parsedDate) {
           setValue('ngayBaoGia', parsedDate, { shouldDirty: true, shouldValidate: true });
         }
       }
-      if (data.hieu_luc_bao_gia !== undefined) {
-        setValue('hieuLuc', Number(data.hieu_luc_bao_gia), { shouldDirty: true, shouldValidate: true });
+      if (data.expected_delivery_days || data.hieu_luc_bao_gia !== undefined) {
+        setValue('hieuLuc', Number(data.expected_delivery_days || data.hieu_luc_bao_gia), { shouldDirty: true, shouldValidate: true });
       }
 
-      // Map all 14 fields from ERP lines:
-      // item_code, item_name, unit, qty, unit_price, subtotal_before_tax, vat_pct,
-      // tax_amount, subtotal_after_tax, note, discount_pct, discount_amount,
-      // subtotal_after_discount, unit_price_after_discount
+      // Attachments & Source Lineage (Nexus 50.0)
+      if (Array.isArray(data.files) && data.files.length > 0) {
+        const mappedAttachments = data.files.map((f: any) => ({
+          name: f.fileName,
+          url: f.url,
+          key: f.key,
+          uploadedAt: new Date().toISOString(),
+          source: 'ERP_SALES_ORDER',
+        }));
+        setValue('attachments', mappedAttachments, { shouldDirty: true });
+      }
+
+      if (data.code) {
+        setValue('soDonHangErp', data.code, { shouldDirty: true });
+        setValue('sourceRef', {
+          origin: isSalesOrder ? 'ERP_SALES_ORDER' : 'ERP_QUOTATION',
+          code: data.code,
+          id: data._id,
+          approvalStatus: data.so_approval_status || 'approved',
+          syncedAt: new Date().toISOString(),
+        }, { shouldDirty: true });
+      }
+
+      // Map all 9 fields from ERP lines / items with float quantity support
       const erpItems = data.lines || data.items || [];
       if (Array.isArray(erpItems) && erpItems.length > 0) {
-        const mappedProducts: ProductItem[] = erpItems.map((item: any) => {
-          const qty = Number(item.qty ?? item.quantity ?? 1);
+        const mappedProducts: ProductItem[] = erpItems.map((item: any, idx: number) => {
+          const snapshot = item.item_snapshot || {};
+          const itemCode = (snapshot.item_code || item.item_code || item.item_id || '').trim();
+          const itemName = (snapshot.item_name || item.item_name || item.name || 'Sản phẩm từ ERP').trim();
+          const unit = (snapshot.unit_of_measure?.display_unit || item.converted_unit_code || item.unit || 'Cái').trim();
+          const qty = Number(item.quantity ?? item.qty ?? 1);
           const unitPrice = Number(item.unit_price ?? item.price ?? 0);
-          const discountPct = (item.discount_pct !== undefined && item.discount_pct !== null) ? Number(item.discount_pct) : undefined;
+          const discountPct = (item.discount_rate_pct !== undefined ? item.discount_rate_pct : item.discount_pct) !== undefined
+            ? Number(item.discount_rate_pct ?? item.discount_pct) 
+            : undefined;
           const discountAmount = (item.discount_amount !== undefined && item.discount_amount !== null) ? Number(item.discount_amount) : undefined;
-          const subtotalAfterDiscount = (item.subtotal_after_discount !== undefined && item.subtotal_after_discount !== null) 
-            ? Number(item.subtotal_after_discount) 
+          const vatPct = (item.vat_rate_pct !== undefined ? item.vat_rate_pct : item.vat_pct) !== undefined
+            ? Number(item.vat_rate_pct ?? item.vat_pct) 
             : undefined;
-          const unitPriceAfterDiscount = (item.unit_price_after_discount !== undefined && item.unit_price_after_discount !== null) 
-            ? Number(item.unit_price_after_discount) 
+          const taxAmount = (item.vat_amount !== undefined ? item.vat_amount : item.tax_amount) !== undefined
+            ? Number(item.vat_amount ?? item.tax_amount) 
             : undefined;
-          const subtotalBeforeTax = (item.subtotal_before_tax !== undefined && item.subtotal_before_tax !== null) 
-            ? Number(item.subtotal_before_tax) 
-            : undefined;
-          const vatPct = (item.vat_pct !== undefined && item.vat_pct !== null) ? Number(item.vat_pct) : undefined;
-          const taxAmount = (item.tax_amount !== undefined && item.tax_amount !== null) ? Number(item.tax_amount) : undefined;
-          const subtotalAfterTax = (item.subtotal_after_tax !== undefined && item.subtotal_after_tax !== null) 
-            ? Number(item.subtotal_after_tax) 
-            : undefined;
-          const noteText = item.note || item.ghiChu || '';
+          const noteText = item.notes || item.note || item.ghiChu || '';
 
           const baseItem: ProductItem = {
             id: crypto.randomUUID(),
-            productId: item.item_code || '',
-            item_code: item.item_code || '',
-            productName: item.item_name || 'Sản phẩm từ ERP',
+            stt: idx + 1,
+            productId: itemCode,
+            item_code: itemCode,
+            productName: itemName,
             quantity: qty,
             price: unitPrice,
-            unit: item.unit || 'Cái',
+            unit,
             ghiChu: noteText,
             note: noteText,
             discountPct,
             discountAmount,
-            subtotalAfterDiscount,
-            unitPriceAfterDiscount,
-            subtotalBeforeTax,
             vatPct,
             taxAmount,
-            subtotalAfterTax,
           };
           return computeLineItem(baseItem);
         });
@@ -210,7 +265,7 @@ export function useErpLookup(
          setIsErpLocked(true);
       }
 
-      notify.success(`Đã nạp ${erpItems.length} sản phẩm báo giá ${soPhieu} từ ERP`);
+      notify.success(`Đã nạp thành công ${erpItems.length} sản phẩm từ ERP (${soPhieu})`);
 
       // Synchronize and trigger React Hook Form validation & subscribers updates
       if (trigger) {

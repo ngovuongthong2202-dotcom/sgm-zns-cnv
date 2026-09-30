@@ -21,6 +21,7 @@ export interface ErpApiConfig {
   itemsUrl: string;
   exportSaleUrl: string;
   quotationUrl: string;
+  salesOrdersUrl: string;
   timeoutSeconds: number;
   apiKey?: string;
   updatedAt?: string;
@@ -31,6 +32,7 @@ const DEFAULT_CONFIG: ErpApiConfig = {
   itemsUrl: 'https://sgm.vnaisoft.com/api/public/items',
   exportSaleUrl: 'https://sgm.vnaisoft.com/api/public/export-sale',
   quotationUrl: 'https://sgm.vnaisoft.com/api/public/bao-gia',
+  salesOrdersUrl: 'https://sgm.vnaisoft.com/api/public/sales-orders',
   timeoutSeconds: 20,
   apiKey: '',
 };
@@ -53,6 +55,7 @@ export default function IntegrationsPage() {
             itemsUrl: doc.itemsUrl || DEFAULT_CONFIG.itemsUrl,
             exportSaleUrl: doc.exportSaleUrl || DEFAULT_CONFIG.exportSaleUrl,
             quotationUrl: doc.quotationUrl || DEFAULT_CONFIG.quotationUrl,
+            salesOrdersUrl: doc.salesOrdersUrl || DEFAULT_CONFIG.salesOrdersUrl,
             timeoutSeconds: Number(doc.timeoutSeconds) || DEFAULT_CONFIG.timeoutSeconds,
             apiKey: doc.apiKey || '',
             updatedAt: doc.updatedAt,
@@ -89,6 +92,7 @@ export default function IntegrationsPage() {
         itemsUrl: config.itemsUrl.trim(),
         exportSaleUrl: config.exportSaleUrl.trim(),
         quotationUrl: config.quotationUrl.trim(),
+        salesOrdersUrl: config.salesOrdersUrl.trim(),
         timeoutSeconds: Number(config.timeoutSeconds) || 20,
         apiKey: config.apiKey?.trim() || '',
         updatedAt: new Date().toISOString(),
@@ -122,12 +126,14 @@ export default function IntegrationsPage() {
     
     const startTime = Date.now();
     try {
-      // Use internal proxy if items or export-sale
+      // Use internal proxy if items, quotation, or salesOrders
       let targetUrl = url;
       if (key === 'items') {
         targetUrl = '/api/items?q=test';
       } else if (key === 'quotation') {
         targetUrl = '/api/quotation/erp-lookup/test';
+      } else if (key === 'salesOrders') {
+        targetUrl = '/api/quotation/erp-sales-order/test';
       }
 
       const res = await fetch(targetUrl, { method: 'GET', signal: AbortSignal.timeout(10000) });
@@ -348,6 +354,50 @@ export default function IntegrationsPage() {
             }`}>
               {testResults['quotation'].success ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
               <span>{testResults['quotation'].message}</span>
+            </div>
+          )}
+        </div>
+
+        {/* 4. Tra cứu đơn hàng bán ERP (Sales Orders) */}
+        <div className="p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Package size={16} className="text-emerald-500" />
+              <label className="text-xs font-bold text-slate-800">
+                4. API Tra cứu Đơn hàng bán ERP (Sales Orders)
+              </label>
+              <span className="px-1.5 py-0.5 rounded text-3xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase">
+                GET
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => testEndpoint('salesOrders', config.salesOrdersUrl)}
+              disabled={testingKey === 'salesOrders'}
+              className="text-2xs text-blue-600 hover:text-blue-800 font-medium inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+            >
+              {testingKey === 'salesOrders' ? <RefreshCw size={12} className="animate-spin" /> : <ExternalLink size={12} />}
+              Kiểm tra kết nối
+            </button>
+          </div>
+          <p className="text-2xs text-slate-500">
+            Dùng để dựng Báo giá, đồng bộ hồ sơ cân trừ bì phế liệu và tệp ảnh phiếu cân trực tiếp từ số Đơn hàng ERP (KDDH).
+          </p>
+          <div className="flex items-center gap-3">
+            <input
+              type="url"
+              value={config.salesOrdersUrl}
+              onChange={(e) => setConfig({ ...config, salesOrdersUrl: e.target.value })}
+              placeholder="https://sgm.vnaisoft.com/api/public/sales-orders"
+              className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-slate-50/50"
+            />
+          </div>
+          {testResults['salesOrders'] && (
+            <div className={`text-2xs px-3 py-1.5 rounded-md flex items-center gap-2 ${
+              testResults['salesOrders'].success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+            }`}>
+              {testResults['salesOrders'].success ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
+              <span>{testResults['salesOrders'].message}</span>
             </div>
           )}
         </div>

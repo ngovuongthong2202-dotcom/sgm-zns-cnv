@@ -4,7 +4,7 @@ export const ProductItemSchema = z.object({
   id: z.string().optional(), // Stable internal ID for row tracking
   productId: z.string().optional().or(z.literal('')), // Số KH/Mã SP
   productName: z.string().min(1, 'Tên sản phẩm là bắt buộc'),
-  quantity: z.number().int().positive('Số lượng phải là số dương'),
+  quantity: z.number().positive('Số lượng phải là số dương'),
   unit: z.string().optional(),
   price: z.number().optional(),
   total: z.number().optional(), // Alias of subtotalAfterTax for backward compat

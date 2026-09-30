@@ -152,7 +152,14 @@ export async function resolveDeliverySourceDocument(
     if (cMatch) return { source: cMatch, sourceType: 'contracts', sourceId: cMatch.id };
   }
   if (soPhieuBaoGia) {
-    const qMatch = entityCachePool.find('quotations', (q: any) => q.soPhieuBaoGia === soPhieuBaoGia || q.soBaoGia === soPhieuBaoGia);
+    const qMatch = (options?.quotations || []).find((q: any) => q && (q.soPhieuBaoGia === soPhieuBaoGia || q.soBaoGia === soPhieuBaoGia)) ||
+                   entityCachePool.find('quotations', (q: any) => q.soPhieuBaoGia === soPhieuBaoGia || q.soBaoGia === soPhieuBaoGia);
+    if (qMatch) return { source: qMatch, sourceType: 'quotations', sourceId: qMatch.id };
+  }
+  const soDonHangErp = typeof data.soDonHangErp === 'string' ? data.soDonHangErp.trim() : '';
+  if (soDonHangErp) {
+    const qMatch = (options?.quotations || []).find((q: any) => q && (q.soDonHangErp === soDonHangErp || q.sourceRef?.code === soDonHangErp)) ||
+                   entityCachePool.find('quotations', (q: any) => q.soDonHangErp === soDonHangErp || q.sourceRef?.code === soDonHangErp);
     if (qMatch) return { source: qMatch, sourceType: 'quotations', sourceId: qMatch.id };
   }
 

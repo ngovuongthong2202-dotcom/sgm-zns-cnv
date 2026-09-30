@@ -4,7 +4,6 @@ import { Button } from '@/src/design-system';
 import { ProductItem } from '@/src/domain/schema/product.schema';
 import { ProductBaoHanhFields } from './ProductBaoHanhFields';
 import { FinancialEngine } from '@/src/shared/utils/financialEngine';
-import { parseFinancialInput } from '@/src/platform/ui/forms/useSmartFormInput';
 import { MachineCodeChipInput } from '@/src/modules/contracts/ui/components/MachineCodeChipInput';
 import { SmartFinancialInput } from '@/src/design-system';
 import { detectItemType, ITEM_SEMANTIC_CONFIG, ItemSemanticType } from './useProductItemSemantic';
@@ -124,8 +123,9 @@ export function ProductBasicItem({
           </label>
           <input aria-label="Nhập thông tin"
             type="number"
+            step="any"
             value={p.quantity}
-            onChange={(e) => onUpdate(idx, 'quantity', parseInt(e.target.value) || 0)}
+            onChange={(e) => onUpdate(idx, 'quantity', parseFloat(e.target.value) || 0)}
             readOnly={(readOnly && maxQ === undefined) || disabled}
             max={maxQ}
             className={`w-full text-xs font-bold text-slate-900 ${(readOnly && maxQ === undefined) || disabled ? 'bg-slate-50/30' : 'bg-white'} border-slate-200 rounded-lg focus:ring-1 focus:ring-brand-accent p-2 text-center md:h-[38px] disabled:opacity-70`}

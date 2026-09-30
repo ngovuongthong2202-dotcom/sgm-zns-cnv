@@ -18,6 +18,9 @@ import { QuotationStats } from './components/QuotationStats';
 import { extractCustomerTinhThanhMap, extractTinhThanhList, enhanceQuotationsWithProvince } from './utils/extractors';
 import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { QuotationFilterBar } from './components/QuotationFilterBar';
+import { Zap } from 'lucide-react';
+import { Button } from '@/src/design-system/Button';
+import { CreateQuotationFromSalesOrderModal } from './components/CreateQuotationFromSalesOrderModal';
 
 
 const QuotationFormModal = lazy(() => import('./components/QuotationFormModal').then(m => ({ default: m.QuotationFormModal })));
@@ -59,6 +62,7 @@ export default function QuotationsFeature() {
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [drawerQuotation, setDrawerQuotation] = useState<Quotation | null>(null);
+  const [isSalesOrderModalOpen, setIsSalesOrderModalOpen] = useState(false);
 
   useQuotationMigration(quotations, updateQuotation);
 
@@ -272,6 +276,19 @@ export default function QuotationsFeature() {
             onCreateNew={() => { setEditingQuotation(null); setIsFormOpen(true); }}
             createNewLabel="Báo giá mới"
             canCreate={can('create', 'quotation', userData?.role)}
+            extraActions={
+              can('create', 'quotation', userData?.role) ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setIsSalesOrderModalOpen(true)}
+                  className="h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-2xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                >
+                  <Zap size={13} className="text-amber-300 animate-pulse" />
+                  <span>Dựng từ ĐH ERP</span>
+                </Button>
+              ) : undefined
+            }
             dataView={dataView}
             columns={columns}
             hasActiveDomainFilters={hasActiveDomainFilters}
@@ -355,6 +372,17 @@ export default function QuotationsFeature() {
         reason={blockingModalState.reason}
         blockingDocuments={blockingModalState.blockingDocuments}
         detailedBlocks={blockingModalState.detailedBlocks}
+      />
+      <CreateQuotationFromSalesOrderModal
+        isOpen={isSalesOrderModalOpen}
+        onClose={() => setIsSalesOrderModalOpen(false)}
+        customers={allCustomers}
+        quotations={quotations}
+        userOfficer={String((userData as any)?.name || (userData as any)?.email || '')}
+        onQuotationConstructed={(draft) => {
+          setEditingQuotation(draft as Quotation);
+          setIsFormOpen(true);
+        }}
       />
     </div>
   );
