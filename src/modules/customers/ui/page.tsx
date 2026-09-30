@@ -71,9 +71,13 @@ export default function CustomersFeature() {
   const [printingCustomer, setPrintingCustomer] = useState<Customer | null>(null);
   const [isConsolidationOpen, setIsConsolidationOpen] = useState(false);
 
+  const activeCustomers = useMemo(() => {
+    return customers.filter(c => !c.isArchived && !c.mergedInto && !(c as any).is_archived && !(c as any).merged_into && !c.tenKhachHang?.startsWith('[ĐÃ GỘP VÀO'));
+  }, [customers]);
+
   const duplicateGroups = useMemo(() => {
-    return detectDuplicateCustomerGroups(customers, quotations);
-  }, [customers, quotations]);
+    return detectDuplicateCustomerGroups(activeCustomers, quotations);
+  }, [activeCustomers, quotations]);
 
   // Sequential drawer navigation logic
   const currentIndex = useMemo(() => {
@@ -205,7 +209,7 @@ export default function CustomersFeature() {
       {/* Thống kê đài phát */}
       <div className="px-6 pt-4 shrink-0">
         <CustomerStats 
-          customers={customers} 
+          customers={activeCustomers} 
           selectedZnsStatus={selectedZnsStatus}
           onSelectZnsStatus={setSelectedZnsStatus}
           selectedProvince={selectedTinhThanh}
@@ -261,20 +265,18 @@ export default function CustomersFeature() {
             hasActiveDomainFilters={hasActiveDomainFilters}
             extraActions={
               <div className="flex items-center gap-2">
-                <Button 
-                  variant="secondary" 
-                  size="sm" 
-                  leftIcon={<GitMerge size={14} className={duplicateGroups.length > 0 ? "shrink-0 text-amber-600" : "shrink-0 text-slate-500"} />}
-                  className={`h-8 px-2.5 font-medium whitespace-nowrap shrink-0 inline-flex items-center shadow-xs ${
-                    duplicateGroups.length > 0 
-                      ? 'border-amber-300 bg-amber-50/70 text-amber-900 hover:bg-amber-100' 
-                      : 'text-slate-700 hover:text-slate-900'
-                  }`} 
-                  onClick={() => setIsConsolidationOpen(true)}
-                  title="Kiểm tra và gộp khách hàng trùng mã số thuế"
-                >
-                  Gộp trùng MST {duplicateGroups.length > 0 && `(${duplicateGroups.length})`}
-                </Button>
+                {duplicateGroups.length > 0 && (
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    leftIcon={<GitMerge size={14} className="shrink-0 text-amber-600" />}
+                    className="h-8 px-2.5 font-medium whitespace-nowrap shrink-0 inline-flex items-center shadow-xs border-amber-300 bg-amber-50/70 text-amber-900 hover:bg-amber-100"
+                    onClick={() => setIsConsolidationOpen(true)}
+                    title="Kiểm tra và gộp khách hàng trùng mã số thuế"
+                  >
+                    Gộp trùng MST ({duplicateGroups.length})
+                  </Button>
+                )}
                 <Button 
                   variant="secondary" 
                   size="sm" 

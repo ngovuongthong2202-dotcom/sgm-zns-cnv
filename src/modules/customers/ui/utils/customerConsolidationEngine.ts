@@ -66,7 +66,7 @@ export function detectDuplicateCustomerGroups(
 
   customers.forEach(c => {
     // Bỏ qua các khách hàng đã bị gộp trước đó hoặc đã lưu trữ
-    if (c.isArchived || c.mergedInto) return;
+    if (c.isArchived || c.mergedInto || (c as any).is_archived || (c as any).merged_into || c.tenKhachHang?.startsWith('[ĐÃ GỘP VÀO')) return;
 
     const normTax = normalizeTaxCode(c.maSoThue);
     // Bỏ qua khách hàng cá nhân không có MST hoặc MST < 8 số

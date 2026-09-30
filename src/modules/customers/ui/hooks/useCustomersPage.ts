@@ -129,7 +129,8 @@ export function useCustomersPage() {
   }, [searchFilter, density, selectedLoaiKh, selectedNguoiPhuTrach, selectedZnsStatus, selectedTinhThanh, selectedCreatedDateRange]);
 
   useEffect(() => {
-    const cleaned = customers.map(c => ({
+    const active = customers.filter(c => !c.isArchived && !c.mergedInto && !(c as any).is_archived && !(c as any).merged_into && !c.tenKhachHang?.startsWith('[ĐÃ GỘP VÀO'));
+    const cleaned = active.map(c => ({
       ...c,
       tenKhachHang: c.tenKhachHang ? cleanProperVietnameseText(c.tenKhachHang) : '',
       loaiHinhDoanhNghiep: c.loaiHinhDoanhNghiep ? c.loaiHinhDoanhNghiep.trim().toUpperCase() : '',

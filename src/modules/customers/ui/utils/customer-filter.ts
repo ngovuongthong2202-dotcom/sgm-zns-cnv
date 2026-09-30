@@ -20,7 +20,8 @@ export function filterCustomersList({
   debouncedFilter,
   selectedCreatedDateRange
 }: FilterParams): Customer[] {
-  let result = customers;
+  // 0. Exclude archived or merged customer records so only active consolidated records are shown
+  let result = customers.filter(c => !c.isArchived && !c.mergedInto && !(c as any).is_archived && !(c as any).merged_into && !c.tenKhachHang?.startsWith('[ĐÃ GỘP VÀO'));
 
   // 1. Filter by Loại KH
   if (selectedLoaiKh) {
