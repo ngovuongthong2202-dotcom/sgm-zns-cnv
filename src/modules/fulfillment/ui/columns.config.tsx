@@ -64,7 +64,7 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
       const c = p.__customerInfo;
       const contacts = c?.contacts || [];
       
-      const tenKH = normalizeBusinessName(p.tenKhachHang || c?.tenKhachHang || '---');
+      const tenKH = normalizeBusinessName(c?.tenKhachHang || p.tenKhachHang || '---');
 
       return (
         <div className="w-full min-w-0 flex flex-col py-1 justify-center space-y-0.5">
@@ -83,13 +83,13 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
               </span>
             ))
           ) : (
-            (p.nguoiDaiDien || c?.nguoiDaiDien || p.sdt || c?.sdt) ? (
+            (c?.nguoiDaiDien || p.nguoiDaiDien || c?.sdt || p.sdt) ? (
               <span className="text-2xs text-slate-500 truncate block">
-                {normalizePersonName(p.nguoiDaiDien || c?.nguoiDaiDien || '')}
-                {(p.sdt || c?.sdt) && (
+                {normalizePersonName(c?.nguoiDaiDien || p.nguoiDaiDien || '')}
+                {(c?.sdt || p.sdt) && (
                   <>
                     <span className="mx-1 text-slate-400">-</span>
-                    <span className="font-mono">{p.sdt || c?.sdt}</span>
+                    <span className="font-mono">{c?.sdt || p.sdt}</span>
                   </>
                 )}
               </span>

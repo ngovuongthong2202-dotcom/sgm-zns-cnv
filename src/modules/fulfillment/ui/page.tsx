@@ -205,7 +205,7 @@ export default function DeliveriesFeature() {
   const processedDeliveries = useMemo(() => {
     if (!filteredDeliveries || filteredDeliveries.length === 0) return EMPTY_PROCESSED_DELIVERIES;
     return filteredDeliveries.map((d) => {
-      const cust = customers.length > 0 ? customers.find((c) => c.id === d.customerId) : undefined;
+      const cust = customers.length > 0 ? customers.find((c) => c.id === d.customerId || (c.maKh && c.maKh === d.customerId)) : undefined;
       const contract = contracts.length > 0 ? contracts.find((c) => (d.contractId && c.id === d.contractId) || (d.soHopDong && c.soHopDong === d.soHopDong)) : undefined;
       const payment = payments.length > 0 ? payments.find((p) => (d.paymentId && (p.id === d.paymentId || p.paymentId === d.paymentId))) : undefined;
       const resolvedQuotationId = d.quotationId || contract?.quotationId;

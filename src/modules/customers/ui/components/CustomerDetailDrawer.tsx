@@ -11,9 +11,13 @@ import { reconcileEnterpriseReceivables } from '@/src/domain/services/financial-
 import { UnifiedActivityAuditNexus } from '@/src/widgets/UnifiedActivityAuditNexus';
 import { Button } from '@/src/design-system/Button';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
-import { ArrowLeft, ArrowRight, Trash2, Send, Edit, Printer } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Trash2, Send, Edit, Printer, RefreshCw } from 'lucide-react';
 import { CustomerReportModal } from './CustomerReportModal';
 import { CustomerOmniFlowStream } from './CustomerOmniFlowStream';
+import { repositoryFactory } from '@/src/data/repositories';
+import { clearSwrColCache } from '@/src/data/swr-fetchers';
+import { crossTabSync } from '@/src/shared/utils/crossTabSync';
+import { notify } from '@/src/shared/utils/notify';
 
 interface CustomerDetailDrawerProps {
   isOpen: boolean;
@@ -48,6 +52,99 @@ export function CustomerDetailDrawer({
 }: CustomerDetailDrawerProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'flow' | 'nexus'>('overview');
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleForceResync = async () => {
+    if (!customer) return;
+    setIsSyncing(true);
+    try {
+      const targetKeys = [customer.id, customer.maKh].filter(Boolean) as string[];
+      let syncedCount = 0;
+
+      const [matchedQuotes, matchedContracts, matchedPayments, matchedDeliveries] = await Promise.all([
+        repositoryFactory.get<any>('quotations').list({ fkField: 'customerId', fkId: targetKeys, limit: 200 }),
+        repositoryFactory.get<any>('contracts').list({ fkField: 'customerId', fkId: targetKeys, limit: 200 }),
+        repositoryFactory.get<any>('payments').list({ fkField: 'customerId', fkId: targetKeys, limit: 200 }),
+        repositoryFactory.get<any>('deliveries').list({ fkField: 'customerId', fkId: targetKeys, limit: 200 }),
+      ]);
+
+      const quoteRepo = repositoryFactory.get<any>('quotations');
+      for (const q of matchedQuotes) {
+        if (q.id) {
+          await quoteRepo.update(q.id, {
+            tenKhachHang: customer.tenKhachHang,
+            sdt: customer.sdt,
+            diaChi: customer.diaChi,
+            nguoiDaiDien: customer.nguoiDaiDien || customer.contacts?.[0]?.nguoiDaiDien,
+            tinhThanh: customer.tinhThanh,
+            maSoThue: customer.maSoThue,
+            phanLoaiKhach: customer.loaiKh
+          });
+          syncedCount++;
+        }
+      }
+
+      const contractRepo = repositoryFactory.get<any>('contracts');
+      for (const c of matchedContracts) {
+        if (c.id) {
+          await contractRepo.update(c.id, {
+            tenKhachHang: customer.tenKhachHang,
+            sdt: customer.sdt,
+            diaChi: customer.diaChi,
+            nguoiDaiDien: customer.nguoiDaiDien || customer.contacts?.[0]?.nguoiDaiDien,
+            tinhThanh: customer.tinhThanh
+          });
+          syncedCount++;
+        }
+      }
+
+      const paymentRepo = repositoryFactory.get<any>('payments');
+      for (const p of matchedPayments) {
+        if (p.id) {
+          await paymentRepo.update(p.id, {
+            tenKhachHang: customer.tenKhachHang,
+            sdt: customer.sdt,
+            tenNguoiNop: customer.nguoiDaiDien || customer.tenKhachHang,
+            tinhThanh: customer.tinhThanh
+          });
+          syncedCount++;
+        }
+      }
+
+      const deliveryRepo = repositoryFactory.get<any>('deliveries');
+      for (const d of matchedDeliveries) {
+        if (d.id) {
+          await deliveryRepo.update(d.id, {
+            tenKhachHang: customer.tenKhachHang,
+            sdt: customer.sdt,
+            diaChiGiaoHang: customer.diaChi || d.diaChiGiaoHang,
+            nguoiDaiDien: customer.nguoiDaiDien || customer.contacts?.[0]?.nguoiDaiDien,
+            nguoiLienHe: customer.contacts?.[0]?.nguoiDaiDien || customer.nguoiDaiDien || d.nguoiLienHe,
+            sdtLienHe: customer.contacts?.[0]?.sdt || customer.sdt || d.sdtLienHe,
+            tinhThanh: customer.tinhThanh
+          });
+          syncedCount++;
+        }
+      }
+
+      clearSwrColCache('quotations');
+      clearSwrColCache('contracts');
+      clearSwrColCache('payments');
+      clearSwrColCache('deliveries');
+      clearSwrColCache('customers');
+      crossTabSync.broadcast({ type: 'ENTITY_MUTATED', collectionName: 'customers', id: customer.id });
+      crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'quotations' });
+      crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'contracts' });
+      crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'payments' });
+      crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'deliveries' });
+
+      notify.success(`Đã đồng bộ lại thông tin sang ${syncedCount} chứng từ liên quan!`);
+    } catch (error) {
+      notify.error('Lỗi khi đồng bộ chứng từ: ' + (error as any)?.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Reset tab to overview or initialTab when drawer opens for a new customer
   React.useEffect(() => {
@@ -255,6 +352,19 @@ export function CustomerDetailDrawer({
             )}
           </div>
           <div className="flex gap-2 justify-end">
+            {customer && (
+              <Button
+                aria-label="Đồng bộ lại chứng từ"
+                variant="secondary"
+                size="sm"
+                onClick={handleForceResync}
+                disabled={isSyncing}
+                className="h-9 font-bold border-slate-200 text-slate-700 bg-white hover:bg-slate-50 flex items-center gap-1.5"
+                leftIcon={<RefreshCw size={14} className={isSyncing ? "animate-spin text-blue-600" : "text-slate-500"} />}
+              >
+                {isSyncing ? "Đang đồng bộ..." : "Đồng bộ chứng từ"}
+              </Button>
+            )}
             <Button
               aria-label="Xuất PDF Hồ sơ"
               variant="secondary"

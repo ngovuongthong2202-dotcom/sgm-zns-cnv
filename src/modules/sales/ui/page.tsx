@@ -181,8 +181,9 @@ export default function QuotationsFeature() {
     },
     nguoiPhuTrachList,
     can('send_zns', 'quotation', userData?.role) ? handleSendQuotationZns : () => {},
-    can('update', 'quotation', userData?.role) ? (q) => { setEditingQuotation(q); setIsFormOpen(true); } : undefined
-  ), [nguoiPhuTrachList, updateQuotation, handleSendQuotationZns, userData?.role]);
+    can('update', 'quotation', userData?.role) ? (q) => { setEditingQuotation(q); setIsFormOpen(true); } : undefined,
+    allCustomers
+  ), [allContracts, allPayments, allDeliveries, allCustomers, nguoiPhuTrachList, updateQuotation, handleSendQuotationZns, userData?.role]);
 
   const handleResetAllFilters = () => {
     setIsPipelineOnly(false);

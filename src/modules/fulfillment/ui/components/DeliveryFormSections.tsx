@@ -245,16 +245,38 @@ export function DeliveryInfoSection({
         </div>
 
         {/* Gợi ý chọn nhanh đầu mối nhận hàng từ danh bạ khách hàng */}
-        {currentCustomer && Array.isArray(currentCustomer.contacts) && currentCustomer.contacts.length > 1 && (
+        {currentCustomer && (
           <div className="col-span-full bg-blue-50/60 border border-blue-200/80 rounded-xl p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-2xs font-bold uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
-                <span>⚡ Chọn nhanh đầu mối nhận hàng ({currentCustomer.contacts.length} đầu mối)</span>
+                <span>⚡ Chọn nhanh đầu mối nhận hàng từ hồ sơ khách</span>
               </span>
               <span className="text-3xs text-blue-700 italic">Click để tự điền Tên người nhận & SĐT</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {currentCustomer.contacts.map((ct: any, idx: number) => {
+              {/* Đại diện chính */}
+              {(currentCustomer.nguoiDaiDien || currentCustomer.sdt) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (setValue) {
+                      if (currentCustomer.nguoiDaiDien) setValue('nguoiLienHe', currentCustomer.nguoiDaiDien, { shouldDirty: true, shouldValidate: true });
+                      if (currentCustomer.sdt) setValue('sdtLienHe', currentCustomer.sdt, { shouldDirty: true, shouldValidate: true });
+                    }
+                  }}
+                  className={`text-2xs px-2.5 py-1 rounded-md border transition-all text-left flex items-center gap-1.5 cursor-pointer ${
+                    (watch?.('nguoiLienHe') === currentCustomer.nguoiDaiDien || watch?.('sdtLienHe') === currentCustomer.sdt)
+                      ? 'bg-blue-600 text-white border-blue-600 font-bold shadow-xs' 
+                      : 'bg-white text-slate-700 border-slate-200 hover:border-blue-400 hover:bg-blue-50/50'
+                  }`}
+                >
+                  <span className="font-semibold">{currentCustomer.nguoiDaiDien || 'Đại diện chính'}</span>
+                  <span className="text-3xs opacity-80">(Đại diện chính)</span>
+                  <span className="font-mono text-3xs">- {currentCustomer.sdt}</span>
+                </button>
+              )}
+              {/* Các liên hệ phụ */}
+              {Array.isArray(currentCustomer.contacts) && currentCustomer.contacts.map((ct: any, idx: number) => {
                 const currentName = watch?.('nguoiLienHe');
                 const currentPhone = watch?.('sdtLienHe');
                 const isSelected = (currentName === ct.nguoiDaiDien || currentPhone === ct.sdt);
@@ -307,7 +329,19 @@ export function DeliveryInfoSection({
 
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <label className="text-2xs font-bold uppercase tracking-wide text-slate-700 block" htmlFor="diaChiGiaoHang">Địa chỉ giao hàng</label>
+            <div className="flex items-center gap-2">
+              <label className="text-2xs font-bold uppercase tracking-wide text-slate-700 block" htmlFor="diaChiGiaoHang">Địa chỉ giao hàng</label>
+              {currentCustomer?.diaChi && (
+                <button
+                  type="button"
+                  onClick={() => setValue?.('diaChiGiaoHang', currentCustomer.diaChi, { shouldDirty: true, shouldValidate: true })}
+                  className="text-3xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-0.5 cursor-pointer font-semibold"
+                  title="Sao chép địa chỉ từ hồ sơ khách hàng"
+                >
+                  <span>📋 Lấy từ hồ sơ KH</span>
+                </button>
+              )}
+            </div>
             {(() => {
               const addr = watch?.('diaChiGiaoHang');
               const detected = addr ? detectProvinceFromAddress(addr) : null;

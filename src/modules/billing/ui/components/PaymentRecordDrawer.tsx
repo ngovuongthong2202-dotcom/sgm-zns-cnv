@@ -84,6 +84,14 @@ export function PaymentRecordDrawer({
     return Array.from(map.values());
   }, [payments]);
 
+  const allCustomers = useMemo(() => {
+    try {
+      return entityCachePool.getAll<any>('customers') || [];
+    } catch {
+      return [];
+    }
+  }, []);
+
   const PaymentFormSchema = useMemo(() => PaymentSchema.extend({ 
     sourceValue: z.string().optional(),
     paymentId: z.string().optional().transform(v => (v && v.trim() && v !== '---') ? v : generateDeterministicNextCode('PT', allPaymentsList))
@@ -447,6 +455,7 @@ export function PaymentRecordDrawer({
             contracts={contracts}
             quotations={quotations}
             payments={payments}
+            customers={allCustomers}
             currentPaymentId={payment?.id || payment?.paymentId}
             nguoiPhuTrachList={effectiveNguoiPhuTrachList}
             phuongThucThanhToanList={_phuongThucThanhToanList}

@@ -123,55 +123,108 @@ export function CustomerForm({
     await onSave(dataToSave);
   };
 
-  const handleSafeSync = async () => {
+  const handleSafeSync = async (scope?: import('./CustomerCascadeImpactModal').CascadeSyncScope) => {
     if (!cascadeState.pendingData || !customer?.id) return;
     setIsSyncing(true);
     try {
       const dataToSave = cascadeState.pendingData;
-      const { quotations, deliveries } = cascadeState.linkedDocs;
+      const { quotations, contracts, payments, deliveries } = cascadeState.linkedDocs;
+      const effectiveScope = {
+        syncQuotations: scope?.syncQuotations ?? true,
+        syncContracts: scope?.syncContracts ?? true,
+        syncPayments: scope?.syncPayments ?? true,
+        syncDeliveries: scope?.syncDeliveries ?? true,
+      };
 
       // 1. Save master customer
       await onSave(dataToSave);
 
-      // 2. Cascade to Draft Quotations
-      const draftQuotes = quotations.filter(q => !q.lifecycleStatus || q.lifecycleStatus === 'DRAFT' || q.tinhTrangBaoGia?.toLowerCase().includes('nháp'));
-      const quoteRepo = repositoryFactory.get<Quotation>('quotations');
-      for (const q of draftQuotes) {
-        if (q.id) {
-          await quoteRepo.update(q.id, {
-            tenKhachHang: dataToSave.tenKhachHang,
-            sdt: dataToSave.sdt,
-            diaChi: dataToSave.diaChi,
-            nguoiDaiDien: dataToSave.nguoiDaiDien || dataToSave.contacts?.[0]?.nguoiDaiDien
-          });
+      let syncedCount = 0;
+
+      // 2. Cascade to Quotations (All linked quotations regardless of draft/sent/won)
+      if (effectiveScope.syncQuotations && quotations.length > 0) {
+        const quoteRepo = repositoryFactory.get<Quotation>('quotations');
+        for (const q of quotations) {
+          if (q.id) {
+            await quoteRepo.update(q.id, {
+              tenKhachHang: dataToSave.tenKhachHang,
+              sdt: dataToSave.sdt,
+              diaChi: dataToSave.diaChi,
+              nguoiDaiDien: dataToSave.nguoiDaiDien || dataToSave.contacts?.[0]?.nguoiDaiDien,
+              tinhThanh: dataToSave.tinhThanh,
+              maSoThue: dataToSave.maSoThue,
+              phanLoaiKhach: dataToSave.loaiKh
+            } as any);
+            syncedCount++;
+          }
         }
       }
 
-      // 3. Cascade to Pending Deliveries
-      const pendingDeliveries = deliveries.filter(d => !d.tinhTrangGiaoHang || d.tinhTrangGiaoHang === 'CHO_GIAO' || d.tinhTrangGiaoHang.toLowerCase().includes('chờ'));
-      const deliveryRepo = repositoryFactory.get<Delivery>('deliveries');
-      for (const d of pendingDeliveries) {
-        if (d.id) {
-          await deliveryRepo.update(d.id, {
-            tenKhachHang: dataToSave.tenKhachHang,
-            sdt: dataToSave.sdt,
-            diaChiGiaoHang: dataToSave.diaChi,
-            nguoiDaiDien: dataToSave.nguoiDaiDien || dataToSave.contacts?.[0]?.nguoiDaiDien,
-            nguoiLienHe: dataToSave.contacts?.[0]?.nguoiDaiDien || dataToSave.nguoiDaiDien,
-            sdtLienHe: dataToSave.contacts?.[0]?.sdt || dataToSave.sdt
-          });
+      // 3. Cascade to Contracts
+      if (effectiveScope.syncContracts && contracts.length > 0) {
+        const contractRepo = repositoryFactory.get<Contract>('contracts');
+        for (const c of contracts) {
+          if (c.id) {
+            await contractRepo.update(c.id, {
+              tenKhachHang: dataToSave.tenKhachHang,
+              sdt: dataToSave.sdt,
+              diaChi: dataToSave.diaChi,
+              nguoiDaiDien: dataToSave.nguoiDaiDien || dataToSave.contacts?.[0]?.nguoiDaiDien,
+              tinhThanh: dataToSave.tinhThanh
+            } as any);
+            syncedCount++;
+          }
         }
       }
 
-      // 4. Invalidate SWR Caches & Broadcast sync
+      // 4. Cascade to Payments
+      if (effectiveScope.syncPayments && payments.length > 0) {
+        const paymentRepo = repositoryFactory.get<Payment>('payments');
+        for (const p of payments) {
+          if (p.id) {
+            await paymentRepo.update(p.id, {
+              tenKhachHang: dataToSave.tenKhachHang,
+              sdt: dataToSave.sdt,
+              tenNguoiNop: dataToSave.nguoiDaiDien || dataToSave.tenKhachHang,
+              tinhThanh: dataToSave.tinhThanh
+            } as any);
+            syncedCount++;
+          }
+        }
+      }
+
+      // 5. Cascade to Deliveries
+      if (effectiveScope.syncDeliveries && deliveries.length > 0) {
+        const deliveryRepo = repositoryFactory.get<Delivery>('deliveries');
+        for (const d of deliveries) {
+          if (d.id) {
+            await deliveryRepo.update(d.id, {
+              tenKhachHang: dataToSave.tenKhachHang,
+              sdt: dataToSave.sdt,
+              diaChiGiaoHang: dataToSave.diaChi || d.diaChiGiaoHang,
+              nguoiDaiDien: dataToSave.nguoiDaiDien || dataToSave.contacts?.[0]?.nguoiDaiDien,
+              nguoiLienHe: dataToSave.contacts?.[0]?.nguoiDaiDien || dataToSave.nguoiDaiDien || d.nguoiLienHe,
+              sdtLienHe: dataToSave.contacts?.[0]?.sdt || dataToSave.sdt || d.sdtLienHe,
+              tinhThanh: dataToSave.tinhThanh
+            } as any);
+            syncedCount++;
+          }
+        }
+      }
+
+      // 6. Invalidate SWR Caches & Broadcast sync
       clearSwrColCache('quotations');
+      clearSwrColCache('contracts');
+      clearSwrColCache('payments');
       clearSwrColCache('deliveries');
       clearSwrColCache('customers');
       crossTabSync.broadcast({ type: 'ENTITY_MUTATED', collectionName: 'customers', id: customer.id });
       crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'quotations' });
+      crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'contracts' });
+      crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'payments' });
       crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'deliveries' });
 
-      notify.success(`Đã cập nhật Khách Hàng và đồng bộ an toàn ${draftQuotes.length + pendingDeliveries.length} chứng từ đang xử lý!`);
+      notify.success(`Đã cập nhật Khách Hàng và đồng bộ toàn diện ${syncedCount} chứng từ liên quan!`);
       await clearDraft();
       setCascadeState(prev => ({ ...prev, isOpen: false }));
       onClose();
@@ -181,6 +234,7 @@ export function CustomerForm({
       setIsSyncing(false);
     }
   };
+
 
   const handleCloseAttempt = async () => {
     if (isDirty) {
@@ -263,12 +317,15 @@ export function CustomerForm({
               if (hasCoreChanges) {
                 setIsCheckingImpact(true);
                 try {
+                  const targetKeys = [customer.id, customer.maKh].filter(Boolean) as string[];
                   const [qList, cList, pList, dList] = await Promise.all([
-                    repositoryFactory.get<Quotation>('quotations').list({ fkField: 'customerId', fkId: customer.id, limit: 100 }),
-                    repositoryFactory.get<Contract>('contracts').list({ fkField: 'customerId', fkId: customer.id, limit: 100 }),
-                    repositoryFactory.get<Payment>('payments').list({ fkField: 'customerId', fkId: customer.id, limit: 100 }),
-                    repositoryFactory.get<Delivery>('deliveries').list({ fkField: 'customerId', fkId: customer.id, limit: 100 }),
+                    repositoryFactory.get<Quotation>('quotations').list({ fkField: 'customerId', fkId: targetKeys, limit: 100 }),
+                    repositoryFactory.get<Contract>('contracts').list({ fkField: 'customerId', fkId: targetKeys, limit: 100 }),
+                    repositoryFactory.get<Payment>('payments').list({ fkField: 'customerId', fkId: targetKeys, limit: 100 }),
+                    repositoryFactory.get<Delivery>('deliveries').list({ fkField: 'customerId', fkId: targetKeys, limit: 100 }),
                   ]);
+
+
                   const total = qList.length + cList.length + pList.length + dList.length;
                   if (total > 0) {
                     setCascadeState({

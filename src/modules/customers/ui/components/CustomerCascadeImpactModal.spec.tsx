@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -20,7 +23,7 @@ describe('CustomerCascadeImpactModal Component', () => {
     maSoThue: '0301234567',
     loaiKh: 'Doanh nghiệp',
     nguoiPhuTrach: 'Ngô Vương Thông'
-  };
+  } as unknown as Customer;
 
   const mockUpdatedData: Partial<Customer> = {
     tenKhachHang: 'Tập đoàn Hoa Sen Group',
@@ -37,7 +40,7 @@ describe('CustomerCascadeImpactModal Component', () => {
       lifecycleStatus: 'DRAFT',
       totalAmount: 150000000,
       ngayBaoGia: '2026-09-01'
-    },
+    } as unknown as Quotation,
     {
       id: 'QUOTE-002',
       soPhieuBaoGia: 'BG-2026-002',
@@ -46,7 +49,7 @@ describe('CustomerCascadeImpactModal Component', () => {
       lifecycleStatus: 'WON',
       totalAmount: 300000000,
       ngayBaoGia: '2026-08-15'
-    }
+    } as unknown as Quotation
   ];
 
   const mockContracts: Contract[] = [
@@ -58,7 +61,7 @@ describe('CustomerCascadeImpactModal Component', () => {
       quotationId: 'QUOTE-002',
       totalAmount: 300000000,
       ngayKy: '2026-08-20'
-    }
+    } as unknown as Contract
   ];
 
   const mockPayments: Payment[] = [
@@ -68,7 +71,7 @@ describe('CustomerCascadeImpactModal Component', () => {
       customerId: 'CUST-001',
       totalAmount: 100000000,
       ngayThanhToan: '2026-08-22'
-    }
+    } as unknown as Payment
   ];
 
   const mockDeliveries: Delivery[] = [
@@ -79,8 +82,9 @@ describe('CustomerCascadeImpactModal Component', () => {
       tinhTrangGiaoHang: 'CHO_GIAO',
       donViVanChuyen: 'Viettel Post',
       ngayGiaoMay: '2026-10-05'
-    }
+    } as unknown as Delivery
   ];
+
 
   it('renders visual diff accurately with changed fields and old/new values', () => {
     const handleClose = vi.fn();
@@ -104,11 +108,11 @@ describe('CustomerCascadeImpactModal Component', () => {
       />
     );
 
-    expect(screen.getByText(/Phân tích Tác động Thay đổi Khách Hàng/i)).toBeInTheDocument();
-    expect(screen.getByText('Công ty Cổ phần Thép Hoa Sen')).toBeInTheDocument();
-    expect(screen.getByText('Tập đoàn Hoa Sen Group')).toBeInTheDocument();
-    expect(screen.getByText('0902993093')).toBeInTheDocument();
-    expect(screen.getByText('0988112233')).toBeInTheDocument();
+    expect(screen.getByText(/Phân tích Tác động Thay đổi Khách Hàng/i)).toBeTruthy();
+    expect(screen.getAllByText('Công ty Cổ phần Thép Hoa Sen').length).toBeGreaterThan(0);
+    expect(screen.getByText('Tập đoàn Hoa Sen Group')).toBeTruthy();
+    expect(screen.getByText('0902993093')).toBeTruthy();
+    expect(screen.getByText('0988112233')).toBeTruthy();
   });
 
   it('triggers onConfirmSaveMasterOnly when user chooses to update only customer', () => {
@@ -133,7 +137,7 @@ describe('CustomerCascadeImpactModal Component', () => {
       />
     );
 
-    const masterOnlyBtn = screen.getByText(/Chỉ lưu Khách Hàng/i);
+    const masterOnlyBtn = screen.getByRole('button', { name: /Chỉ lưu Khách Hàng/i });
     fireEvent.click(masterOnlyBtn);
     expect(handleSaveMasterOnly).toHaveBeenCalledTimes(1);
     expect(handleSafeSync).not.toHaveBeenCalled();
@@ -161,9 +165,10 @@ describe('CustomerCascadeImpactModal Component', () => {
       />
     );
 
-    const safeSyncBtn = screen.getByText(/1-Click Đồng bộ an toàn/i);
+    const safeSyncBtn = screen.getByRole('button', { name: /1-Click Đồng bộ an toàn/i });
     fireEvent.click(safeSyncBtn);
     expect(handleSafeSync).toHaveBeenCalledTimes(1);
     expect(handleSaveMasterOnly).not.toHaveBeenCalled();
   });
 });
+

@@ -3,12 +3,17 @@ export function normalizePhoneVN(input: string | null | undefined): string | nul
   // Remove non-digits
   let cleaned = input.replace(/\D/g, '');
   
-  // Convert 84 prefix to 0
-  if (cleaned.startsWith('84')) {
+  // Convert 0084 or 84 prefix to 0
+  if (cleaned.startsWith('0084')) {
+    cleaned = '0' + cleaned.substring(4);
+  } else if (cleaned.startsWith('84')) {
     cleaned = '0' + cleaned.substring(2);
   }
   
-  // If it's 9 digits and missing a leading 0, prepend it (assuming it's a valid local number format someone skipped)
+  // Strip accidental repeated leading zeros (e.g. '000299380939' -> '0299380939')
+  cleaned = cleaned.replace(/^0+/, '0');
+  
+  // If it's 9 digits and missing a leading 0, prepend it
   if (cleaned.length === 9 && !cleaned.startsWith('0')) {
     cleaned = '0' + cleaned;
   }
@@ -21,3 +26,4 @@ export function normalizePhoneVN(input: string | null | undefined): string | nul
   
   return null;
 }
+

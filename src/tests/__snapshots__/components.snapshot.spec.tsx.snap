@@ -3020,12 +3020,16 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
                   <div
                     class="flex items-center justify-between"
                   >
-                    <label
-                      class="text-2xs font-bold uppercase tracking-wide text-slate-700 block"
-                      for="diaChiGiaoHang"
+                    <div
+                      class="flex items-center gap-2"
                     >
-                      Địa chỉ giao hàng
-                    </label>
+                      <label
+                        class="text-2xs font-bold uppercase tracking-wide text-slate-700 block"
+                        for="diaChiGiaoHang"
+                      >
+                        Địa chỉ giao hàng
+                      </label>
+                    </div>
                   </div>
                   <input
                     class="h-8 rounded-lg border border-slate-200 px-3 text-sm font-medium w-full text-slate-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-400"

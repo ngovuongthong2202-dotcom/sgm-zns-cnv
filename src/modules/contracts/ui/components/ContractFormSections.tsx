@@ -294,6 +294,30 @@ export function ContractFinanceSection({ subTotal, discountAmount, vatAmount, to
             (Bằng chữ: {readVietnameseCurrency(totalAmount)})
           </div>
         </div>
+
+        {/* Lịch trình thanh toán đề xuất (SGM Standard Payment Milestones) */}
+        {totalAmount > 0 && (
+          <div className="pt-3 border-t border-slate-100 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-3xs uppercase font-bold text-slate-500">Lộ trình đợt thanh toán gợi ý</span>
+              <span className="text-3xs text-blue-600 font-semibold">Theo chuẩn hợp đồng SGM</span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 text-center text-3xs font-bold">
+              <div className="p-1.5 rounded-lg bg-blue-50 text-blue-800 border border-blue-100">
+                <span className="block opacity-75">Đợt 1 (30%)</span>
+                <span className="font-mono text-2xs">{new Intl.NumberFormat('vi-VN').format(Math.round(totalAmount * 0.3))} đ</span>
+              </div>
+              <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-100">
+                <span className="block opacity-75">Đợt 2 (60%)</span>
+                <span className="font-mono text-2xs">{new Intl.NumberFormat('vi-VN').format(Math.round(totalAmount * 0.6))} đ</span>
+              </div>
+              <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-100">
+                <span className="block opacity-75">Đợt 3 (10%)</span>
+                <span className="font-mono text-2xs">{new Intl.NumberFormat('vi-VN').format(totalAmount - Math.round(totalAmount * 0.3) - Math.round(totalAmount * 0.6))} đ</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -98,20 +98,25 @@ export const getContractColumns = (
     cell: (info) => {
       const c = info.row.original;
       let phone = c.sdt || '';
+      let customerName = c.tenKhachHang || '';
+      let rep = c.nguoiDaiDien || '';
       if (c.customerId && customers.length) {
-         const found = customers.find(x => x.id === c.customerId);
+         const found = customers.find(x => x.id === c.customerId || (x.maKh && x.maKh === c.customerId));
          if (found) {
-           phone = phone || found.sdt || '';
+           customerName = found.tenKhachHang || customerName;
+           phone = found.sdt || phone;
+           rep = found.nguoiDaiDien || rep;
          }
       }
       
-      const rep = normalizePersonName(c.nguoiDaiDien || '');
-      const repPhone = [rep, phone].filter(Boolean).join(' - ');
+      const normalizedRep = normalizePersonName(rep);
+      const repPhone = [normalizedRep, phone].filter(Boolean).join(' - ');
+      const displayBizName = normalizeBusinessName(customerName || '---');
 
       return (
         <div className="w-full min-w-0 flex items-center">
           <div className="flex flex-col min-w-0">
-            <span className="font-semibold text-xs text-slate-800 truncate" title={c.tenKhachHang}>{normalizeBusinessName(c.tenKhachHang || '---')}</span>
+            <span className="font-semibold text-xs text-slate-800 truncate" title={customerName}>{displayBizName}</span>
             <div className="flex items-center gap-1.5 text-2xs text-slate-500 truncate mt-0.5">
                <span className="truncate" title={repPhone}>{repPhone}</span>
             </div>
@@ -128,7 +133,7 @@ export const getContractColumns = (
       const c = info.row.original;
       let prov = (c as any).tinhThanh || '';
       if (!prov && c.customerId && customers.length) {
-         const found = customers.find(x => x.id === c.customerId);
+         const found = customers.find(x => x.id === c.customerId || (x.maKh && x.maKh === c.customerId));
          if (found) prov = found.tinhThanh || '';
       }
       if (!prov && c.customerId) {

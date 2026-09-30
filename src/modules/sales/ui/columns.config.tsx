@@ -37,6 +37,7 @@ export const getDaysDifference = (futureDateStr: string, baseDate: Date = new Da
 };
 
 import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
+import { Customer } from '@/src/domain/schema/customer.schema';
 
 export const getQuotationColumns = (
   contracts: Contract[],
@@ -47,11 +48,15 @@ export const getQuotationColumns = (
   nguoiPhuTrachList: string[],
   onSendZns: (quotation: Quotation) => void,
   onEdit?: (quotation: Quotation) => void,
+  allCustomers?: Customer[],
 ): ColumnDef<Quotation>[] => [
   createSttColumn<Quotation>(),
   {
     id: 'customerId',
-    accessorFn: (row) => row.tenKhachHang || row.customerId,
+    accessorFn: (row) => {
+      const liveCustomer = allCustomers?.find(c => c.id === row.customerId || (c.maKh && c.maKh === row.customerId));
+      return liveCustomer?.tenKhachHang || row.tenKhachHang || row.customerId;
+    },
     header: 'Khách hàng',
     size: 150,
     enableHiding: true,
@@ -79,12 +84,15 @@ export const getQuotationColumns = (
     size: 260,
     cell: (info) => {
       const q = info.row.original;
-      const name = normalizeBusinessName(q.tenKhachHang || '---');
-      const normalizedNguoiDaiDien = normalizePersonName(q.nguoiDaiDien || '');
-      const detailStr = [normalizedNguoiDaiDien, q.sdt].filter(Boolean).join(' • ');
+      const liveCustomer = allCustomers?.find(c => c.id === q.customerId || (c.maKh && c.maKh === q.customerId));
+      const displayName = liveCustomer?.tenKhachHang || q.tenKhachHang || '---';
+      const name = normalizeBusinessName(displayName);
+      const normalizedNguoiDaiDien = normalizePersonName(liveCustomer?.nguoiDaiDien || q.nguoiDaiDien || '');
+      const phone = liveCustomer?.sdt || q.sdt;
+      const detailStr = [normalizedNguoiDaiDien, phone].filter(Boolean).join(' • ');
       
       return (
-        <QuotationHoverCard quotation={q}>
+        <QuotationHoverCard quotation={{ ...q, tenKhachHang: displayName, sdt: phone }}>
           <div className="w-full min-w-0 flex flex-col justify-center gap-0.5 pointer-events-auto">
             <span className="font-medium text-slate-900 text-xs leading-tight truncate transition-colors group-hover:text-blue-600" title={name}>
               {name}

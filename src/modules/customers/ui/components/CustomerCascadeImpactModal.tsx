@@ -35,6 +35,13 @@ export interface ChangedField {
   newVal: string;
 }
 
+export interface CascadeSyncScope {
+  syncQuotations?: boolean;
+  syncContracts?: boolean;
+  syncPayments?: boolean;
+  syncDeliveries?: boolean;
+}
+
 interface CustomerCascadeImpactModalProps {
   show: boolean;
   onClose: () => void;
@@ -48,7 +55,7 @@ interface CustomerCascadeImpactModalProps {
   };
   isLoadingLinkedDocs?: boolean;
   onConfirmSaveMasterOnly: () => Promise<void>;
-  onConfirmSafeSync: () => Promise<void>;
+  onConfirmSafeSync: (scope?: CascadeSyncScope) => Promise<void>;
   isSyncing?: boolean;
 }
 
@@ -64,6 +71,12 @@ export function CustomerCascadeImpactModal({
   isSyncing = false
 }: CustomerCascadeImpactModalProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'quotations' | 'contracts' | 'payments' | 'deliveries'>('overview');
+  const [syncScope, setSyncScope] = useState<CascadeSyncScope>({
+    syncQuotations: true,
+    syncContracts: true,
+    syncPayments: true,
+    syncDeliveries: true
+  });
 
   if (!show) return null;
 
@@ -94,8 +107,6 @@ export function CustomerCascadeImpactModal({
   const { quotations = [], contracts = [], payments = [], deliveries = [] } = linkedDocs;
   const totalLinked = quotations.length + contracts.length + payments.length + deliveries.length;
 
-  const draftQuotes = quotations.filter(q => !q.lifecycleStatus || q.lifecycleStatus === 'DRAFT' || q.tinhTrangBaoGia?.toLowerCase().includes('nháp'));
-  const pendingDeliveries = deliveries.filter(d => !d.tinhTrangGiaoHang || d.tinhTrangGiaoHang === 'CHO_GIAO' || d.tinhTrangGiaoHang.toLowerCase().includes('chờ'));
 
   return (
     <AnimatePresence>
@@ -265,90 +276,114 @@ export function CustomerCascadeImpactModal({
                   {activeTab === 'overview' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                       {/* Quotations Card */}
-                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                      <div className={`p-4 rounded-xl border transition-all ${
+                        syncScope.syncQuotations ? 'bg-amber-50/50 border-amber-300 shadow-xs' : 'bg-slate-50 border-slate-200 opacity-60'
+                      }`}>
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={syncScope.syncQuotations}
+                              onChange={(e) => setSyncScope(prev => ({ ...prev, syncQuotations: e.target.checked }))}
+                              className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
+                            />
                             <div className="p-1.5 rounded-lg bg-amber-100 text-amber-700">
                               <FileText size={14} />
                             </div>
                             <span className="font-bold text-xs text-slate-900">Báo giá ({quotations.length})</span>
-                          </div>
-                          {draftQuotes.length > 0 ? (
-                            <span className="px-2 py-0.5 rounded text-3xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                              {draftQuotes.length} Phiếu Nháp có thể đồng bộ
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded text-3xs font-medium bg-slate-200 text-slate-700">
-                              Đã chốt thương mại
-                            </span>
-                          )}
+                          </label>
+                          <span className={`px-2 py-0.5 rounded text-3xs font-bold ${
+                            syncScope.syncQuotations ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-slate-200 text-slate-600'
+                          }`}>
+                            {syncScope.syncQuotations ? 'Sẵn sàng đồng bộ' : 'Bỏ qua'}
+                          </span>
                         </div>
-                        <p className="text-2xs text-slate-600 leading-relaxed">
-                          {draftQuotes.length > 0
-                            ? `Hệ thống có thể tự động cập nhật tên, SĐT, người liên hệ cho ${draftQuotes.length} bản báo giá nháp.`
-                            : 'Toàn bộ báo giá đã được phát hành hoặc ký duyệt; lịch sử giữ nguyên.'}
+                        <p className="text-2xs text-slate-600 leading-relaxed mt-2">
+                          Hệ thống sẽ cập nhật tên, SĐT, người đại diện và địa chỉ cho tất cả {quotations.length} bản báo giá liên kết của khách hàng.
                         </p>
                       </div>
 
                       {/* Contracts Card */}
-                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                      <div className={`p-4 rounded-xl border transition-all ${
+                        syncScope.syncContracts ? 'bg-emerald-50/50 border-emerald-300 shadow-xs' : 'bg-slate-50 border-slate-200 opacity-60'
+                      }`}>
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={syncScope.syncContracts}
+                              onChange={(e) => setSyncScope(prev => ({ ...prev, syncContracts: e.target.checked }))}
+                              className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                            />
                             <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700">
                               <Handshake size={14} />
                             </div>
                             <span className="font-bold text-xs text-slate-900">Hợp đồng ({contracts.length})</span>
-                          </div>
-                          <span className="px-2 py-0.5 rounded text-3xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            Bảo toàn pháp lý
+                          </label>
+                          <span className={`px-2 py-0.5 rounded text-3xs font-bold ${
+                            syncScope.syncContracts ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-200 text-slate-600'
+                          }`}>
+                            {syncScope.syncContracts ? 'Sẵn sàng đồng bộ' : 'Bỏ qua'}
                           </span>
                         </div>
-                        <p className="text-2xs text-slate-600 leading-relaxed">
-                          Hợp đồng kinh tế bảo toàn tính pháp lý và chữ ký tại thời điểm ký kết. Không bị biến đổi tự động.
+                        <p className="text-2xs text-slate-600 leading-relaxed mt-2">
+                          Đồng bộ tên bên mua, số điện thoại, địa chỉ và người đại diện cho {contracts.length} hợp đồng kinh tế liên quan.
                         </p>
                       </div>
 
                       {/* Payments Card */}
-                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                      <div className={`p-4 rounded-xl border transition-all ${
+                        syncScope.syncPayments ? 'bg-cyan-50/50 border-cyan-300 shadow-xs' : 'bg-slate-50 border-slate-200 opacity-60'
+                      }`}>
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={syncScope.syncPayments}
+                              onChange={(e) => setSyncScope(prev => ({ ...prev, syncPayments: e.target.checked }))}
+                              className="w-4 h-4 text-cyan-600 rounded border-slate-300 focus:ring-cyan-500"
+                            />
                             <div className="p-1.5 rounded-lg bg-cyan-100 text-cyan-700">
                               <CreditCard size={14} />
                             </div>
                             <span className="font-bold text-xs text-slate-900">Phiếu thu & UNC ({payments.length})</span>
-                          </div>
-                          <span className="px-2 py-0.5 rounded text-3xs font-bold bg-cyan-100 text-cyan-800 border border-cyan-200">
-                            Bảo toàn kế toán
+                          </label>
+                          <span className={`px-2 py-0.5 rounded text-3xs font-bold ${
+                            syncScope.syncPayments ? 'bg-cyan-100 text-cyan-800 border border-cyan-200' : 'bg-slate-200 text-slate-600'
+                          }`}>
+                            {syncScope.syncPayments ? 'Sẵn sàng đồng bộ' : 'Bỏ qua'}
                           </span>
                         </div>
-                        <p className="text-2xs text-slate-600 leading-relaxed">
-                          Chứng từ kế toán thuế lưu giữ snapshot pháp nhân lúc phát sinh biên nhận thanh toán.
+                        <p className="text-2xs text-slate-600 leading-relaxed mt-2">
+                          Đồng bộ tên khách hàng, người nộp tiền và SĐT cho {payments.length} phiếu thu/biên nhận thanh toán.
                         </p>
                       </div>
 
                       {/* Deliveries Card */}
-                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                      <div className={`p-4 rounded-xl border transition-all ${
+                        syncScope.syncDeliveries ? 'bg-orange-50/50 border-orange-300 shadow-xs' : 'bg-slate-50 border-slate-200 opacity-60'
+                      }`}>
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={syncScope.syncDeliveries}
+                              onChange={(e) => setSyncScope(prev => ({ ...prev, syncDeliveries: e.target.checked }))}
+                              className="w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500"
+                            />
                             <div className="p-1.5 rounded-lg bg-orange-100 text-orange-700">
                               <Package size={14} />
                             </div>
                             <span className="font-bold text-xs text-slate-900">Phiếu Giao Hàng ({deliveries.length})</span>
-                          </div>
-                          {pendingDeliveries.length > 0 ? (
-                            <span className="px-2 py-0.5 rounded text-3xs font-bold bg-orange-100 text-orange-800 border border-orange-200">
-                              {pendingDeliveries.length} Chờ giao có thể đồng bộ
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded text-3xs font-medium bg-slate-200 text-slate-700">
-                              Đã xuất kho / giao nhận
-                            </span>
-                          )}
+                          </label>
+                          <span className={`px-2 py-0.5 rounded text-3xs font-bold ${
+                            syncScope.syncDeliveries ? 'bg-orange-100 text-orange-800 border border-orange-200' : 'bg-slate-200 text-slate-600'
+                          }`}>
+                            {syncScope.syncDeliveries ? 'Sẵn sàng đồng bộ' : 'Bỏ qua'}
+                          </span>
                         </div>
-                        <p className="text-2xs text-slate-600 leading-relaxed">
-                          {pendingDeliveries.length > 0
-                            ? `Hệ thống có thể tự động cập nhật địa chỉ giao hàng, SĐT và người nhận cho ${pendingDeliveries.length} phiếu chờ giao.`
-                            : 'Toàn bộ phiếu giao hàng đã bàn giao thực tế; giữ nguyên biên bản bàn giao.'}
+                        <p className="text-2xs text-slate-600 leading-relaxed mt-2">
+                          Cập nhật tên khách nhận hàng, địa chỉ giao máy và SĐT liên hệ cho {deliveries.length} phiếu giao vận chuyển.
                         </p>
                       </div>
                     </div>
@@ -368,7 +403,6 @@ export function CustomerCascadeImpactModal({
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {quotations.map((q) => {
-                            const isDraft = !q.lifecycleStatus || q.lifecycleStatus === 'DRAFT' || q.tinhTrangBaoGia?.toLowerCase().includes('nháp');
                             return (
                               <tr key={q.id || q.soPhieuBaoGia} className="hover:bg-slate-50/50">
                                 <td className="px-3 py-2 font-mono font-bold text-slate-900">{q.soPhieuBaoGia}</td>
@@ -377,14 +411,12 @@ export function CustomerCascadeImpactModal({
                                   {new Intl.NumberFormat('vi-VN').format(q.totalAmount || 0)}đ
                                 </td>
                                 <td className="px-3 py-2">
-                                  <span className={`px-1.5 py-0.5 rounded text-3xs font-bold ${
-                                    isDraft ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-700'
-                                  }`}>
+                                  <span className="px-1.5 py-0.5 rounded text-3xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
                                     {q.lifecycleStatus || q.tinhTrangBaoGia || 'DRAFT'}
                                   </span>
                                 </td>
                                 <td className="px-3 py-2 text-right font-medium">
-                                  {isDraft ? (
+                                  {syncScope.syncQuotations ? (
                                     <span className="text-emerald-700 text-3xs font-bold inline-flex items-center gap-1">
                                       <CheckCircle2 size={11} /> Cập nhật theo KH mới
                                     </span>
@@ -409,7 +441,7 @@ export function CustomerCascadeImpactModal({
                             <th className="px-3 py-2">Ngày Ký</th>
                             <th className="px-3 py-2">Giá trị HĐ</th>
                             <th className="px-3 py-2">Trạng thái</th>
-                            <th className="px-3 py-2 text-right">Tính chất</th>
+                            <th className="px-3 py-2 text-right">Tác động đề xuất</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -425,8 +457,14 @@ export function CustomerCascadeImpactModal({
                                   {c.tinhTrangHopDong || 'Đã ký kết'}
                                 </span>
                               </td>
-                              <td className="px-3 py-2 text-right text-3xs text-slate-500 font-medium">
-                                Bảo toàn nguyên văn hợp đồng
+                              <td className="px-3 py-2 text-right text-3xs font-medium">
+                                {syncScope.syncContracts ? (
+                                  <span className="text-emerald-700 font-bold inline-flex items-center gap-1">
+                                    <CheckCircle2 size={11} /> Cập nhật bên mua
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">Bảo toàn nguyên văn</span>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -444,7 +482,7 @@ export function CustomerCascadeImpactModal({
                             <th className="px-3 py-2">Ngày Thu</th>
                             <th className="px-3 py-2">Số Tiền</th>
                             <th className="px-3 py-2">Hình thức</th>
-                            <th className="px-3 py-2 text-right">Tính chất</th>
+                            <th className="px-3 py-2 text-right">Tác động đề xuất</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -456,8 +494,14 @@ export function CustomerCascadeImpactModal({
                                 {new Intl.NumberFormat('vi-VN').format(p.totalAmount || p.soTien || 0)}đ
                               </td>
                               <td className="px-3 py-2 text-slate-600">{p.phuongThucThanhToan || 'Chuyển khoản'}</td>
-                              <td className="px-3 py-2 text-right text-3xs text-slate-500 font-medium">
-                                Bảo toàn chứng từ thuế
+                              <td className="px-3 py-2 text-right text-3xs font-medium">
+                                {syncScope.syncPayments ? (
+                                  <span className="text-emerald-700 font-bold inline-flex items-center gap-1">
+                                    <CheckCircle2 size={11} /> Cập nhật tên KH & nộp
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">Bảo toàn chứng từ</span>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -480,26 +524,23 @@ export function CustomerCascadeImpactModal({
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {deliveries.map((d) => {
-                            const isPending = !d.tinhTrangGiaoHang || d.tinhTrangGiaoHang === 'CHO_GIAO' || d.tinhTrangGiaoHang.toLowerCase().includes('chờ');
                             return (
                               <tr key={d.id || d.deliveryId} className="hover:bg-slate-50/50">
                                 <td className="px-3 py-2 font-mono font-bold text-slate-900">{d.soPhieuXuat || d.deliveryId}</td>
                                 <td className="px-3 py-2 text-slate-600">{formatDate(d.ngayGiaoMay)}</td>
                                 <td className="px-3 py-2 text-slate-700">{d.donViVanChuyen || '---'}</td>
                                 <td className="px-3 py-2">
-                                  <span className={`px-1.5 py-0.5 rounded text-3xs font-bold ${
-                                    isPending ? 'bg-orange-50 text-orange-700 border border-orange-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  }`}>
+                                  <span className="px-1.5 py-0.5 rounded text-3xs font-bold bg-orange-50 text-orange-700 border border-orange-200">
                                     {d.tinhTrangGiaoHang || 'CHO_GIAO'}
                                   </span>
                                 </td>
                                 <td className="px-3 py-2 text-right font-medium">
-                                  {isPending ? (
+                                  {syncScope.syncDeliveries ? (
                                     <span className="text-emerald-700 text-3xs font-bold inline-flex items-center gap-1">
                                       <CheckCircle2 size={11} /> Cập nhật địa chỉ & SĐT mới
                                     </span>
                                   ) : (
-                                    <span className="text-slate-400 text-3xs">Bảo toàn biên bản bàn giao</span>
+                                    <span className="text-slate-400 text-3xs">Bảo toàn snapshot</span>
                                   )}
                                 </td>
                               </tr>
@@ -519,7 +560,7 @@ export function CustomerCascadeImpactModal({
               <div className="space-y-1">
                 <span className="font-bold block">Chính sách Đồng bộ Dữ liệu Toàn vẹn (SGM Data Integrity Standard):</span>
                 <p className="text-blue-800 leading-relaxed">
-                  Lựa chọn <strong>&ldquo;1-Click Đồng bộ an toàn&rdquo;</strong> sẽ cập nhật hồ sơ khách hàng đồng thời tự động đồng bộ hóa thông tin mới (Tên, SĐT, Địa chỉ, Đầu mối) vào các Báo giá nháp và Phiếu giao hàng đang chờ giao. Các Hợp đồng đã ký và Phiếu thu đã xuất luôn được bảo toàn lịch sử pháp lý.
+                  Lựa chọn <strong>&ldquo;1-Click Đồng bộ an toàn&rdquo;</strong> sẽ cập nhật hồ sơ khách hàng đồng thời tự động đồng bộ hóa thông tin mới (Tên, SĐT, Địa chỉ, Đầu mối, MST) vào toàn bộ Báo giá, Hợp đồng, Phiếu thu và Phiếu giao hàng liên quan theo các phân hệ đã chọn.
                 </p>
               </div>
             </div>
@@ -551,7 +592,7 @@ export function CustomerCascadeImpactModal({
               <Button
                 type="button"
                 disabled={isSyncing}
-                onClick={onConfirmSafeSync}
+                onClick={() => onConfirmSafeSync(syncScope)}
                 className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors shadow-sm flex items-center gap-2 border-none"
               >
                 {isSyncing ? (

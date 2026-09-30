@@ -197,27 +197,32 @@ export const getPaymentColumns = (
   },
   {
     id: 'customerId',
-    accessorFn: (row) => row.tenKhachHang || row.customerId,
+    accessorFn: (row) => {
+      const liveCustomer = customers?.find(c => c.id === row.customerId || (c.maKh && c.maKh === row.customerId));
+      return liveCustomer?.tenKhachHang || row.tenKhachHang || row.customerId;
+    },
     header: 'Khách hàng',
     size: 200,
     cell: (info) => {
       const p = info.row.original as Payment;
       const contactsToDisplay: { name: string; phone: string }[] = [];
-      const cName = normalizeBusinessName(String(info.getValue() || p.tenKhachHang || 'Chưa rõ'));
+      const liveCustomer = (customers.length > 0 && p.customerId) 
+        ? customers.find(c => c.id === p.customerId || (c.maKh && c.maKh === p.customerId))
+        : undefined;
+
+      const rawName = liveCustomer?.tenKhachHang || p.tenKhachHang || String(info.getValue() || 'Chưa rõ');
+      const cName = normalizeBusinessName(rawName);
       
-      if (customers.length > 0 && p.customerId) {
-        const customer = customers.find(c => c.id === p.customerId);
-        if (customer) {
-           if (customer.nguoiDaiDien || customer.sdt) {
-             contactsToDisplay.push({ name: normalizePersonName(customer.nguoiDaiDien || 'Không tên'), phone: customer.sdt || '' });
-           }
-           if (Array.isArray(customer.contacts)) {
-             customer.contacts.forEach((contact) => {
-               if (contact.nguoiDaiDien || contact.sdt) {
-                 contactsToDisplay.push({ name: normalizePersonName(contact.nguoiDaiDien || 'Không tên'), phone: contact.sdt || '' });
-               }
-             });
-           }
+      if (liveCustomer) {
+        if (liveCustomer.nguoiDaiDien || liveCustomer.sdt) {
+          contactsToDisplay.push({ name: normalizePersonName(liveCustomer.nguoiDaiDien || 'Không tên'), phone: liveCustomer.sdt || '' });
+        }
+        if (Array.isArray(liveCustomer.contacts)) {
+          liveCustomer.contacts.forEach((contact) => {
+            if (contact.nguoiDaiDien || contact.sdt) {
+              contactsToDisplay.push({ name: normalizePersonName(contact.nguoiDaiDien || 'Không tên'), phone: contact.sdt || '' });
+            }
+          });
         }
       } else {
          if (p.tenNguoiNop || p.sdt) {

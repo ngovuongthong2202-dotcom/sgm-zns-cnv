@@ -24,6 +24,7 @@ interface PaymentRecordBasicFieldsProps {
   contracts?: any[];
   quotations?: any[];
   payments?: any[];
+  customers?: any[];
   currentPaymentId?: string;
   nguoiPhuTrachList?: string[];
   phuongThucThanhToanList?: string[];
@@ -40,6 +41,7 @@ export function PaymentRecordBasicFields({
   contracts = [],
   quotations = [],
   payments = [],
+  customers = [],
   currentPaymentId,
   nguoiPhuTrachList = [],
   phuongThucThanhToanList = ['Chuyển khoản', 'Tiền mặt'],
@@ -384,16 +386,26 @@ export function PaymentRecordBasicFields({
                     </p>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4 border border-slate-150 text-xs font-semibold text-slate-700 bg-slate-50/50 p-4 rounded-xl shadow-xs">
-                    <div>
-                      <span className="text-slate-500 uppercase text-3xs tracking-wider block mb-0.5 font-bold">Khách hàng nhận HĐ</span>
-                      <strong className="text-slate-950 text-sm font-bold block">{watchAll.tenKhachHang || '---'}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 uppercase text-3xs tracking-wider block mb-0.5 font-bold">Liên hệ & giao nhận</span>
-                      <strong className="text-slate-950 font-mono text-xs font-bold block">{watchAll.sdt || '---'}</strong>
-                    </div>
-                  </div>
+                  {(() => {
+                    const liveCustomer = customers?.find(c => 
+                      (watchAll.customerId && c.id === watchAll.customerId) || 
+                      (watchAll.maKh && c.maKh === watchAll.maKh)
+                    );
+                    const displayName = liveCustomer?.tenKhachHang || watchAll.tenKhachHang || '---';
+                    const displayPhone = liveCustomer?.sdt || watchAll.sdt || '---';
+                    return (
+                      <div className="grid grid-cols-2 gap-4 border border-slate-150 text-xs font-semibold text-slate-700 bg-slate-50/50 p-4 rounded-xl shadow-xs">
+                        <div>
+                          <span className="text-slate-500 uppercase text-3xs tracking-wider block mb-0.5 font-bold">Khách hàng nhận HĐ</span>
+                          <strong className="text-slate-950 text-sm font-bold block">{displayName}</strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 uppercase text-3xs tracking-wider block mb-0.5 font-bold">Liên hệ & giao nhận</span>
+                          <strong className="text-slate-950 font-mono text-xs font-bold block">{displayPhone}</strong>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
                     <span className="text-2xs uppercase tracking-wider font-bold text-slate-500">Đối soát công nợ & tiến độ dòng tiền</span>
