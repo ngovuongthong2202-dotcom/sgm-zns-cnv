@@ -10,6 +10,7 @@ import { autoDetectBusinessName, generateEnterpriseNameSuggestions, STANDARDIZED
 import { sanitizeTaxCode, sanitizeText } from '@/src/shared/utils/inputSanitizer';
 import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressParser';
 import { SmartTaxCodeInput } from '@/src/design-system';
+import { notify } from '@/src/shared/utils/notify';
 
 interface ProfileSectionProps {
   register: UseFormRegister<any>;
@@ -257,15 +258,27 @@ export function CustomerFormProfileSection({
                       key={sug.id}
                       type="button"
                       onClick={() => {
+                        // 1. Luôn cập nhật trực tiếp vào ô input Tên Khách Hàng hiển thị trên màn hình
+                        setValue('tenKhachHang', sug.value, { shouldDirty: true });
+
+                        // 2. Đồng bộ các tầng định danh tương ứng
                         if (sug.category === 'LEGAL') {
-                          setValue('tenKhachHang', sug.value, { shouldDirty: true });
+                          setValue('tenPhapLy' as any, sug.value, { shouldDirty: true });
                         } else {
                           setValue('tenZns' as any, sug.value, { shouldDirty: true });
                           setValue('tenThuongMai' as any, sug.value, { shouldDirty: true });
+                          if (!watch('tenPhapLy' as any) && identityResult.tenPhapLy) {
+                            setValue('tenPhapLy' as any, identityResult.tenPhapLy, { shouldDirty: true });
+                          }
                         }
+
+                        // 3. Cập nhật loại hình doanh nghiệp nếu có
                         if (identityResult.loaiHinh && !watch('loaiHinhDoanhNghiep')) {
                           setValue('loaiHinhDoanhNghiep', identityResult.loaiHinh, { shouldDirty: true });
                         }
+
+                        // 4. Thông báo nhẹ nhàng
+                        notify.info(`Đã áp dụng: "${sug.value}"`);
                       }}
                       className={`px-2 py-0.5 rounded text-3xs font-bold border transition-all cursor-pointer shadow-2xs flex items-center gap-1 ${
                         isSelected 

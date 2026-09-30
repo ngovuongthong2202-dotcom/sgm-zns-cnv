@@ -16,7 +16,9 @@ import {
   Search,
   MapPin,
   Phone,
-  UserCheck
+  UserCheck,
+  User,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { notify } from '@/src/shared/utils/notify';
@@ -34,6 +36,7 @@ import {
 import { aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
 import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressParser';
 import { VIETNAM_PROVINCES_63 } from '@/src/hooks/useSharedFields';
+import { classifyErpCustomer, ErpCustomerClassificationResult } from '../utils/erpCustomerClassifier';
 
 interface Props {
   isOpen: boolean;
@@ -69,6 +72,12 @@ export function CreateQuotationFromSalesOrderModal({
   const [customProvince, setCustomProvince] = useState('');
   const [customRepresentative, setCustomRepresentative] = useState('');
 
+  // Cognitive Customer Classification States
+  const [classifiedCustomer, setClassifiedCustomer] = useState<ErpCustomerClassificationResult | null>(null);
+  const [customerType, setCustomerType] = useState<'Doanh nghiệp' | 'Cá nhân'>('Doanh nghiệp');
+  const [customCustomerName, setCustomCustomerName] = useState<string>('');
+  const [customSalutation, setCustomSalutation] = useState<string>('Anh/Chị');
+
   const { createRecord: createCustomerRecord } = useMutation<Customer>({ collection: 'customers' });
 
   // Reset when modal opens
@@ -83,6 +92,10 @@ export function CreateQuotationFromSalesOrderModal({
       setCustomMobilePhone('');
       setCustomProvince('');
       setCustomRepresentative('');
+      setClassifiedCustomer(null);
+      setCustomerType('Doanh nghiệp');
+      setCustomCustomerName('');
+      setCustomSalutation('Anh/Chị');
     }
   }, [isOpen]);
 
@@ -109,7 +122,7 @@ export function CreateQuotationFromSalesOrderModal({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Sync province & representative when erpData is loaded
+  // Sync province, representative & cognitive customer classification when erpData is loaded
   useEffect(() => {
     if (erpData) {
       const snap = erpData.customer_snapshot || {};
@@ -117,6 +130,17 @@ export function CreateQuotationFromSalesOrderModal({
       setCustomProvince(detected);
       setCustomRepresentative(snap.representative || '');
       setCustomMobilePhone('');
+
+      const classification = classifyErpCustomer(
+        snap.customer_name || erpData.content || '',
+        snap.tax_code || erpData.customer_id || '',
+        snap.representative || '',
+        snap.phone || ''
+      );
+      setClassifiedCustomer(classification);
+      setCustomerType(classification.detectedType);
+      setCustomCustomerName(classification.cleanCustomerName);
+      setCustomSalutation(classification.salutation);
     }
   }, [erpData]);
 
@@ -240,6 +264,9 @@ export function CreateQuotationFromSalesOrderModal({
     const finalProvince = customProvince || detectProvinceFromAddress(erpData.delivery_address || snapshot.address || '', VIETNAM_PROVINCES_63) || 'TP. Hồ Chí Minh';
     const finalRep = customRepresentative.trim() || snapshot.representative || '';
 
+    const isIndiv = customerType === 'Cá nhân';
+    const finalCustomerName = customCustomerName.trim() || classifiedCustomer?.cleanCustomerName || snapshot.customer_name || 'Khách hàng ERP';
+
     // If customer not found and auto-provision is enabled, create new customer in CRM
     if (!targetCustomer && autoProvisionCustomer) {
       try {
@@ -260,20 +287,24 @@ export function CreateQuotationFromSalesOrderModal({
 
         const newCustomerData: Partial<Customer> = {
           maKh: nextCustomerCode,
-          tenKhachHang: snapshot.customer_name || 'Khách hàng ERP',
-          maSoThue: snapshot.tax_code || '',
+          tenKhachHang: finalCustomerName,
+          tenPhapLy: isIndiv ? undefined : (classifiedCustomer?.cleanCustomerName || snapshot.customer_name),
+          tenThuongMai: classifiedCustomer?.tenThuongMai || finalCustomerName,
+          tenZns: isIndiv ? finalCustomerName.slice(0, 29) : (classifiedCustomer?.tenZns || finalCustomerName.slice(0, 29)),
+          maSoThue: isIndiv ? '' : (snapshot.tax_code || ''),
           sdt: finalPhone,
           diaChi: erpData.delivery_address || snapshot.address || '',
           tinhThanh: finalProvince,
-          nguoiDaiDien: finalRep,
-          loaiKh: 'Doanh nghiệp',
+          nguoiDaiDien: finalRep || (isIndiv ? finalCustomerName : 'Đại diện'),
+          loaiKh: customerType,
+          loaiHinhDoanhNghiep: isIndiv ? 'CÁ NHÂN' : (classifiedCustomer?.loaiHinhDoanhNghiep || 'CÔNG TY TNHH'),
           nguoiPhuTrach: userOfficer || erpData.created_by_name || 'Quản trị viên',
           contacts: [
             {
-              danhXung: 'Anh/Chị',
-              nguoiDaiDien: finalRep || 'Đại diện',
+              danhXung: isIndiv ? customSalutation : 'Đại diện',
+              nguoiDaiDien: finalRep || (isIndiv ? finalCustomerName : 'Đại diện'),
               sdt: finalPhone,
-              chucVu: 'Đại diện',
+              chucVu: isIndiv ? 'Chủ sở hữu / Cá nhân' : 'Đại diện',
               chiNhanh: 'Trụ sở chính'
             },
             ...(rawCustomerPhone && customMobilePhone.trim() && rawCustomerPhone !== customMobilePhone.trim() ? [{
@@ -286,12 +317,12 @@ export function CreateQuotationFromSalesOrderModal({
           ],
           ngayTao: new Date().toISOString(),
           ngayCapNhat: new Date().toISOString(),
-          tags: ['ERP_IMPORT', 'SALES_ORDER'],
+          tags: ['ERP_IMPORT', 'SALES_ORDER', isIndiv ? 'INDIVIDUAL_CUSTOMER' : 'CORPORATE_CUSTOMER'],
         };
 
         const created = await createCustomerRecord(newCustomerData as Customer);
         targetCustomer = created;
-        notify.success(`Đã tự động khởi tạo khách hàng mới [${nextCustomerCode}] vào CRM`);
+        notify.success(`Đã tự động khởi tạo khách hàng mới [${nextCustomerCode}] (${customerType}) vào CRM`);
       } catch (err: any) {
         notify.warning('Không thể tự động tạo khách hàng, tiếp tục nạp dữ liệu tạm: ' + err.message);
       }
@@ -301,9 +332,11 @@ export function CreateQuotationFromSalesOrderModal({
     const quotationDraft = adaptSalesOrderToQuotation(erpData, targetCustomer, nextQuoteCode, userOfficer);
 
     // Apply custom dynamic user edits to quotation draft
+    if (finalCustomerName) quotationDraft.tenKhachHang = finalCustomerName;
     if (finalPhone) quotationDraft.sdt = finalPhone;
     if (finalProvince) (quotationDraft as any).tinhThanh = finalProvince;
     if (finalRep) quotationDraft.nguoiDaiDien = finalRep;
+    quotationDraft.phanLoaiKhach = customerType;
 
     onQuotationConstructed(quotationDraft, targetCustomer || undefined);
     onClose();
@@ -498,32 +531,92 @@ export function CreateQuotationFromSalesOrderModal({
                 <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200 space-y-2.5">
                   <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
                     <div className="flex items-center gap-2">
-                      <Building2 size={15} className="text-blue-600" />
+                      {customerType === 'Doanh nghiệp' ? <Building2 size={15} className="text-blue-600" /> : <User size={15} className="text-violet-600" />}
                       <span className="text-2xs font-extrabold uppercase tracking-wider text-slate-700">
-                        Khách Hàng Pháp Nhân
+                        Khách Hàng ({customerType === 'Doanh nghiệp' ? 'Doanh Nghiệp / Pháp Nhân' : 'Cá Nhân'})
                       </span>
                     </div>
-                    {customerResolution?.matchedCustomer ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        <CheckCircle2 size={11} />
-                        Khớp CRM: {customerResolution.matchedCustomer.maKh}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
-                        <AlertCircle size={11} />
-                        Chưa có trong CRM
-                      </span>
-                    )}
+
+                    {/* Adaptive Switcher UI */}
+                    <div className="flex items-center p-0.5 bg-slate-200/80 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomerType('Doanh nghiệp');
+                          if (erpData?.customer_snapshot?.customer_name) {
+                            setCustomCustomerName(erpData.customer_snapshot.customer_name);
+                          }
+                        }}
+                        className={`px-2 py-0.5 rounded text-3xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                          customerType === 'Doanh nghiệp' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Building2 size={11} /> Doanh nghiệp
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomerType('Cá nhân');
+                          if (classifiedCustomer?.cleanCustomerName) {
+                            setCustomCustomerName(classifiedCustomer.cleanCustomerName);
+                          }
+                        }}
+                        className={`px-2 py-0.5 rounded text-3xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                          customerType === 'Cá nhân' ? 'bg-white text-violet-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <User size={11} /> Cá nhân
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="space-y-1.5 text-xs">
-                    <div className="font-bold text-slate-900 text-sm">
-                      {erpData.customer_snapshot?.customer_name || 'Chưa có tên công ty'}
+                  {/* AI Confidence Badge */}
+                  {classifiedCustomer && (
+                    <div className={`p-2 rounded-lg text-3xs font-medium flex items-center gap-1.5 border animate-fadeIn ${
+                      customerType === 'Cá nhân' 
+                        ? 'bg-violet-50 text-violet-900 border-violet-200' 
+                        : 'bg-blue-50 text-blue-900 border-blue-200'
+                    }`}>
+                      <Sparkles size={11} className={customerType === 'Cá nhân' ? 'text-violet-600 shrink-0' : 'text-blue-600 shrink-0'} />
+                      <span className="truncate">
+                        <strong>AI Gợi Ý:</strong> {classifiedCustomer.confidenceReason}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="space-y-2 text-xs">
+                    {/* Editable Customer Name */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-3xs text-slate-500 font-semibold uppercase">
+                        <span>{customerType === 'Doanh nghiệp' ? 'Tên Pháp Nhân / ĐKKD' : 'Họ và Tên Khách Hàng (Cá Nhân)'}</span>
+                        {customerResolution?.matchedCustomer && (
+                          <span className="text-emerald-700 font-bold flex items-center gap-0.5">
+                            <CheckCircle2 size={10} /> Khớp CRM: {customerResolution.matchedCustomer.maKh}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={customCustomerName}
+                        onChange={(e) => setCustomCustomerName(e.target.value)}
+                        placeholder="Nhập tên khách hàng..."
+                        className="w-full px-2.5 py-1 text-xs font-bold text-slate-900 border border-slate-300 rounded-lg bg-white outline-none focus:ring-1 focus:ring-blue-500"
+                      />
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-2xs text-slate-600">
                       <div>
-                        MST: <strong className="font-mono text-slate-800">{erpData.customer_snapshot?.tax_code || erpData.customer_id || 'Không có'}</strong>
+                        {customerType === 'Doanh nghiệp' ? (
+                          <>MST: <strong className="font-mono text-slate-800">{erpData.customer_snapshot?.tax_code || erpData.customer_id || 'Không có'}</strong></>
+                        ) : (
+                          <>Danh xưng: <input
+                            type="text"
+                            value={customSalutation}
+                            onChange={(e) => setCustomSalutation(e.target.value)}
+                            placeholder="Anh / Chị"
+                            className="w-16 px-1.5 py-0.5 text-2xs font-bold text-slate-800 border border-slate-300 rounded bg-white"
+                          /></>
+                        )}
                       </div>
                       <div>
                         SĐT ERP: <strong className="font-mono text-slate-800">{rawCustomerPhone || 'Chưa có'}</strong>
@@ -531,7 +624,7 @@ export function CreateQuotationFromSalesOrderModal({
                     </div>
 
                     {/* Geocoding Province Field */}
-                    <div className="flex items-center gap-2 text-2xs pt-1">
+                    <div className="flex items-center gap-2 text-2xs pt-0.5">
                       <MapPin size={13} className="text-rose-600 shrink-0" />
                       <span className="text-slate-500 font-medium shrink-0">Tỉnh/Thành:</span>
                       <select

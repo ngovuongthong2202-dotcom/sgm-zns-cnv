@@ -59,7 +59,10 @@ export const getCustomerColumns = (
       const c = info.row.original;
       const active = c.id && presenceMap?.[c.id] ? presenceMap[c.id] : [];
       const normalizedName = normalizeBusinessName(c.tenKhachHang);
-      const subInfo = [c.tenThuongMai, c.loaiHinhDoanhNghiep || c.loaiKh].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i && v !== normalizedName).join(' • ');
+      const isIndiv = c.loaiKh === 'Cá nhân' || c.loaiHinhDoanhNghiep === 'CÁ NHÂN';
+      const subInfo = isIndiv 
+        ? '' 
+        : [c.tenThuongMai, (c.loaiHinhDoanhNghiep && c.loaiHinhDoanhNghiep !== 'DOANH NGHIỆP') ? c.loaiHinhDoanhNghiep : ''].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i && v !== normalizedName).join(' • ');
       return (
         <CustomerHoverCard customer={c}>
           <div className="w-full min-w-0 flex flex-col justify-center gap-0.5 pointer-events-auto py-1">
@@ -165,19 +168,26 @@ export const getCustomerColumns = (
     id: 'khuVuc',
     accessorFn: (row) => `${row.tinhThanh || ''} ${row.loaiKh || ''}`,
     header: 'Khu vực & Phân loại',
-    size: 160,
+    size: 170,
     cell: (info) => {
       const c = info.row.original;
+      const isIndiv = c.loaiKh === 'Cá nhân' || c.loaiHinhDoanhNghiep === 'CÁ NHÂN';
       return (
-        <div className="w-full min-w-0 flex flex-col justify-center gap-0.5">
-          <span className="truncate block font-medium text-xs text-slate-700 leading-tight" title={c.tinhThanh}>
+        <div className="w-full min-w-0 flex flex-col justify-center gap-1 py-0.5">
+          <span className="truncate block font-medium text-xs text-slate-800 leading-tight" title={c.tinhThanh}>
             {c.tinhThanh || '—'}
           </span>
-          {c.loaiKh && (
-            <span className="truncate block font-normal text-xs text-slate-500 leading-tight" title={c.loaiKh}>
-              {c.loaiKh}
-            </span>
-          )}
+          <div>
+            {isIndiv ? (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-bold bg-violet-50 text-violet-700 border border-violet-200">
+                👤 Cá nhân
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-bold bg-blue-50 text-blue-700 border border-blue-200" title={c.loaiHinhDoanhNghiep || 'Doanh nghiệp'}>
+                🏢 {c.loaiHinhDoanhNghiep && c.loaiHinhDoanhNghiep !== 'DOANH NGHIỆP' ? c.loaiHinhDoanhNghiep : 'Doanh nghiệp'}
+              </span>
+            )}
+          </div>
         </div>
       );
     }
