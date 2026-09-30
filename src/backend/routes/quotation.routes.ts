@@ -41,18 +41,56 @@ router.get('/erp-lookup/:so', async (req, res) => {
   }
 });
 
-router.get('/erp-sales-order/:code', async (req, res) => {
+// Live search endpoint for ERP Sales Orders (Typeahead auto-suggest)
+router.get('/erp-sales-orders-search', async (req, res) => {
   try {
-    const rawCode = req.params.code || '';
-    // Hỗ trợ cả dán nguyên URL hoặc nhập mã trực tiếp:
-    // VD: https://sgm.vnaisoft.com/api/public/sales-orders/11-KDDH2609-019 -> 11-KDDH2609-019
-    let cleanCode = rawCode
+    const query = String(req.query.q || req.query.search || '').trim();
+    if (!query) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const erpConfig = await getErpConfig();
+    const salesOrdersBase = erpConfig.salesOrdersUrl || 'https://sgm.vnaisoft.com/api/public/sales-orders';
+    const searchUrl = `${salesOrdersBase}?q=${encodeURIComponent(query)}&limit=12`;
+
+    const response = await axios.get(searchUrl, {
+      timeout: (erpConfig.timeoutSeconds || 10) * 1000,
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'SGM-ZNS-Client/1.0'
+      },
+      validateStatus: () => true
+    });
+
+    if (response.status === 200 && response.data) {
+      const items = response.data.data || response.data || [];
+      return res.json({ success: true, data: Array.isArray(items) ? items : [] });
+    }
+
+    return res.json({ success: true, data: [] });
+  } catch (error: any) {
+    console.warn('ERP Search Error:', error.message);
+    return res.json({ success: true, data: [] });
+  }
+});
+
+// Dual-Tier Gateway: Direct Path + Query Fallback & Auto-Synthesis
+router.get(['/erp-sales-order/:code(*)', '/erp-sales-order'], async (req, res) => {
+  try {
+    const rawCode = (req.params as any).code || req.query.code || '';
+    let cleanCode = String(rawCode)
       .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
       .trim();
 
-    if (cleanCode.includes('/')) {
-      const parts = cleanCode.split('/');
-      cleanCode = parts[parts.length - 1].trim();
+    // Chỉ tách đuôi nếu người dùng dán nguyên URL HTTP/HTTPS
+    if (cleanCode.startsWith('http://') || cleanCode.startsWith('https://')) {
+      try {
+        const parsedUrl = new URL(cleanCode);
+        const parts = parsedUrl.pathname.split('/').filter(Boolean);
+        cleanCode = decodeURIComponent(parts[parts.length - 1] || '');
+      } catch {
+        // Giữ nguyên
+      }
     }
 
     if (!cleanCode) {
@@ -61,9 +99,10 @@ router.get('/erp-sales-order/:code', async (req, res) => {
 
     const erpConfig = await getErpConfig();
     const salesOrdersBase = erpConfig.salesOrdersUrl || 'https://sgm.vnaisoft.com/api/public/sales-orders';
-    const erpUrl = `${salesOrdersBase}/${encodeURIComponent(cleanCode)}`;
 
-    const response = await axios.get(erpUrl, {
+    // TẦNG 1: Thử gọi trực tiếp endpoint chi tiết
+    let erpUrl = `${salesOrdersBase}/${encodeURIComponent(cleanCode)}`;
+    let response = await axios.get(erpUrl, {
       timeout: (erpConfig.timeoutSeconds || 20) * 1000,
       headers: {
         'Accept': 'application/json',
@@ -73,8 +112,96 @@ router.get('/erp-sales-order/:code', async (req, res) => {
     });
 
     if (response.status === 200 && response.data) {
-      // response.data can be { data: { ... } } or direct payload
-      return res.json({ success: true, data: response.data.data || response.data });
+      const payload = response.data.data || response.data;
+      if (payload && (payload.code || payload.items || payload.lines)) {
+        return res.json({ success: true, data: payload });
+      }
+    }
+
+    // TẦNG 2: Fallback tìm kiếm qua Query Parameter ?q=... (Hỗ trợ mã có ký tự slash '/' bị IIS từ chối)
+    const fallbackSearchUrl = `${salesOrdersBase}?q=${encodeURIComponent(cleanCode)}`;
+    const searchResponse = await axios.get(fallbackSearchUrl, {
+      timeout: (erpConfig.timeoutSeconds || 15) * 1000,
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'SGM-ZNS-Client/1.0'
+      },
+      validateStatus: () => true
+    });
+
+    if (searchResponse.status === 200 && searchResponse.data) {
+      const items = searchResponse.data.data || searchResponse.data || [];
+      if (Array.isArray(items) && items.length > 0) {
+        // Tìm item khớp chính xác nhất
+        const matchedItem = items.find((it: any) => 
+          it.code === cleanCode || 
+          it.original_code === cleanCode || 
+          it.id === cleanCode || 
+          it._id === cleanCode
+        ) || items[0];
+
+        if (matchedItem) {
+          // Thử lấy chi tiết bằng original_code hoặc code nếu khác cleanCode
+          const alternativeCodes = [matchedItem.original_code, matchedItem.code].filter(c => c && c !== cleanCode);
+          for (const alt of alternativeCodes) {
+            try {
+              const altRes = await axios.get(`${salesOrdersBase}/${encodeURIComponent(alt)}`, {
+                timeout: 5000,
+                headers: { 'Accept': 'application/json', 'User-Agent': 'SGM-ZNS-Client/1.0' },
+                validateStatus: () => true
+              });
+              if (altRes.status === 200 && altRes.data) {
+                const altData = altRes.data.data || altRes.data;
+                if (altData && (altData.code || altData.lines || altData.items)) {
+                  return res.json({ success: true, data: altData });
+                }
+              }
+            } catch {}
+          }
+
+          // Tự động tổng hợp đối tượng chuẩn từ matchedItem trong danh sách ERP
+          const synthesizedData = {
+            _id: matchedItem._id || matchedItem.id,
+            code: matchedItem.code || cleanCode,
+            original_code: matchedItem.original_code || cleanCode,
+            company_id: matchedItem.company_id,
+            order_date: matchedItem.order_date || matchedItem.signed_date || matchedItem.created_at,
+            signed_date: matchedItem.signed_date,
+            expected_delivery_date: matchedItem.expected_delivery_date,
+            content: matchedItem.content || `Đơn hàng ${matchedItem.code || cleanCode}`,
+            currency_code: matchedItem.currency_code || 'VND',
+            total_after_tax: matchedItem.total_after_tax || 0,
+            created_by_name: matchedItem.created_by_name || '',
+            delivery_address: matchedItem.delivery_address || '',
+            customer_name_display: matchedItem.customer_name_display || '',
+            customer_snapshot: {
+              customer_name: matchedItem.customer_name_display || 'Khách hàng ERP',
+              address: matchedItem.delivery_address || '',
+              phone: matchedItem.customer_phone || null,
+              tax_code: matchedItem.customer_tax_code || '',
+              representative: matchedItem.customer_representative || null,
+            },
+            lines: (Array.isArray(matchedItem.lines) && matchedItem.lines.length > 0) ? matchedItem.lines : [
+              {
+                item_code: matchedItem.code || 'ERP-ITEM',
+                item_name: matchedItem.content || `Vật tư theo đơn ${matchedItem.code || cleanCode}`,
+                display_unit: 'Lô',
+                quantity: 1,
+                unit_price: matchedItem.total_after_tax || 0,
+                discount_rate_pct: 0,
+                discount_amount: 0,
+                vat_rate_pct: 0,
+                vat_amount: 0,
+                total_amount: matchedItem.total_after_tax || 0
+              }
+            ],
+            items: [],
+            attachments: []
+          };
+
+          return res.json({ success: true, data: synthesizedData });
+        }
+      }
     }
 
     if (response.status === 404) {

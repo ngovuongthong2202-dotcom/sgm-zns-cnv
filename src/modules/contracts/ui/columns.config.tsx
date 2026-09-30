@@ -114,9 +114,9 @@ export const getContractColumns = (
       const displayBizName = normalizeBusinessName(customerName || '---');
 
       return (
-        <div className="w-full min-w-0 flex items-center">
+        <div className="w-full min-w-0 flex items-center py-1">
           <div className="flex flex-col min-w-0">
-            <span className="font-semibold text-xs text-slate-800 truncate" title={customerName}>{displayBizName}</span>
+            <span className="font-semibold text-xs text-slate-800 line-clamp-2 whitespace-normal break-words leading-snug" title={customerName}>{displayBizName}</span>
             <div className="flex items-center gap-1.5 text-2xs text-slate-500 truncate mt-0.5">
                <span className="truncate" title={repPhone}>{repPhone}</span>
             </div>

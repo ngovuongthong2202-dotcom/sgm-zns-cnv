@@ -13,6 +13,7 @@ export const QuotationSchema = z.object({
   nguoiDaiDien: z.string().optional(),
   sdt: z.string().optional().or(z.literal('')),
   diaChi: z.string().optional(),
+  tinhThanh: z.string().optional(),
   ghiChu: z.string().optional(),
   
   // Quotation specific

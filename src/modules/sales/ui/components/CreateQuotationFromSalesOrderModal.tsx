@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Zap, 
   X, 
@@ -8,11 +8,15 @@ import {
   Scale, 
   CheckCircle2, 
   AlertCircle, 
-  ExternalLink, 
+  AlertTriangle,
   ArrowRight, 
   RefreshCw, 
   Layers, 
-  Image as ImageIcon
+  Image as ImageIcon,
+  Search,
+  MapPin,
+  Phone,
+  UserCheck
 } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { notify } from '@/src/shared/utils/notify';
@@ -28,6 +32,8 @@ import {
   adaptSalesOrderToQuotation
 } from '../utils/salesOrderAdapter';
 import { aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
+import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressParser';
+import { VIETNAM_PROVINCES_63 } from '@/src/hooks/useSharedFields';
 
 interface Props {
   isOpen: boolean;
@@ -52,6 +58,17 @@ export function CreateQuotationFromSalesOrderModal({
   const [autoProvisionCustomer, setAutoProvisionCustomer] = useState(true);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+  // Typeahead search states
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Dynamic user-customizable values from preview
+  const [customMobilePhone, setCustomMobilePhone] = useState('');
+  const [customProvince, setCustomProvince] = useState('');
+  const [customRepresentative, setCustomRepresentative] = useState('');
+
   const { createRecord: createCustomerRecord } = useMutation<Customer>({ collection: 'customers' });
 
   // Reset when modal opens
@@ -61,6 +78,11 @@ export function CreateQuotationFromSalesOrderModal({
       setErpData(null);
       setSelectedImage(null);
       setAutoProvisionCustomer(true);
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      setCustomMobilePhone('');
+      setCustomProvince('');
+      setCustomRepresentative('');
     }
   }, [isOpen]);
 
@@ -76,6 +98,60 @@ export function CreateQuotationFromSalesOrderModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, selectedImage, onClose]);
 
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Sync province & representative when erpData is loaded
+  useEffect(() => {
+    if (erpData) {
+      const snap = erpData.customer_snapshot || {};
+      const detected = detectProvinceFromAddress(erpData.delivery_address || snap.address || '', VIETNAM_PROVINCES_63) || 'TP. Hồ Chí Minh';
+      setCustomProvince(detected);
+      setCustomRepresentative(snap.representative || '');
+      setCustomMobilePhone('');
+    }
+  }, [erpData]);
+
+  // Live Typeahead search debounced
+  useEffect(() => {
+    const q = orderCode.trim();
+    if (!isOpen || q.length < 2 || q.startsWith('http')) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/quotations/erp-sales-orders-search?q=${encodeURIComponent(q)}`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          setSearchResults(json.data);
+          setShowSearchDropdown(true);
+        } else {
+          setSearchResults([]);
+          setShowSearchDropdown(false);
+        }
+      } catch {
+        setSearchResults([]);
+        setShowSearchDropdown(false);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [orderCode, isOpen]);
+
   if (!isOpen) return null;
 
   const handleLookup = async (codeToSearch?: string) => {
@@ -85,12 +161,20 @@ export function CreateQuotationFromSalesOrderModal({
       return;
     }
 
+    setShowSearchDropdown(false);
     setLoading(true);
     try {
       let cleanCode = target.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').trim();
-      if (cleanCode.includes('/')) {
-        const parts = cleanCode.split('/');
-        cleanCode = parts[parts.length - 1].trim();
+      
+      // Chỉ bóc tách phần đuôi nếu chuỗi là URL HTTP/HTTPS
+      if (cleanCode.startsWith('http://') || cleanCode.startsWith('https://')) {
+        try {
+          const parsedUrl = new URL(cleanCode);
+          const parts = parsedUrl.pathname.split('/').filter(Boolean);
+          cleanCode = decodeURIComponent(parts[parts.length - 1] || '');
+        } catch {
+          // Giữ nguyên
+        }
       }
 
       const res = await fetch(`/api/quotations/erp-sales-order/${encodeURIComponent(cleanCode)}`);
@@ -112,11 +196,22 @@ export function CreateQuotationFromSalesOrderModal({
     }
   };
 
+  const handleSelectSuggestedOrder = (item: any) => {
+    setShowSearchDropdown(false);
+    const chosenCode = item.code || item.original_code;
+    setOrderCode(chosenCode);
+    handleLookup(chosenCode);
+  };
+
   // Derive preview data if loaded
   const customerResolution = erpData ? resolveCustomerFromErp(erpData, customers) : null;
   const tareInfo = erpData ? parseTareDecomposition(erpData.content) : null;
   const productItems = erpData ? convertErpLinesToProductItems(erpData.lines || [], tareInfo || undefined) : [];
   const aggs = productItems.length > 0 ? aggregateProducts(productItems) : null;
+
+  // Phone analysis
+  const rawCustomerPhone = erpData?.customer_snapshot?.phone || '';
+  const isLandline = rawCustomerPhone.startsWith('02') || (rawCustomerPhone.length > 0 && !/^(03|05|07|08|09)\d{8}$/.test(rawCustomerPhone.replace(/\D/g, '')));
 
   // Generate sequence code for new quote
   const generateNextQuoteCode = () => {
@@ -140,6 +235,10 @@ export function CreateQuotationFromSalesOrderModal({
     if (!erpData) return;
 
     let targetCustomer = customerResolution?.matchedCustomer || null;
+    const snapshot = erpData.customer_snapshot || {};
+    const finalPhone = customMobilePhone.trim() || rawCustomerPhone || '';
+    const finalProvince = customProvince || detectProvinceFromAddress(erpData.delivery_address || snapshot.address || '', VIETNAM_PROVINCES_63) || 'TP. Hồ Chí Minh';
+    const finalRep = customRepresentative.trim() || snapshot.representative || '';
 
     // If customer not found and auto-provision is enabled, create new customer in CRM
     if (!targetCustomer && autoProvisionCustomer) {
@@ -159,17 +258,34 @@ export function CreateQuotationFromSalesOrderModal({
           nextCustomerCode = `KH-${year}-${String(maxSeq + 1).padStart(4, '0')}`;
         }
 
-        const snapshot = erpData.customer_snapshot || {};
         const newCustomerData: Partial<Customer> = {
           maKh: nextCustomerCode,
           tenKhachHang: snapshot.customer_name || 'Khách hàng ERP',
           maSoThue: snapshot.tax_code || '',
-          sdt: snapshot.phone || erpData.our_contact_person || '',
+          sdt: finalPhone,
           diaChi: erpData.delivery_address || snapshot.address || '',
-          nguoiDaiDien: snapshot.representative || '',
+          tinhThanh: finalProvince,
+          nguoiDaiDien: finalRep,
           loaiKh: 'Doanh nghiệp',
-          nguoiPhuTrach: userOfficer || '',
+          nguoiPhuTrach: userOfficer || erpData.created_by_name || 'Quản trị viên',
+          contacts: [
+            {
+              danhXung: 'Anh/Chị',
+              nguoiDaiDien: finalRep || 'Đại diện',
+              sdt: finalPhone,
+              chucVu: 'Đại diện',
+              chiNhanh: 'Trụ sở chính'
+            },
+            ...(rawCustomerPhone && customMobilePhone.trim() && rawCustomerPhone !== customMobilePhone.trim() ? [{
+              danhXung: 'Văn phòng',
+              nguoiDaiDien: 'Điện thoại bàn',
+              sdt: rawCustomerPhone,
+              chucVu: 'Điện thoại bàn',
+              chiNhanh: 'Trụ sở chính'
+            }] : [])
+          ],
           ngayTao: new Date().toISOString(),
+          ngayCapNhat: new Date().toISOString(),
           tags: ['ERP_IMPORT', 'SALES_ORDER'],
         };
 
@@ -183,6 +299,11 @@ export function CreateQuotationFromSalesOrderModal({
 
     const nextQuoteCode = generateNextQuoteCode();
     const quotationDraft = adaptSalesOrderToQuotation(erpData, targetCustomer, nextQuoteCode, userOfficer);
+
+    // Apply custom dynamic user edits to quotation draft
+    if (finalPhone) quotationDraft.sdt = finalPhone;
+    if (finalProvince) (quotationDraft as any).tinhThanh = finalProvince;
+    if (finalRep) quotationDraft.nguoiDaiDien = finalRep;
 
     onQuotationConstructed(quotationDraft, targetCustomer || undefined);
     onClose();
@@ -204,7 +325,7 @@ export function CreateQuotationFromSalesOrderModal({
                   Dựng Báo Giá từ Đơn Hàng ERP
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-3xs font-extrabold bg-blue-500/20 text-blue-300 border border-blue-400/30 uppercase tracking-widest">
-                  Nexus 50.0
+                  Nexus 53.0
                 </span>
               </div>
               <p className="text-2xs text-slate-400 mt-0.5">
@@ -220,31 +341,91 @@ export function CreateQuotationFromSalesOrderModal({
           </button>
         </div>
 
-        {/* Search Bar & Quick Test Chips */}
-        <div className="p-5 bg-slate-50/80 border-b border-slate-200 shrink-0 space-y-2">
+        {/* Search Bar & Live Typeahead Dropdown */}
+        <div className="p-5 bg-slate-50/80 border-b border-slate-200 shrink-0 space-y-2 relative" ref={searchContainerRef}>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <input
                 type="text"
                 value={orderCode}
                 onChange={(e) => setOrderCode(e.target.value)}
+                onFocus={() => {
+                  if (searchResults.length > 0) setShowSearchDropdown(true);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     handleLookup();
                   }
                 }}
-                placeholder="Nhập mã đơn hàng (VD: 11-KDDH2609-019) hoặc dán toàn bộ đường link API..."
+                placeholder="Nhập mã đơn hàng ERP (VD: 11-KDDH2609-019, 238/VT-SGM/2026) hoặc tên công ty..."
                 className="w-full h-11 pl-4 pr-10 text-xs sm:text-sm font-mono border border-slate-300 rounded-xl bg-white shadow-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition-all placeholder:text-slate-400"
               />
+              {isSearching && (
+                <div className="absolute right-9 top-1/2 -translate-y-1/2 text-blue-600 animate-spin">
+                  <RefreshCw size={14} />
+                </div>
+              )}
               {orderCode && (
                 <button
                   type="button"
-                  onClick={() => setOrderCode('')}
+                  onClick={() => {
+                    setOrderCode('');
+                    setShowSearchDropdown(false);
+                  }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
                 >
                   <X size={14} />
                 </button>
+              )}
+
+              {/* Typeahead Suggestions Popover */}
+              {showSearchDropdown && searchResults.length > 0 && (
+                <div className="absolute left-0 right-0 top-12 z-50 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden divide-y divide-slate-100 max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-3 py-1.5 bg-slate-50 text-3xs font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+                    <span>Gợi ý đơn hàng ERP phù hợp ({searchResults.length})</span>
+                    <span>Bấm để nạp nhanh</span>
+                  </div>
+                  {searchResults.map((item, idx) => (
+                    <div
+                      key={item._id || item.id || idx}
+                      onClick={() => handleSelectSuggestedOrder(item)}
+                      className="p-3 hover:bg-blue-50/70 transition-colors cursor-pointer flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                            {item.code}
+                          </span>
+                          {item.original_code && item.original_code !== item.code && (
+                            <span className="font-mono text-2xs text-slate-500">
+                              (Gốc: {item.original_code})
+                            </span>
+                          )}
+                          <span className="text-3xs text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-semibold">
+                            {item.so_approval_status === 'approved' || item.so_approval_status === 'accepted' ? 'Đã duyệt' : item.so_approval_status || 'ERP'}
+                          </span>
+                        </div>
+                        <div className="font-semibold text-slate-900 truncate">
+                          {item.customer_name_display || item.content || 'Khách hàng ERP'}
+                        </div>
+                        {item.content && (
+                          <div className="text-2xs text-slate-500 truncate">
+                            {item.content}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-mono font-bold text-slate-800">
+                          {Number(item.total_after_tax || 0).toLocaleString('vi-VN')} ₫
+                        </div>
+                        <div className="text-3xs text-slate-400 font-mono">
+                          {item.order_date ? item.order_date.substring(0, 10) : ''}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
             <Button
@@ -279,7 +460,17 @@ export function CreateQuotationFromSalesOrderModal({
             >
               11-KDDH2609-019
             </button>
-            <span className="text-slate-400">• Đơn phế liệu mẫu có 11 phiếu cân bàn và PDF xác nhận</span>
+            <button
+              type="button"
+              onClick={() => {
+                setOrderCode('238/VT-SGM/2026');
+                handleLookup('238/VT-SGM/2026');
+              }}
+              className="px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 font-mono font-medium transition-colors cursor-pointer"
+            >
+              238/VT-SGM/2026
+            </button>
+            <span className="text-slate-400">• Tự động nhận diện Tỉnh/Thành &amp; Phân giải phả hệ</span>
           </div>
         </div>
 
@@ -293,7 +484,7 @@ export function CreateQuotationFromSalesOrderModal({
               <div className="space-y-1">
                 <h4 className="text-sm font-bold text-slate-800">Sẵn sàng phân giải dữ liệu</h4>
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  Nhập mã số đơn hàng trên hệ thống ERP (ví dụ <code className="font-mono text-blue-600 bg-blue-50 px-1 py-0.5 rounded">11-KDDH2609-019</code>) để tự động trích xuất vật tư, số cân và chứng từ đính kèm.
+                  Nhập trường <code className="font-mono text-blue-600 bg-blue-50 px-1 py-0.5 rounded">code</code> (ví dụ: <strong className="font-mono">11-KDDH2609-019</strong>, <strong className="font-mono">238/VT-SGM/2026</strong>) hoặc tên công ty để tự động trích xuất vật tư, số cân và chứng từ đính kèm.
                 </p>
               </div>
             </div>
@@ -325,17 +516,61 @@ export function CreateQuotationFromSalesOrderModal({
                     )}
                   </div>
 
-                  <div className="space-y-1 text-xs">
+                  <div className="space-y-1.5 text-xs">
                     <div className="font-bold text-slate-900 text-sm">
                       {erpData.customer_snapshot?.customer_name || 'Chưa có tên công ty'}
                     </div>
-                    <div className="flex items-center gap-3 text-2xs text-slate-600">
-                      <span>MST: <strong className="font-mono text-slate-800">{erpData.customer_snapshot?.tax_code || erpData.customer_id || 'Không có'}</strong></span>
-                      <span>SĐT: <strong className="font-mono text-slate-800">{erpData.customer_snapshot?.phone || erpData.our_contact_person || 'Theo thỏa thuận'}</strong></span>
+
+                    <div className="grid grid-cols-2 gap-2 text-2xs text-slate-600">
+                      <div>
+                        MST: <strong className="font-mono text-slate-800">{erpData.customer_snapshot?.tax_code || erpData.customer_id || 'Không có'}</strong>
+                      </div>
+                      <div>
+                        SĐT ERP: <strong className="font-mono text-slate-800">{rawCustomerPhone || 'Chưa có'}</strong>
+                      </div>
                     </div>
+
+                    {/* Geocoding Province Field */}
+                    <div className="flex items-center gap-2 text-2xs pt-1">
+                      <MapPin size={13} className="text-rose-600 shrink-0" />
+                      <span className="text-slate-500 font-medium shrink-0">Tỉnh/Thành:</span>
+                      <select
+                        value={customProvince}
+                        onChange={(e) => setCustomProvince(e.target.value)}
+                        className="px-2 py-0.5 text-xs border border-slate-300 rounded bg-white font-semibold text-slate-800 outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                      >
+                        {VIETNAM_PROVINCES_63.map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                      <span className="text-3xs text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200 font-bold">
+                        Tự nhận diện
+                      </span>
+                    </div>
+
                     <div className="text-2xs text-slate-500 line-clamp-2">
                       Địa chỉ: {erpData.delivery_address || erpData.customer_snapshot?.address || 'Theo thỏa thuận'}
                     </div>
+
+                    {/* Landline Warning & Inline Mobile ZNS Completion */}
+                    {isLandline && (
+                      <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-2.5 text-xs space-y-1.5 mt-2">
+                        <div className="flex items-center gap-1.5 text-amber-800 font-bold text-2xs">
+                          <AlertTriangle size={13} className="text-amber-600 shrink-0" />
+                          <span>SĐT bàn cố định ({rawCustomerPhone || 'Chưa rõ'}) — Không thể nhận tin ZNS Zalo</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={customMobilePhone}
+                            onChange={(e) => setCustomMobilePhone(e.target.value)}
+                            placeholder="Nhập SĐT di động nhận ZNS (VD: 0912345678)..."
+                            className="flex-1 px-2.5 py-1 text-xs border border-amber-300 rounded-lg bg-white font-mono outline-none focus:ring-1 focus:ring-amber-500 text-slate-900"
+                          />
+                          <span className="text-3xs text-slate-500 italic shrink-0">(Bổ sung linh hoạt)</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {!customerResolution?.matchedCustomer && (
@@ -357,7 +592,7 @@ export function CreateQuotationFromSalesOrderModal({
                     <div className="flex items-center gap-2">
                       <Scale size={15} className="text-emerald-600" />
                       <span className="text-2xs font-extrabold uppercase tracking-wider text-slate-700">
-                        Thông Tin Đơn Hàng &amp; Cân Trừ Bì
+                        Thông tin đơn hàng
                       </span>
                     </div>
                     <span className="font-mono text-2xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">

@@ -195,11 +195,11 @@ export const DataViewRow = React.memo(({
                         e.stopPropagation();
                       }
                     }}
-                    className={`px-4 ${pyClass} flex-shrink-0 flex items-center border-r border-slate-200/60 last:border-r-0 ${alignClass} ${isSticky ? `sticky left-0 z-10 shadow-[inset_-1px_0_0_#e2e8f0] bg-inherit` : ''} ${stickRight ? `sticky right-0 z-10 shadow-[inset_1px_0_0_#e2e8f0] bg-inherit max-xl:opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity` : ''} ${hiddenOnTablet ? 'hidden xl:flex' : 'flex'}`}
+                    className={`px-4 ${pyClass} flex-shrink-0 min-w-0 flex items-center border-r border-slate-200/60 last:border-r-0 ${alignClass} ${isSticky ? `sticky left-0 z-10 shadow-[inset_-1px_0_0_#e2e8f0] bg-inherit` : ''} ${stickRight ? `sticky right-0 z-10 shadow-[inset_1px_0_0_#e2e8f0] bg-inherit max-xl:opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-opacity` : ''} ${hiddenOnTablet ? 'hidden xl:flex' : 'flex'}`}
                     style={{ width: index === 0 ? `calc(var(--col-${typedCell.column.id}) + ${depthPadding}px)` : `calc(var(--col-${typedCell.column.id}) + 0px)`, paddingLeft: index === 0 ? `${16 + depthPadding}px` : undefined }}
                   >
                     <div 
-                      className={`w-full ${tabularClass}`} 
+                      className={`w-full min-w-0 overflow-hidden ${tabularClass}`} 
                       title={typeof cellValue === 'string' || typeof cellValue === 'number' ? String(cellValue) : undefined}
                     >
                       {flexRender(typedCell.column.columnDef.cell, typedCell.getContext())}

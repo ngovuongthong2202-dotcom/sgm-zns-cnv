@@ -318,6 +318,8 @@ export function QuickCustomerModal({
         loaiKh,
         nguoiPhuTrach: defaultOfficer,
         contacts: formattedContacts,
+        ngayTao: new Date().toISOString(),
+        ngayCapNhat: new Date().toISOString(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };

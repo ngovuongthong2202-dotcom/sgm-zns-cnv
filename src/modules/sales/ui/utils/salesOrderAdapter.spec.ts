@@ -139,4 +139,15 @@ describe('salesOrderAdapter', () => {
     expect(quotation.attachments?.length).toBe(2);
     expect(quotation.attachments?.[0].name).toBe('Thùng đen 02 (3190kg).jpg');
   });
+
+  it('tự động nhận diện Tỉnh/Thành và không lấy nhầm số điện thoại bên bán our_contact_person', () => {
+    // Trường hợp khách hàng mới hoàn toàn, phone trong ERP là null
+    const quotation = adaptSalesOrderToQuotation(mockErpData, null, 'BGVT-2026-0089', 'dung.ntt3');
+
+    // Không được lấy our_contact_person (0822041576) gán cho khách
+    expect(quotation.sdt).toBe('');
+    // Tự động geocoding từ 'Số 1 đường số 10, KP15, P. Bình Hưng Hòa A, Q.Bình Tân -Tp.HCM'
+    expect((quotation as any).tinhThanh).toBe('TP Hồ Chí Minh');
+    expect(quotation.nguoiPhuTrach).toBe('dung.ntt3');
+  });
 });

@@ -93,12 +93,12 @@ export const getQuotationColumns = (
       
       return (
         <QuotationHoverCard quotation={{ ...q, tenKhachHang: displayName, sdt: phone }}>
-          <div className="w-full min-w-0 flex flex-col justify-center gap-0.5 pointer-events-auto">
-            <span className="font-medium text-slate-900 text-xs leading-tight truncate transition-colors group-hover:text-blue-600" title={name}>
+          <div className="w-full min-w-0 flex flex-col justify-center gap-0.5 pointer-events-auto py-1">
+            <span className="font-semibold text-slate-900 text-xs leading-snug whitespace-normal break-words line-clamp-2 transition-colors group-hover:text-blue-600" title={name}>
               {name}
             </span>
             {detailStr && (
-              <span className="text-xs text-slate-500 font-normal truncate" title={detailStr}>
+              <span className="text-2xs text-slate-500 font-normal truncate" title={detailStr}>
                 {detailStr}
               </span>
             )}

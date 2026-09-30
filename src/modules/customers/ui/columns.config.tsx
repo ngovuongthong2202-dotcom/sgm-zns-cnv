@@ -41,7 +41,7 @@ export const getCustomerColumns = (
     size: 100,
     cell: (info) => {
       const row = info.row.original;
-      const dateVal = row.ngayTao || '';
+      const dateVal = row.ngayTao || (row as any).createdAt || (row as any).created_at || '';
       return (
         <div className="w-full min-w-0 flex items-center">
           <span className="truncate block text-slate-600 font-medium text-xs font-mono" title={String(dateVal)}>
@@ -54,20 +54,20 @@ export const getCustomerColumns = (
   {
     accessorKey: 'tenKhachHang',
     header: 'Khách hàng',
-    size: 260,
+    size: 280,
     cell: (info) => {
       const c = info.row.original;
       const active = c.id && presenceMap?.[c.id] ? presenceMap[c.id] : [];
       const normalizedName = normalizeBusinessName(c.tenKhachHang);
       return (
         <CustomerHoverCard customer={c}>
-          <div className="w-full min-w-0 flex flex-col justify-center gap-0.5 pointer-events-auto">
-            <div className="flex items-center gap-1.5 w-full min-w-0">
-              <span className="truncate block font-medium text-slate-900 text-xs leading-tight" title={normalizedName}>
+          <div className="w-full min-w-0 flex flex-col justify-center gap-0.5 pointer-events-auto py-1">
+            <div className="flex items-start gap-1.5 w-full min-w-0">
+              <span className="whitespace-normal break-words line-clamp-2 font-semibold text-slate-900 text-xs leading-snug flex-1" title={normalizedName}>
                 {normalizedName}
               </span>
               {active.length > 0 && (
-                <span className="bg-blue-100 text-blue-800 text-2xs font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0" title={active.map(u => u.displayName).join(', ')}>
+                <span className="bg-blue-100 text-blue-800 text-2xs font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0 mt-0.5" title={active.map(u => u.displayName).join(', ')}>
                   👤 {active.length}
                 </span>
               )}

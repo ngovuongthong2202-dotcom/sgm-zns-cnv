@@ -4,6 +4,7 @@ import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
 import { detectItemType } from '@/src/widgets/product-list-input/useProductItemSemantic';
 import { QUOTATION_LOAI } from '@/src/domain/enums/quotation-loai';
+import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressParser';
 
 export interface ErpSalesOrderItemLine {
   line_id?: string | null;
@@ -84,6 +85,7 @@ export interface ErpSalesOrderData {
   files?: ErpSalesOrderFile[];
   so_approval_status?: string;
   so_approval_workflow_name?: string;
+  created_by_name?: string;
   _company?: {
     name?: string;
     short_name?: string;
@@ -307,8 +309,9 @@ export function adaptSalesOrderToQuotation(
     customerId: matchedCustomer?.id || '',
     maKh: matchedCustomer?.maKh || snapshot.tax_code || erpData.customer_id || '',
     tenKhachHang: matchedCustomer?.tenKhachHang || snapshot.customer_name || 'Khách hàng ERP',
-    sdt: matchedCustomer?.sdt || snapshot.phone || erpData.our_contact_person || '',
+    sdt: matchedCustomer?.sdt || snapshot.phone || '',
     diaChi: matchedCustomer?.diaChi || erpData.delivery_address || snapshot.address || '',
+    tinhThanh: (matchedCustomer as any)?.tinhThanh || detectProvinceFromAddress(erpData.delivery_address || snapshot.address || '') || undefined,
     nguoiDaiDien: matchedCustomer?.nguoiDaiDien || snapshot.representative || '',
     ngayBaoGia,
     hieuLuc: erpData.expected_delivery_days || 7,
@@ -332,6 +335,6 @@ export function adaptSalesOrderToQuotation(
         ? `Gross: ${tareInfo.grossTotal}kg - Tare: ${tareInfo.tareTotal}kg = Net: ${tareInfo.netTotal}kg`
         : undefined,
     },
-    nguoiPhuTrach: userOfficer,
+    nguoiPhuTrach: userOfficer || erpData.created_by_name || 'Quản trị viên',
   };
 }

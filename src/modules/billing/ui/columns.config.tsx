@@ -234,8 +234,8 @@ export const getPaymentColumns = (
       const uniqueContacts = Array.from(new Map(contactsToDisplay.map(item => [`${item.name}-${item.phone}`, item])).values());
 
       return (
-        <div className="flex flex-col gap-0.5" title={cName}>
-          <span className="font-semibold text-slate-900 tracking-tight line-clamp-1">{cName}</span>
+        <div className="flex flex-col gap-0.5 py-1" title={cName}>
+          <span className="font-semibold text-slate-900 tracking-tight line-clamp-2 break-words whitespace-normal leading-snug">{cName}</span>
           {uniqueContacts.map((contact, idx) => (
              <span key={idx} className="text-2xs text-slate-500 line-clamp-1">
                {contact.name} {contact.phone ? `- ${contact.phone}` : ''}
