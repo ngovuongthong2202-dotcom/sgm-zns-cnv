@@ -81,7 +81,12 @@ export function sanitizeZnsCustomerName(rawName: string): string {
     .trim();
     
   if (condensed.length <= 30) return condensed;
-  return condensed.substring(0, 30).trim();
+  const sub = condensed.substring(0, 30).trim();
+  const lastSpace = sub.lastIndexOf(' ');
+  if (lastSpace > 10) {
+    return sub.substring(0, lastSpace).trim();
+  }
+  return sub;
 }
 
 export class ZnsPayloadBuilder {
@@ -344,6 +349,8 @@ export class ZnsPayloadBuilder {
 
     // Format values with ultimate fallback ensuring Zalo parameter is never empty and strictly <= 30 chars
     const rawCustomerName = (
+      (p as any).tenZns ||
+      (p as any).tenThuongMai ||
       variables.customer_name || 
       p.tenKhachHang || 
       p.customer_name || 

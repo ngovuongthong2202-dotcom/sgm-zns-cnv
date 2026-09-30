@@ -21,9 +21,13 @@ export const CustomerSchema = z.object({
   maKh: z.string().min(1, 'Mã KH là bắt buộc').transform((val) => (val || '').trim().replace(/[\u200B-\u200D\uFEFF]/g, '')), // Business Key
   loaiKh: zSafeString.optional(),
   tenKhachHang: z.string().min(1, 'Tên khách hàng là bắt buộc').transform((val) => cleanProperVietnameseText(val || '')),
+  tenPhapLy: zProperString.optional(),
+  tenThuongMai: zProperString.optional(),
+  tenZns: zProperString.optional(),
   loaiHinhDoanhNghiep: zSafeString.optional().transform((val) => (val || '').trim().toUpperCase()),
   maSoThue: zSafeString.optional().transform((val) => val ? sanitizeTaxCode(val) : ''),
   nguoiDaiDien: zProperString.optional(),
+  sdtBan: zPhoneString.optional(),
   gioiTinh: zSafeString.optional(),
   ngaySinh: zSafeString.optional(), // ISO Date string
   sdt: zPhoneString.optional(),

@@ -202,7 +202,7 @@ export const getPaymentColumns = (
       return liveCustomer?.tenKhachHang || row.tenKhachHang || row.customerId;
     },
     header: 'Khách hàng',
-    size: 200,
+    size: 280,
     cell: (info) => {
       const p = info.row.original as Payment;
       const contactsToDisplay: { name: string; phone: string }[] = [];
@@ -235,7 +235,7 @@ export const getPaymentColumns = (
 
       return (
         <div className="flex flex-col gap-0.5 py-1" title={cName}>
-          <span className="font-semibold text-slate-900 tracking-tight line-clamp-2 break-words whitespace-normal leading-snug">{cName}</span>
+          <span className="font-semibold text-slate-900 tracking-tight line-clamp-3 break-words whitespace-normal leading-snug">{cName}</span>
           {uniqueContacts.map((contact, idx) => (
              <span key={idx} className="text-2xs text-slate-500 line-clamp-1">
                {contact.name} {contact.phone ? `- ${contact.phone}` : ''}

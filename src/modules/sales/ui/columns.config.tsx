@@ -81,7 +81,7 @@ export const getQuotationColumns = (
     accessorKey: 'tenKhachHang',
     id: 'tenKhachHang',
     header: 'Khách hàng',
-    size: 260,
+    size: 290,
     cell: (info) => {
       const q = info.row.original;
       const liveCustomer = allCustomers?.find(c => c.id === q.customerId || (c.maKh && c.maKh === q.customerId));
@@ -94,7 +94,7 @@ export const getQuotationColumns = (
       return (
         <QuotationHoverCard quotation={{ ...q, tenKhachHang: displayName, sdt: phone }}>
           <div className="w-full min-w-0 flex flex-col justify-center gap-0.5 pointer-events-auto py-1">
-            <span className="font-semibold text-slate-900 text-xs leading-snug whitespace-normal break-words line-clamp-2 transition-colors group-hover:text-blue-600" title={name}>
+            <span className="font-semibold text-slate-900 text-xs leading-snug whitespace-normal break-words line-clamp-3 transition-colors group-hover:text-blue-600" title={name}>
               {name}
             </span>
             {detailStr && (

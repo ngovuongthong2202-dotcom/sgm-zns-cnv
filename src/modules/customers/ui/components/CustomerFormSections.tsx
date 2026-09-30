@@ -172,18 +172,18 @@ export function CustomerFormProfileSection({
           <div className="flex items-center justify-between">
             <label className="text-2xs font-medium uppercase text-slate-500 flex items-center gap-1.5" htmlFor="tenKhachHang">
               {isIndividual ? 'Họ và tên Khách hàng (Cá nhân)' : 'Tên KH / Pháp nhân'} <span className="text-red-500">*</span>
-              {!isIndividual && (watch('tenKhachHang') || '').length > 0 && (
-                <span className={`text-3xs font-black px-1.5 py-0.2 rounded border select-none ${
-                  (watch('tenKhachHang') || '').length <= 29 
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
-                    : (watch('tenKhachHang') || '').length <= 35
-                    ? 'bg-amber-50 text-amber-900 border-amber-300'
-                    : 'bg-rose-50 text-rose-800 border-rose-300'
-                }`}>
-                  {(watch('tenKhachHang') || '').length}/30 kt {(watch('tenKhachHang') || '').length <= 29 ? '✓ Chuẩn ZNS' : '⚠️ Vượt hạn ZNS'}
+              {!isIndividual && (
+                <span className="text-3xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                  Pháp Lý ĐKKD / Hóa Đơn B2B
                 </span>
               )}
             </label>
+            {!isIndividual && (watch('tenZns' as any) || watch('tenKhachHang')) && (
+              <span className="text-3xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                <Sparkles size={10} className="text-emerald-600" />
+                Tên ZNS: <strong className="font-bold">{String(watch('tenZns' as any) || watch('tenKhachHang')).slice(0, 30)}</strong> ({Math.min(30, String(watch('tenZns' as any) || watch('tenKhachHang')).length)}/30 kt)
+              </span>
+            )}
           </div>
           <div className="relative">
             <input
@@ -209,14 +209,20 @@ export function CustomerFormProfileSection({
                     setValue('nguoiDaiDien', cleaned, { shouldDirty: true });
                   }
                 } else {
-                  const { loaiHinh } = autoDetectBusinessName(val);
+                  const { loaiHinh, tenZns, tenThuongMai } = autoDetectBusinessName(val);
                   if (loaiHinh && !watch('loaiHinhDoanhNghiep')) {
                     setValue('loaiHinhDoanhNghiep', loaiHinh, { shouldDirty: true });
+                  }
+                  if (tenZns && !watch('tenZns' as any)) {
+                    setValue('tenZns' as any, tenZns, { shouldDirty: true });
+                  }
+                  if (tenThuongMai && !watch('tenThuongMai' as any)) {
+                    setValue('tenThuongMai' as any, tenThuongMai, { shouldDirty: true });
                   }
                 }
               }}
               className="w-full placeholder:text-slate-300 h-8 border border-slate-200 rounded-lg pl-3 pr-8 text-sm font-semibold text-slate-900"
-              placeholder={isIndividual ? "Ví dụ: Nguyễn Văn An, Trần Thị Bích..." : "Mô tả và tên đầy đủ của doanh nghiệp..."}
+              placeholder={isIndividual ? "Ví dụ: Nguyễn Văn An, Trần Thị Bích..." : "Tên đầy đủ theo ĐKKD: CÔNG TY TNHH TẬP ĐOÀN TÔN THIÊN TÂN..."}
             />
             {isAiFormatting ? (
               <Loader2 className="w-4 h-4 text-blue-500 absolute right-2 top-2 animate-spin" />
@@ -225,7 +231,7 @@ export function CustomerFormProfileSection({
                 type="button" 
                 onClick={() => smartFormatNameAI(watch('tenKhachHang') || '')}
                 className="absolute right-1.5 top-1.5 p-1 text-amber-500 hover:bg-amber-50 rounded-md transition-colors"
-                title="Dùng AI chuẩn hoá tên (vắt cụm từ)"
+                title="Dùng AI trích xuất Tên ZNS và Tên Thương Mại"
               >
                 <Sparkles className="w-3.5 h-3.5" />
               </Button>
@@ -238,19 +244,25 @@ export function CustomerFormProfileSection({
             const identityResult = generateEnterpriseNameSuggestions(watch('tenKhachHang') || '');
             if (!identityResult?.suggestions || identityResult.suggestions.length === 0) return null;
             const currentVal = (watch('tenKhachHang') || '').trim();
+            const currentZns = (watch('tenZns' as any) || '').trim();
             return (
               <div className="pt-1.5 flex flex-wrap items-center gap-1.5 animate-in fade-in duration-200">
                 <span className="text-3xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                  <Sparkles size={10} className="text-amber-500" /> Gợi ý chuẩn ZNS:
+                  <Sparkles size={10} className="text-amber-500" /> Gợi ý định danh &amp; ZNS:
                 </span>
                 {identityResult.suggestions.map((sug) => {
-                  const isSelected = sug.value.toLowerCase() === currentVal.toLowerCase();
+                  const isSelected = sug.value.toLowerCase() === currentVal.toLowerCase() || sug.value.toLowerCase() === currentZns.toLowerCase();
                   return (
                     <button
                       key={sug.id}
                       type="button"
                       onClick={() => {
-                        setValue('tenKhachHang', sug.value, { shouldDirty: true });
+                        if (sug.category === 'LEGAL') {
+                          setValue('tenKhachHang', sug.value, { shouldDirty: true });
+                        } else {
+                          setValue('tenZns' as any, sug.value, { shouldDirty: true });
+                          setValue('tenThuongMai' as any, sug.value, { shouldDirty: true });
+                        }
                         if (identityResult.loaiHinh && !watch('loaiHinhDoanhNghiep')) {
                           setValue('loaiHinhDoanhNghiep', identityResult.loaiHinh, { shouldDirty: true });
                         }
@@ -262,8 +274,8 @@ export function CustomerFormProfileSection({
                       }`}
                       title={`Bấm để chọn: ${sug.label} (${sug.charCount} ký tự)`}
                     >
+                      <span className="opacity-80 text-3xs font-normal">[{sug.badgeText}]</span>
                       <span>{sug.value}</span>
-                      <span className="opacity-75 font-mono text-3xs font-normal">({sug.charCount} kt)</span>
                     </button>
                   );
                 })}

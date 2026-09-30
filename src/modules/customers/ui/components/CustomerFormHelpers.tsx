@@ -230,34 +230,11 @@ export function generateEnterpriseNameSuggestions(rawName: string): CorporateIde
     workingStr = workingStr.slice(0, branchMatch.index).trim();
   }
 
-  // 4. Chuẩn hóa Lõi Thương Hiệu & Ngành Nghề
+  // 4. Chuẩn hóa Lõi Thương Hiệu & Ngành Nghề (Vietnamese Linguistic Preserving Engine)
   let brandWithIndustry = workingStr.replace(/[\s\-–:;,.]+$/, '').trim();
   if (!brandWithIndustry) {
     brandWithIndustry = raw;
   }
-
-  // Rút gọn các cụm từ ngành nghề dài
-  let condensedIndustry = brandWithIndustry;
-  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Thương Mại\s+(?:Và|&)\s+Dịch Vụ|Thương Mại\s+Dịch Vụ)(?![\p{L}\p{N}])/gui, 'TM&DV');
-  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Sản Xuất\s+(?:Và|&)\s+Thương Mại|Sản Xuất\s+Thương Mại)(?![\p{L}\p{N}])/gui, 'SX-TM');
-  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Đầu Tư\s+(?:Và|&)\s+Phát Triển)(?![\p{L}\p{N}])/gui, 'ĐT&PT');
-  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Đầu Tư\s+(?:Và|&)\s+Xây Dựng|Đầu Tư\s+Xây Dựng)(?![\p{L}\p{N}])/gui, 'ĐT-XD');
-  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Cơ Khí\s+(?:Và|&)\s+Chế Tạo|Cơ Khí\s+Chế Tạo)(?![\p{L}\p{N}])/gui, 'Cơ Khí');
-  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Xuất Nhập Khẩu)(?![\p{L}\p{N}])/gui, 'XNK');
-  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Kỹ Thuật)(?![\p{L}\p{N}])/gui, 'KT');
-  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Vận Tải)(?![\p{L}\p{N}])/gui, 'VT');
-  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Công Nghệ)(?![\p{L}\p{N}])/gui, 'CN');
-  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Tập Đoàn)(?![\p{L}\p{N}])/gui, 'TĐ');
-  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Tổng Công Ty)(?![\p{L}\p{N}])/gui, 'TCT');
-
-  // Rút gọn thêm các từ đơn lẻ nếu cần
-  let ultraCompactBrand = condensedIndustry;
-  ultraCompactBrand = ultraCompactBrand.replace(/(?<![\p{L}\p{N}])Thương Mại(?![\p{L}\p{N}])/gui, 'TM');
-  ultraCompactBrand = ultraCompactBrand.replace(/(?<![\p{L}\p{N}])Dịch Vụ(?![\p{L}\p{N}])/gui, 'DV');
-  ultraCompactBrand = ultraCompactBrand.replace(/(?<![\p{L}\p{N}])Đầu Tư(?![\p{L}\p{N}])/gui, 'ĐT');
-  ultraCompactBrand = ultraCompactBrand.replace(/(?<![\p{L}\p{N}])Sản Xuất(?![\p{L}\p{N}])/gui, 'SX');
-  ultraCompactBrand = ultraCompactBrand.replace(/(?<![\p{L}\p{N}])Xây Dựng(?![\p{L}\p{N}])/gui, 'XD');
-  ultraCompactBrand = ultraCompactBrand.replace(/(?<![\p{L}\p{N}])Nông Nghiệp(?![\p{L}\p{N}])/gui, 'NN');
 
   // Làm sạch dấu cách và dấu gạch thừa
   const cleanFinal = (str: string) => {
@@ -270,55 +247,99 @@ export function generateEnterpriseNameSuggestions(rawName: string): CorporateIde
       .trim();
   };
 
-  // Trích xuất lõi thương hiệu riêng (Brand Core - ví dụ "Hoa Sen", "Minh Ánh", "Vinamilk")
+  // Trích xuất thương hiệu cốt lõi (loại bỏ các cụm ngành nghề dài nếu cần)
   let brandCoreOnly = brandWithIndustry
-    .replace(/(?:Tập Đoàn|TĐ|Tổng Công Ty|TCT|Đầu Tư|ĐT|Thương Mại|TM|Dịch Vụ|DV|Sản Xuất|SX|Xây Dựng|XD|Cơ Khí|XNK|KT|CN)\s+/gi, '')
+    .replace(/(?:Đầu Tư|Thương Mại|Dịch Vụ|Sản Xuất|Xây Dựng|Cơ Khí|Xuất Nhập Khẩu|Nông Nghiệp)\s+/gi, '')
     .trim();
   if (!brandCoreOnly || brandCoreOnly.length < 2) {
     brandCoreOnly = brandWithIndustry;
   }
 
-  // 5. Sinh 4 Biến Thể Tên Chủ Đích
+  // Tên thương mại nguyên bản
   const optCommercial = cleanFinal(`${brandWithIndustry}${branchSuffix}`);
 
-  // Biến thể 1: ZNS Ultra-Compact (<= 25 ký tự)
-  let optUltraCompact = cleanFinal(`${ultraCompactBrand}${branchSuffix}`);
-  if (optUltraCompact.length > 29) {
-    optUltraCompact = cleanFinal(`${brandCoreOnly}${branchSuffix}`);
+  // Biến thể ZNS tinh gọn: Rút gọn các cụm từ ghép liên từ thương mại thông dụng (TM&DV, SX-TM, ĐT&PT, ĐT-XD, XNK)
+  // Tuyệt đối BẢO TOÀN danh xưng Tập Đoàn, Tổng Công Ty
+  let condensedIndustry = brandWithIndustry;
+  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Thương Mại\s+(?:Và|&)\s+Dịch Vụ|Thương Mại\s+Dịch Vụ)(?![\p{L}\p{N}])/gui, 'TM&DV');
+  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Sản Xuất\s+(?:Và|&)\s+Thương Mại|Sản Xuất\s+Thương Mại)(?![\p{L}\p{N}])/gui, 'SX-TM');
+  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Đầu Tư\s+(?:Và|&)\s+Phát Triển)(?![\p{L}\p{N}])/gui, 'ĐT&PT');
+  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Đầu Tư\s+(?:Và|&)\s+Xây Dựng|Đầu Tư\s+Xây Dựng)(?![\p{L}\p{N}])/gui, 'ĐT-XD');
+  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Cơ Khí\s+(?:Và|&)\s+Chế Tạo|Cơ Khí\s+Chế Tạo)(?![\p{L}\p{N}])/gui, 'Cơ Khí');
+  condensedIndustry = condensedIndustry.replace(/(?<![\p{L}\p{N}])(?:Xuất Nhập Khẩu)(?![\p{L}\p{N}])/gui, 'XNK');
+
+  let optStandardZns = cleanFinal(`${condensedIndustry}${branchSuffix}`);
+  if (optStandardZns.length > 29) {
+    // Nếu vẫn dài, dùng brandCoreOnly + branchLocation
+    optStandardZns = cleanFinal(`${brandCoreOnly}${branchLocation ? ` - CN ${branchLocation}` : branchSuffix}`);
   }
-  if (optUltraCompact.length > 29) {
-    const cutLen = 29 - branchSuffix.length;
-    if (cutLen > 5) {
-      optUltraCompact = cleanFinal(`${brandCoreOnly.slice(0, cutLen).trim()}${branchSuffix}`);
+  if (optStandardZns.length > 29) {
+    // Cắt an toàn theo ranh giới từ ngữ (Word-boundary Preserving)
+    const cutLimit = 29 - branchSuffix.length;
+    if (cutLimit > 5) {
+      const truncatedCore = brandCoreOnly.slice(0, cutLimit).trim();
+      const lastSpace = truncatedCore.lastIndexOf(' ');
+      const safeCore = lastSpace > 3 ? truncatedCore.slice(0, lastSpace).trim() : truncatedCore;
+      optStandardZns = cleanFinal(`${safeCore}${branchSuffix}`);
     } else {
-      optUltraCompact = optUltraCompact.slice(0, 29).trim();
+      optStandardZns = optStandardZns.slice(0, 29).trim();
     }
   }
 
-  // Biến thể 2: ZNS Standard (<= 30 ký tự)
-  let optStandardZns = cleanFinal(`${condensedIndustry}${branchSuffix}`);
-  if (optStandardZns.length > 29) {
-    optStandardZns = cleanFinal(`${brandCoreOnly}${branchLocation ? ` - CN TP. ${branchLocation}`.replace('TP. TP.', 'TP.') : branchSuffix}`);
-  }
-  if (optStandardZns.length > 29) {
-    optStandardZns = optUltraCompact;
+  // Biến thể siêu tinh gọn (Brand Core Only)
+  let optUltraCompact = cleanFinal(`${brandCoreOnly}${branchSuffix}`);
+  if (optUltraCompact.length > 29) {
+    optUltraCompact = optStandardZns;
   }
 
-  // Biến thể 4: Legal Condensed
-  const optLegal = cleanFinal(`${shortLegalPrefix ? `${shortLegalPrefix} ` : ''}${condensedIndustry}${branchSuffix}`);
+  // Biến thể pháp lý đầy đủ chuẩn ĐKKD & rút gọn loại hình
+  let optLegalFull = cleanProperVietnameseText(tenPhapLy);
+  if (detectedLoaiHinh && workingStr) {
+    const legalTitleCase = normalizeBusinessName(detectedLoaiHinh);
+    const branchPart = branchLocation ? ` - CN ${branchLocation}` : (branchSuffix ? ` ${branchSuffix}` : '');
+    optLegalFull = normalizeBusinessName(`${legalTitleCase} ${brandWithIndustry}${branchPart}`);
+  }
+  const optLegalShort = cleanFinal(`${shortLegalPrefix ? `${shortLegalPrefix} ` : ''}${optStandardZns}`);
 
-  // Chuẩn hóa Proper Case
-  const c1 = normalizeBusinessName(optUltraCompact);
-  const c2 = normalizeBusinessName(optStandardZns);
-  const c3 = normalizeBusinessName(optCommercial);
-  const c4 = normalizeBusinessName(optLegal);
+  // Chuẩn hóa Proper Case giữ nguyên từ viết tắt
+  const cCommercial = normalizeBusinessName(optCommercial);
+  const cZns = normalizeBusinessName(optStandardZns);
+  const cUltra = normalizeBusinessName(optUltraCompact);
+  const cLegalShort = normalizeBusinessName(optLegalShort);
+  const cLegalFull = normalizeBusinessName(optLegalFull);
 
-  // Tạo mảng Suggestions không trùng lặp
+  // Tạo mảng Suggestions với đầy đủ 4 phân loại rõ ràng
   const rawSuggestions: Array<{ label: string; value: string; category: NameSuggestionItem['category']; badgeText: string }> = [
-    { label: 'Thương Mại Đầy Đủ', value: c3, category: 'COMMERCIAL', badgeText: 'Thương Mại' },
-    { label: 'ZNS Chuẩn (<30 kt)', value: c2, category: 'STANDARD_ZNS', badgeText: 'Chuẩn ZNS' },
-    { label: 'ZNS Siêu Tinh Gọn (<25 kt)', value: c1, category: 'ULTRA_COMPACT', badgeText: 'Siêu Tinh Gọn' },
-    { label: 'Pháp Lý Rút Gọn', value: c4, category: 'LEGAL', badgeText: 'Pháp Lý' }
+    { 
+      label: 'Tên Chuẩn ZNS (< 30 kt)', 
+      value: cZns.length <= 29 ? cZns : (cCommercial.length <= 29 ? cCommercial : cUltra), 
+      category: 'STANDARD_ZNS', 
+      badgeText: 'Chuẩn ZNS' 
+    },
+    { 
+      label: 'Tên Thương Mại', 
+      value: cCommercial, 
+      category: 'COMMERCIAL', 
+      badgeText: 'Thương Mại' 
+    },
+    { 
+      label: 'Thương Hiệu Cốt Lõi', 
+      value: cUltra, 
+      category: 'ULTRA_COMPACT', 
+      badgeText: 'Thương Hiệu' 
+    },
+    { 
+      label: 'Pháp Lý Đầy Đủ (ĐKKD)', 
+      value: cLegalFull, 
+      category: 'LEGAL', 
+      badgeText: 'Pháp Lý ĐKKD' 
+    },
+    { 
+      label: 'Pháp Lý Rút Gọn', 
+      value: cLegalShort, 
+      category: 'COMMERCIAL', 
+      badgeText: 'Pháp Lý Gọn' 
+    }
   ];
 
   const seenValues = new Set<string>();
@@ -350,14 +371,13 @@ export function generateEnterpriseNameSuggestions(rawName: string): CorporateIde
     }
   });
 
-  // Chọn tên tối ưu mặc định cho ZNS và CRM
-  // c2 là biến thể chuẩn ZNS đã được viết gọn cụm từ ghép (TM&DV, SX-TM, ĐT-XD...)
-  const bestZnsCandidate = c2.length <= 29 ? c2 : (c1.length <= 29 ? c1 : c1.slice(0, 29).trim());
-  const bestCommercialCandidate = c3.length <= 40 ? c3 : bestZnsCandidate;
+  // Chọn tên tối ưu cho từng tầng định danh
+  const bestZnsCandidate = cZns.length <= 29 ? cZns : (cCommercial.length <= 29 ? cCommercial : cUltra);
+  const bestCommercialCandidate = cCommercial;
 
   return {
     loaiHinh: detectedLoaiHinh,
-    tenPhapLy,
+    tenPhapLy: cLegalFull,
     tenThuongMai: bestCommercialCandidate,
     tenZns: bestZnsCandidate,
     tenNgayNgan: bestZnsCandidate,
@@ -368,32 +388,48 @@ export function generateEnterpriseNameSuggestions(rawName: string): CorporateIde
 /**
  * Tương thích ngược: autoDetectBusinessName
  */
-export function autoDetectBusinessName(rawName: string): { loaiHinh: string; tenNgayNgan: string; suggestions?: NameSuggestionItem[] } {
+export function autoDetectBusinessName(rawName: string): { 
+  loaiHinh: string; 
+  tenNgayNgan: string; 
+  tenPhapLy: string;
+  tenThuongMai: string;
+  tenZns: string;
+  suggestions?: NameSuggestionItem[];
+} {
   const result = generateEnterpriseNameSuggestions(rawName);
   return {
     loaiHinh: result.loaiHinh,
     tenNgayNgan: result.tenZns,
+    tenPhapLy: result.tenPhapLy,
+    tenThuongMai: result.tenThuongMai,
+    tenZns: result.tenZns,
     suggestions: result.suggestions
   };
 }
 
 /**
  * Parse dữ liệu doanh nghiệp từ cổng VietQR / Tổng Cục Thuế
+ * Luôn đảm bảo tenKhachHang là Tên Pháp Nhân Đầy Đủ theo ĐKKD cho nghiệp vụ B2B
  */
 export function parseVietQRBusinessData(business: any, provinces: string[]): {
   loaiHinhDoanhNghiep: string;
   tenKhachHang: string;
-  tenPhapLy?: string;
-  tenZns?: string;
+  tenPhapLy: string;
+  tenThuongMai: string;
+  tenZns: string;
   diaChi: string;
   tinhThanh: string;
   xaPhuong?: string;
   suggestions?: NameSuggestionItem[];
 } {
-  const parsed = generateEnterpriseNameSuggestions(business.name || '');
+  const rawBusinessName = cleanProperVietnameseText(business.name || '');
+  const parsed = generateEnterpriseNameSuggestions(rawBusinessName);
   const loaiHinhDoanhNghiep = parsed.loaiHinh;
-  const tenKhachHang = parsed.tenThuongMai || parsed.tenZns || normalizeBusinessName(business.name || '');
-  const tenPhapLy = parsed.tenPhapLy;
+  
+  // Tên pháp nhân đầy đủ là tên chuẩn cho Báo giá, Hợp đồng, Hóa đơn
+  const tenPhapLy = parsed.tenPhapLy || rawBusinessName;
+  const tenKhachHang = tenPhapLy;
+  const tenThuongMai = parsed.tenThuongMai;
   const tenZns = parsed.tenZns;
 
   const rawAddress = cleanProperVietnameseText(business.address || '');
@@ -422,6 +458,7 @@ export function parseVietQRBusinessData(business: any, provinces: string[]): {
     loaiHinhDoanhNghiep,
     tenKhachHang,
     tenPhapLy,
+    tenThuongMai: parsed.tenThuongMai,
     tenZns,
     diaChi,
     tinhThanh,

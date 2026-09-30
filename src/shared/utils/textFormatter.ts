@@ -7,7 +7,10 @@ import { twMerge } from 'tailwind-merge';
  * cleans up multiple spaces, and handles special enterprise types like TNHH, CP, MTV, GTVT, VNPT, etc.
  */
 
-export const KEEP_UPPER = ['TNHH','CP','MTV','DNTN','HKD','B2B','ZNS','SGM','HD','BG','PT','KH','VAT','PO','PX','GH','CN','SS','DNB','KTTD','QH'];
+export const KEEP_UPPER = [
+  'TNHH', 'CP', 'MTV', 'DNTN', 'HKD', 'B2B', 'ZNS', 'SGM', 'HD', 'BG', 'PT', 'KH', 'VAT', 'PO', 'PX', 'GH', 'CN', 'SS', 'DNB', 'KTTD', 'QH',
+  'TĐ', 'TCT', 'TMDV', 'TM&DV', 'SX-TM', 'ĐT&PT', 'ĐT-XD'
+];
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

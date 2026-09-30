@@ -353,17 +353,22 @@ export function useCustomerForm(
              const finalLoaiHinh = detected.loaiHinh || result.loaiHinh;
              if (finalLoaiHinh) setValue('loaiHinhDoanhNghiep', finalLoaiHinh, { shouldDirty: true });
              const cleanTen = result.tenNgan.length > 29 ? result.tenNgan.slice(0, 29).trim() : result.tenNgan;
-             setValue('tenKhachHang', cleanTen, { shouldDirty: true });
+             setValue('tenZns' as any, cleanTen, { shouldDirty: true });
+             setValue('tenThuongMai' as any, cleanTen, { shouldDirty: true });
+             notify.success(`Đã chuẩn hóa tên ZNS: ${cleanTen}`);
          } else {
-             const { loaiHinh, tenNgayNgan } = autoDetectBusinessName(rawName);
+             const { loaiHinh, tenZns, tenThuongMai } = autoDetectBusinessName(rawName);
              if (loaiHinh) setValue('loaiHinhDoanhNghiep', loaiHinh, { shouldDirty: true });
-             setValue('tenKhachHang', tenNgayNgan, { shouldDirty: true });
+             setValue('tenZns' as any, tenZns, { shouldDirty: true });
+             setValue('tenThuongMai' as any, tenThuongMai, { shouldDirty: true });
+             notify.success(`Đã chuẩn hóa tên ZNS: ${tenZns}`);
          }
      } catch (e) {
          logger.error('AI format fail:', e);
-         const { loaiHinh, tenNgayNgan } = autoDetectBusinessName(rawName);
+         const { loaiHinh, tenZns, tenThuongMai } = autoDetectBusinessName(rawName);
          if (loaiHinh) setValue('loaiHinhDoanhNghiep', loaiHinh, { shouldDirty: true });
-         setValue('tenKhachHang', tenNgayNgan, { shouldDirty: true });
+         setValue('tenZns' as any, tenZns, { shouldDirty: true });
+         setValue('tenThuongMai' as any, tenThuongMai, { shouldDirty: true });
      } finally {
          setIsAiFormatting(false);
      }
@@ -429,10 +434,13 @@ export function useCustomerForm(
 
       const result = await response.json();
       if (result.code === '00' && result.data) {
-        const { loaiHinhDoanhNghiep, tenKhachHang, diaChi, tinhThanh, xaPhuong } = parseVietQRBusinessData(result.data, PROVINCES);
+        const { loaiHinhDoanhNghiep, tenKhachHang, tenPhapLy, tenThuongMai, tenZns, diaChi, tinhThanh, xaPhuong } = parseVietQRBusinessData(result.data, PROVINCES);
         
         setValue('loaiHinhDoanhNghiep', loaiHinhDoanhNghiep || 'CÔNG TY TNHH', { shouldDirty: true });
         setValue('tenKhachHang', tenKhachHang, { shouldDirty: true });
+        if (tenPhapLy) setValue('tenPhapLy' as any, tenPhapLy, { shouldDirty: true });
+        if (tenThuongMai) setValue('tenThuongMai' as any, tenThuongMai, { shouldDirty: true });
+        if (tenZns) setValue('tenZns' as any, tenZns, { shouldDirty: true });
         setValue('diaChi', diaChi, { shouldDirty: true });
         if (xaPhuong) {
           setValue('xaPhuong', xaPhuong, { shouldDirty: true });
@@ -445,13 +453,7 @@ export function useCustomerForm(
           setValue('tinhThanh', tinhThanh, { shouldDirty: true });
         }
         setLookupStatus('success');
-        
-        if (result.data.name) {
-           notify.success('Đã tìm thấy dữ liệu. Hệ thống đang chuẩn hoá tên...');
-           await smartFormatNameAI(result.data.name);
-        } else {
-           notify.success(`Đã tìm thấy thông tin: ${tenKhachHang}`);
-        }
+        notify.success(`Đã nạp đầy đủ thông tin pháp nhân: ${tenKhachHang}`);
       } else {
         notify.warning(result.desc || 'VietQR: Không tìm thấy dữ liệu. Bạn có thể tự nhập tay thông tin.');
         setLookupStatus('idle');

@@ -306,10 +306,14 @@ export function QuickCustomerModal({
           chiNhanh: 'Trụ sở chính'
         }));
 
-      // 2. Chuẩn bị payload khách hàng
+      // 2. Chuẩn bị payload khách hàng với bản thể 3 tầng
+      const identity = generateEnterpriseNameSuggestions(cleanName);
       const payload: any = {
         maKh: nextMaKh,
         tenKhachHang: cleanName,
+        tenPhapLy: identity.tenPhapLy || cleanName,
+        tenThuongMai: identity.tenThuongMai || cleanName,
+        tenZns: identity.tenZns || cleanName,
         maSoThue: maSoThue.trim(),
         sdt: primaryPhone,
         nguoiDaiDien: cleanProperVietnameseText(primaryContact?.nguoiDaiDien?.trim() || '') || cleanName,
@@ -531,7 +535,7 @@ export function QuickCustomerModal({
               </div>
               {taxLookupSuccess && (
                 <p className="text-3xs text-emerald-700 flex items-center gap-1 font-bold mt-1 animate-fadeIn">
-                  <Check size={12} /> Đã tự động điền Tên Công Ty và Địa chỉ từ VietQR
+                  <Check size={12} /> Đã nạp thông tin pháp nhân từ VietQR
                 </p>
               )}
             </div>
@@ -541,16 +545,10 @@ export function QuickCustomerModal({
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <label className="text-3xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5" htmlFor="quick-name">
-                {loaiKh === 'Doanh nghiệp' ? 'Tên Công Ty / Doanh Nghiệp' : 'Họ và Tên Khách Hàng'} <span className="text-red-500">*</span>
-                {loaiKh === 'Doanh nghiệp' && tenKhachHang.trim().length > 0 && (
-                  <span className={`text-3xs font-black px-1.5 py-0.2 rounded border select-none ${
-                    tenKhachHang.length <= 29 
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
-                      : tenKhachHang.length <= 35
-                      ? 'bg-amber-50 text-amber-900 border-amber-300'
-                      : 'bg-rose-50 text-rose-800 border-rose-300'
-                  }`}>
-                    {tenKhachHang.length}/30 kt {tenKhachHang.length <= 29 ? '✓ Chuẩn ZNS' : '⚠️ Vượt hạn ZNS'}
+                {loaiKh === 'Doanh nghiệp' ? 'Tên Doanh Nghiệp (Pháp Nhân ĐKKD)' : 'Họ và Tên Khách Hàng'} <span className="text-red-500">*</span>
+                {loaiKh === 'Doanh nghiệp' && (
+                  <span className="text-3xs font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                    Pháp lý ĐKKD / Hóa Đơn B2B
                   </span>
                 )}
               </label>
@@ -565,7 +563,7 @@ export function QuickCustomerModal({
                 const cleaned = cleanProperVietnameseText(e.target.value);
                 if (cleaned) setTenKhachHang(cleaned);
               }}
-              placeholder={loaiKh === 'Doanh nghiệp' ? 'VD: CÔNG TY TNHH THIẾT BỊ SÀI GÒN MÁY' : 'VD: Nguyễn Văn An'}
+              placeholder={loaiKh === 'Doanh nghiệp' ? 'VD: CÔNG TY TNHH TẬP ĐOÀN TÔN THIÊN TÂN' : 'VD: Nguyễn Văn An'}
               className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-bold text-slate-900"
             />
             {/* Suggestion Chips */}
@@ -589,10 +587,10 @@ export function QuickCustomerModal({
                             ? 'ring-2 ring-blue-500 bg-blue-50 text-blue-900 border-blue-300 font-black' 
                             : `${sug.badgeClass} hover:scale-105 active:scale-95`
                         }`}
-                        title={`Bấm để chọn: ${sug.label} (${sug.charCount} kt)`}
+                        title={`Bấm để chọn: ${sug.label} (${sug.charCount} ký tự)`}
                       >
+                        <span className="opacity-80 text-3xs font-normal">[{sug.badgeText}]</span>
                         <span>{sug.value}</span>
-                        <span className="opacity-75 font-mono text-3xs font-normal">({sug.charCount} kt)</span>
                       </button>
                     );
                   })}

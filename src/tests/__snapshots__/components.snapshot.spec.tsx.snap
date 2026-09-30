@@ -1327,6 +1327,11 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                           >
                             *
                           </span>
+                          <span
+                            class="text-3xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200"
+                          >
+                            Pháp Lý ĐKKD / Hóa Đơn B2B
+                          </span>
                         </label>
                       </div>
                       <div
@@ -1337,11 +1342,11 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                           class="w-full placeholder:text-slate-300 h-8 border border-slate-200 rounded-lg pl-3 pr-8 text-sm font-semibold text-slate-900"
                           id="tenKhachHang"
                           name="tenKhachHang"
-                          placeholder="Mô tả và tên đầy đủ của doanh nghiệp..."
+                          placeholder="Tên đầy đủ theo ĐKKD: CÔNG TY TNHH TẬP ĐOÀN TÔN THIÊN TÂN..."
                         />
                         <button
                           class="inline-flex items-center justify-center duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] bg-transparent border border-transparent hover:text-slate-900 active:bg-slate-200/70 focus-visible:ring-slate-200 font-medium h-8 text-xs gap-1.5 absolute right-1.5 top-1.5 p-1 text-amber-500 hover:bg-amber-50 rounded-md transition-colors"
-                          title="Dùng AI chuẩn hoá tên (vắt cụm từ)"
+                          title="Dùng AI trích xuất Tên ZNS và Tên Thương Mại"
                           type="button"
                         >
                           <svg

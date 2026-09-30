@@ -58,7 +58,7 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
     id: 'khachHangDetails',
     accessorFn: (row) => row.tenKhachHang,
     header: 'Khách hàng',
-    size: 260,
+    size: 280,
     cell: (info) => {
       const p = info.row.original;
       const c = p.__customerInfo;
@@ -68,7 +68,7 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
 
       return (
         <div className="w-full min-w-0 flex flex-col py-1 justify-center space-y-0.5">
-          <span className="font-semibold text-xs text-slate-800 truncate block" title={tenKH}>{tenKH}</span>
+          <span className="font-semibold text-xs text-slate-800 line-clamp-3 whitespace-normal break-words leading-snug block" title={tenKH}>{tenKH}</span>
           
           {contacts.length > 0 ? (
             contacts.map((contact: any, index: number) => (

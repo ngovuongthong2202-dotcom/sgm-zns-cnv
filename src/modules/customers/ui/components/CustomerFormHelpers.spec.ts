@@ -103,9 +103,36 @@ describe('CustomerFormHelpers - Business Type Standardization & Smart Extraction
     const result = parseVietQRBusinessData(vietQrData, provinces);
 
     expect(result.loaiHinhDoanhNghiep).toBe('CÔNG TY TNHH MỘT THÀNH VIÊN');
-    expect(result.tenKhachHang).toBe('Thương Mại Tôn Long Phát');
+    // tenKhachHang bảo toàn tên pháp lý đầy đủ cho Báo giá, Hợp đồng, Hóa đơn VAT
+    expect(result.tenKhachHang).toBe('Công Ty TNHH Một Thành Viên Thương Mại Tôn Long Phát');
+    expect(result.tenPhapLy).toBe('Công Ty TNHH Một Thành Viên Thương Mại Tôn Long Phát');
+    expect(result.tenThuongMai).toBe('Thương Mại Tôn Long Phát');
+    expect(result.tenZns).toBe('Thương Mại Tôn Long Phát');
     expect(result.tinhThanh).toBe('Quảng Ngãi');
-    expect(result.tenKhachHang.length).toBeLessThan(30);
+  });
+
+  it('correctly handles MST 0304115161 - CÔNG TY TNHH TẬP ĐOÀN TÔN THIÊN TÂN without distorting Tập Đoàn to Tđ', () => {
+    const raw = 'CÔNG TY TNHH TẬP ĐOÀN TÔN THIÊN TÂN';
+    const result = generateEnterpriseNameSuggestions(raw);
+
+    expect(result.loaiHinh).toBe('CÔNG TY TNHH');
+    expect(result.tenPhapLy).toBe('Công Ty TNHH Tập Đoàn Tôn Thiên Tân');
+    // Tên ZNS: 21 ký tự, hoàn toàn thỏa mãn <= 29 ký tự, tuyệt đối không được cắt xén thành Tđ
+    expect(result.tenZns).toBe('Tập Đoàn Tôn Thiên Tân');
+    expect(result.tenZns).not.toContain('Tđ');
+    expect(result.tenZns.length).toBeLessThanOrEqual(29);
+    expect(result.tenThuongMai).toBe('Tập Đoàn Tôn Thiên Tân');
+  });
+
+  it('correctly handles CÔNG TY CP TẬP ĐOÀN HOA SEN without converting Tập Đoàn into Tđ', () => {
+    const raw = 'CÔNG TY CP TẬP ĐOÀN HOA SEN';
+    const result = generateEnterpriseNameSuggestions(raw);
+
+    expect(result.loaiHinh).toBe('CÔNG TY CỔ PHẦN');
+    expect(result.tenPhapLy).toBe('Công Ty Cổ Phần Tập Đoàn Hoa Sen');
+    expect(result.tenZns).toBe('Tập Đoàn Hoa Sen');
+    expect(result.tenZns).not.toContain('Tđ');
+    expect(result.tenZns.length).toBeLessThanOrEqual(29);
   });
 });
 

@@ -38,14 +38,14 @@ export const getCustomerColumns = (
     accessorKey: 'ngayTao',
     id: 'ngayTao',
     header: 'Ngày tạo',
-    size: 100,
+    size: 105,
     cell: (info) => {
       const row = info.row.original;
-      const dateVal = row.ngayTao || (row as any).createdAt || (row as any).created_at || '';
+      const dateVal = row.ngayTao || (row as any).createdAt || (row as any).created_at || (row as any).updated_at || (row as any).ngayCapNhat || '';
       return (
         <div className="w-full min-w-0 flex items-center">
           <span className="truncate block text-slate-600 font-medium text-xs font-mono" title={String(dateVal)}>
-            {formatDate(dateVal)}
+            {formatDate(dateVal) || '---'}
           </span>
         </div>
       );
@@ -54,16 +54,17 @@ export const getCustomerColumns = (
   {
     accessorKey: 'tenKhachHang',
     header: 'Khách hàng',
-    size: 280,
+    size: 300,
     cell: (info) => {
       const c = info.row.original;
       const active = c.id && presenceMap?.[c.id] ? presenceMap[c.id] : [];
       const normalizedName = normalizeBusinessName(c.tenKhachHang);
+      const subInfo = [c.tenThuongMai, c.loaiHinhDoanhNghiep || c.loaiKh].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i && v !== normalizedName).join(' • ');
       return (
         <CustomerHoverCard customer={c}>
           <div className="w-full min-w-0 flex flex-col justify-center gap-0.5 pointer-events-auto py-1">
             <div className="flex items-start gap-1.5 w-full min-w-0">
-              <span className="whitespace-normal break-words line-clamp-2 font-semibold text-slate-900 text-xs leading-snug flex-1" title={normalizedName}>
+              <span className="whitespace-normal break-words line-clamp-3 font-semibold text-slate-900 text-xs leading-snug flex-1" title={normalizedName}>
                 {normalizedName}
               </span>
               {active.length > 0 && (
@@ -72,9 +73,9 @@ export const getCustomerColumns = (
                 </span>
               )}
             </div>
-            {(c.loaiHinhDoanhNghiep || c.loaiKh) && (
-              <span className="truncate block font-normal text-2xs text-slate-500 leading-tight" title={c.loaiHinhDoanhNghiep || c.loaiKh}>
-                {c.loaiHinhDoanhNghiep || c.loaiKh}
+            {subInfo && (
+              <span className="truncate block font-normal text-2xs text-slate-500 leading-tight" title={subInfo}>
+                {subInfo}
               </span>
             )}
           </div>
