@@ -2,7 +2,7 @@ import { Contract } from '@/src/domain/schema/contract.schema';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { EntityZnsStatus } from '@/src/domain/enums/zns-status';
  
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Payment, PaymentSchema } from '@/src/domain/schema/payment.schema';
@@ -23,11 +23,12 @@ import { useAuth } from '@/src/modules/iam';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { formatUserOfficer } from '@/src/shared/utils/userProfile';
 import { generateDeterministicNextCode } from '@/src/shared/utils/voucherResolver';
+import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
 
 import { PaymentRecordBasicFields } from './form/PaymentRecordBasicFields';
 import { PaymentRecordProductsSection } from './form/PaymentRecordProductsSection';
 import { handleEnterToTab } from '@/src/shared/utils/formNavigation';
-import { calculateTotals, calculateOtherPaid, determinePaymentStatus } from '../utils/payment-limits';
+import { calculateOtherPaid, determinePaymentStatus } from '../utils/payment-limits';
 
 interface PaymentRecordDrawerProps {
   isOpen?: boolean;
@@ -97,7 +98,11 @@ export function PaymentRecordDrawer({
     paymentId: z.string().optional().transform(v => (v && v.trim() && v !== '---') ? v : generateDeterministicNextCode('PT', allPaymentsList))
   }).strip(), [allPaymentsList]);
 
-  const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Payment & { sourceValue: string }>('payments', payment?.id || 'new');
+  // ANCHOR: Scoped Draft Isolation - Cô lập nháp theo từng chứng từ tham chiếu
+  const scopedDraftKey = payment?.id 
+    ? payment.id 
+    : (prefillQuotation?.id ? `new_quotation_${prefillQuotation.id}` : 'new_standalone');
+  const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Payment & { sourceValue: string }>('payments', scopedDraftKey);
 
   const { register, handleSubmit, watch, setValue, control, reset, getValues, formState: { isSubmitting, isDirty } } = useForm<Payment & { sourceValue: string }>({
     resolver: zodResolver(PaymentFormSchema) as any,
@@ -134,14 +139,7 @@ export function PaymentRecordDrawer({
 
     const currentPaymentId = getValues('paymentId') || draft?.paymentId || (payment?.paymentId ? payment.paymentId : generateDeterministicNextCode('PT', allPaymentsList));
 
-    if (draft) {
-      reset({
-        ...draft,
-        nguoiPhuTrach: draft.nguoiPhuTrach || defaultOfficer,
-        paymentId: (draft.paymentId && draft.paymentId !== '---') ? draft.paymentId : currentPaymentId
-      });
-      hasInitializedRef.current = true;
-    } else if (payment) {
+    if (payment) {
       const enriched = { ...payment };
       if (!enriched.soDonHang || !enriched.soHopDong) {
         const contract = (contracts && contracts.find(c => c.id === payment.contractId)) ||
@@ -168,10 +166,13 @@ export function PaymentRecordDrawer({
     } else if (isNew) {
       if (prefillQuotation) {
         const normLoai = (prefillQuotation.phanLoai || (prefillQuotation as any).loai || (prefillQuotation as any).loaiBaoGia) || 'BG Vật tư';
+        const quoTotal = Number(prefillQuotation.totalAmount) || Number(prefillQuotation.subTotal) || 0;
+        const initialStatus = quoTotal > 0 ? 'Tất toán' : 'Chưa TT';
+
         reset({
           paymentId: currentPaymentId,
           trangThaiGuiTinThanhToan: EntityZnsStatus.CHUA_GUI,
-          tinhTrangThanhToan: 'Chưa TT',
+          tinhTrangThanhToan: initialStatus,
           phuongThucThanhToan: 'Chuyển khoản',
           sourceValue: `QUOTATION:${prefillQuotation.id}`,
           quotationId: prefillQuotation.id,
@@ -188,14 +189,20 @@ export function PaymentRecordDrawer({
           vatAmount: prefillQuotation.vatAmount || 0,
           discountRate: prefillQuotation.discountRate || 0,
           discountAmount: prefillQuotation.discountAmount || 0,
-          totalAmount: prefillQuotation.totalAmount || 0,
-          soTien: prefillQuotation.totalAmount || prefillQuotation.subTotal || 0,
+          totalAmount: quoTotal,
+          soTien: quoTotal,
           products: prefillQuotation.products || [],
           ngayThanhToan: format(new Date(), 'yyyy-MM-dd'),
           nguoiPhuTrach: defaultOfficer,
           phanLoai: normLoai,
           loai: normLoai
         } as any);
+      } else if (draft) {
+        reset({
+          ...draft,
+          nguoiPhuTrach: draft.nguoiPhuTrach || defaultOfficer,
+          paymentId: (draft.paymentId && draft.paymentId !== '---') ? draft.paymentId : currentPaymentId
+        });
       } else {
         reset({
           paymentId: currentPaymentId,
@@ -217,21 +224,38 @@ export function PaymentRecordDrawer({
       }
       hasInitializedRef.current = true;
     }
-  }, [payment, isOpen, reset, draft, isNew, contracts, prefillQuotation, getValues, defaultOfficer]);
+  }, [payment, isOpen, reset, draft, isNew, contracts, prefillQuotation, getValues, defaultOfficer, allPaymentsList]);
 
-  const watchAll = watch();
+  // ANCHOR: D1 - Pure Financial Calculations (derived on-the-fly from Line Items, 0-Effect)
+  const products = watch('products') || [];
+  const effectiveTotals = useMemo(() => {
+    const healed = (products || []).map(computeLineItem);
+    return aggregateProducts(healed);
+  }, [products]);
+
+  // Silent Safe Auto-Save Draft with Pure Enriched Financials
+  const handleSaveDraft = useCallback(() => {
+    const current = getValues();
+    if (effectiveTotals.totalGross > 0 || (current.products && current.products.length > 0)) {
+      current.subTotal = effectiveTotals.totalGross;
+      current.discountAmount = effectiveTotals.totalDiscount;
+      current.vatAmount = effectiveTotals.totalVat;
+      current.totalAmount = effectiveTotals.totalAfterTax;
+    }
+    saveDraft(current);
+  }, [getValues, effectiveTotals, saveDraft]);
+
   useEffect(() => {
     if (!isDirty || !isOpen) return;
     const interval = setInterval(() => {
-      saveDraft(getValues());
+      handleSaveDraft();
     }, 8000);
     return () => clearInterval(interval);
-  }, [isDirty, saveDraft, getValues, isOpen]);
+  }, [isDirty, handleSaveDraft, isOpen]);
 
- 
   const selectedSourceValue = watch('sourceValue');
   
-  // Auto Generate Payment ID (Chỉ sinh 1 lần khi mở form tạo mới, chống trigger loop)
+  // Auto Generate Payment ID (Chỉ sinh 1 lần khi mở form tạo mới, Zero Math.random, Zero Dirty Storm)
   const hasGeneratedCodeRef = React.useRef(false);
   useEffect(() => {
     if (!isOpen) {
@@ -240,15 +264,13 @@ export function PaymentRecordDrawer({
     }
     const currentId = getValues('paymentId') || '';
     if (isNew && (!currentId || currentId === '---')) {
-      // 1. Gán fallback code tức thì để UI không trống (Zero Math.random)
       const fallbackCode = generateDeterministicNextCode('PT', allPaymentsList);
-      setValue('paymentId', fallbackCode, { shouldValidate: true, shouldDirty: true });
+      setValue('paymentId', fallbackCode, { shouldValidate: true });
 
       if (!hasGeneratedCodeRef.current) {
         hasGeneratedCodeRef.current = true;
         let isCancelled = false;
 
-        // 2. Fetch mã chuẩn từ Universal Sequence Engine
         if (typeof fetch === 'function') {
           fetch('/api/workflow/next-code/payment', {
             method: 'POST',
@@ -257,11 +279,11 @@ export function PaymentRecordDrawer({
             .then(res => res.json())
             .then(data => {
               if (!isCancelled && data?.success && data?.code) {
-                setValue('paymentId', data.code, { shouldValidate: true, shouldDirty: true });
+                setValue('paymentId', data.code, { shouldValidate: true });
               }
             })
             .catch(() => {
-              // Giữ fallbackCode đã set
+              // Giữ fallbackCode an toàn
             });
         }
 
@@ -270,46 +292,24 @@ export function PaymentRecordDrawer({
         };
       }
     }
-  }, [isOpen, isNew, setValue, getValues]);
+  }, [isOpen, isNew, setValue, getValues, allPaymentsList]);
 
   const soTienVal = Number(watch('soTien')) || 0;
   const totalAmountVal = Number(watch('totalAmount')) || 0;
+  const targetTotalAmount = effectiveTotals.totalAfterTax > 0 ? effectiveTotals.totalAfterTax : totalAmountVal;
   const otherPaid = selectedSourceValue ? calculateOtherPaid(payment?.id, payments, selectedSourceValue) : 0;
 
+  // ANCHOR: Stable Payment Status Coordinator (0-Watch-Loop)
   useEffect(() => {
-    if (selectedSourceValue && totalAmountVal > 0) {
-      if (watch('tinhTrangThanhToan') === 'Miễn phí') return;
-      const newStatus = determinePaymentStatus(soTienVal, otherPaid, totalAmountVal);
-      if (newStatus && watch('tinhTrangThanhToan') !== newStatus) {
+    if (selectedSourceValue && targetTotalAmount > 0) {
+      const curStatus = getValues('tinhTrangThanhToan');
+      if (curStatus === 'Miễn phí') return;
+      const newStatus = determinePaymentStatus(soTienVal, otherPaid, targetTotalAmount);
+      if (newStatus && curStatus !== newStatus) {
         setValue('tinhTrangThanhToan', newStatus, { shouldValidate: true });
       }
     }
-  }, [selectedSourceValue, soTienVal, totalAmountVal, payments, payment, setValue, otherPaid, watch]);
-
-  // Calculate totals
-  const products = watch('products') || [];
-  const vatRate = Number(watch('vatRate')) || 0;
-  const discountRate = Number(watch('discountRate')) || 0;
-  const currentSubTotal = Number(watch('subTotal')) || 0;
-
-  const { calculatedSubTotal, finalSubTotal, vatAmount, discountAmount, totalAmount } = useMemo(() => {
-    return calculateTotals(products, currentSubTotal, vatRate, discountRate);
-  }, [products, currentSubTotal, vatRate, discountRate]);
-
-  useEffect(() => {
-    if (calculatedSubTotal !== null && getValues('subTotal') !== finalSubTotal) {
-      setValue('subTotal', finalSubTotal, { shouldDirty: true });
-    }
-    if (getValues('vatAmount') !== vatAmount) {
-      setValue('vatAmount', vatAmount, { shouldDirty: true });
-    }
-    if (getValues('discountAmount') !== discountAmount) {
-      setValue('discountAmount', discountAmount, { shouldDirty: true });
-    }
-    if (getValues('totalAmount') !== totalAmount) {
-      setValue('totalAmount', totalAmount, { shouldDirty: true });
-    }
-  }, [calculatedSubTotal, finalSubTotal, vatAmount, discountAmount, totalAmount, setValue, getValues]);
+  }, [selectedSourceValue, soTienVal, targetTotalAmount, otherPaid, setValue, getValues]);
  
   const onSubmit = async (data: any) => {
     // Normalization & Enterprise 5-Tier Sanitization
@@ -331,6 +331,16 @@ export function PaymentRecordDrawer({
       data.sdt = sanitizePhoneVN(data.sdt) || normalizePhoneVN(data.sdt) || data.sdt;
     }
     
+    // ANCHOR: Pure Serialization Interceptor - Tự động enrich tài chính chuẩn D1
+    if (effectiveTotals.totalGross > 0 || (data.products && data.products.length > 0)) {
+      data.subTotal = effectiveTotals.totalGross;
+      data.discountAmount = effectiveTotals.totalDiscount;
+      data.vatAmount = effectiveTotals.totalVat;
+      data.totalAmount = effectiveTotals.totalAfterTax;
+      data.discountRate = effectiveTotals.totalGross > 0 ? Number(((effectiveTotals.totalDiscount / effectiveTotals.totalGross) * 100).toFixed(2)) : 0;
+      data.vatRate = effectiveTotals.totalBeforeTax > 0 ? Math.round((effectiveTotals.totalVat / effectiveTotals.totalBeforeTax) * 100) : 0;
+    }
+
     // Remove transient field used only for form linking
     delete data.sourceValue;
 
@@ -373,7 +383,7 @@ export function PaymentRecordDrawer({
              <div>
                 <h2 className="text-sm font-bold text-white uppercase tracking-wider">{isNew ? 'Khởi tạo Phiếu Thu/Chi' : 'Cập nhật Phiếu TT'}</h2>
                 <div className="text-2xs text-slate-500 font-semibold flex items-center gap-2">
-                   <span>Mã TT: {watchAll.paymentId || '---'}</span>
+                   <span>Mã TT: {watch('paymentId') || '---'}</span>
                 </div>
              </div>
           </div>
@@ -460,8 +470,16 @@ export function PaymentRecordDrawer({
             nguoiPhuTrachList={effectiveNguoiPhuTrachList}
             phuongThucThanhToanList={_phuongThucThanhToanList}
             tinhTrangThanhToanList={_tinhTrangThanhToanList}
+            targetTotal={effectiveTotals.totalAfterTax > 0 ? effectiveTotals.totalAfterTax : undefined}
           />
-          <PaymentRecordProductsSection control={control} isEditMode={true} setValue={setValue} watch={watch} disabled={businessLock.locked} />
+          <PaymentRecordProductsSection 
+            control={control} 
+            isEditMode={true} 
+            setValue={setValue} 
+            watch={watch} 
+            disabled={businessLock.locked} 
+            totals={effectiveTotals}
+          />
         </form>
 
         {/* Sticky footer */}

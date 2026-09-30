@@ -9,15 +9,22 @@ interface ProductsSectionProps {
   setValue: any;
   watch: any;
   disabled?: boolean;
+  totals?: {
+    totalGross: number;
+    totalDiscount: number;
+    totalVat: number;
+    totalAfterTax: number;
+    totalBeforeTax: number;
+  };
 }
 
-export function PaymentRecordProductsSection({ control, isEditMode, setValue, watch, disabled }: ProductsSectionProps) {
-  const currentSubTotal = Number(watch('subTotal')) || 0;
-  const vatRate = Number(watch('vatRate')) || 0;
-  const vatAmount = Number(watch('vatAmount')) || 0;
-  const discountRate = Number(watch('discountRate')) || 0;
-  const discountAmount = Number(watch('discountAmount')) || 0;
-  const totalAmount = Number(watch('totalAmount')) || 0;
+export function PaymentRecordProductsSection({ control, isEditMode, setValue, watch, disabled, totals }: ProductsSectionProps) {
+  const currentSubTotal = (totals && totals.totalGross > 0) ? totals.totalGross : (Number(watch('subTotal')) || 0);
+  const vatRate = (totals && totals.totalBeforeTax > 0) ? Math.round((totals.totalVat / totals.totalBeforeTax) * 100) : (Number(watch('vatRate')) || 0);
+  const vatAmount = (totals && totals.totalVat > 0) ? totals.totalVat : (Number(watch('vatAmount')) || 0);
+  const discountRate = (totals && totals.totalGross > 0) ? Number(((totals.totalDiscount / totals.totalGross) * 100).toFixed(1)) : (Number(watch('discountRate')) || 0);
+  const discountAmount = (totals && totals.totalDiscount > 0) ? totals.totalDiscount : (Number(watch('discountAmount')) || 0);
+  const totalAmount = (totals && totals.totalAfterTax > 0) ? totals.totalAfterTax : (Number(watch('totalAmount')) || 0);
 
   return (
     <div className="w-full shrink-0 mt-6">

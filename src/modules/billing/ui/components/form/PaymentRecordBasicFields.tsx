@@ -29,6 +29,7 @@ interface PaymentRecordBasicFieldsProps {
   nguoiPhuTrachList?: string[];
   phuongThucThanhToanList?: string[];
   tinhTrangThanhToanList?: string[];
+  targetTotal?: number;
 }
 
 export function PaymentRecordBasicFields({
@@ -45,7 +46,8 @@ export function PaymentRecordBasicFields({
   currentPaymentId,
   nguoiPhuTrachList = [],
   phuongThucThanhToanList = ['Chuyển khoản', 'Tiền mặt'],
-  tinhTrangThanhToanList = ['Tất toán', 'Công nợ', 'Chưa TT', 'Miễn phí']
+  tinhTrangThanhToanList = ['Tất toán', 'Công nợ', 'Chưa TT', 'Miễn phí'],
+  targetTotal
 }: PaymentRecordBasicFieldsProps) {
   const { user, userData } = useAuth();
   const isAdmin = isAdministratorRole(userData, user);
@@ -72,7 +74,8 @@ export function PaymentRecordBasicFields({
       ? (contracts.find(c => c.id === contractId || (watchAll.soHopDong && c.soHopDong === watchAll.soHopDong)))
       : (quotations.find(q => q.id === quotationId || (watchAll.soPhieuBaoGia && q.soPhieuBaoGia === watchAll.soPhieuBaoGia))));
 
-  const totalAmountVal = Number(watch('totalAmount')) || 0;
+  const rawTotalAmountVal = Number(watch('totalAmount')) || 0;
+  const totalAmountVal = (targetTotal !== undefined && targetTotal > 0) ? targetTotal : rawTotalAmountVal;
   const soTienVal = Number(watch('soTien')) || 0;
   const statusVal = watch('tinhTrangThanhToan') || '';
   const isFree = statusVal === 'Miễn phí';
@@ -745,9 +748,29 @@ export function PaymentRecordBasicFields({
                 <p className="mt-0.5">Mã KH: <span className="font-mono text-slate-800 font-bold">{watchAll.maKh || '---'}</span></p>
               </div>
               <div className="pt-2 border-t border-slate-100">
-                <span className="text-slate-500 text-2xs uppercase font-bold block mb-0.5">Căn cứ Hợp Đồng</span>
-                <p>Số HĐ: <span className="font-mono text-slate-800 font-bold">{watchAll.soHopDong || '---'}</span></p>
-                <p className="mt-0.5">Hạn TT: <span className="font-mono text-slate-800 font-bold">{watchAll.ngayDenHan ? format(new Date(watchAll.ngayDenHan), 'dd/MM/yyyy') : '---'}</span></p>
+                {isContract ? (
+                  <>
+                    <span className="text-slate-500 text-2xs uppercase font-bold block mb-0.5">Căn cứ Hợp Đồng</span>
+                    <p>Số HĐ: <span className="font-mono text-slate-800 font-bold">{watchAll.soHopDong || '---'}</span></p>
+                    <p className="mt-0.5">Hạn TT: <span className="font-mono text-slate-800 font-bold">{watchAll.ngayDenHan ? format(new Date(watchAll.ngayDenHan), 'dd/MM/yyyy') : '---'}</span></p>
+                  </>
+                ) : (watchAll.soPhieuBaoGia || watchAll.quotationId) ? (
+                  <>
+                    <span className="text-slate-500 text-2xs uppercase font-bold block mb-0.5">Căn cứ Báo Giá</span>
+                    <p>Số BG: <span className="font-mono text-slate-800 font-bold">{watchAll.soPhieuBaoGia || '---'}</span></p>
+                    <span className="inline-block mt-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-3xs font-bold rounded border border-blue-200">
+                      Bán lẻ / Dịch vụ trực tiếp (Không qua HĐ)
+                    </span>
+                    {watchAll.ngayDenHan && (
+                      <p className="mt-1">Hạn TT: <span className="font-mono text-slate-800 font-bold">{format(new Date(watchAll.ngayDenHan), 'dd/MM/yyyy')}</span></p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="text-slate-500 text-2xs uppercase font-bold block mb-0.5">Hình thức giao dịch</span>
+                    <p className="font-medium text-slate-600">Thu / Chi độc lập (Vãng lai)</p>
+                  </>
+                )}
               </div>
             </div>
           </div>

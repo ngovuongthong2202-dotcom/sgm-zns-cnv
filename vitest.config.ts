@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['**/*.spec.ts', 'src/tests/components.snapshot.spec.tsx', 'src/modules/customers/ui/components/CustomerCascadeImpactModal.spec.tsx'],
+    include: ['**/*.spec.ts', 'src/tests/components.snapshot.spec.tsx', 'src/modules/customers/ui/components/CustomerCascadeImpactModal.spec.tsx', 'src/tests/payment-quotation-integration.spec.tsx'],
     exclude: ['src/tests/e2e/**', 'node_modules/**', 'e2e/**'],
     coverage: {
       provider: 'v8',

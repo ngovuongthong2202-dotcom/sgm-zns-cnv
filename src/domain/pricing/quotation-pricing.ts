@@ -37,8 +37,11 @@ export function computeLineItem(item: ProductItem): ProductItem {
   const gross = Math.round(price * quantity);
   
   // 1. Phân giải chiết khấu (Explicit Intent Authority)
+  const rawDiscountPct = item.discountPct !== undefined && item.discountPct !== null 
+    ? item.discountPct 
+    : ((item as any).discountRate !== undefined && (item as any).discountRate !== null ? (item as any).discountRate : undefined);
   let discountAmount = 0;
-  let discountPct = item.discountPct !== undefined && item.discountPct !== null ? Number(item.discountPct) : undefined;
+  let discountPct = rawDiscountPct !== undefined ? Number(rawDiscountPct) : undefined;
   let discountType = item.discountType;
 
   if (discountType === 'AMOUNT' && item.discountAmount !== undefined && item.discountAmount !== null) {
@@ -70,9 +73,22 @@ export function computeLineItem(item: ProductItem): ProductItem {
   const unitPriceAfterDiscount = quantity > 0 ? Math.round(subtotalAfterDiscount / quantity) : price;
   const subtotalBeforeTax = subtotalAfterDiscount;
 
-  // 3. Tiền thuế VAT
-  const vatPct = item.vatPct !== undefined && item.vatPct !== null ? Math.max(0, Number(item.vatPct)) : 0;
-  const taxAmount = Math.round(subtotalBeforeTax * (vatPct / 100));
+  // 3. Tiền thuế VAT (Hỗ trợ cả vatPct và vatRate/vatAmount lịch sử)
+  const rawVat = item.vatPct !== undefined && item.vatPct !== null 
+    ? item.vatPct 
+    : ((item as any).vatRate !== undefined && (item as any).vatRate !== null ? (item as any).vatRate : undefined);
+  let vatPct = rawVat !== undefined ? Math.max(0, Number(rawVat)) : 0;
+  let taxAmount = Math.round(subtotalBeforeTax * (vatPct / 100));
+
+  if (taxAmount === 0 && vatPct === 0) {
+    const rawTaxAmount = item.taxAmount !== undefined && item.taxAmount !== null
+      ? Number(item.taxAmount)
+      : ((item as any).vatAmount !== undefined && (item as any).vatAmount !== null ? Number((item as any).vatAmount) : 0);
+    if (rawTaxAmount > 0 && subtotalBeforeTax > 0) {
+      taxAmount = rawTaxAmount;
+      vatPct = Math.round((taxAmount / subtotalBeforeTax) * 100);
+    }
+  }
 
   // 4. Thành tiền sau thuế (Tổng thu)
   const subtotalAfterTax = subtotalBeforeTax + taxAmount;
@@ -95,7 +111,7 @@ export function computeLineItem(item: ProductItem): ProductItem {
     subtotalAfterDiscount,
     unitPriceAfterDiscount,
     subtotalBeforeTax,
-    vatPct: item.vatPct, // Bảo lưu giá trị gốc (kể cả undefined) để UI phân biệt
+    vatPct: rawVat !== undefined ? Number(rawVat) : (vatPct > 0 ? vatPct : item.vatPct),
     taxAmount,
     subtotalAfterTax,
     total: subtotalAfterTax,

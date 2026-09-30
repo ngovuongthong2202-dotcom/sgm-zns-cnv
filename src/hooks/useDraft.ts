@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/src/modules/iam';
 import { draftsRepo } from '@/src/data/repositories/drafts.repo';
 
@@ -20,6 +20,9 @@ function removeUndefined(obj: unknown): unknown {
 
 export function useDraft<T extends Record<string, unknown>>(entityType: string, id: string = 'new') {
   const { user } = useAuth();
+  const userRef = useRef(user);
+  userRef.current = user;
+
   const [draft, setDraft] = useState<T | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [isRestored, setIsRestored] = useState(false);
@@ -28,12 +31,13 @@ export function useDraft<T extends Record<string, unknown>>(entityType: string, 
   useEffect(() => {
     let isMounted = true;
     const fetchDraft = async () => {
-      if (!user) {
+      const currentUser = userRef.current;
+      if (!currentUser) {
         loadingRef.current = false;
         return;
       }
       try {
-        const data = await draftsRepo.getDraft<Record<string, unknown>>(user.uid, entityType, id);
+        const data = await draftsRepo.getDraft<Record<string, unknown>>(currentUser.uid, entityType, id);
         if (!isMounted) return;
         if (data) {
           if (data._lastSavedAt) {
@@ -55,30 +59,32 @@ export function useDraft<T extends Record<string, unknown>>(entityType: string, 
     return () => {
       isMounted = false;
     };
-  }, [entityType, id, user]);
+  }, [entityType, id, user?.uid]);
 
-  const saveDraft = async (data: T) => {
-    if (!user || loadingRef.current) return;
+  const saveDraft = useCallback(async (data: T) => {
+    const currentUser = userRef.current;
+    if (!currentUser || loadingRef.current) return;
     try {
       const sanitized = removeUndefined(data);
-      await draftsRepo.saveDraft(user.uid, entityType, id, sanitized as any);
+      await draftsRepo.saveDraft(currentUser.uid, entityType, id, sanitized as any);
       setLastSavedAt(new Date());
     } catch (e) {
       console.error("Draft save error", e);
     }
-  };
+  }, [entityType, id]);
 
-  const clearDraft = async () => {
-    if (!user) return;
+  const clearDraft = useCallback(async () => {
+    const currentUser = userRef.current;
+    if (!currentUser) return;
     try {
-      await draftsRepo.clearDraft(user.uid, entityType, id);
+      await draftsRepo.clearDraft(currentUser.uid, entityType, id);
       setDraft(null);
       setLastSavedAt(null);
       setIsRestored(false);
     } catch (e) {
       console.error("Draft clear error", e);
     }
-  };
+  }, [entityType, id]);
 
   return { draft, lastSavedAt, saveDraft, clearDraft, isRestored };
 }

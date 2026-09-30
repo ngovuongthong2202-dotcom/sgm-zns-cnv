@@ -5068,25 +5068,12 @@ exports[`Component Snapshots (Baseline) > renders PaymentRecordDrawer 1`] = `
                   <span
                     class="text-slate-500 text-2xs uppercase font-bold block mb-0.5"
                   >
-                    Căn cứ Hợp Đồng
+                    Hình thức giao dịch
                   </span>
-                  <p>
-                    Số HĐ: 
-                    <span
-                      class="font-mono text-slate-800 font-bold"
-                    >
-                      ---
-                    </span>
-                  </p>
                   <p
-                    class="mt-0.5"
+                    class="font-medium text-slate-600"
                   >
-                    Hạn TT: 
-                    <span
-                      class="font-mono text-slate-800 font-bold"
-                    >
-                      ---
-                    </span>
+                    Thu / Chi độc lập (Vãng lai)
                   </p>
                 </div>
               </div>
