@@ -47,8 +47,26 @@ export function CustomerOverviewBento({
   const totalContractVal = reconciled.contractTotalValue;
   const calculatedDebt = reconciled.totalDebt;
 
-  const ltv = customer.ltv || calculatedTotalPaid || 0;
-  const debt = (customer.totalDebt !== undefined && customer.totalDebt > 0) ? customer.totalDebt : calculatedDebt;
+  const totalQuotesVal = React.useMemo(() => {
+    return (quotations || []).reduce((sum: number, q: any) => sum + Number(q.totalAmount || q.tongTien || 0), 0);
+  }, [quotations]);
+
+  const totalContractsVal = React.useMemo(() => {
+    return (contracts || []).reduce((sum: number, c: any) => sum + Number(c.totalAmount || c.giaTriHopDong || 0), 0);
+  }, [contracts]);
+
+  const ltv = customer.ltv
+    ? customer.ltv
+    : (calculatedTotalPaid > 0
+        ? calculatedTotalPaid
+        : (totalContractsVal > 0 ? totalContractsVal : totalQuotesVal));
+
+  const debt = (customer.totalDebt !== undefined && customer.totalDebt > 0)
+    ? customer.totalDebt
+    : (calculatedDebt > 0
+        ? calculatedDebt
+        : (contracts.length > 0 ? Math.max(0, totalContractsVal - calculatedTotalPaid) : 0));
+
   const tags = customer.tags || [];
 
   // Compute realtime health score
@@ -100,7 +118,7 @@ export function CustomerOverviewBento({
                 {ltv > 0 ? formatCurrency(ltv) : '0 ₫'}
               </div>
               <span className="text-3xs text-emerald-700 block truncate">
-                Thực thu: {formatCurrency(calculatedTotalPaid)}
+                {calculatedTotalPaid > 0 ? `Thực thu: ${formatCurrency(calculatedTotalPaid)}` : (totalQuotesVal > 0 ? `Báo giá: ${formatCurrency(totalQuotesVal)}` : 'Chưa phát sinh')}
               </span>
             </div>
 
@@ -120,7 +138,7 @@ export function CustomerOverviewBento({
                 {debt > 0 ? formatCurrency(debt) : '0 ₫'}
               </div>
               <span className="text-3xs text-slate-500 block truncate">
-                Tổng HĐ: {formatCurrency(totalContractVal)}
+                {totalContractVal > 0 ? `Tổng HĐ: ${formatCurrency(totalContractVal)}` : (totalQuotesVal > 0 ? `Tổng BG: ${formatCurrency(totalQuotesVal)}` : 'Chưa phát sinh')}
               </span>
             </div>
 

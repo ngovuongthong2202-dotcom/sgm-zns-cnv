@@ -360,9 +360,24 @@ export function CustomerDetailDrawer({
   const { ltv, debt } = React.useMemo(() => {
     if (!customer) return { ltv: 0, debt: 0 };
     const reconciled = reconcileEnterpriseReceivables(drawerPayments, drawerContracts, drawerQuotations);
+    const totalQuotesVal = drawerQuotations.reduce((sum, q) => sum + Number(q.totalAmount || q.tongTien || 0), 0);
+    const totalContractsVal = drawerContracts.reduce((sum, c) => sum + Number(c.totalAmount || c.giaTriHopDong || 0), 0);
+
+    const effectiveLtv = customer.ltv
+      ? customer.ltv
+      : (reconciled.totalPaid > 0
+          ? reconciled.totalPaid
+          : (totalContractsVal > 0 ? totalContractsVal : totalQuotesVal));
+
+    const effectiveDebt = (customer.totalDebt !== undefined && customer.totalDebt > 0)
+      ? customer.totalDebt
+      : (reconciled.totalDebt > 0
+          ? reconciled.totalDebt
+          : (drawerContracts.length > 0 ? Math.max(0, totalContractsVal - reconciled.totalPaid) : 0));
+
     return {
-      ltv: customer.ltv || reconciled.totalPaid || 0,
-      debt: (customer.totalDebt !== undefined && customer.totalDebt > 0) ? customer.totalDebt : reconciled.totalDebt,
+      ltv: effectiveLtv,
+      debt: effectiveDebt,
     };
   }, [customer, drawerPayments, drawerContracts, drawerQuotations]);
 
