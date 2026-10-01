@@ -26,6 +26,7 @@ export function DeliveryConfirmationModal({
 }: DeliveryConfirmationModalProps) {
   const [mounted, setMounted] = useState(false);
   const [isReverting, setIsReverting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'preview'>('overview');
 
   const { data: customerDoc } = useSWR<any>(
     delivery.customerId ? `customers:${delivery.customerId}` : null,
@@ -66,9 +67,9 @@ export function DeliveryConfirmationModal({
       <Dialog.Portal forceMount>
         <Dialog.Overlay className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9990]" />
         <Dialog.Content asChild>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 outline-none" style={{ pointerEvents: 'auto' }}>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 outline-none" style={{ pointerEvents: 'auto' }}>
             <div
-              className="relative z-10 w-full max-w-xl outline-none flex flex-col max-h-[92vh]"
+              className={`relative z-10 w-full ${activeTab === 'preview' ? 'max-w-4xl' : 'max-w-xl'} outline-none flex flex-col max-h-[92vh] transition-all duration-200`}
               onClick={(e) => e.stopPropagation()}
             >
               <motion.div
@@ -78,23 +79,49 @@ export function DeliveryConfirmationModal({
                 className="bg-white rounded-2xl shadow-2xl w-full flex flex-col max-h-[92vh] border border-emerald-200 overflow-hidden"
               >
                 {/* Header */}
-                <div className="px-6 py-5 bg-gradient-to-r from-emerald-50 via-teal-50 to-white border-b border-emerald-100 shrink-0 flex items-start justify-between gap-4">
+                <div className="px-6 py-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-white border-b border-emerald-100 shrink-0 flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3.5">
-                    <div className="p-3 bg-emerald-600 text-white rounded-2xl shadow-md shadow-emerald-200 shrink-0">
-                      <ShieldCheck size={24} />
+                    <div className="p-2.5 bg-emerald-600 text-white rounded-2xl shadow-md shadow-emerald-200 shrink-0 mt-0.5">
+                      <ShieldCheck size={22} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <Dialog.Title className="text-lg font-bold text-slate-900 tracking-tight">
+                        <Dialog.Title className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                           Thông tin xác nhận giao hàng
                         </Dialog.Title>
-                        <span className="bg-emerald-100 text-emerald-800 text-2xs font-extrabold px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        <span className="bg-emerald-100 text-emerald-800 text-3xs font-extrabold px-2.5 py-0.5 rounded-full border border-emerald-200">
                           Đã hoàn tất
                         </span>
                       </div>
-                      <Dialog.Description className="text-xs text-slate-500 mt-1 font-medium">
+                      <Dialog.Description className="text-xs text-slate-500 mt-0.5 font-medium">
                         Biên bản bàn giao thực tế cho phiếu <strong className="font-mono text-slate-800">{resolveDeliveryDisplayCode(delivery)}</strong>
                       </Dialog.Description>
+
+                      {/* Tab selector */}
+                      <div className="flex items-center gap-1.5 mt-2.5 bg-emerald-100/60 p-1 rounded-lg border border-emerald-200 w-fit">
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('overview')}
+                          className={`px-3 py-1 rounded-md text-2xs font-bold transition-all border-0 cursor-pointer ${
+                            activeTab === 'overview'
+                              ? 'bg-white text-emerald-950 shadow-xs'
+                              : 'bg-transparent text-emerald-800 hover:bg-emerald-200/50'
+                          }`}
+                        >
+                          Tổng quan giao nhận
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('preview')}
+                          className={`px-3 py-1 rounded-md text-2xs font-bold transition-all border-0 cursor-pointer ${
+                            activeTab === 'preview'
+                              ? 'bg-white text-emerald-950 shadow-xs'
+                              : 'bg-transparent text-emerald-800 hover:bg-emerald-200/50'
+                          }`}
+                        >
+                          Xem trước Biên bản A4 (Live Studio)
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -110,6 +137,10 @@ export function DeliveryConfirmationModal({
 
                 {/* Content */}
                 <div className="px-6 py-5 flex-1 overflow-y-auto space-y-5">
+                  {activeTab === 'preview' ? (
+                    <ExportHandoverPdf delivery={delivery} renderMode="preview_only" />
+                  ) : (
+                    <>
                   {/* Khối Thông tin bàn giao thực tế */}
                   <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-4.5 space-y-3">
                     <div className="text-2xs font-bold text-emerald-900 uppercase tracking-widest flex items-center gap-1.5">
@@ -245,6 +276,8 @@ export function DeliveryConfirmationModal({
                         {delivery.ghiChu}
                       </p>
                     </div>
+                  )}
+                    </>
                   )}
                 </div>
 

@@ -50,6 +50,10 @@ export const DeliverySchema = z.object({
   soDienThoaiDonViVanChuyen: z.string().optional(),
   thoGiaoMay: z.string().optional().or(z.literal('')),
   sdtThoGiaoMay: z.string().optional().or(z.literal('')),
+  soBienBanNghiemThu: z.string().optional(),
+  ngayNghiemThu: z.string().optional(),
+  tinhTrangNghiemThu: z.string().optional().default('DONG_Y'),
+  yKienNghiemThu: z.string().optional(),
   
   // Product snapshot (Current shipment items)
   products: z.array(ProductItemSchema).optional().default([]),

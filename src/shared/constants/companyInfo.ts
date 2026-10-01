@@ -24,6 +24,12 @@ export interface CompanyInfo {
   };
   logoUrl: string;
   warrantyStandardMonths: number;
+  hotlineTechnical?: string;
+  hotlineSupport?: string;
+  directorName?: string;
+  directorTitle?: string;
+  saigonMachineWebsite?: string;
+  addressCompact?: string;
 }
 
 export const SGM_COMPANY_INFO: CompanyInfo = {
@@ -46,5 +52,11 @@ export const SGM_COMPANY_INFO: CompanyInfo = {
     accountHolder: 'CONG TY TNHH CO KHI CONG NGHIEP SAI GON'
   },
   logoUrl: '/sgm-logo.png',
-  warrantyStandardMonths: 12
+  warrantyStandardMonths: 12,
+  hotlineTechnical: '0932.000.999',
+  hotlineSupport: '0901.828.492',
+  directorName: 'NGUYỄN PHÚ QUỐC',
+  directorTitle: 'Giám Đốc',
+  saigonMachineWebsite: 'saigonmachine.vn',
+  addressCompact: 'Lô 12A, Đường Số 9, KCN Tân Tạo, P. Tân Tạo A, Q. Bình Tân, TP. HCM'
 };

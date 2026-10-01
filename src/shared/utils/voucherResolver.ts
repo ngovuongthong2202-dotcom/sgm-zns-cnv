@@ -276,3 +276,52 @@ export function generateDeterministicNextCode(prefix: 'HD' | 'PT' | 'PGH', list:
   const nextSeq = maxSeq + 1;
   return `${prefix}-${currentYear}-${String(nextSeq).padStart(4, '0')}`;
 }
+
+/**
+ * Phân giải số biên bản nghiệm thu bàn giao thiết bị chuẩn SGM:
+ * Định dạng: [Số]/NT-BGTB-SGM/[Năm] (ví dụ: 025/NT-BGTB-SGM/2026)
+ */
+export function resolveAcceptanceProtocolCode(del?: any): string {
+  const currentYear = new Date().getFullYear();
+  if (!del) {
+    return `025/NT-BGTB-SGM/${currentYear}`;
+  }
+
+  // 1. Nếu đã có số biên bản nghiệm thu chỉ định
+  if (del.soBienBanNghiemThu && typeof del.soBienBanNghiemThu === 'string') {
+    return del.soBienBanNghiemThu.trim();
+  }
+
+  // 2. Trích xuất từ deliveryId dạng PGH-YYYY-XXXX (ví dụ: PGH-2026-0016 hoặc PGH-2026-0025)
+  if (del.deliveryId && typeof del.deliveryId === 'string') {
+    const match = del.deliveryId.match(/PGH-(\d{4})-(\d+)/i);
+    if (match) {
+      const year = match[1];
+      const seq = parseInt(match[2], 10);
+      const formattedSeq = String(seq).padStart(3, '0');
+      return `${formattedSeq}/NT-BGTB-SGM/${year}`;
+    }
+  }
+
+  // 3. Trích xuất từ soPhieuXuat (ví dụ: 11-PXBHDH2604-031 -> 031/NT-BGTB-SGM/2026)
+  if (del.soPhieuXuat && typeof del.soPhieuXuat === 'string') {
+    const match = del.soPhieuXuat.match(/-(\d{3,4})$/);
+    if (match) {
+      const seq = parseInt(match[1], 10);
+      return `${String(seq).padStart(3, '0')}/NT-BGTB-SGM/${currentYear}`;
+    }
+  }
+
+  // 4. Trích xuất từ soDonHang nếu có
+  if (del.soDonHang && typeof del.soDonHang === 'string') {
+    const match = del.soDonHang.match(/-(\d{3,4})$/);
+    if (match) {
+      const seq = parseInt(match[1], 10);
+      return `${String(seq).padStart(3, '0')}/NT-BGTB-SGM/${currentYear}`;
+    }
+  }
+
+  // 5. Fallback chuẩn
+  return `025/NT-BGTB-SGM/${currentYear}`;
+}
+
