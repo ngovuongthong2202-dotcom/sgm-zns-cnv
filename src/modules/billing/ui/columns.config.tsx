@@ -206,7 +206,6 @@ export const getPaymentColumns = (
     size: 280,
     cell: (info) => {
       const p = info.row.original as Payment;
-      const contactsToDisplay: { name: string; phone: string }[] = [];
       const liveCustomer = (customers.length > 0 && p.customerId) 
         ? customers.find(c => c.id === p.customerId || (c.maKh && c.maKh === p.customerId))
         : undefined;
@@ -214,85 +213,50 @@ export const getPaymentColumns = (
       const rawName = liveCustomer?.tenKhachHang || p.tenKhachHang || String(info.getValue() || 'Chưa rõ');
       const cName = normalizeBusinessName(rawName);
       
-      const payerNameClean = (p.tenNguoiNop || '').trim();
-      const customerRepName = (liveCustomer?.nguoiDaiDien || '').trim().toLowerCase();
-      const customerLegalName = (rawName || '').trim().toLowerCase();
-      const isExplicitThirdPartyPayer = Boolean(
-        payerNameClean &&
-        payerNameClean.toLowerCase() !== 'người nộp tiền' &&
-        payerNameClean.toLowerCase() !== 'nguoi nop tien' &&
-        payerNameClean.toLowerCase() !== customerRepName &&
-        payerNameClean.toLowerCase() !== customerLegalName
-      );
-
-      if (isExplicitThirdPartyPayer) {
-        contactsToDisplay.push({ 
-          name: `Nộp thay: ${normalizePersonName(payerNameClean)}`, 
-          phone: (p as any).sdtNguoiNop || p.sdt || '' 
-        });
-      }
-
-      if (liveCustomer) {
-        if (liveCustomer.nguoiDaiDien || liveCustomer.sdt) {
-          contactsToDisplay.push({ name: normalizePersonName(liveCustomer.nguoiDaiDien || 'Đại diện'), phone: liveCustomer.sdt || '' });
-        }
-        if (Array.isArray(liveCustomer.contacts)) {
-          liveCustomer.contacts.forEach((contact) => {
-            if (contact.nguoiDaiDien || contact.sdt) {
-              contactsToDisplay.push({ name: normalizePersonName(contact.nguoiDaiDien || 'Liên hệ'), phone: contact.sdt || '' });
-            }
-          });
-        }
-      } else if (p.sdt) {
-        contactsToDisplay.push({ name: 'Liên hệ', phone: p.sdt });
-      }
-
-      // Deduplicate contacts by sanitized phone number & name
-      const seenPhones = new Set<string>();
-      const uniqueContacts: { name: string; phone: string }[] = [];
-      for (const item of contactsToDisplay) {
-        const cleanPhone = item.phone ? item.phone.replace(/\D/g, '') : '';
-        if (cleanPhone) {
-          if (seenPhones.has(cleanPhone)) continue;
-          seenPhones.add(cleanPhone);
-        }
-        uniqueContacts.push(item);
-      }
+      // Kế thừa chân lý duy nhất (Single-Truth) từ Báo Giá (Vật tư/Dịch vụ) hoặc Hợp Đồng (Máy)
+      const payerName = normalizePersonName(p.tenNguoiNop || liveCustomer?.nguoiDaiDien || 'Người nộp tiền');
+      const rawPhone = p.sdt || liveCustomer?.sdt || '';
+      
+      const ext = rawPhone ? extractVietnamesePhones(rawPhone) : null;
+      const mobileList = ext?.mobilePhones || [];
+      const landlineList = ext?.landlinePhones || [];
 
       return (
         <div className="flex flex-col gap-1 py-1" title={cName}>
           <span className="font-semibold text-slate-900 tracking-tight line-clamp-3 break-words whitespace-normal leading-snug">{cName}</span>
-          {uniqueContacts.map((contact, idx) => {
-            const ext = contact.phone ? extractVietnamesePhones(contact.phone) : null;
-            const mobileList = ext?.mobilePhones || [];
-            const landlineList = ext?.landlinePhones || [];
-
-            return (
-              <div key={idx} className="flex flex-wrap items-center gap-1 text-2xs text-slate-600 leading-tight">
-                <span className="font-medium text-slate-700">{contact.name}</span>
-                {mobileList.length > 0 ? (
-                  mobileList.map((m, mIdx) => (
-                    <span 
-                      key={mIdx} 
-                      className="inline-flex items-center px-1.5 py-0.5 rounded text-3xs font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200/60 shadow-2xs"
-                      title={m.carrier ? `${m.carrier} - Zalo/ZNS OK` : 'Di động'}
-                    >
-                      {m.formatted}
+          <div className="flex flex-wrap items-center gap-1.5 text-2xs text-slate-600 leading-tight">
+            {payerName && (
+              <span className="font-medium text-slate-700">👤 {payerName}</span>
+            )}
+            {mobileList.length > 0 ? (
+              mobileList.map((m, mIdx) => (
+                <span 
+                  key={mIdx} 
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200/60 shadow-2xs"
+                  title={m.carrier ? `${m.carrier} - Zalo/ZNS OK` : 'Di động - Zalo/ZNS OK'}
+                >
+                  <span>{m.formatted}</span>
+                  {m.carrier && (
+                    <span className="text-4xs px-1 rounded bg-blue-100/80 text-blue-800 font-sans">
+                      {m.carrier}
                     </span>
-                  ))
-                ) : landlineList.length > 0 ? (
-                  <span 
-                    className="inline-flex items-center px-1.5 py-0.5 rounded text-3xs font-mono text-slate-500 bg-slate-100 border border-slate-200"
-                    title="Máy bàn cố định (Không ZNS)"
-                  >
-                    ☎️ {landlineList[0].formatted}
-                  </span>
-                ) : contact.phone ? (
-                  <span className="text-3xs font-mono text-slate-400">{contact.phone}</span>
-                ) : null}
-              </div>
-            );
-          })}
+                  )}
+                </span>
+              ))
+            ) : landlineList.length > 0 ? (
+              landlineList.map((l, lIdx) => (
+                <span 
+                  key={lIdx}
+                  className="inline-flex items-center px-1.5 py-0.5 rounded text-3xs font-mono text-slate-500 bg-slate-100 border border-slate-200"
+                  title="Máy bàn cố định (Không ZNS)"
+                >
+                  ☎️ {l.formatted}
+                </span>
+              ))
+            ) : rawPhone ? (
+              <span className="text-3xs font-mono text-slate-400">{rawPhone}</span>
+            ) : null}
+          </div>
         </div>
       );
     }

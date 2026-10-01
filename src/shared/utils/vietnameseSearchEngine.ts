@@ -78,13 +78,16 @@ export function matchesEnterpriseSearch(
   }
 
   // 2. Kiểm tra Số điện thoại (Fuzzy Digits Match)
-  const targetPhones = [
+  const targetPhones: string[] = [
     target.sdt,
     target.phone,
     target.soDienThoai,
+    (target as any).sdtPhu,
+    (target as any).soZaloMacDinh,
     (target as any).sdtThoGiaoMay,
     (target as any).sdtBan,
-    (target as any).so_dien_thoai
+    (target as any).so_dien_thoai,
+    ...(Array.isArray(target.danhSachSdt) ? target.danhSachSdt : [])
   ].filter(Boolean);
 
   for (const ph of targetPhones) {
@@ -113,9 +116,15 @@ export function matchesEnterpriseSearch(
       if (ct.email && normalizeVietnameseSearch(ct.email).includes(normalizedQuery)) {
         return true;
       }
-      // Khớp SĐT liên hệ
-      const ctPhone = ct.sdt || ct.phone;
-      if (ctPhone) {
+      // Khớp SĐT liên hệ (bao gồm SĐT chính, SĐT phụ, danh sách nhiều SĐT)
+      const contactPhones: string[] = [
+        ct.sdt,
+        ct.phone,
+        (ct as any).sdtPhu,
+        ...(Array.isArray((ct as any).danhSachSdt) ? (ct as any).danhSachSdt : [])
+      ].filter(Boolean);
+
+      for (const ctPhone of contactPhones) {
         const ctDigits = extractDigits(ctPhone);
         if (queryDigits && queryDigits.length >= 3 && ctDigits.includes(queryDigits)) {
           return true;

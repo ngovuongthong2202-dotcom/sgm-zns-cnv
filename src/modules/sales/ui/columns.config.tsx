@@ -6,6 +6,7 @@ import { EntityZnsStatus, normalizeLegacyStatus } from '@/src/domain/enums/zns-s
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { normalizeBusinessName, normalizePersonName } from '@/src/shared/utils/textFormatter';
 import { QuotationHoverCard } from './components/QuotationHoverCard';
+import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 import { CurrencyCell } from '@/src/design-system/dataview/cells/CurrencyCell';
 import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
@@ -90,21 +91,50 @@ export const getQuotationColumns = (
       // Ưu tiên đầu mối & SĐT gốc của chính báo giá này, bảo toàn phả hệ khi khách hàng được gộp
       const rawRep = q.nguoiDaiDien || liveCustomer?.nguoiDaiDien || '';
       const normalizedNguoiDaiDien = normalizePersonName(rawRep);
-      const phone = q.sdt || liveCustomer?.sdt;
-      const contactPrefix = normalizedNguoiDaiDien ? `👤 Đầu mối: ${normalizedNguoiDaiDien}` : '';
-      const detailStr = [contactPrefix, phone].filter(Boolean).join(' • ');
+      const rawPhone = q.sdt || liveCustomer?.sdt || '';
+      const address = q.diaChi || liveCustomer?.diaChi || '';
+      
+      const telecom = rawPhone ? extractVietnamesePhones(rawPhone, address) : null;
+      const mobileList = telecom?.mobilePhones || [];
+      const landlineList = telecom?.landlinePhones || [];
       
       return (
-        <QuotationHoverCard quotation={{ ...q, tenKhachHang: displayName, nguoiDaiDien: rawRep, sdt: phone }}>
-          <div className="w-full min-w-0 flex flex-col justify-center gap-0.5 pointer-events-auto py-1">
+        <QuotationHoverCard quotation={{ ...q, tenKhachHang: displayName, nguoiDaiDien: rawRep, sdt: rawPhone }}>
+          <div className="w-full min-w-0 flex flex-col justify-center gap-1 pointer-events-auto py-1">
             <span className="font-semibold text-slate-900 text-xs leading-snug whitespace-normal break-words line-clamp-3 transition-colors group-hover:text-blue-600" title={name}>
               {name}
             </span>
-            {detailStr && (
-              <span className="text-2xs text-slate-600 font-medium whitespace-normal break-words line-clamp-2" title={detailStr}>
-                {detailStr}
-              </span>
-            )}
+            <div className="flex flex-wrap items-center gap-1.5 text-2xs leading-tight">
+              {normalizedNguoiDaiDien && (
+                <span className="text-slate-700 font-medium">👤 {normalizedNguoiDaiDien}</span>
+              )}
+              {mobileList.length > 0 && mobileList.map((m: any, mIdx: number) => (
+                <span 
+                  key={`m-${mIdx}`}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200/60 shadow-2xs"
+                  title={m.carrier ? `${m.carrier} - Zalo/ZNS OK` : 'Di động - Zalo/ZNS OK'}
+                >
+                  <span>{m.formatted}</span>
+                  {m.carrier && (
+                    <span className="text-4xs px-1 rounded bg-blue-100/80 text-blue-800 font-sans">
+                      {m.carrier}
+                    </span>
+                  )}
+                </span>
+              ))}
+              {landlineList.length > 0 && landlineList.map((l: any, lIdx: number) => (
+                <span 
+                  key={`l-${lIdx}`}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-mono font-medium bg-slate-100 text-slate-600 border border-slate-200/60 shadow-2xs"
+                  title="Máy bàn cố định (Không ZNS)"
+                >
+                  <span>☎️ {l.formatted}</span>
+                </span>
+              ))}
+              {!telecom && rawPhone && (
+                <span className="text-2xs text-slate-500 font-mono">{rawPhone}</span>
+              )}
+            </div>
           </div>
         </QuotationHoverCard>
       );

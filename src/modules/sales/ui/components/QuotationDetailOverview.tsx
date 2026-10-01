@@ -8,7 +8,8 @@ import { CustomerHoverCard } from '@/src/modules/customers';
 import { DrawerProductList } from '@/src/widgets/DrawerProductList';
 import { EntityBusinessLockWarning } from '@/src/widgets/EntityBusinessLockWarning';
 import { checkQuotationLock } from '@/src/domain/policy/lock.policy';
-import { User, MapPin, FileText, ArrowUpRight, Zap, CheckCircle2 } from 'lucide-react';
+import { User, MapPin, FileText, ArrowUpRight, Zap, CheckCircle2, Smartphone, Building2, Copy, Check, Star } from 'lucide-react';
+import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 import { SearchableSelect } from '@/src/design-system/primitives/SearchableSelect';
 import { extractAvatarBadge } from '@/src/shared/utils/userProfile';
 import { StatusPill } from '@/src/widgets/StatusPill';
@@ -43,6 +44,13 @@ export function QuotationDetailOverview({
   const navigate = useNavigate();
   const lockResult = checkQuotationLock(quotation, matchingContracts, matchingPayments, matchingDeliveries);
   const isBgMay = normalizeLoai(quotation.loai) === QUOTATION_LOAI.MAY;
+  const [copiedPhone, setCopiedPhone] = React.useState<string | null>(null);
+
+  const handleCopyPhone = (ph: string) => {
+    navigator.clipboard.writeText(ph);
+    setCopiedPhone(ph);
+    setTimeout(() => setCopiedPhone(null), 1500);
+  };
 
   // Realtime calculated financial lineage
   const totalPaid = (matchingPayments || [])
@@ -262,6 +270,78 @@ export function QuotationDetailOverview({
                 {quotation.sdt && <p className="font-mono text-2xs text-slate-600 mt-1">{quotation.sdt}</p>}
               </div>
             )}
+
+            {/* Khối Đầu Mối & Số Điện Thoại Nhận Báo Giá */}
+            {(() => {
+              const rep = quotation.nguoiDaiDien || customer?.nguoiDaiDien || '';
+              const rawP = quotation.sdt || customer?.sdt || '';
+              const ext = rawP ? extractVietnamesePhones(rawP, quotation.diaChi || customer?.diaChi) : null;
+              const phones = ext?.phones || [];
+
+              return (
+                <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-3xs uppercase font-bold text-slate-500 tracking-wider">
+                      Đầu mối nhận Báo giá
+                    </span>
+                    {(quotation.chucVu || (customer?.contacts?.[0] as any)?.chucVu) && (
+                      <span className="text-3xs bg-white text-slate-600 px-1.5 py-0.2 rounded border border-slate-200 font-medium">
+                        {quotation.chucVu || (customer?.contacts?.[0] as any)?.chucVu}
+                      </span>
+                    )}
+                  </div>
+                  <strong className="text-xs font-bold text-slate-900 block">
+                    👤 {rep || 'Chưa cập nhật người nhận'}
+                  </strong>
+                  
+                  {phones.length > 0 ? (
+                    <div className="space-y-1.5 pt-1">
+                      {phones.map((p, idx) => {
+                        const isPrimary = p.cleaned === quotation.sdt || (idx === 0 && !quotation.sdt);
+                        const isMobile = p.type === 'MOBILE';
+                        const isCopied = copiedPhone === p.cleaned;
+
+                        return (
+                          <div key={idx} className="flex items-center justify-between gap-1.5 bg-white p-1.5 rounded-md border border-slate-200/70 shadow-2xs">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {isMobile ? (
+                                <Smartphone size={12} className={isPrimary ? "text-blue-600 shrink-0" : "text-slate-400 shrink-0"} />
+                              ) : (
+                                <Building2 size={12} className="text-slate-400 shrink-0" />
+                              )}
+                              <span className={`font-mono text-xs font-bold tracking-tight truncate ${isPrimary ? 'text-blue-900' : 'text-slate-800'}`}>
+                                {p.formatted}
+                              </span>
+                              {p.carrier && (
+                                <span className="text-3xs px-1 py-0.1 rounded font-bold border border-blue-200 bg-blue-50 text-blue-700 shrink-0">
+                                  {p.carrier}
+                                </span>
+                              )}
+                              {isPrimary && (
+                                <span className="text-amber-500 flex items-center shrink-0" title="SĐT chính nhận ZNS">
+                                  <Star size={11} fill="currentColor" />
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyPhone(p.cleaned)}
+                              className="text-3xs font-bold text-blue-700 hover:text-blue-800 bg-slate-50 hover:bg-blue-50 px-1.5 py-0.5 rounded border border-slate-200 flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                              title="Sao chép SĐT"
+                            >
+                              {isCopied ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                              <span>{isCopied ? 'Đã chép' : 'Chép'}</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : rawP ? (
+                    <p className="font-mono text-xs text-slate-700">{rawP}</p>
+                  ) : null}
+                </div>
+              );
+            })()}
           </section>
 
           {/* Thẻ 2: Quản trị & PIC Phụ trách */}

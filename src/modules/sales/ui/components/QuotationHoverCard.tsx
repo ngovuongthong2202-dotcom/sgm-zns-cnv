@@ -9,6 +9,7 @@ import { formatDate } from '@/src/shared/utils/formatDate';
 import { addVietnamWorkingDays } from '@/src/shared/utils/vietnamBusinessDays';
 import { cn } from '@/src/shared/utils/textFormatter';
 import { t } from '@/src/i18n/vi';
+import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 interface Props {
   quotation?: Quotation;
@@ -104,9 +105,33 @@ function QuotationHoverCardContent({ quotation, quotationId }: { quotation?: Quo
                     </div>
                     <div>
                       <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Số điện thoại:</span>
-                      <span className="font-mono font-semibold text-slate-800 block flex items-center gap-1">
-                        <Phone size={10} className="text-slate-400" /> {displayPhone}
-                      </span>
+                      {(() => {
+                        const rawP = displayPhone !== '—' ? displayPhone : '';
+                        const extPhone = rawP ? extractVietnamesePhones(rawP) : null;
+                        const mobileList = extPhone?.mobilePhones || [];
+                        const landlineList = extPhone?.landlinePhones || [];
+                        if (!extPhone || (mobileList.length === 0 && landlineList.length === 0)) {
+                          return (
+                            <span className="font-mono font-semibold text-slate-800 block flex items-center gap-1">
+                              <Phone size={10} className="text-slate-400" /> {displayPhone}
+                            </span>
+                          );
+                        }
+                        return (
+                          <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                            {mobileList.map((m, mIdx) => (
+                              <span key={`hm-${mIdx}`} className="inline-flex items-center gap-1 font-mono text-3xs font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200" title={m.carrier ? `${m.carrier} - Zalo/ZNS OK` : 'Di động - Zalo/ZNS OK'}>
+                                <Phone size={10} className="text-blue-500" /> {m.formatted}
+                              </span>
+                            ))}
+                            {landlineList.map((l, lIdx) => (
+                              <span key={`hl-${lIdx}`} className="inline-flex items-center gap-1 font-mono text-3xs text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title="Máy bàn cố định (Không ZNS)">
+                                ☎️ {l.formatted}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="col-span-2 border-t border-slate-100 pt-3">
                       <span className="text-slate-400 block text-3xs uppercase font-bold tracking-wider mb-0.5">Địa chỉ / Tỉnh thành:</span>

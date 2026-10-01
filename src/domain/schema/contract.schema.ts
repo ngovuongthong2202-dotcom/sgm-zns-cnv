@@ -14,6 +14,10 @@ export const ContractSchema = z.object({
   tenKhachHang: z.string().optional().or(z.literal('')),
   nguoiDaiDien: z.string().optional(),
   sdt: z.string().optional().or(z.literal('')),
+  danhSachSdt: z.array(z.string()).optional().default([]),
+  sdtPhu: z.string().optional(),
+  soZaloMacDinh: z.string().optional(),
+  chucVu: z.string().optional(),
   soPhieuBaoGia: z.string().optional().or(z.literal('')),
   ngayBaoGia: z.string().optional().or(z.literal('')),
   

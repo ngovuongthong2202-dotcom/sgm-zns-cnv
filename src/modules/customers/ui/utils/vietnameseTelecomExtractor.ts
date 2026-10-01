@@ -293,3 +293,59 @@ export function extractVietnamesePhones(rawInput?: string, addressContext?: stri
     displayBadges
   };
 }
+
+/**
+ * Thẩm định và trích xuất số điện thoại di động hợp lệ để gửi tin ZNS
+ * Tự động lọc bỏ số máy bàn, bóc tách chuỗi dính chùm, và trả về số di động 10 số chuẩn
+ */
+export function resolveZnsTargetPhone(
+  targetPhone?: string | null,
+  phoneList?: string[] | null,
+  fallbackCustomer?: any
+): { validPhone: string | null; formatted: string; carrier?: string; warning?: string } {
+  const candidatePool: string[] = [];
+  if (targetPhone) candidatePool.push(targetPhone);
+  if (Array.isArray(phoneList)) candidatePool.push(...phoneList);
+  if (fallbackCustomer) {
+    if (fallbackCustomer.sdt) candidatePool.push(fallbackCustomer.sdt);
+    if (Array.isArray(fallbackCustomer.contacts)) {
+      fallbackCustomer.contacts.forEach((ct: any) => {
+        if (ct?.sdt) candidatePool.push(ct.sdt);
+        if (Array.isArray(ct?.danhSachSdt)) candidatePool.push(...ct.danhSachSdt);
+      });
+    }
+  }
+
+  // Bóc tách toàn bộ và ưu tiên tìm số di động
+  for (const raw of candidatePool) {
+    const ext = extractVietnamesePhones(String(raw));
+    if (ext.mobilePhones.length > 0) {
+      const topMobile = ext.mobilePhones[0];
+      return {
+        validPhone: topMobile.cleaned,
+        formatted: topMobile.formatted,
+        carrier: topMobile.carrier,
+        warning: undefined
+      };
+    }
+  }
+
+  // Nếu chỉ có số máy bàn
+  for (const raw of candidatePool) {
+    const ext = extractVietnamesePhones(String(raw));
+    if (ext.landlinePhones.length > 0) {
+      return {
+        validPhone: null,
+        formatted: ext.landlinePhones[0].formatted,
+        warning: 'Khách hàng chỉ có số máy bàn cố định (không hỗ trợ nhận tin ZNS/Zalo). Vui lòng bổ sung SĐT di động.'
+      };
+    }
+  }
+
+  return {
+    validPhone: null,
+    formatted: '',
+    warning: 'Không tìm thấy số điện thoại của người nhận.'
+  };
+}
+

@@ -155,9 +155,10 @@ export function PaymentDetailDrawer({
     if (!payment) return '';
     if (payment.tenNguoiNop && payment.tenNguoiNop.trim()) return payment.tenNguoiNop.trim();
     if (contractDoc?.nguoiDaiDien && contractDoc.nguoiDaiDien.trim()) return contractDoc.nguoiDaiDien.trim();
+    if (_quotationDoc?.nguoiLienHe && _quotationDoc.nguoiLienHe.trim()) return _quotationDoc.nguoiLienHe.trim();
     if (customerDoc?.contacts?.length) {
       if (payment.sdt) {
-        const matched = customerDoc.contacts.find((c: any) => c.sdt === payment.sdt);
+        const matched = customerDoc.contacts.find((c: any) => c.sdt === payment.sdt || (c.danhSachSdt && c.danhSachSdt.includes(payment.sdt)));
         if (matched?.nguoiDaiDien && matched.nguoiDaiDien.trim()) return matched.nguoiDaiDien.trim();
       }
       if (customerDoc.contacts[0]?.nguoiDaiDien && customerDoc.contacts[0].nguoiDaiDien.trim()) {
@@ -167,7 +168,7 @@ export function PaymentDetailDrawer({
     if (customerDoc?.nguoiDaiDien && customerDoc.nguoiDaiDien.trim()) return customerDoc.nguoiDaiDien.trim();
     if (payment.tenKhachHang && payment.tenKhachHang.trim()) return payment.tenKhachHang.trim();
     return 'Chưa cập nhật người đại diện';
-  }, [payment, contractDoc?.nguoiDaiDien, customerDoc?.contacts, customerDoc?.nguoiDaiDien]);
+  }, [payment, contractDoc?.nguoiDaiDien, _quotationDoc?.nguoiLienHe, customerDoc?.contacts, customerDoc?.nguoiDaiDien]);
 
   // Sổ cái các đợt thu (Multi-installment Ledger)
   const effectiveInstallments: PaymentInstallment[] = useMemo(() => {
@@ -697,7 +698,19 @@ export function PaymentDetailDrawer({
     [contractDoc, _quotationDoc, deliveries]
   );
 
-  const contractsList = useMemo(() => (contractDoc ? [contractDoc] : []), [contractDoc]);
+  const contractsList = useMemo(() => {
+    if (contractDoc) return [contractDoc];
+    if (payment.contractId) {
+      const cached = entityCachePool.get('contracts', payment.contractId);
+      if (cached) return [cached];
+    }
+    if (payment.soHopDong) {
+      const cached = entityCachePool.find('contracts', (c: any) => c.soHopDong === payment.soHopDong);
+      if (cached) return [cached];
+    }
+    return [];
+  }, [contractDoc, payment.contractId, payment.soHopDong]);
+
   const quotationsList = useMemo(() => {
     if (_quotationDoc) return [_quotationDoc];
     if (quotationId) {
@@ -706,7 +719,15 @@ export function PaymentDetailDrawer({
     }
     return [];
   }, [_quotationDoc, quotationId]);
-  const customersList = useMemo(() => (customerDoc ? [customerDoc] : []), [customerDoc]);
+
+  const customersList = useMemo(() => {
+    if (customerDoc) return [customerDoc];
+    if (payment.customerId) {
+      const cached = entityCachePool.get('customers', payment.customerId);
+      if (cached) return [cached];
+    }
+    return [];
+  }, [customerDoc, payment.customerId]);
 
   const deliveryPrefill = useMemo(() => {
     if (!payment) return null;
@@ -717,34 +738,36 @@ export function PaymentDetailDrawer({
     );
 
     const resolvedQuo = _quotationDoc || (quotationId ? entityCachePool.get('quotations', quotationId) : null);
+    const targetContract = contractDoc || (contractsList.length > 0 ? contractsList[0] : null);
 
     return {
-      contractId: contractDoc?.id || payment.contractId || '',
+      contractId: targetContract?.id || payment.contractId || '',
       paymentId: payment.id,
       quotationId: resolvedQuo?.id || payment.quotationId || '',
       customerId: payment.customerId,
       tenKhachHang: payment.tenKhachHang,
       sdt: payment.sdt,
-      diaChiGiaoHang: (payment as any).diaChiGiaoHang || contractDoc?.diaChiGiaoHang || (payment as any).diaChi || '',
-      soHopDong: contractDoc?.soHopDong || payment.soHopDong,
+      diaChiGiaoHang: (payment as any).diaChiGiaoHang || targetContract?.diaChiGiaoHang || (payment as any).diaChi || '',
+      soHopDong: targetContract?.soHopDong || payment.soHopDong,
       soBaoGia: resolvedQuo?.soPhieuBaoGia || (payment as any).soPhieuBaoGia,
       soPhieuBaoGia: resolvedQuo?.soPhieuBaoGia || (payment as any).soPhieuBaoGia,
       ngayBaoGia: resolvedQuo?.ngayBaoGia || (payment as any).ngayBaoGia,
-      giaTriHopDong: contractDoc?.totalAmount || (payment as any).tongGiaTri || (payment as any).totalAmount || payment.soTien || 0,
+      giaTriHopDong: targetContract?.totalAmount || (payment as any).tongGiaTri || (payment as any).totalAmount || payment.soTien || 0,
       tinhTrangThanhToan: payment.tinhTrangThanhToan,
       nguoiPhuTrach: payment.nguoiPhuTrach,
-      products: contractDoc?.products || resolvedQuo?.products || (payment as any).products || [],
-      danhSachMaMay: contractDoc?.danhSachMaMay || (payment as any).danhSachMaMay || [],
+      products: targetContract?.products || resolvedQuo?.products || (payment as any).products || [],
+      danhSachMaMay: targetContract?.danhSachMaMay || (payment as any).danhSachMaMay || [],
       slMay: allocGate.remainingMachines,
       ngayLapPgh: new Date().toISOString().split('T')[0],
       ngayGiaoMay: new Date().toISOString().split('T')[0],
       dacCachGiaoTruoc: isWaiver,
-      nguoiPheDuyetDacCach: (payment as any).nguoiPheDuyetDacCach || (contractDoc as any)?.nguoiPheDuyetDacCach || 'Ban Giám Đốc',
-      lyDoDacCach: (payment as any).lyDoDacCach || (contractDoc as any)?.lyDoDacCach || 'Đặc cách giao hàng trước khi thanh toán'
+      nguoiPheDuyetDacCach: (payment as any).nguoiPheDuyetDacCach || (targetContract as any)?.nguoiPheDuyetDacCach || 'Ban Giám Đốc',
+      lyDoDacCach: (payment as any).lyDoDacCach || (targetContract as any)?.lyDoDacCach || 'Đặc cách giao hàng trước khi thanh toán'
     };
   }, [
     payment,
     contractDoc,
+    contractsList,
     _quotationDoc,
     quotationId,
     isChuaTT,
@@ -752,7 +775,7 @@ export function PaymentDetailDrawer({
   ]);
 
   const handleCreateDelivery = () => {
-    const targetDoc = contractDoc || _quotationDoc;
+    const targetDoc = contractDoc || _quotationDoc || (contractsList.length > 0 ? contractsList[0] : null) || (quotationsList.length > 0 ? quotationsList[0] : null);
     if (!targetDoc) {
       notify.warning('Hồ sơ thanh toán này chưa liên kết với Hợp đồng hoặc Báo giá.');
       return;
@@ -815,8 +838,8 @@ export function PaymentDetailDrawer({
       <DetailDrawer
         isOpen={isOpen}
         onClose={onClose}
-        modal={modal}
-        className={className}
+        modal={!isDeliveryModalOpen && modal}
+        className={isDeliveryModalOpen ? 'opacity-0 pointer-events-none' : className}
         title={`XÁC NHẬN THANH TOÁN: ${payment.paymentId || 'N/A'}`}
         subTitle={
           <div className="flex items-center gap-2">

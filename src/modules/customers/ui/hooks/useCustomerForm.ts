@@ -240,7 +240,7 @@ export function useCustomerForm(
         nhuCauKhachHang: '',
         gioiTinh: '',
         ngaySinh: '',
-        contacts: [{ danhXung: '', nguoiDaiDien: '', sdt: '', chiNhanh: '', chucVu: '' }]
+        contacts: [{ danhXung: '', nguoiDaiDien: '', sdt: '', danhSachSdt: [], sdtPhu: '', chiNhanh: '', chucVu: '' }]
       });
       generateNextMaKh();
     } else {

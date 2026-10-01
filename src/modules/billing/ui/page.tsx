@@ -28,6 +28,8 @@ import { usePaymentsActions } from './hooks/usePaymentsActions';
  
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
+import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
+import { repositoryFactory } from '@/src/data/repositories/factory';
 
 import PaymentDeliveryBanner from './components/PaymentDeliveryBanner';
 
@@ -65,25 +67,36 @@ const PaymentRouteSync = React.memo(function PaymentRouteSync({
 
     if (processedActionNonceRef.current === fromQuoId) return;
 
-    if (quotations.length > 0) {
-      const foundQuo = quotations.find((q: any) => q.id === fromQuoId);
-      if (foundQuo) {
-        // Idempotent lock: Mark as processed immediately before executing side-effects
-        processedActionNonceRef.current = fromQuoId;
+    let foundQuo = quotations.find((q: any) => q.id === fromQuoId);
+    if (!foundQuo) {
+      foundQuo = entityCachePool.get('quotations', fromQuoId);
+    }
 
-        // Atomically strip query param from URL without trigger loops
-        const nextParams = new URLSearchParams(searchParams);
-        nextParams.delete('fromQuotation');
-        setSearchParams(nextParams, { replace: true });
+    const executePrefill = (targetQuo: any) => {
+      processedActionNonceRef.current = fromQuoId;
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('fromQuotation');
+      setSearchParams(nextParams, { replace: true });
 
-        const canProceed = canCreatePayment(foundQuo);
-        if (!canProceed.allowed) {
-          notify.error(canProceed.reason || "Báo giá không đủ điều kiện lập phiếu thu.");
-        } else {
-          onPrefillQuotation(foundQuo);
-          onOpenForm();
-        }
+      const canProceed = canCreatePayment(targetQuo);
+      if (!canProceed.allowed) {
+        notify.error(canProceed.reason || "Báo giá không đủ điều kiện lập phiếu thu.");
+      } else {
+        onPrefillQuotation(targetQuo);
+        onOpenForm();
       }
+    };
+
+    if (foundQuo) {
+      executePrefill(foundQuo);
+    } else {
+      repositoryFactory.get<any>('quotations').getById(fromQuoId)
+        .then((doc: any) => {
+          if (doc) {
+            executePrefill(doc);
+          }
+        })
+        .catch(() => {});
     }
   }, [location.pathname, searchParams, quotations, setSearchParams, onPrefillQuotation, onOpenForm]);
 

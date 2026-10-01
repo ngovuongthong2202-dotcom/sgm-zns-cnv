@@ -25,32 +25,48 @@ export function SmartPolyPhoneInput({
   const [inputValue, setInputValue] = useState('');
   const [isInputActive, setIsInputActive] = useState(false);
 
-  // Chuẩn hóa danh sách số điện thoại tổng hợp (gộp primaryPhone và phoneList)
+  // Chuẩn hóa danh sách số điện thoại tổng hợp (gộp primaryPhone và phoneList, tự động bóc tách chuỗi dính chùm)
   const currentPhones = useMemo(() => {
     const list: string[] = [];
     const seen = new Set<string>();
 
-    const addPhone = (p: string) => {
-      const clean = normalizePhone(p);
-      if (clean && !seen.has(clean)) {
-        seen.add(clean);
-        list.push(clean);
+    const ingestRaw = (rawInput?: string) => {
+      if (!rawInput || !rawInput.trim()) return;
+      const extraction = extractVietnamesePhones(rawInput);
+      if (extraction.phones && extraction.phones.length > 0) {
+        extraction.phones.forEach(p => {
+          if (p.cleaned && !seen.has(p.cleaned)) {
+            seen.add(p.cleaned);
+            list.push(p.cleaned);
+          }
+        });
+      } else {
+        const clean = normalizePhone(rawInput);
+        if (clean && !seen.has(clean)) {
+          seen.add(clean);
+          list.push(clean);
+        }
       }
     };
 
-    if (primaryPhone) addPhone(primaryPhone);
-    (phoneList || []).forEach(addPhone);
+    if (primaryPhone) ingestRaw(primaryPhone);
+    (phoneList || []).forEach(ingestRaw);
 
     return list;
   }, [primaryPhone, phoneList]);
 
-  const activePrimary = currentPhones[0] || primaryPhone || '';
+  // Tìm số chính: ưu tiên số di động đầu tiên hoặc số khớp với primaryPhone
+  const activePrimary = useMemo(() => {
+    if (primaryPhone && currentPhones.includes(primaryPhone)) return primaryPhone;
+    const mobile = currentPhones.find(p => p.length === 10 && /^0[35789]/.test(p));
+    return mobile || currentPhones[0] || '';
+  }, [primaryPhone, currentPhones]);
 
   // Hàm cập nhật danh sách
   const updateList = useCallback((newList: string[], newPrimary?: string) => {
     const primary = newPrimary && newList.includes(newPrimary) 
       ? newPrimary 
-      : (newList[0] || '');
+      : (newList.find(p => p.length === 10 && /^0[35789]/.test(p)) || newList[0] || '');
     
     // Đảm bảo số chính luôn đứng đầu danh sách
     const reordered = [primary, ...newList.filter(p => p !== primary)].filter(Boolean);

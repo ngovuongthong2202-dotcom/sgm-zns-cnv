@@ -72,9 +72,10 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
       const formatPhoneHelper = (rawPhone: string) => {
         if (!rawPhone) return '';
         const ext = extractVietnamesePhones(rawPhone);
-        if (ext.mobilePhones.length > 0) return ext.mobilePhones.map(m => m.formatted).join(' • ');
-        if (ext.landlinePhones.length > 0) return `☎️ ${ext.landlinePhones.map(m => m.formatted).join(' • ')}`;
-        return rawPhone;
+        const parts: string[] = [];
+        if (ext.mobilePhones.length > 0) parts.push(ext.mobilePhones.map(m => m.formatted).join(' • '));
+        if (ext.landlinePhones.length > 0) parts.push(`☎️ ${ext.landlinePhones.map(m => m.formatted).join(' • ')}`);
+        return parts.length > 0 ? parts.join(' | ') : rawPhone;
       };
 
       const displaySpecificPhone = formatPhoneHelper(specificPhone);

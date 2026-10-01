@@ -72,6 +72,10 @@ export function applyQuotationToContractForm(setValue: UseFormSetValue<FormValue
   setValue('tenKhachHang', q.tenKhachHang || '');
   setValue('sdt', q.sdt || '');
   setValue('nguoiDaiDien', q.nguoiDaiDien || '');
+  if ((q as any).danhSachSdt) setValue('danhSachSdt' as any, (q as any).danhSachSdt);
+  if ((q as any).sdtPhu) setValue('sdtPhu' as any, (q as any).sdtPhu);
+  if ((q as any).chucVu) setValue('chucVu' as any, (q as any).chucVu);
+  if ((q as any).soZaloMacDinh) setValue('soZaloMacDinh' as any, (q as any).soZaloMacDinh);
   setValue('soPhieuBaoGia', q.soPhieuBaoGia || '');
   setValue('ngayBaoGia', q.ngayBaoGia || '');
   setValue('loai', q.loai || '');

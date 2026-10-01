@@ -28,6 +28,12 @@ export function normalizeQuotationFormValues(data: Quotation): Quotation {
   if (normalized.sdt) {
     normalized.sdt = normalizePhoneVN(normalized.sdt) || normalized.sdt;
   }
+  if (normalized.chucVu) {
+    normalized.chucVu = sanitizeText(normalized.chucVu);
+  }
+  if (Array.isArray(normalized.danhSachSdt)) {
+    normalized.danhSachSdt = Array.from(new Set(normalized.danhSachSdt.map((p: string) => (normalizePhoneVN(p) || p).trim()).filter(Boolean)));
+  }
   
   if (Array.isArray(normalized.products) && normalized.products.length > 0) {
     const healedProducts = normalized.products.map(computeLineItem);

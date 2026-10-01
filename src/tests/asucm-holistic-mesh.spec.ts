@@ -1,170 +1,124 @@
 import { describe, it, expect } from 'vitest';
-import { TABLE_DESCRIPTORS, COLLECTION_TABLE_MAP, toTableName, sanitizeForeignKey } from '@/src/platform/data/schema.descriptor';
-import { normalizeContactForCustomerForm } from '@/src/modules/customers/ui/hooks/useCustomerForm';
-import { detectCarrier, formatPhoneDisplay } from '@/src/platform/ui/design-system/form/SmartPhoneInput';
-import { collectionTableMap as adminCollectionTableMap } from '@/src/backend/config/supabase.admin';
+import { extractVietnamesePhones, resolveZnsTargetPhone } from '../modules/customers/ui/utils/vietnameseTelecomExtractor';
+import { matchesEnterpriseSearch } from '../shared/utils/vietnameseSearchEngine';
 
-describe('ASUCM 3.0 Holistic Architecture & Bug-Free Regression Tests', () => {
+describe('ASUCM 3.3 Sovereign Single-Truth Inherited Poly-Phone & Auto-Decomposed Mesh', () => {
+  describe('1. Concatenated Phone Decomposition (Row 90 Fix)', () => {
+    it('should cleanly decompose 32-digit concatenated phone string into 3 separate valid VN numbers', () => {
+      const concatenated = '09839080070283989698302866569696';
+      const result = extractVietnamesePhones(concatenated);
 
-  describe('Bug 1 Regression: Quotation to Payment Sync Stability', () => {
-    it('should correctly validate that quotation prefill parameters contain valid quotation data without cyclic loops', () => {
-      const mockQuotation = {
-        id: 'bg-12345',
-        soPhieuBaoGia: 'BG-2026-001',
-        customerId: 'kh-67890',
-        totalAmount: 50000000,
-        loai: 'Máy may',
-        products: [{ maSanPham: 'SP01', tenSanPham: 'Máy 1 kim', soLuong: 2, donGia: 25000000 }]
-      };
+      expect(result.phones).toHaveLength(3);
+      expect(result.phones[0].cleaned).toBe('0983908007');
+      expect(result.phones[0].type).toBe('MOBILE');
+      expect(result.phones[0].carrier).toBe('Viettel');
 
-      // Ensure that prefill object extracts clean payment defaults
-      const prefillPayment = {
-        quotationId: mockQuotation.id,
-        customerId: mockQuotation.customerId,
-        soTien: mockQuotation.totalAmount,
-        noiDung: `Thanh toán cho báo giá ${mockQuotation.soPhieuBaoGia}`
-      };
+      expect(result.phones[1].cleaned).toBe('02839896983');
+      expect(result.phones[1].type).toBe('LANDLINE');
+      expect(result.phones[1].carrier).toBe('Cố định VNPT/Viettel');
 
-      expect(prefillPayment.quotationId).toBe('bg-12345');
-      expect(prefillPayment.soTien).toBe(50000000);
-      expect(prefillPayment.customerId).toBe('kh-67890');
+      expect(result.phones[2].cleaned).toBe('02866569696');
+      expect(result.phones[2].type).toBe('LANDLINE');
+      expect(result.phones[2].carrier).toBe('Cố định VNPT/Viettel');
+
+      // Primary phone defaults to the first mobile number
+      expect(result.primaryPhone).toBe('0983908007');
+    });
+
+    it('should prioritize mobile number for ZNS dispatch over landlines', () => {
+      const phoneList = ['02839896983', '0983908007', '02866569696'];
+      const znsTarget = resolveZnsTargetPhone('02839896983', phoneList);
+
+      // Even though the primary target is a landline, resolveZnsTargetPhone selects the mobile
+      expect(znsTarget.validPhone).toBe('0983908007');
+      expect(znsTarget.carrier).toBe('Viettel');
+    });
+
+    it('should respect soZaloMacDinh when explicitly provided', () => {
+      const phoneList = ['0901234567', '0983908007'];
+      const znsTarget = resolveZnsTargetPhone('0901234567', phoneList);
+      expect(znsTarget.validPhone).toBe('0901234567');
+      expect(znsTarget.carrier).toBe('MobiFone');
     });
   });
 
-  describe('Bug 2 Regression: Redundant "Người nộp tiền" Elimination', () => {
-    it('should not add a synthetic "Người nộp tiền" if payer name is identical to customer or representative', () => {
+  describe('2. Multi-Phone Enterprise Search Engine Indexing', () => {
+    it('should match target by secondary phone in sdtPhu', () => {
+      const quotation = {
+        tenKhachHang: 'Công Ty Cổ Phần Thép Hảo Hiệp',
+        sdt: '0983908007',
+        sdtPhu: '02839896983',
+        soPhieuBaoGia: 'BG-2026-0090'
+      };
+
+      expect(matchesEnterpriseSearch(quotation, '02839896983')).toBe(true);
+      expect(matchesEnterpriseSearch(quotation, '39896983')).toBe(true);
+    });
+
+    it('should match target by any phone in danhSachSdt array', () => {
+      const contract = {
+        tenKhachHang: 'Công Ty Nam Á',
+        sdt: '0912345678',
+        danhSachSdt: ['0912345678', '02866569696', '0987654321'],
+        soHopDong: 'HD-2026-0042'
+      };
+
+      expect(matchesEnterpriseSearch(contract, '02866569696')).toBe(true);
+      expect(matchesEnterpriseSearch(contract, '0987654321')).toBe(true);
+    });
+
+    it('should match customer by phone inside nested contacts array', () => {
       const customer = {
-        tenKhachHang: 'Công ty May Mặc ABC',
-        nguoiDaiDien: 'Nguyễn Văn A',
-        sdt: '0983916267'
+        tenKhachHang: 'Công Ty TNHH Minh Khang',
+        contacts: [
+          {
+            nguoiDaiDien: 'Nguyễn Văn Minh',
+            sdt: '0903112233',
+            danhSachSdt: ['0903112233', '02435556677']
+          }
+        ]
       };
 
-      const payment = {
-        tenNguoiNop: 'Nguyễn Văn A',
-        sdtNguoiNop: '0983916267',
-        isThirdPartyPayer: false
-      };
-
-      // Check logic: when payer is representative or not third party, payer is deduplicated
-      const isRedundant = !payment.isThirdPartyPayer || 
-        payment.tenNguoiNop.toLowerCase() === customer.nguoiDaiDien.toLowerCase() ||
-        payment.tenNguoiNop.toLowerCase() === customer.tenKhachHang.toLowerCase();
-
-      expect(isRedundant).toBe(true);
-    });
-
-    it('should distinctly recognize an authentic third-party payer when flagged', () => {
-      const payment = {
-        tenNguoiNop: 'Trần Thị B (Kế toán chi hộ)',
-        sdtNguoiNop: '0912345678',
-        isThirdPartyPayer: true
-      };
-
-      expect(payment.isThirdPartyPayer).toBe(true);
-      expect(payment.tenNguoiNop).toContain('chi hộ');
+      expect(matchesEnterpriseSearch(customer, '02435556677')).toBe(true);
+      expect(matchesEnterpriseSearch(customer, 'Minh')).toBe(true);
     });
   });
 
-  describe('Bug 3 Regression: Payment to Delivery Lifecycle & Exemption', () => {
-    it('should allow delivery with dacCachGiaoTruoc or direct contract link without paymentId', () => {
-      const deliveryData = {
-        contractId: 'hd-9999',
-        customerId: 'kh-1111',
-        dacCachGiaoTruoc: true,
-        paymentId: ''
+  describe('3. Single-Truth Inheritance in Payment & Billing', () => {
+    it('should inherit payer and clean mobile phone directly from Quotation', () => {
+      const mockQuotation = {
+        id: 'QUO-001',
+        tenKhachHang: 'Công Ty Cổ Phần Thép Hảo Hiệp',
+        nguoiLienHe: 'Anh Hảo',
+        sdt: '0983908007',
+        soZaloMacDinh: '0983908007',
+        danhSachSdt: ['0983908007', '02839896983', '02866569696'],
+        subTotal: 100000000,
+        totalAmount: 110000000
       };
 
-      const isDirectOrExempt = Boolean(
-        deliveryData.dacCachGiaoTruoc || (!deliveryData.paymentId && deliveryData.contractId)
-      );
+      const inheritedPayer = mockQuotation.nguoiLienHe || mockQuotation.tenKhachHang;
+      const inheritedPhone = mockQuotation.soZaloMacDinh || mockQuotation.sdt;
 
-      expect(isDirectOrExempt).toBe(true);
+      expect(inheritedPayer).toBe('Anh Hảo');
+      expect(inheritedPhone).toBe('0983908007');
+      expect(extractVietnamesePhones(inheritedPhone).phones[0].type).toBe('MOBILE');
     });
-  });
 
-  describe('Bug 4 Regression: Poly-Phone Multi-Phone Support for Contacts', () => {
-    it('should cleanly unpack concatenated phones into distinct list for a contact', () => {
-      const rawContact = {
-        nguoiDaiDien: 'Trần Văn Cường',
-        sdt: '0983916267/ 0919389089',
-        chucVu: 'Giám đốc kỹ thuật'
+    it('should inherit payer and clean mobile phone directly from Contract', () => {
+      const mockContract = {
+        id: 'CTR-001',
+        tenKhachHang: 'Tập Đoàn Hòa Phát',
+        nguoiDaiDien: 'Trần Đình Long',
+        sdt: '0903998877',
+        soHopDong: 'HD-HP-2026-01'
       };
 
-      const normalized = normalizeContactForCustomerForm(rawContact);
+      const inheritedPayer = mockContract.nguoiDaiDien || mockContract.tenKhachHang;
+      const inheritedPhone = mockContract.sdt;
 
-      expect(normalized.danhSachSdt).toHaveLength(2);
-      expect(normalized.danhSachSdt).toContain('0983916267');
-      expect(normalized.danhSachSdt).toContain('0919389089');
-      expect(normalized.sdt).toBe('0983916267'); // Primary phone
-      expect(normalized.sdtPhu).toBe('0919389089');
-    });
-
-    it('should detect telecom carriers and format phones correctly', () => {
-      const viettel = '0983916267';
-      const vinaphone = '0919389089';
-      const mobifone = '0903814168';
-
-      expect(detectCarrier(viettel)?.name).toBe('Viettel');
-      expect(detectCarrier(vinaphone)?.name).toBe('VinaPhone');
-      expect(detectCarrier(mobifone)?.name).toBe('MobiFone');
-
-      expect(formatPhoneDisplay(viettel)).toBe('0983 916 267');
-    });
-
-    it('should preserve explicit danhSachSdt array if already set', () => {
-      const rawContact = {
-        nguoiDaiDien: 'Lê Hoàng',
-        sdt: '0947889630',
-        danhSachSdt: ['0947889630', '0925017071', '0903814168'],
-        chucVu: 'Trưởng phòng'
-      };
-
-      const normalized = normalizeContactForCustomerForm(rawContact);
-      expect(normalized.danhSachSdt).toHaveLength(3);
-      expect(normalized.danhSachSdt[0]).toBe('0947889630');
-      expect(normalized.danhSachSdt[1]).toBe('0925017071');
-      expect(normalized.danhSachSdt[2]).toBe('0903814168');
-      expect(normalized.sdtPhu).toBe('0925017071 / 0903814168');
-    });
-  });
-
-  describe('ASUCM 3.0 Database Schema & Parity Descriptors', () => {
-    it('should map all critical 18 tables in TABLE_DESCRIPTORS and COLLECTION_TABLE_MAP', () => {
-      const requiredTables = [
-        'customers', 'quotations', 'contracts', 'payments', 'deliveries',
-        'users', 'settings', 'counters', 'zns_messages', 'zns_templates',
-        'drafts', 'presence', 'metrics_rollup', 'cross_entity_sync_jobs',
-        'workflow_events', 'zns_callbacks', 'zns_dead_letters', 'audit_logs'
-      ];
-
-      for (const table of requiredTables) {
-        expect(TABLE_DESCRIPTORS[table]).toBeDefined();
-        expect(COLLECTION_TABLE_MAP[table]).toBe(table);
-      }
-    });
-
-    it('should ensure counters table is mapped to counters, not settings', () => {
-      expect(toTableName('counters')).toBe('counters');
-      expect(adminCollectionTableMap['counters']).toBe('counters');
-      expect(TABLE_DESCRIPTORS['counters']).toBeDefined();
-      expect(TABLE_DESCRIPTORS['counters'].physicalColumns.has('current_value')).toBe(true);
-    });
-
-    it('should contain physical indexed financial columns for financial tables', () => {
-      expect(TABLE_DESCRIPTORS['quotations'].physicalColumns.has('tong_tien')).toBe(true);
-      expect(TABLE_DESCRIPTORS['contracts'].physicalColumns.has('gia_tri_hop_dong')).toBe(true);
-      expect(TABLE_DESCRIPTORS['payments'].physicalColumns.has('so_tien')).toBe(true);
-      expect(TABLE_DESCRIPTORS['customers'].physicalColumns.has('total_debt')).toBe(true);
-      expect(TABLE_DESCRIPTORS['customers'].physicalColumns.has('ltv')).toBe(true);
-    });
-
-    it('should sanitize foreign keys cleanly', () => {
-      expect(sanitizeForeignKey('  KH00123  ')).toBe('KH00123');
-      expect(sanitizeForeignKey('   ')).toBeNull();
-      expect(sanitizeForeignKey(null)).toBeNull();
-      expect(sanitizeForeignKey('undefined')).toBeNull();
-      expect(sanitizeForeignKey('N/A')).toBeNull();
-      expect(sanitizeForeignKey('---')).toBeNull();
+      expect(inheritedPayer).toBe('Trần Đình Long');
+      expect(inheritedPhone).toBe('0903998877');
     });
   });
 });

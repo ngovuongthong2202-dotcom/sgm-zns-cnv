@@ -9,6 +9,8 @@ import { normalizeCode, normalizePersonName, readVietnameseCurrency } from '@/sr
 import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 import { QuickCustomerModal } from '@/src/modules/customers/ui/components/QuickCustomerModal';
+import { SmartPolyPhoneInput } from '@/src/modules/customers/ui/components/SmartPolyPhoneInput';
+import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 // -- Các Component Con --
 
@@ -204,7 +206,26 @@ export function QuotationBasicInfoSection({
                         const ct = contacts[idx];
                         if (ct) {
                           if (ct.nguoiDaiDien) setValue('nguoiDaiDien', ct.nguoiDaiDien, { shouldDirty: true, shouldValidate: true });
-                          if (ct.sdt) setValue('sdt', ct.sdt, { shouldDirty: true, shouldValidate: true });
+                          if (ct.chucVu) setValue('chucVu', ct.chucVu, { shouldDirty: true });
+                          // Bóc tách đa số điện thoại của đầu mối
+                          const ext = extractVietnamesePhones(ct.sdt);
+                          let allPhones = Array.isArray(ct.danhSachSdt) && ct.danhSachSdt.length > 0 
+                            ? [...ct.danhSachSdt] 
+                            : (ext.phones.map((p: any) => p.cleaned).length > 0 ? ext.phones.map((p: any) => p.cleaned) : [ct.sdt].filter(Boolean));
+                          if (ct.sdtPhu) {
+                            const extP = extractVietnamesePhones(ct.sdtPhu);
+                            extP.phones.forEach((p: any) => {
+                              if (!allPhones.includes(p.cleaned)) allPhones.push(p.cleaned);
+                            });
+                          }
+                          const primaryMobile = allPhones.find((p: string) => p.length === 10 && /^0[35789]/.test(p)) || allPhones[0] || ct.sdt || '';
+                          setValue('sdt', primaryMobile, { shouldDirty: true, shouldValidate: true });
+                          setValue('danhSachSdt', allPhones, { shouldDirty: true });
+                          if (allPhones.length > 1) {
+                            setValue('sdtPhu', allPhones.slice(1).join(' / '), { shouldDirty: true });
+                          } else {
+                            setValue('sdtPhu', '', { shouldDirty: true });
+                          }
                         }
                       }}
                     >
@@ -227,9 +248,12 @@ export function QuotationBasicInfoSection({
                   <span className="text-slate-500 uppercase text-3xs tracking-wider block mb-0.5 font-bold">Người nhận & SĐT</span>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <strong className="text-slate-950 text-xs font-bold">{watch('nguoiDaiDien') || '---'}</strong>
+                    {watch('chucVu') && (
+                      <span className="text-3xs text-slate-500 font-medium">({watch('chucVu')})</span>
+                    )}
                     {watch('sdt') && (
-                      <span className="font-mono text-2xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 font-bold">
-                        {watch('sdt')}
+                      <span className="inline-flex items-center gap-1 font-mono text-2xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 font-bold" title="SĐT chính nhận ZNS">
+                        ★ {watch('sdt')}
                       </span>
                     )}
                   </div>
@@ -238,7 +262,7 @@ export function QuotationBasicInfoSection({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block mb-1">Người đại diện liên hệ</label>
               <input 
@@ -251,12 +275,20 @@ export function QuotationBasicInfoSection({
                 placeholder="Họ tên người liên hệ..." 
               />
             </div>
-            <div>
-              <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block mb-1">Số điện thoại liên hệ</label>
-              <input 
-                {...register('sdt')} 
-                className="h-8 px-3 text-sm bg-white border border-slate-200 rounded-lg font-mono w-full outline-none focus:border-blue-600" 
-                placeholder="Số điện thoại di động..." 
+            <div className="space-y-1">
+              <label className="text-2xs font-medium uppercase tracking-wide text-slate-500 block">Số điện thoại liên hệ</label>
+              <SmartPolyPhoneInput
+                primaryPhone={watch('sdt') || ''}
+                phoneList={watch('danhSachSdt') || []}
+                onChange={(allPhones, primaryPhone) => {
+                  setValue('sdt', primaryPhone, { shouldDirty: true, shouldValidate: true });
+                  setValue('danhSachSdt', allPhones, { shouldDirty: true });
+                  if (allPhones.length > 1) {
+                    setValue('sdtPhu', allPhones.slice(1).join(' / '), { shouldDirty: true });
+                  } else {
+                    setValue('sdtPhu', '', { shouldDirty: true });
+                  }
+                }}
               />
             </div>
           </div>

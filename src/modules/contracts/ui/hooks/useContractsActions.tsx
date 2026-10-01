@@ -6,6 +6,7 @@ import { sendZnsAndToast, nextAttempt, checkZnsResendAllowed } from '@/src/domai
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { customerRepo } from '@/src/modules/customers';
 import { useEntityLifecycle } from '@/src/hooks/useEntityLifecycle';
+import { resolveZnsTargetPhone } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 export function useContractsActions(
   deleteContract: (id: string) => Promise<void>,
@@ -73,16 +74,17 @@ export function useContractsActions(
   };
 
   const handleSendContractZns = useCallback(async (c: Contract) => {
-    let phone = c.sdt;
+    let customerDoc: any = null;
     let customerName = c.tenKhachHang;
-    if (!phone && c.customerId) {
-        const cData = await customerRepo.getById(c.customerId);
-        if (cData) {
-          phone = (cData as any).soDienThoai || cData.sdt || cData.contacts?.[0]?.sdt;
-          customerName = customerName || cData.tenKhachHang;
+    if (c.customerId) {
+        customerDoc = await customerRepo.getById(c.customerId);
+        if (customerDoc) {
+          customerName = customerName || customerDoc.tenKhachHang;
         }
     }
-    if (!c.id || !phone) return notify.error("Khách hàng thiếu SĐT");
+    const targetPhoneInfo = resolveZnsTargetPhone(c.soZaloMacDinh || c.sdt, c.danhSachSdt, customerDoc);
+    const phone = targetPhoneInfo.validPhone;
+    if (!c.id || !phone) return notify.error(targetPhoneInfo.warning || "Khách hàng thiếu SĐT di động hợp lệ để gửi tin ZNS");
 
     const duplicateCheck = checkZnsResendAllowed(c as any, phone, userRole);
     let forceResend = false;

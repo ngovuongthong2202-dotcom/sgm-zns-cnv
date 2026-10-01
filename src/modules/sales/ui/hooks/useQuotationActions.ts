@@ -7,6 +7,7 @@ import { handleDatabaseError, OperationType } from '@/src/shared/errors/database
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { customerRepo } from '@/src/modules/customers';
 import { useEntityLifecycle } from '@/src/hooks/useEntityLifecycle';
+import { resolveZnsTargetPhone } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 export function useQuotationActions(
   createQuotation: (data: Quotation) => Promise<any>,
@@ -26,17 +27,18 @@ export function useQuotationActions(
 ) {
 
   const handleSendQuotationZns = useCallback(async (q: Quotation) => {
-    let phone = q.sdt;
+    let customerDoc: any = null;
     let customerName = q.tenKhachHang;
-    if (!phone && q.customerId) {
-      const cData = await customerRepo.getById(q.customerId);
-      if (cData) {
-        phone = cData.sdt || cData.contacts?.[0]?.sdt;
-        customerName = customerName || cData.tenKhachHang;
+    if (q.customerId) {
+      customerDoc = await customerRepo.getById(q.customerId);
+      if (customerDoc) {
+        customerName = customerName || customerDoc.tenKhachHang;
       }
     }
+    const targetPhoneInfo = resolveZnsTargetPhone(q.soZaloMacDinh || q.sdt, q.danhSachSdt, customerDoc);
+    const phone = targetPhoneInfo.validPhone;
     if (!q.id || !phone) {
-      notify.error('Khách hàng thiếu SĐT');
+      notify.error(targetPhoneInfo.warning || 'Khách hàng thiếu SĐT di động hợp lệ để gửi tin ZNS');
       return;
     }
 

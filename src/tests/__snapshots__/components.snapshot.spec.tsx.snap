@@ -2126,17 +2126,26 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                     <div
                       class="space-y-1 sm:col-span-2"
                     >
-                      <label
-                        class="text-2xs font-medium uppercase tracking-wide text-slate-500"
-                        for="contact-phone-0"
+                      <div
+                        class="flex items-center justify-between"
                       >
-                        Số điện thoại liên hệ 
-                        <span
-                          class="text-red-500"
+                        <label
+                          class="text-2xs font-medium uppercase tracking-wide text-slate-500"
+                          for="contact-phone-0"
                         >
-                          *
+                          Số điện thoại liên hệ 
+                          <span
+                            class="text-red-500"
+                          >
+                            *
+                          </span>
+                        </label>
+                        <span
+                          class="text-3xs text-blue-600 font-medium"
+                        >
+                          Hỗ trợ 2–3 SĐT (Di động & Bàn cố định)
                         </span>
-                      </label>
+                      </div>
                       <div
                         class="space-y-2"
                       >
@@ -5483,7 +5492,7 @@ exports[`Component Snapshots (Baseline) > renders QuotationFormModal 1`] = `
                   </div>
                 </div>
                 <div
-                  class="grid grid-cols-2 gap-4"
+                  class="grid grid-cols-1 md:grid-cols-2 gap-4"
                 >
                   <div>
                     <label
@@ -5497,17 +5506,56 @@ exports[`Component Snapshots (Baseline) > renders QuotationFormModal 1`] = `
                       placeholder="Họ tên người liên hệ..."
                     />
                   </div>
-                  <div>
+                  <div
+                    class="space-y-1"
+                  >
                     <label
-                      class="text-2xs font-medium uppercase tracking-wide text-slate-500 block mb-1"
+                      class="text-2xs font-medium uppercase tracking-wide text-slate-500 block"
                     >
                       Số điện thoại liên hệ
                     </label>
-                    <input
-                      class="h-8 px-3 text-sm bg-white border border-slate-200 rounded-lg font-mono w-full outline-none focus:border-blue-600"
-                      name="sdt"
-                      placeholder="Số điện thoại di động..."
-                    />
+                    <div
+                      class="space-y-2"
+                    >
+                      <div
+                        class="flex items-center gap-2"
+                      >
+                        <div
+                          class="relative flex-1"
+                        >
+                          <input
+                            class="w-full h-8 text-xs font-mono px-3 pl-8 bg-white border rounded-lg focus:outline-none transition-colors border-slate-200 focus:border-blue-500"
+                            placeholder="Nhập số điện thoại (hỗ trợ dán nhiều số dính chùm)..."
+                            type="tel"
+                            value=""
+                          />
+                          <svg
+                            aria-hidden="true"
+                            class="lucide lucide-phone absolute left-2.5 top-2.5 text-slate-400 pointer-events-none"
+                            fill="none"
+                            height="13"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                            width="13"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                      <div
+                        class="flex items-center justify-between text-3xs text-slate-500 px-1"
+                      >
+                        <span>
+                          * Hỗ trợ 2-3 số điện thoại cho 1 đầu mối. Dán trực tiếp chuỗi dính chùm để tự động tách.
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -6133,7 +6181,6 @@ exports[`Component Snapshots (Baseline) > renders QuotationFormModal 1`] = `
         <input
           name="sdt"
           type="hidden"
-          value=""
         />
         <input
           name="phanLoaiKhach"

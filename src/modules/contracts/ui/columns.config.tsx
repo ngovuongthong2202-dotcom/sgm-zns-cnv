@@ -112,22 +112,43 @@ export const getContractColumns = (
       
       const normalizedRep = normalizePersonName(rep);
       const telecom = phone ? extractVietnamesePhones(phone) : null;
-      let displayPhone = phone;
-      if (telecom && telecom.mobilePhones.length > 0) {
-        displayPhone = telecom.mobilePhones.map(m => m.formatted).join(' • ');
-      } else if (telecom && telecom.landlinePhones.length > 0) {
-        displayPhone = `☎️ ${telecom.landlinePhones.map(m => m.formatted).join(' • ')}`;
-      }
-      const repPhone = [normalizedRep, displayPhone].filter(Boolean).join(' - ');
+      const mobileList = telecom?.mobilePhones || [];
+      const landlineList = telecom?.landlinePhones || [];
       const displayBizName = normalizeBusinessName(customerName || '---');
 
       return (
-        <div className="w-full min-w-0 flex items-center py-1">
-          <div className="flex flex-col min-w-0">
-            <span className="font-semibold text-xs text-slate-800 line-clamp-3 whitespace-normal break-words leading-snug" title={customerName}>{displayBizName}</span>
-            <div className="flex flex-wrap items-center gap-1.5 text-2xs text-slate-500 mt-0.5 leading-tight">
-               <span className="whitespace-normal break-words" title={repPhone}>{repPhone}</span>
-            </div>
+        <div className="w-full min-w-0 flex flex-col py-1 justify-center gap-1">
+          <span className="font-semibold text-xs text-slate-800 line-clamp-3 whitespace-normal break-words leading-snug" title={customerName}>{displayBizName}</span>
+          <div className="flex flex-wrap items-center gap-1.5 text-2xs leading-tight">
+            {normalizedRep && (
+              <span className="text-slate-700 font-medium">👤 {normalizedRep}</span>
+            )}
+            {mobileList.length > 0 && mobileList.map((m, mIdx) => (
+              <span 
+                key={`m-${mIdx}`}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200/60 shadow-2xs"
+                title={m.carrier ? `${m.carrier} - Zalo/ZNS OK` : 'Di động - Zalo/ZNS OK'}
+              >
+                <span>{m.formatted}</span>
+                {m.carrier && (
+                  <span className="text-4xs px-1 rounded bg-blue-100/80 text-blue-800 font-sans">
+                    {m.carrier}
+                  </span>
+                )}
+              </span>
+            ))}
+            {landlineList.length > 0 && landlineList.map((l, lIdx) => (
+              <span 
+                key={`l-${lIdx}`}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-mono font-medium bg-slate-100 text-slate-600 border border-slate-200/60 shadow-2xs"
+                title="Máy bàn cố định (Không ZNS)"
+              >
+                <span>☎️ {l.formatted}</span>
+              </span>
+            ))}
+            {!telecom && phone && (
+              <span className="text-2xs text-slate-500 font-mono">{phone}</span>
+            )}
           </div>
         </div>
       );

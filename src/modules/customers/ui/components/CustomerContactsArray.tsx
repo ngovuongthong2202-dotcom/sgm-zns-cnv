@@ -102,9 +102,12 @@ export function CustomerContactsArray({ control, register, errors, setValue, isI
             </div>
 
             <div className="space-y-1 sm:col-span-2">
-              <label className="text-2xs font-medium uppercase tracking-wide text-slate-500" htmlFor={"contact-phone-" + index}>
-                Số điện thoại liên hệ {index === 0 && <span className="text-red-500">*</span>}
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-2xs font-medium uppercase tracking-wide text-slate-500" htmlFor={"contact-phone-" + index}>
+                  Số điện thoại liên hệ {index === 0 && <span className="text-red-500">*</span>}
+                </label>
+                <span className="text-3xs text-blue-600 font-medium">Hỗ trợ 2–3 SĐT (Di động & Bàn cố định)</span>
+              </div>
               <Controller
                 control={control}
                 name={`contacts.${index}` as any}
