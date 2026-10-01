@@ -15,6 +15,7 @@ import { cleanDuplicateAddress, formatCustomerRegionDisplay } from '@/src/shared
 import { cleanDuplicateCorporatePrefix } from '@/src/shared/utils/textFormatter';
 import { extractVietnamesePhones } from '../utils/vietnameseTelecomExtractor';
 import { detectCarrier, formatPhoneDisplay, normalizePhone } from '@/src/platform/ui/design-system/form/SmartPhoneInput';
+import { sanitizeTaxCode } from '@/src/shared/utils/inputSanitizer';
 
 interface Props {
   customer: Customer;
@@ -317,7 +318,7 @@ export function CustomerOverviewBento({
             <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-150">
               <span className="text-3xs uppercase font-bold text-slate-400 block mb-0.5">Mã số thuế</span>
               <span className="font-mono font-bold text-slate-800 text-xs block truncate" title={customer.maSoThue}>
-                {customer.maSoThue || 'N/A'}
+                {customer.maSoThue ? sanitizeTaxCode(customer.maSoThue) : 'N/A'}
               </span>
             </div>
             <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-150">

@@ -1,5 +1,4 @@
- 
-import React from 'react';
+import React, { useState } from 'react';
 import { notify } from '@/src/shared/utils/notify';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { FileText, X, Package, Lock } from 'lucide-react';
@@ -15,10 +14,10 @@ import { normalizeQuotationFormValues } from './QuotationFormHelpers';
 import { EntityBusinessLockWarning } from '@/src/widgets/EntityBusinessLockWarning';
 import { handleEnterToTab } from '@/src/shared/utils/formNavigation';
 
-
 import { useSharedFields } from '@/src/hooks/useSharedFields';
-import { useQuotationForm } from '../hooks/useQuotationForm';
+import { useQuotationForm, evaluateQuotationHierarchy, HierarchyEvaluation } from '../hooks/useQuotationForm';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
+import { QuotationTypeDoubleCheckModal } from './QuotationTypeDoubleCheckModal';
 
 interface Props {
   quotation: Quotation | null;
@@ -79,6 +78,16 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
   const isCreating = !quotation?.id;
   const watchAll = watch();
 
+  const [doubleCheckData, setDoubleCheckData] = useState<{
+    isOpen: boolean;
+    pendingData: import('@/src/domain/schema/quotation.schema').Quotation | null;
+    evaluation: HierarchyEvaluation | null;
+  }>({
+    isOpen: false,
+    pendingData: null,
+    evaluation: null
+  });
+
   const submitForm = async (data: import('@/src/domain/schema/quotation.schema').Quotation) => {
     const normalizedData = normalizeQuotationFormValues(data);
 
@@ -118,6 +127,19 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
 
     await onSave(normalizedData);
     await clearDraft();
+  };
+
+  const handlePreSubmit = async (data: import('@/src/domain/schema/quotation.schema').Quotation) => {
+    const evalResult = evaluateQuotationHierarchy(data.products || [], data.loai || data.loaiBaoGia);
+    if (evalResult.isDiscrepancy) {
+      setDoubleCheckData({
+        isOpen: true,
+        pendingData: data,
+        evaluation: evalResult
+      });
+      return;
+    }
+    await submitForm(data);
   };
 
   return (
@@ -195,7 +217,7 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
                   notify.error("Vui lòng khai báo danh mục sản phẩm thiết bị.");
                   return;
                 }
-                await submitForm(data);
+                await handlePreSubmit(data);
               }, (err) => {
                 notify.error("Vui lòng rà soát lại các trường thông tin bắt buộc còn thiếu.");
                 console.warn("Quotation validation error:", err);
@@ -213,7 +235,7 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
               notify.error("Vui lòng khai báo danh mục sản phẩm thiết bị.");
               return;
             }
-            await submitForm(data);
+            await handlePreSubmit(data);
           }, (err) => {
             notify.error("Vui lòng rà soát lại các trường thông tin bắt buộc còn thiếu.");
             console.warn("Quotation validation error:", err);
@@ -333,6 +355,34 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
              </Button>
           </div>
         </div>
+
+        {doubleCheckData.isOpen && doubleCheckData.evaluation && (
+          <QuotationTypeDoubleCheckModal
+            isOpen={doubleCheckData.isOpen}
+            onClose={() => setDoubleCheckData({ isOpen: false, pendingData: null, evaluation: null })}
+            currentType={doubleCheckData.pendingData?.loai || doubleCheckData.pendingData?.loaiBaoGia || 'BG Chưa rõ'}
+            recommendedType={doubleCheckData.evaluation.recommendedType}
+            machineCount={doubleCheckData.evaluation.machineCount}
+            materialCount={doubleCheckData.evaluation.materialCount}
+            serviceCount={doubleCheckData.evaluation.serviceCount}
+            onConfirmRecommended={async () => {
+              if (!doubleCheckData.pendingData || !doubleCheckData.evaluation) return;
+              const updated = {
+                ...doubleCheckData.pendingData,
+                loai: doubleCheckData.evaluation.recommendedType as any,
+                loaiBaoGia: doubleCheckData.evaluation.recommendedType as any
+              };
+              setDoubleCheckData({ isOpen: false, pendingData: null, evaluation: null });
+              await submitForm(updated);
+            }}
+            onConfirmCurrent={async () => {
+              if (!doubleCheckData.pendingData) return;
+              const dataToSave = doubleCheckData.pendingData;
+              setDoubleCheckData({ isOpen: false, pendingData: null, evaluation: null });
+              await submitForm(dataToSave);
+            }}
+          />
+        )}
       </motion.div>
     </div>
   );

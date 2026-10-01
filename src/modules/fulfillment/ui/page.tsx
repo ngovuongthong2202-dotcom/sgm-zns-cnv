@@ -27,6 +27,7 @@ import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { DeliveryFilterBar } from './components/DeliveryFilterBar';
 
 import { DeliveryKPIs } from './components/DeliveryKPIs';
+import { CollapsibleStatsBanner } from '@/src/platform/ui/design-system/stats/CollapsibleStatsBanner';
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
 import { CompleteDeliveryModal } from './components/CompleteDeliveryModal';
 import { DeliveryConfirmationModal } from './components/DeliveryConfirmationModal';
@@ -285,14 +286,20 @@ export default function DeliveriesFeature() {
 
   return (
     <div className="flex flex-col h-full bg-surface-sunken relative overflow-hidden">
-      <div className="px-6 pt-4 shrink-0">
-        <DeliveryKPIs
-          kpis={kpis}
-          selectedStatus={selectedStatus}
-          setSelectedStatus={setSelectedStatus}
-          selectedSchedule={selectedSchedule}
-          setSelectedSchedule={setSelectedSchedule}
-        />
+      <div className="px-6 pt-3 shrink-0">
+        <CollapsibleStatsBanner
+          storageKey="sgm_stats_pinned_fulfillment"
+          title="Chỉ số & Tiến độ Giao hàng"
+          summaryBadge={`${deliveries.length} phiếu`}
+        >
+          <DeliveryKPIs
+            kpis={kpis}
+            selectedStatus={selectedStatus}
+            setSelectedStatus={setSelectedStatus}
+            selectedSchedule={selectedSchedule}
+            setSelectedSchedule={setSelectedSchedule}
+          />
+        </CollapsibleStatsBanner>
       </div>
       <div className="flex-1 flex flex-col p-6 overflow-hidden min-h-0">
         <div className="flex-1 bg-white overflow-hidden shadow-sm border border-slate-200 mt-0 rounded-xl flex flex-col relative min-h-0">

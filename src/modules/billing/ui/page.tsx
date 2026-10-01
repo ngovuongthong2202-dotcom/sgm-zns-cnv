@@ -21,6 +21,7 @@ import { PaymentRecordDrawer } from './components/PaymentRecordDrawer';
 import { PaymentDetailDrawer } from './components/PaymentDetailDrawer';
 import { useConfirm } from '@/src/design-system/Confirm';
 import { FinancialDashboardHeader } from './components/FinancialDashboardHeader';
+import { CollapsibleStatsBanner } from '@/src/platform/ui/design-system/stats/CollapsibleStatsBanner';
 import { PaymentFilterBar } from './components/PaymentFilterBar';
 import { extractPaymentTinhThanhList } from './utils/extractors';
 import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
@@ -256,24 +257,30 @@ export default function PaymentsFeature() {
         handleCreatePrepaidFinalPayment={handleCreatePrepaidFinalPayment}
       />
 
-      <div className="px-6 pt-4 shrink-0">
-        <FinancialDashboardHeader 
-          collectedToday={kpiMetrics.collectedToday}
-          collectedThisWeek={kpiMetrics.collectedThisWeek}
-          collectedThisMonth={kpiMetrics.collectedThisMonth}
-          collectedThisYear={kpiMetrics.collectedThisYear}
-          totalDebt={kpiMetrics.totalDebt}
-          contractDebt={kpiMetrics.contractDebt}
-          standaloneDebt={kpiMetrics.standaloneDebt}
-          statsByStatus={kpiMetrics.statsByStatus}
-          statsByType={kpiMetrics.statsByType}
-          activeTab={activeTab}
-          selectedStatus={selectedTinhTrangThanhToan}
-          selectedPhanLoai={selectedPhanLoai}
-          onFilterTab={setActiveTab}
-          onFilterStatus={setSelectedTinhTrangThanhToan}
-          onFilterPhanLoai={setSelectedPhanLoai}
-        />
+      <div className="px-6 pt-3 shrink-0">
+        <CollapsibleStatsBanner
+          storageKey="sgm_stats_pinned_billing"
+          title="Chỉ số & Tổng quan Tài chính"
+          summaryBadge={`${filteredPayments.length} phiếu`}
+        >
+          <FinancialDashboardHeader 
+            collectedToday={kpiMetrics.collectedToday}
+            collectedThisWeek={kpiMetrics.collectedThisWeek}
+            collectedThisMonth={kpiMetrics.collectedThisMonth}
+            collectedThisYear={kpiMetrics.collectedThisYear}
+            totalDebt={kpiMetrics.totalDebt}
+            contractDebt={kpiMetrics.contractDebt}
+            standaloneDebt={kpiMetrics.standaloneDebt}
+            statsByStatus={kpiMetrics.statsByStatus}
+            statsByType={kpiMetrics.statsByType}
+            activeTab={activeTab}
+            selectedStatus={selectedTinhTrangThanhToan}
+            selectedPhanLoai={selectedPhanLoai}
+            onFilterTab={setActiveTab}
+            onFilterStatus={setSelectedTinhTrangThanhToan}
+            onFilterPhanLoai={setSelectedPhanLoai}
+          />
+        </CollapsibleStatsBanner>
       </div>
 
       <div className="flex-1 flex flex-col p-6 overflow-hidden min-h-0">

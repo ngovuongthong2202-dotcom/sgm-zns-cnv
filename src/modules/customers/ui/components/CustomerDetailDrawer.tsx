@@ -16,6 +16,8 @@ import { repositoryFactory } from '@/src/data/repositories';
 import { clearSwrColCache } from '@/src/data/swr-fetchers';
 import { crossTabSync } from '@/src/shared/utils/crossTabSync';
 import { notify } from '@/src/shared/utils/notify';
+import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
+import { sanitizeTaxCode } from '@/src/shared/utils/inputSanitizer';
 
 interface CustomerDetailDrawerProps {
   isOpen: boolean;
@@ -151,9 +153,10 @@ export function CustomerDetailDrawer({
   }, [isOpen, customer?.id, initialTab]);
 
   const customerId = customer?.id || '';
+  const maKh = (customer?.maKh && customer.maKh !== customerId) ? customer.maKh : '';
 
   // Keep tab content loaded by fetching sub-collections when drawer opens
-  const { data: drawerQuotations = [], isLoading: qLoading } = useSWR<any[]>(
+  const { data: drawerQuotationsId = [], isLoading: qLoading } = useSWR<any[]>(
     isOpen && customerId
        ? `quotations:100:customerId:${customerId}`
        : null,
@@ -161,7 +164,13 @@ export function CustomerDetailDrawer({
     { revalidateOnFocus: false }
   );
 
-  const { data: drawerContracts = [], isLoading: cLoading } = useSWR<any[]>(
+  const { data: drawerQuotationsMaKh = [] } = useSWR<any[]>(
+    isOpen && maKh ? `quotations:100:customerId:${maKh}` : null,
+    swrColFetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const { data: drawerContractsId = [], isLoading: cLoading } = useSWR<any[]>(
     isOpen && customerId
        ? `contracts:100:customerId:${customerId}`
        : null,
@@ -169,7 +178,13 @@ export function CustomerDetailDrawer({
     { revalidateOnFocus: false }
   );
 
-  const { data: drawerPayments = [], isLoading: pLoading } = useSWR<any[]>(
+  const { data: drawerContractsMaKh = [] } = useSWR<any[]>(
+    isOpen && maKh ? `contracts:100:customerId:${maKh}` : null,
+    swrColFetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const { data: drawerPaymentsId = [], isLoading: pLoading } = useSWR<any[]>(
     isOpen && customerId
        ? `payments:100:customerId:${customerId}`
        : null,
@@ -177,13 +192,151 @@ export function CustomerDetailDrawer({
     { revalidateOnFocus: false }
   );
 
-  const { data: drawerDeliveries = [], isLoading: dLoading } = useSWR<any[]>(
+  const { data: drawerPaymentsMaKh = [] } = useSWR<any[]>(
+    isOpen && maKh ? `payments:100:customerId:${maKh}` : null,
+    swrColFetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const { data: drawerDeliveriesId = [], isLoading: dLoading } = useSWR<any[]>(
     isOpen && customerId
        ? `deliveries:100:customerId:${customerId}`
        : null,
     swrColFetcher,
     { revalidateOnFocus: false }
   );
+
+  const { data: drawerDeliveriesMaKh = [] } = useSWR<any[]>(
+    isOpen && maKh ? `deliveries:100:customerId:${maKh}` : null,
+    swrColFetcher,
+    { revalidateOnFocus: false }
+  );
+
+  // Multi-key candidate resolution set
+  const targetKeys = React.useMemo(() => {
+    if (!customer) return [];
+    return Array.from(new Set([
+      customer.id,
+      customer.maKh,
+      ...(customer.mergedCustomerCodes || [])
+    ].filter(Boolean))) as string[];
+  }, [customer]);
+
+  const targetKeySet = React.useMemo(() => {
+    return new Set(targetKeys.map(k => String(k).trim().toLowerCase()));
+  }, [targetKeys]);
+
+  const cleanCustomerTax = React.useMemo(() => {
+    return customer?.maSoThue ? sanitizeTaxCode(customer.maSoThue) : '';
+  }, [customer?.maSoThue]);
+
+  // Aggregate and reconcile quotations from SWR and in-memory pool
+  const drawerQuotations = React.useMemo(() => {
+    if (!customer) return [];
+    const pool = [
+      ...drawerQuotationsId,
+      ...drawerQuotationsMaKh,
+      ...entityCachePool.getAll<any>('quotations')
+    ];
+    const seen = new Set<string>();
+    const result: any[] = [];
+    for (const q of pool) {
+      if (!q || !q.id || seen.has(q.id)) continue;
+      const qCustId = q.customerId ? String(q.customerId).trim().toLowerCase() : '';
+      const qMaKh = q.maKh ? String(q.maKh).trim().toLowerCase() : '';
+      const qTax = q.maSoThue ? sanitizeTaxCode(q.maSoThue) : '';
+      
+      const isMatch = (qCustId && targetKeySet.has(qCustId)) ||
+                      (qMaKh && targetKeySet.has(qMaKh)) ||
+                      (cleanCustomerTax && qTax && cleanCustomerTax === qTax);
+      if (isMatch) {
+        seen.add(q.id);
+        result.push(q);
+      }
+    }
+    return result;
+  }, [customer, targetKeySet, cleanCustomerTax, drawerQuotationsId, drawerQuotationsMaKh]);
+
+  // Aggregate and reconcile contracts from SWR and in-memory pool
+  const drawerContracts = React.useMemo(() => {
+    if (!customer) return [];
+    const pool = [
+      ...drawerContractsId,
+      ...drawerContractsMaKh,
+      ...entityCachePool.getAll<any>('contracts')
+    ];
+    const seen = new Set<string>();
+    const result: any[] = [];
+    for (const c of pool) {
+      if (!c || !c.id || seen.has(c.id)) continue;
+      const cCustId = c.customerId ? String(c.customerId).trim().toLowerCase() : '';
+      const cMaKh = c.maKh ? String(c.maKh).trim().toLowerCase() : '';
+      const cTax = c.maSoThue ? sanitizeTaxCode(c.maSoThue) : '';
+      
+      const isMatch = (cCustId && targetKeySet.has(cCustId)) ||
+                      (cMaKh && targetKeySet.has(cMaKh)) ||
+                      (cleanCustomerTax && cTax && cleanCustomerTax === cTax);
+      if (isMatch) {
+        seen.add(c.id);
+        result.push(c);
+      }
+    }
+    return result;
+  }, [customer, targetKeySet, cleanCustomerTax, drawerContractsId, drawerContractsMaKh]);
+
+  // Aggregate and reconcile payments from SWR and in-memory pool
+  const drawerPayments = React.useMemo(() => {
+    if (!customer) return [];
+    const pool = [
+      ...drawerPaymentsId,
+      ...drawerPaymentsMaKh,
+      ...entityCachePool.getAll<any>('payments')
+    ];
+    const seen = new Set<string>();
+    const result: any[] = [];
+    for (const p of pool) {
+      if (!p || !p.id || seen.has(p.id)) continue;
+      const pCustId = p.customerId ? String(p.customerId).trim().toLowerCase() : '';
+      const pMaKh = p.maKh ? String(p.maKh).trim().toLowerCase() : '';
+      const pTax = p.maSoThue ? sanitizeTaxCode(p.maSoThue) : '';
+      
+      const isMatch = (pCustId && targetKeySet.has(pCustId)) ||
+                      (pMaKh && targetKeySet.has(pMaKh)) ||
+                      (cleanCustomerTax && pTax && cleanCustomerTax === pTax);
+      if (isMatch) {
+        seen.add(p.id);
+        result.push(p);
+      }
+    }
+    return result;
+  }, [customer, targetKeySet, cleanCustomerTax, drawerPaymentsId, drawerPaymentsMaKh]);
+
+  // Aggregate and reconcile deliveries from SWR and in-memory pool
+  const drawerDeliveries = React.useMemo(() => {
+    if (!customer) return [];
+    const pool = [
+      ...drawerDeliveriesId,
+      ...drawerDeliveriesMaKh,
+      ...entityCachePool.getAll<any>('deliveries')
+    ];
+    const seen = new Set<string>();
+    const result: any[] = [];
+    for (const d of pool) {
+      if (!d || !d.id || seen.has(d.id)) continue;
+      const dCustId = d.customerId ? String(d.customerId).trim().toLowerCase() : '';
+      const dMaKh = d.maKh ? String(d.maKh).trim().toLowerCase() : '';
+      const dTax = d.maSoThue ? sanitizeTaxCode(d.maSoThue) : '';
+      
+      const isMatch = (dCustId && targetKeySet.has(dCustId)) ||
+                      (dMaKh && targetKeySet.has(dMaKh)) ||
+                      (cleanCustomerTax && dTax && cleanCustomerTax === dTax);
+      if (isMatch) {
+        seen.add(d.id);
+        result.push(d);
+      }
+    }
+    return result;
+  }, [customer, targetKeySet, cleanCustomerTax, drawerDeliveriesId, drawerDeliveriesMaKh]);
 
   const latestQuote = React.useMemo(() => {
     if (!drawerQuotations || drawerQuotations.length === 0) return undefined;

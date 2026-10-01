@@ -11,6 +11,7 @@ import { CustomerDetailDrawer } from './components/CustomerDetailDrawer';
 import { CustomerReportModal } from './components/CustomerReportModal';
 import { CustomerForm } from './components/CustomerFormModal';
 import { CustomerStats } from './components/CustomerStats';
+import { CollapsibleStatsBanner } from '@/src/platform/ui/design-system/stats/CollapsibleStatsBanner';
 import { useDataView } from '@/src/design-system/dataview/useDataView';
 import { DataViewEngine } from '@/src/design-system/dataview/DataViewEngine';
 import { Customer, CustomerSchema } from '@/src/domain/schema/customer.schema';
@@ -219,14 +220,20 @@ export default function CustomersFeature() {
   return (
     <div className="flex flex-col h-full bg-slate-50">
       {/* Thống kê đài phát */}
-      <div className="px-6 pt-4 shrink-0">
-        <CustomerStats 
-          customers={activeCustomers} 
-          selectedZnsStatus={selectedZnsStatus}
-          onSelectZnsStatus={setSelectedZnsStatus}
-          selectedProvince={selectedTinhThanh}
-          onSelectProvince={(v) => setSelectedTinhThanh(v || '')}
-        />
+      <div className="px-6 pt-3 shrink-0">
+        <CollapsibleStatsBanner
+          storageKey="sgm_stats_pinned_customers"
+          title="Chỉ số & Tổng quan Khách hàng"
+          summaryBadge={`${activeCustomers.length} khách hàng`}
+        >
+          <CustomerStats 
+            customers={activeCustomers} 
+            selectedZnsStatus={selectedZnsStatus}
+            onSelectZnsStatus={setSelectedZnsStatus}
+            selectedProvince={selectedTinhThanh}
+            onSelectProvince={(v) => setSelectedTinhThanh(v || '')}
+          />
+        </CollapsibleStatsBanner>
       </div>
 
       {/* Virtualized High-Perf Grid list */}

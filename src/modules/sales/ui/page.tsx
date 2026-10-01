@@ -14,6 +14,7 @@ import { useQuotationMigration } from './hooks/useQuotationMigration';
 import { lazy, Suspense } from 'react';
 import { QuotationDetailDrawer } from './components/QuotationDetailDrawer';
 import { QuotationStats } from './components/QuotationStats';
+import { CollapsibleStatsBanner } from '@/src/platform/ui/design-system/stats/CollapsibleStatsBanner';
 import { extractCustomerTinhThanhMap, extractTinhThanhList, enhanceQuotationsWithProvince } from './utils/extractors';
 import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { QuotationFilterBar } from './components/QuotationFilterBar';
@@ -256,16 +257,22 @@ export default function QuotationsFeature() {
       <QuotationDrawerRouteListener hasDrawer={!!drawerQuotation} onOpenDrawer={setDrawerQuotation} />
 
       {/* Thống kê đài phát/báo giá */}
-      <div className="px-6 pt-4 shrink-0">
-        <QuotationStats 
-          quotations={statsQuotations}
-          allContracts={allContracts}
-          allPayments={allPayments}
-          selectedLoai={selectedLoai}
-          setSelectedLoai={setSelectedLoai}
-          selectedTienDo={selectedTienDo}
-          setSelectedTienDo={setSelectedTienDo}
-        />
+      <div className="px-6 pt-3 shrink-0">
+        <CollapsibleStatsBanner
+          storageKey="sgm_stats_pinned_sales"
+          title="Chỉ số & Tổng quan Báo giá"
+          summaryBadge={`${statsQuotations.length} báo giá`}
+        >
+          <QuotationStats 
+            quotations={statsQuotations}
+            allContracts={allContracts}
+            allPayments={allPayments}
+            selectedLoai={selectedLoai}
+            setSelectedLoai={setSelectedLoai}
+            selectedTienDo={selectedTienDo}
+            setSelectedTienDo={setSelectedTienDo}
+          />
+        </CollapsibleStatsBanner>
       </div>
 
       <div className="flex-1 flex flex-col p-6 pt-4 overflow-hidden min-h-0">

@@ -48,7 +48,7 @@ export function RecordInstallmentModal({
   const [displayAmount, setDisplayAmount] = useState<string>(
     initialAmount > 0 ? new Intl.NumberFormat('vi-VN').format(initialAmount) : ''
   );
-  const [autoSendZns, setAutoSendZns] = useState<boolean>(true);
+  const [autoSendZns, setAutoSendZns] = useState<boolean>(false);
 
   const FormSchema = z.object({
     soTien: z.number().positive('Số tiền thu phải lớn hơn 0').max(
@@ -78,6 +78,7 @@ export function RecordInstallmentModal({
 
   useEffect(() => {
     if (isOpen) {
+      setAutoSendZns(false);
       const initVal = remainingDebt > 0 ? remainingDebt : 0;
       setValue('soTien', initVal, { shouldValidate: true });
       setDisplayAmount(initVal > 0 ? new Intl.NumberFormat('vi-VN').format(initVal) : '');

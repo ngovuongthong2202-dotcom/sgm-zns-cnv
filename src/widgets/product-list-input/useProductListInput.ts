@@ -133,14 +133,22 @@ export function useProductListInput({
 
     newProducts[index] = { ...newProducts[index], [field]: val };
 
-    // Tự động nhận diện phân loại sản phẩm khi đổi tên hoặc đơn vị tính
-    if (field === 'productName' || field === 'unit') {
-      const updatedName = field === 'productName' ? String(val || '') : (p.productName || '');
-      const updatedUnit = field === 'unit' ? String(val || '') : (p.unit || '');
-      const autoType = detectItemType(updatedName, updatedUnit, defaultItemType);
+    // Tự động nhận diện phân loại sản phẩm an toàn (không ghi đè thô bạo khi người dùng đang gõ)
+    if (field === 'unit') {
+      const updatedUnit = String(val || '');
+      const autoType = detectItemType(p.productName || '', updatedUnit, p.itemType || defaultItemType);
       newProducts[index].itemType = autoType;
       if (autoType !== 'MACHINE') {
         newProducts[index].danhSachMaMay = [];
+      }
+    } else if (field === 'productName') {
+      // Chỉ tự động gợi ý nếu dòng sản phẩm mới tinh chưa có tên và chưa có phân loại đặc thù
+      if (!p.productName && val && !p.itemType) {
+        const autoType = detectItemType(String(val), p.unit, defaultItemType);
+        newProducts[index].itemType = autoType;
+        if (autoType !== 'MACHINE') {
+          newProducts[index].danhSachMaMay = [];
+        }
       }
     }
 

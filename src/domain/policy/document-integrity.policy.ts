@@ -41,7 +41,7 @@ export function validateDocumentUpdate(
   const IMMUTABLE_FIELDS: Record<DocumentKind, string[]> = {
     quotation: ['customerId', 'maKh', 'totalAmount', 'tongTien', 'products', 'loai', 'loaiBaoGia', 'subTotal'],
     contract: ['customerId', 'quotationId', 'totalAmount', 'giaTriHopDong', 'products'],
-    payment: ['customerId', 'contractId', 'quotationId', 'soTien', 'totalAmount'],
+    payment: ['customerId', 'contractId', 'quotationId', 'totalAmount'],
     delivery: ['customerId', 'paymentId', 'contractId', 'products'],
     customer: ['maKh']
   };

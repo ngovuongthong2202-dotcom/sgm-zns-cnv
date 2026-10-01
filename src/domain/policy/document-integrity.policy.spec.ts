@@ -35,4 +35,21 @@ describe('Document Integrity Policy', () => {
     expect(result.canUpdate).toBe(false);
     expect(result.forbiddenFieldsChanged).toContain('customerId');
   });
+
+  it('allows updating soTien on payment when deliveries exist (installment collection)', () => {
+    const before = { paymentId: 'p1', totalAmount: 10000000, soTien: 5000000, customerId: 'c1' };
+    const after = { paymentId: 'p1', totalAmount: 10000000, soTien: 10000000, customerId: 'c1' };
+
+    const result = validateDocumentUpdate('payment', before, after, true);
+    expect(result.canUpdate).toBe(true);
+  });
+
+  it('blocks changes to totalAmount on payment when deliveries exist', () => {
+    const before = { paymentId: 'p1', totalAmount: 10000000, soTien: 5000000, customerId: 'c1' };
+    const after = { paymentId: 'p1', totalAmount: 15000000, soTien: 5000000, customerId: 'c1' };
+
+    const result = validateDocumentUpdate('payment', before, after, true);
+    expect(result.canUpdate).toBe(false);
+    expect(result.forbiddenFieldsChanged).toContain('totalAmount');
+  });
 });

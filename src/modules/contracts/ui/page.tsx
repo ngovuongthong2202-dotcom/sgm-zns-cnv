@@ -19,6 +19,7 @@ import { t } from '@/src/i18n/vi';
 import { DataViewEngine } from '@/src/design-system/dataview/DataViewEngine';
 import { useDataView } from '@/src/design-system/dataview/useDataView';
 import { ContractStats } from './components/ContractStats';
+import { CollapsibleStatsBanner } from '@/src/platform/ui/design-system/stats/CollapsibleStatsBanner';
 import { getContractColumns } from './columns.config';
 import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { useContractsFilters } from './hooks/useContractsFilters';
@@ -231,14 +232,20 @@ export default function ContractsFeature() {
         onOpenForm={() => setIsFormOpen(true)}
       />
 
-      <div className="px-6 pt-4 shrink-0">
-        <ContractStats 
-          contracts={contracts}
-          realtimePayments={realtimePayments}
-          realtimeDeliveries={realtimeDeliveries}
-          activeKpiFilter={activeKpiFilter}
-          setActiveKpiFilter={setActiveKpiFilter}
-        />
+      <div className="px-6 pt-3 shrink-0">
+        <CollapsibleStatsBanner
+          storageKey="sgm_stats_pinned_contracts"
+          title="Chỉ số & Tổng quan Hợp đồng"
+          summaryBadge={`${contracts.length} hợp đồng`}
+        >
+          <ContractStats 
+            contracts={contracts}
+            realtimePayments={realtimePayments}
+            realtimeDeliveries={realtimeDeliveries}
+            activeKpiFilter={activeKpiFilter}
+            setActiveKpiFilter={setActiveKpiFilter}
+          />
+        </CollapsibleStatsBanner>
       </div>
 
       <div className="flex-1 flex flex-col p-6 overflow-hidden min-h-0">

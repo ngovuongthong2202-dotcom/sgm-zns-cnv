@@ -2303,7 +2303,7 @@ exports[`Component Snapshots (Baseline) > renders DataViewEngine 1`] = `
           class="w-px h-5 bg-slate-200 mx-1 hidden md:block shrink-0"
         />
         <div
-          class="flex items-center gap-2 flex-1 min-w-0 shrink py-1 overflow-visible"
+          class="flex items-center gap-2 flex-1 min-w-0 py-1 overflow-x-auto scrollbar-none"
         />
         <div
           class="flex items-center gap-2 shrink-0 ml-auto"

@@ -81,7 +81,12 @@ export const swrColFetcher = async <T = unknown>(key: string): Promise<T[]> => {
     if (inMemoryItems && inMemoryItems.length > 0) {
       let filtered = inMemoryItems;
       if (fkField && fkId) {
-        filtered = inMemoryItems.filter((item: any) => item && String(item[fkField]) === String(fkId));
+        filtered = inMemoryItems.filter((item: any) => {
+          if (!item) return false;
+          if (String(item[fkField]) === String(fkId)) return true;
+          if (fkField === 'customerId' && (String(item.customerId) === String(fkId) || String(item.maKh) === String(fkId))) return true;
+          return false;
+        });
       }
       swrColCacheMap.set(key, filtered);
       return filtered as T[];

@@ -152,7 +152,7 @@ export function DataViewToolbar({
           <div className="w-px h-5 bg-slate-200 mx-1 hidden md:block shrink-0" />
 
           {/* Filters & View Switches Inline */}
-          <div className="flex items-center gap-2 flex-1 min-w-0 shrink py-1 overflow-visible">
+          <div className="flex items-center gap-2 flex-1 min-w-0 py-1 overflow-x-auto scrollbar-none">
             {entityFilters}
           </div>
 

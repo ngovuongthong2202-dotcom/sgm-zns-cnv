@@ -176,42 +176,6 @@ export function useQuotationForm({
     return () => { isCancelled = true; };
   }, [currentLoai, isCreating, setValue, getValues, quotations]);
 
-  // Reactive ERP / Classification itemType synchronization
-  useEffect(() => {
-    if (!currentLoai) return;
-    const normLoai = normalizeLoai(currentLoai);
-    const currentProducts = getValues('products') || [];
-    if (currentProducts.length > 0) {
-      let hasChanges = false;
-      const updated = currentProducts.map(p => {
-        const isService = p.itemType === 'SERVICE' || detectItemType((p as any).tenSanPham || p.productName) === 'SERVICE';
-        if (isService) {
-          if (p.itemType !== 'SERVICE') {
-            hasChanges = true;
-            return { ...p, itemType: 'SERVICE' as const };
-          }
-          return p;
-        }
-        if (normLoai === QUOTATION_LOAI.MAY && p.itemType !== 'MACHINE') {
-          hasChanges = true;
-          return { ...p, itemType: 'MACHINE' as const };
-        }
-        if (normLoai === QUOTATION_LOAI.VAT_TU && p.itemType !== 'MATERIAL') {
-          hasChanges = true;
-          return { ...p, itemType: 'MATERIAL' as const };
-        }
-        if (normLoai === QUOTATION_LOAI.DICH_VU && p.itemType !== 'SERVICE') {
-          hasChanges = true;
-          return { ...p, itemType: 'SERVICE' as const };
-        }
-        return p;
-      });
-      if (hasChanges) {
-        setValue('products', updated, { shouldDirty: true });
-      }
-    }
-  }, [currentLoai, setValue, getValues]);
-
   const products = watch('products') || [];
   const ngayBaoGia = watch('ngayBaoGia');
   const hieuLuc = watch('hieuLuc');
@@ -287,6 +251,60 @@ export function useQuotationForm({
     
     aggs,
     products,
-    ngayHetHan
+    ngayHetHan,
+    evaluateHierarchy: () => evaluateQuotationHierarchy(getValues('products') || [], getValues('loai') || getValues('loaiBaoGia'))
+  };
+}
+
+export interface HierarchyEvaluation {
+  recommendedType: string;
+  machineCount: number;
+  materialCount: number;
+  serviceCount: number;
+  totalItems: number;
+  isDiscrepancy: boolean;
+}
+
+export function evaluateQuotationHierarchy(products: any[], currentLoai?: string): HierarchyEvaluation {
+  const items = Array.isArray(products) ? products : [];
+  let machineCount = 0;
+  let materialCount = 0;
+  let serviceCount = 0;
+
+  for (const item of items) {
+    const rawType = item.itemType || detectItemType(item.productName || item.tenSanPham, item.unit || item.dvt);
+    if (rawType === 'MACHINE') {
+      machineCount += 1;
+    } else if (rawType === 'MATERIAL') {
+      materialCount += 1;
+    } else {
+      serviceCount += 1;
+    }
+  }
+
+  // Master Hierarchy Priority:
+  // Priority 1: Has any Machine -> 'BG Máy'
+  // Priority 2: Has any Material and no Machine -> 'BG Vật tư'
+  // Priority 3: Only Service -> 'BG Dịch vụ'
+  let recommendedType = 'BG Dịch vụ';
+  if (machineCount > 0) {
+    recommendedType = 'BG Máy';
+  } else if (materialCount > 0) {
+    recommendedType = 'BG Vật tư';
+  } else {
+    recommendedType = 'BG Dịch vụ';
+  }
+
+  const normCurrent = normalizeLoai(currentLoai || '');
+  const normRecommended = normalizeLoai(recommendedType);
+  const isDiscrepancy = items.length > 0 && normCurrent !== normRecommended;
+
+  return {
+    recommendedType,
+    machineCount,
+    materialCount,
+    serviceCount,
+    totalItems: items.length,
+    isDiscrepancy
   };
 }
