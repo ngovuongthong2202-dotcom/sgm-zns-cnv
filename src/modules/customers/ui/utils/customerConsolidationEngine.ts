@@ -205,52 +205,104 @@ export function buildConsolidationMigrationPlan(
     }
   }
 
+  // Helper thông minh phân giải viễn thông & hợp nhất đầu mối trùng lặp
+  const fuseOrAddContact = (candidate: ContactItem, secMaKh?: string) => {
+    const candExt = candidate.sdt ? extractVietnamesePhones(candidate.sdt) : null;
+    const candCleanPhone = candExt?.primaryPhone || (candidate.sdt || '').replace(/\D/g, '');
+    const candIsMobile = candExt ? candExt.isZaloEligible : /^0[35789]\d{8}$/.test(candCleanPhone);
+    const candNameNorm = (candidate.nguoiDaiDien || '').trim().toLowerCase();
+
+    // Tìm xem đã có đầu mối nào trong mergedContacts khớp không
+    const matchIdx = mergedContacts.findIndex(ct => {
+      const ctExt = ct.sdt ? extractVietnamesePhones(ct.sdt) : null;
+      const ctCleanPhone = ctExt?.primaryPhone || (ct.sdt || '').replace(/\D/g, '');
+      const ctIsMobile = ctExt ? ctExt.isZaloEligible : /^0[35789]\d{8}$/.test(ctCleanPhone);
+      const ctNameNorm = (ct.nguoiDaiDien || '').trim().toLowerCase();
+
+      // 1. Nếu cùng tên đại diện (chính xác) -> Khớp
+      if (candNameNorm && ctNameNorm && candNameNorm === ctNameNorm) return true;
+
+      // 2. Nếu cùng SĐT di động cá nhân -> Khớp 100% (cùng 1 cá nhân)
+      if (candCleanPhone && ctCleanPhone && candCleanPhone === ctCleanPhone) {
+        if (candIsMobile || ctIsMobile) return true;
+        // 3. Nếu là số bàn công ty: chỉ khớp khi tên tương đồng (không phải 2 nhân viên khác nhau)
+        if (calculateBusinessNameSimilarity(candNameNorm, ctNameNorm) > 0.4 || candNameNorm.includes(ctNameNorm) || ctNameNorm.includes(candNameNorm)) {
+          return true;
+        }
+      }
+      return false;
+    });
+
+    if (matchIdx !== -1) {
+      // HỢP NHẤT ĐẦU MỐI TRÙNG LẶP (1 THẺ DUY NHẤT)
+      const existing = mergedContacts[matchIdx];
+      const sourceTag = secMaKh || 'Gộp';
+      
+      // Gộp nhãn nguồn gốc xuất xứ
+      let branchInfo = existing.chiNhanh || master.chiNhanh || 'Trụ sở chính';
+      if (!branchInfo.includes(sourceTag)) {
+        if (branchInfo.includes('[Nguồn:')) {
+          branchInfo = branchInfo.replace(/\[Nguồn:\s*([^\]]+)\]/, `[Nguồn: $1, ${sourceTag} (Đã hợp nhất trùng SĐT)]`);
+        } else {
+          branchInfo = `${branchInfo} [Nguồn: ${master.maKh || 'Master'}, ${sourceTag} (Đã hợp nhất trùng SĐT)]`;
+        }
+      }
+
+      // Làm giàu thông tin còn thiếu
+      const bestName = (existing.nguoiDaiDien && existing.nguoiDaiDien.length >= (candidate.nguoiDaiDien || '').length)
+        ? existing.nguoiDaiDien
+        : (candidate.nguoiDaiDien || existing.nguoiDaiDien);
+
+      const bestRole = (existing.chucVu && existing.chucVu !== 'Đầu mối liên hệ' && existing.chucVu !== 'Liên hệ')
+        ? existing.chucVu
+        : (candidate.chucVu || existing.chucVu || 'Đại diện');
+
+      mergedContacts[matchIdx] = {
+        ...existing,
+        nguoiDaiDien: bestName,
+        chucVu: bestRole,
+        email: existing.email || candidate.email || '',
+        chiNhanh: branchInfo
+      };
+    } else {
+      // BỔ SUNG ĐẦU MỐI ĐỘC LẬP MỚI
+      const sourceTag = secMaKh || 'Gộp';
+      mergedContacts.push({
+        ...candidate,
+        chiNhanh: `${candidate.chiNhanh || 'Trụ sở'} [Nguồn: ${sourceTag}]`
+      });
+    }
+  };
+
   // Duyệt qua từng khách hàng phụ để trích xuất đầu mối
   secondaries.forEach(sec => {
     // Đầu mối từ primary fields của secondary
     if (sec.nguoiDaiDien || sec.sdt) {
-      const secPhonePrimary = sec.sdt ? extractVietnamesePhones(sec.sdt).primaryPhone : '';
-      const isDuplicate = mergedContacts.some(ct => {
-        const ctPhonePrimary = ct.sdt ? extractVietnamesePhones(ct.sdt).primaryPhone : '';
-        if (secPhonePrimary && ctPhonePrimary && secPhonePrimary === ctPhonePrimary) return true;
-        if (sec.sdt && ct.sdt && sec.sdt.trim() === ct.sdt.trim()) return true;
-        if (sec.nguoiDaiDien && ct.nguoiDaiDien && sec.nguoiDaiDien.trim().toLowerCase() === ct.nguoiDaiDien.trim().toLowerCase()) return true;
-        return false;
-      });
-      if (!isDuplicate) {
-        mergedContacts.push({
-          danhXung: 'Đại diện',
-          nguoiDaiDien: sec.nguoiDaiDien || 'Đầu mối liên hệ',
-          sdt: sec.sdt || '',
-          chucVu: 'Đầu mối phụ trách',
-          chiNhanh: `${sec.chiNhanh || 'Trụ sở'} [Nguồn: ${sec.maKh || 'Gộp'}]`
-        });
-      }
+      fuseOrAddContact({
+        danhXung: 'Đại diện',
+        nguoiDaiDien: sec.nguoiDaiDien || 'Đầu mối liên hệ',
+        sdt: sec.sdt || '',
+        chucVu: 'Đầu mối phụ trách',
+        chiNhanh: sec.chiNhanh || 'Trụ sở'
+      }, sec.maKh);
     }
 
     // Các đầu mối trong mảng contacts của secondary
     (sec.contacts || []).forEach(secContact => {
-      const secPhonePrimary = secContact.sdt ? extractVietnamesePhones(secContact.sdt).primaryPhone : '';
-      const isDuplicate = mergedContacts.some(ct => {
-        const ctPhonePrimary = ct.sdt ? extractVietnamesePhones(ct.sdt).primaryPhone : '';
-        if (secPhonePrimary && ctPhonePrimary && secPhonePrimary === ctPhonePrimary) return true;
-        if (secContact.sdt && ct.sdt && secContact.sdt.trim() === ct.sdt.trim()) return true;
-        if (secContact.nguoiDaiDien && ct.nguoiDaiDien && secContact.nguoiDaiDien.trim().toLowerCase() === ct.nguoiDaiDien.trim().toLowerCase()) return true;
-        return false;
-      });
-      if (!isDuplicate) {
-        mergedContacts.push({
-          ...secContact,
-          chiNhanh: `${secContact.chiNhanh || sec.chiNhanh || 'Trụ sở'} [Nguồn: ${sec.maKh || 'Gộp'}]`
-        });
-      }
+      fuseOrAddContact(secContact, sec.maKh);
     });
   });
 
-  // 2. Cập nhật Master Customer
+  // 2. Cập nhật Master Customer kèm danh sách mã gộp phục vụ Omni-Search Forwarding
+  const mergedCustomerCodes = Array.from(new Set([
+    ...(master.mergedCustomerCodes || (master as any).merged_customer_codes || []),
+    ...secondaries.map(s => s.maKh).filter(Boolean)
+  ])) as string[];
+
   const updatedMasterCustomer: Customer = {
     ...master,
     contacts: mergedContacts,
+    mergedCustomerCodes,
     ngayCapNhat: new Date().toISOString(),
     tags: Array.from(new Set([...(master.tags || []), 'CONSOLIDATED_MASTER'])),
   };

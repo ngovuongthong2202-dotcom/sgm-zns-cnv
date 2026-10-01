@@ -68,7 +68,7 @@ router.post('/check-duplicate', async (req, res) => {
 
 router.post('/merge', async (req, res) => {
   try {
-    const { targetCustomerId, sourceCustomerIds, userEmail } = req.body;
+    const { targetCustomerId, sourceCustomerIds, userEmail, mergedContacts, mergedCustomerCodes } = req.body;
     if (!targetCustomerId || !sourceCustomerIds || !sourceCustomerIds.length) {
       return res.status(400).json({ success: false, error: 'Invalid parameters for merge' });
     }
@@ -165,10 +165,19 @@ router.post('/merge', async (req, res) => {
 
     const currentTags = tgtData?.tags || [];
     const finalTags = Array.from(new Set([...currentTags, ...updatedTags, 'MERGED']));
-    batch.update(targetCustomerSnap.ref, {
+    const existingMergedCodes = tgtData?.mergedCustomerCodes || tgtData?.merged_customer_codes || [];
+    const secondaryMaKhs = Object.values(sourceCustomersSnapshotsData).map((s: any) => s.maKh).filter(Boolean);
+    const finalMergedCodes = Array.from(new Set([...existingMergedCodes, ...(mergedCustomerCodes || []), ...secondaryMaKhs]));
+
+    const targetCustomerUpdate: Record<string, any> = {
       tags: finalTags,
+      mergedCustomerCodes: finalMergedCodes,
       ngayCapNhat: new Date().toISOString()
-    });
+    };
+    if (Array.isArray(mergedContacts) && mergedContacts.length > 0) {
+      targetCustomerUpdate.contacts = mergedContacts;
+    }
+    batch.update(targetCustomerSnap.ref, targetCustomerUpdate);
 
     // Record Permanent Audit Trail to auditLogs Collection
     const auditRef = adminDb.collection('auditLogs').doc();
@@ -306,7 +315,19 @@ router.post('/rollback-merge', async (req, res) => {
       }
     });
 
-    // 3. Đánh dấu bản ghi Audit Log là đã hoàn tác
+    // 3. Phục hồi trạng thái ban đầu của Master Customer
+    if (details.masterId && details.masterCustomerSnapshot) {
+      const masterRef = adminDb.collection('customers').doc(details.masterId);
+      const masterPrev = details.masterCustomerSnapshot;
+      batch.update(masterRef, {
+        contacts: masterPrev.contacts || [],
+        mergedCustomerCodes: masterPrev.mergedCustomerCodes || masterPrev.merged_customer_codes || [],
+        tags: masterPrev.tags || [],
+        ngayCapNhat: new Date().toISOString()
+      });
+    }
+
+    // 4. Đánh dấu bản ghi Audit Log là đã hoàn tác
     batch.update(auditSnap.ref, {
       'details.rolledBackAt': new Date().toISOString(),
       'details.rolledBackBy': userEmail || 'system'

@@ -76,6 +76,8 @@ export function applyQuotationToContractForm(setValue: UseFormSetValue<FormValue
   if ((q as any).sdtPhu) setValue('sdtPhu' as any, (q as any).sdtPhu);
   if ((q as any).chucVu) setValue('chucVu' as any, (q as any).chucVu);
   if ((q as any).soZaloMacDinh) setValue('soZaloMacDinh' as any, (q as any).soZaloMacDinh);
+  if ((q as any).diaChiGiaoHang) setValue('diaChiGiaoHang' as any, (q as any).diaChiGiaoHang);
+  if ((q as any).tinhThanh) setValue('tinhThanh' as any, (q as any).tinhThanh);
   setValue('soPhieuBaoGia', q.soPhieuBaoGia || '');
   setValue('ngayBaoGia', q.ngayBaoGia || '');
   setValue('loai', q.loai || '');

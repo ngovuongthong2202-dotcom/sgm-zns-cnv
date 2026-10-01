@@ -311,6 +311,7 @@ export function adaptSalesOrderToQuotation(
     tenKhachHang: matchedCustomer?.tenKhachHang || snapshot.customer_name || 'Khách hàng ERP',
     sdt: matchedCustomer?.sdt || snapshot.phone || '',
     diaChi: matchedCustomer?.diaChi || erpData.delivery_address || snapshot.address || '',
+    diaChiGiaoHang: erpData.delivery_address || (matchedCustomer as any)?.diaChiGiaoHang || matchedCustomer?.diaChi || snapshot.address || '',
     tinhThanh: (matchedCustomer as any)?.tinhThanh || detectProvinceFromAddress(erpData.delivery_address || snapshot.address || '') || undefined,
     nguoiDaiDien: matchedCustomer?.nguoiDaiDien || snapshot.representative || '',
     ngayBaoGia,

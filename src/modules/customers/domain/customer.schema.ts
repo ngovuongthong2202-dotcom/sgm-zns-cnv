@@ -12,6 +12,7 @@ export const ContactSchema = z.object({
   soZaloMacDinh: zPhoneString.optional(),
   chucVu: zProperString.optional(),
   chiNhanh: zSafeString.optional(),
+  email: zSafeString.optional(),
   trangThaiZns: zSafeString.optional(),
   ngayGuiZns: zSafeString.optional(),
   lastZnsTrackingId: zSafeString.optional(),
@@ -44,6 +45,7 @@ export const CustomerSchema = z.object({
   contactsZnsHistory: z.record(z.string(), z.unknown()).optional().default({}),
   
   tags: z.array(z.string()).optional().default([]),
+  mergedCustomerCodes: z.array(z.string()).optional().default([]),
   mergedInto: z.string().optional().nullable(),
   isArchived: z.boolean().optional().default(false),
   ltv: z.number().optional().default(0),

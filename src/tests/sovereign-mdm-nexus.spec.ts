@@ -8,6 +8,9 @@ import {
   buildConsolidationMigrationPlan,
   BLACKLISTED_DUMMY_TAX_CODES 
 } from '../modules/customers/ui/utils/customerConsolidationEngine';
+import { matchesEnterpriseSearch } from '../shared/utils/vietnameseSearchEngine';
+import { adaptSalesOrderToQuotation } from '../modules/sales/ui/utils/salesOrderAdapter';
+import { applyQuotationToContractForm } from '../modules/contracts/ui/components/ContractFormHelpers';
 
 describe('Sovereign MDM Nexus: Complete Enterprise Integrity Verification Suite', () => {
   describe('Pillar 1: Tax Disambiguation & Junk Tax Code Shield', () => {
@@ -216,5 +219,166 @@ describe('Sovereign MDM Nexus: Complete Enterprise Integrity Verification Suite'
       await adminDb.collection('quotations').doc(quoteId).delete();
       await auditRef.delete();
     }, 15000);
+  });
+
+  describe('Pillar 5: Smart Contact Fusion & Deduplication (Screenshot Case)', () => {
+    it('fuses identical mobile contacts into exactly 1 card with merged source lineage tag', () => {
+      const masterCustomer: any = {
+        id: 'cust-460',
+        maKh: 'KH0460',
+        tenKhachHang: 'CÔNG TY TNHH VẬT TƯ TIẾN THÀNH',
+        maSoThue: '0314567890',
+        nguoiDaiDien: 'Trương Quốc Vĩnh',
+        sdt: '0913600145',
+        contacts: [
+          {
+            danhXung: 'Anh',
+            nguoiDaiDien: 'Trương Quốc Vĩnh',
+            sdt: '0913600145',
+            chucVu: 'Giám đốc',
+            chiNhanh: 'Trụ sở chính'
+          }
+        ]
+      };
+
+      const secondaryCustomer: any = {
+        id: 'cust-393',
+        maKh: 'KH0393',
+        tenKhachHang: 'CÔNG TY TNHH VẬT TƯ TIẾN THÀNH (CHI NHÁNH 2)',
+        maSoThue: '0314567890',
+        nguoiDaiDien: 'Trương Quốc Vĩnh',
+        sdt: '0913600145',
+        contacts: [
+          {
+            danhXung: 'Anh',
+            nguoiDaiDien: 'Trương Quốc Vĩnh',
+            sdt: '0913600145',
+            chucVu: 'Đại diện',
+            chiNhanh: 'Xưởng sản xuất'
+          }
+        ]
+      };
+
+      const group = {
+        taxCode: '0314567890',
+        normalizedName: 'CONG TY TNHH VAT TU TIEN THANH',
+        masterCustomer,
+        secondaryCustomers: [secondaryCustomer],
+        allCustomersInGroup: [masterCustomer, secondaryCustomer],
+        totalQuotationsCount: 5,
+        distinctContactsCount: 1
+      };
+
+      const plan = buildConsolidationMigrationPlan(group, [], [], [], []);
+
+      // CRITICAL ASSERTION: Exactly 1 contact card, NEVER duplicated!
+      expect(plan.updatedMasterCustomer.contacts?.length).toBe(1);
+      const fusedContact = plan.updatedMasterCustomer.contacts![0];
+      expect(fusedContact.nguoiDaiDien).toBe('Trương Quốc Vĩnh');
+      expect(fusedContact.sdt).toBe('0913600145');
+      expect(fusedContact.chiNhanh).toContain('KH0460');
+      expect(fusedContact.chiNhanh).toContain('KH0393');
+      expect(fusedContact.chiNhanh).toContain('Đã hợp nhất trùng SĐT');
+
+      // Verify mergedCustomerCodes recorded
+      expect(plan.updatedMasterCustomer.mergedCustomerCodes).toContain('KH0393');
+    });
+
+    it('retains distinct staff members who share the same landline switchboard', () => {
+      const masterCustomer: any = {
+        id: 'cust-m',
+        maKh: 'KH0100',
+        tenKhachHang: 'TẬP ĐOÀN CÔNG NGHIỆP',
+        maSoThue: '0301112233',
+        contacts: [
+          {
+            danhXung: 'Chị',
+            nguoiDaiDien: 'Nguyễn Thị Thu (Kế toán)',
+            sdt: '02838123456', // Landline
+            chucVu: 'Kế toán trưởng'
+          }
+        ]
+      };
+
+      const secondaryCustomer: any = {
+        id: 'cust-s',
+        maKh: 'KH0101',
+        tenKhachHang: 'TẬP ĐOÀN CÔNG NGHIỆP - VP 2',
+        maSoThue: '0301112233',
+        contacts: [
+          {
+            danhXung: 'Anh',
+            nguoiDaiDien: 'Lê Văn Nam (Kỹ thuật)',
+            sdt: '02838123456', // Same switchboard, but different person
+            chucVu: 'Trưởng ban Kỹ thuật'
+          }
+        ]
+      };
+
+      const group = {
+        taxCode: '0301112233',
+        normalizedName: 'TAP DOAN CONG NGHIEP',
+        masterCustomer,
+        secondaryCustomers: [secondaryCustomer],
+        allCustomersInGroup: [masterCustomer, secondaryCustomer],
+        totalQuotationsCount: 2,
+        distinctContactsCount: 2
+      };
+
+      const plan = buildConsolidationMigrationPlan(group, [], [], [], []);
+      // Both distinct roles must be preserved!
+      expect(plan.updatedMasterCustomer.contacts?.length).toBe(2);
+    });
+  });
+
+  describe('Pillar 6: Omni-Search Forwarding via Merged Customer Lineage', () => {
+    it('matches master customer when user searches for retired secondary customer code', () => {
+      const masterCustomer = {
+        id: 'cust-460',
+        maKh: 'KH0460',
+        tenKhachHang: 'CÔNG TY TNHH VẬT TƯ TIẾN THÀNH',
+        mergedCustomerCodes: ['KH0393', 'KH0105'],
+        maSoThue: '0314567890'
+      };
+
+      // Searching the old secondary code 'KH0393' must match master customer
+      expect(matchesEnterpriseSearch(masterCustomer, 'KH0393')).toBe(true);
+      expect(matchesEnterpriseSearch(masterCustomer, 'kh0393')).toBe(true);
+      expect(matchesEnterpriseSearch(masterCustomer, 'KH0105')).toBe(true);
+      expect(matchesEnterpriseSearch(masterCustomer, 'KH9999')).toBe(false);
+    });
+  });
+
+  describe('Pillar 7: ERP Sales Order Sovereign Adapters & Delivery Address Preservation', () => {
+    it('preserves delivery_address across quotation adapter and contract form helper', () => {
+      const mockErpOrder: any = {
+        code: '11-KDDH2609-019',
+        customer_snapshot: {
+          customer_name: 'CÔNG TY TNHH CƠ ĐIỆN LẠNH Á CHÂU',
+          address: '123 Nguyễn Thị Minh Khai, Q1, TP.HCM',
+          tax_code: '0305556667',
+          phone: '0908889999'
+        },
+        delivery_address: 'Khu Công Nghiệp Sóng Thần 2, Dĩ An, Bình Dương', // Distinct job site address
+        lines: [
+          { product_name: 'Mô tơ giảm tốc 2.2kW', quantity: 2, price: 5000000 }
+        ]
+      };
+
+      // 1. Quotation draft inherits job site address
+      const quoteDraft = adaptSalesOrderToQuotation(mockErpOrder, null, 'BGVT-2026-0001', 'Admin');
+      expect(quoteDraft.diaChiGiaoHang).toBe('Khu Công Nghiệp Sóng Thần 2, Dĩ An, Bình Dương');
+      expect(quoteDraft.tenKhachHang).toBe('CÔNG TY TNHH CƠ ĐIỆN LẠNH Á CHÂU');
+
+      // 2. Contract form helper inherits diaChiGiaoHang from quotation
+      const mockValues: Record<string, any> = {};
+      const mockSetValue = (key: string, val: any) => {
+        mockValues[key] = val;
+      };
+
+      applyQuotationToContractForm(mockSetValue as any, quoteDraft);
+      expect(mockValues.diaChiGiaoHang).toBe('Khu Công Nghiệp Sóng Thần 2, Dĩ An, Bình Dương');
+      expect(mockValues.tenKhachHang).toBe('CÔNG TY TNHH CƠ ĐIỆN LẠNH Á CHÂU');
+    });
   });
 });

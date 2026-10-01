@@ -34,6 +34,7 @@ import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressP
 import { VIETNAM_PROVINCES_63 } from '@/src/hooks/useSharedFields';
 import { classifyErpCustomer, ErpCustomerClassificationResult } from '../utils/erpCustomerClassifier';
 import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
+import { computeMaxCustomerSequence } from '@/src/modules/customers/ui/hooks/useCustomerForm';
 
 interface Props {
   isOpen: boolean;
@@ -55,7 +56,9 @@ export function CreateQuotationFromSalesOrderModal({
   const [orderCode, setOrderCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [erpData, setErpData] = useState<ErpSalesOrderData | null>(null);
-  const [autoProvisionCustomer, setAutoProvisionCustomer] = useState(true);
+  const [provisionMode, setProvisionMode] = useState<'LINK_EXISTING' | 'PREVIEW_CREATE' | 'GUEST_ORDER'>('PREVIEW_CREATE');
+  const [previewCustomerCode, setPreviewCustomerCode] = useState<string>('');
+  const [selectedCustomerIdOverride, setSelectedCustomerIdOverride] = useState<string>('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Typeahead search states
@@ -83,7 +86,8 @@ export function CreateQuotationFromSalesOrderModal({
       setOrderCode('');
       setErpData(null);
       setSelectedImage(null);
-      setAutoProvisionCustomer(true);
+      setProvisionMode('PREVIEW_CREATE');
+      setSelectedCustomerIdOverride('');
       setSearchResults([]);
       setShowSearchDropdown(false);
       setCustomMobilePhone('');
@@ -93,8 +97,23 @@ export function CreateQuotationFromSalesOrderModal({
       setCustomerType('Doanh nghiệp');
       setCustomCustomerName('');
       setCustomSalutation('Anh/Chị');
+
+      // Fetch or compute next sequential code
+      fetch('/api/customers/generate-makh', { method: 'POST' })
+        .then(res => res.json())
+        .then(json => {
+          if (json.success && json.maKh) setPreviewCustomerCode(json.maKh);
+          else {
+            const maxSeq = computeMaxCustomerSequence(customers);
+            setPreviewCustomerCode(`KH${String(maxSeq + 1).padStart(4, '0')}`);
+          }
+        })
+        .catch(() => {
+          const maxSeq = computeMaxCustomerSequence(customers);
+          setPreviewCustomerCode(`KH${String(maxSeq + 1).padStart(4, '0')}`);
+        });
     }
-  }, [isOpen]);
+  }, [isOpen, customers]);
 
   // Handle escape key
   useEffect(() => {
@@ -256,6 +275,20 @@ export function CreateQuotationFromSalesOrderModal({
     }
   }, [phoneExtraction.primaryPhone, customMobilePhone]);
 
+  // Đồng bộ chế độ cấp phát khách hàng khi dữ liệu ERP hoặc đối soát khách hàng thay đổi
+  React.useEffect(() => {
+    if (erpData) {
+      const matched = matchedCustomerByTax || customerResolution?.matchedCustomer;
+      if (matched) {
+        setProvisionMode('LINK_EXISTING');
+        setSelectedCustomerIdOverride(matched.id || '');
+      } else {
+        setProvisionMode('PREVIEW_CREATE');
+        setSelectedCustomerIdOverride('');
+      }
+    }
+  }, [erpData, matchedCustomerByTax, customerResolution]);
+
   // Generate sequence code for new quote
   const generateNextQuoteCode = () => {
     const year = new Date().getFullYear();
@@ -277,8 +310,6 @@ export function CreateQuotationFromSalesOrderModal({
   const handleConstructQuotation = async () => {
     if (!erpData) return;
 
-    // Ưu tiên khớp theo MST để chống trùng khách hàng
-    let targetCustomer = matchedCustomerByTax || customerResolution?.matchedCustomer || null;
     const snapshot = erpData.customer_snapshot || {};
     const finalPhone = customMobilePhone.trim() || phoneExtraction.primaryPhone || rawCustomerPhone || '';
     const finalProvince = customProvince || detectProvinceFromAddress(erpData.delivery_address || snapshot.address || '', VIETNAM_PROVINCES_63) || 'TP. Hồ Chí Minh';
@@ -287,22 +318,28 @@ export function CreateQuotationFromSalesOrderModal({
     const isIndiv = customerType === 'Cá nhân';
     const finalCustomerName = customCustomerName.trim() || classifiedCustomer?.cleanCustomerName || snapshot.customer_name || 'Khách hàng ERP';
 
-    // If customer not found and auto-provision is enabled, create new customer in CRM
-    if (!targetCustomer && autoProvisionCustomer) {
+    let targetCustomer: Customer | null = null;
+
+    if (provisionMode === 'LINK_EXISTING') {
+      targetCustomer = customers.find(c => c.id === selectedCustomerIdOverride) 
+        || matchedCustomerByTax 
+        || customerResolution?.matchedCustomer 
+        || null;
+      if (targetCustomer) {
+        notify.info(`Đã liên kết thành công với hồ sơ khách hàng [${targetCustomer.maKh} - ${targetCustomer.tenKhachHang}]. Không tạo trùng lặp.`);
+      }
+    } else if (provisionMode === 'PREVIEW_CREATE') {
       try {
-        const year = new Date().getFullYear();
-        let nextCustomerCode = `KH-${year}-0001`;
-        try {
-          const res = await fetch('/api/customers/generate-makh', { method: 'POST' });
-          const json = await res.json();
-          if (json.success && json.maKh) nextCustomerCode = json.maKh;
-        } catch {
-          // Fallback based on existing customers count
-          const maxSeq = customers.reduce((max, c) => {
-            const m = (c.maKh || '').match(/(\d+)$/);
-            return m ? Math.max(max, parseInt(m[1], 10) || 0) : max;
-          }, 0);
-          nextCustomerCode = `KH-${year}-${String(maxSeq + 1).padStart(4, '0')}`;
+        let nextCustomerCode = previewCustomerCode;
+        if (!nextCustomerCode) {
+          try {
+            const res = await fetch('/api/customers/generate-makh', { method: 'POST' });
+            const json = await res.json();
+            if (json.success && json.maKh) nextCustomerCode = json.maKh;
+          } catch {
+            const maxSeq = computeMaxCustomerSequence(customers);
+            nextCustomerCode = `KH${String(maxSeq + 1).padStart(4, '0')}`;
+          }
         }
 
         // Tạo mảng contacts từ toàn bộ các số điện thoại bóc tách được
@@ -344,12 +381,14 @@ export function CreateQuotationFromSalesOrderModal({
 
         const created = await createCustomerRecord(newCustomerData as Customer);
         targetCustomer = created;
-        notify.success(`Đã tự động khởi tạo khách hàng mới [${nextCustomerCode}] (${customerType}) vào CRM`);
+        notify.success(`Đã khởi tạo hồ sơ khách hàng mới [${nextCustomerCode}] (${customerType}) vào CRM`);
       } catch (err: any) {
-        notify.warning('Không thể tự động tạo khách hàng, tiếp tục nạp dữ liệu tạm: ' + err.message);
+        notify.warning('Không thể lưu khách hàng mới vào CRM, tiếp tục nạp dữ liệu tạm: ' + err.message);
       }
-    } else if (targetCustomer && matchedCustomerByTax) {
-      notify.info(`Đã khớp khách hàng [${targetCustomer.maKh} - ${targetCustomer.tenKhachHang}] theo MST. Không tạo trùng lặp.`);
+    } else {
+      // GUEST_ORDER: No DB write, zero pollution of CRM
+      targetCustomer = null;
+      notify.info('Đã thiết lập Báo Giá theo chế độ Khách Vãng Lai. Tuyệt đối không lưu hồ sơ mới vào CRM.');
     }
 
     const nextQuoteCode = generateNextQuoteCode();
@@ -361,6 +400,9 @@ export function CreateQuotationFromSalesOrderModal({
     if (finalProvince) (quotationDraft as any).tinhThanh = finalProvince;
     if (finalRep) quotationDraft.nguoiDaiDien = finalRep;
     quotationDraft.phanLoaiKhach = customerType;
+    if (erpData.delivery_address) {
+      quotationDraft.diaChiGiaoHang = erpData.delivery_address;
+    }
 
     onQuotationConstructed(quotationDraft, targetCustomer || undefined);
     onClose();
@@ -702,14 +744,6 @@ export function CreateQuotationFromSalesOrderModal({
                       </div>
                     )}
 
-                    {/* Thông báo khớp khách hàng chống trùng theo MST */}
-                    {matchedCustomerByTax && (
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-3xs text-emerald-900 font-medium flex items-center gap-1.5 mt-2">
-                        <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
-                        <span>Đã khớp khách hàng <strong>[{matchedCustomerByTax.maKh} - {matchedCustomerByTax.tenKhachHang}]</strong> theo MST <strong>{erpData.customer_snapshot?.tax_code}</strong>. Sử dụng hồ sơ này để không tạo trùng lặp.</span>
-                      </div>
-                    )}
-
                     {/* Landline Warning & Inline Mobile ZNS Completion */}
                     {isLandline && (
                       <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-2.5 text-xs space-y-1.5 mt-2">
@@ -729,19 +763,148 @@ export function CreateQuotationFromSalesOrderModal({
                         </div>
                       </div>
                     )}
-                  </div>
 
-                  {!matchedCustomerByTax && !customerResolution?.matchedCustomer && (
-                    <label className="mt-2 pt-2 border-t border-slate-200 flex items-center gap-2 text-2xs font-semibold text-blue-700 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={autoProvisionCustomer}
-                        onChange={(e) => setAutoProvisionCustomer(e.target.checked)}
-                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span>Tự động cấp mã KH mới và lưu vào CRM khi khởi tạo báo giá</span>
-                    </label>
-                  )}
+                    {/* Tricameral Sovereign Provisioning Gate */}
+                    <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-3xs font-extrabold uppercase tracking-wider text-slate-600">
+                          Chính sách Quản trị Dữ liệu Khách Hàng (Master Data Gate)
+                        </span>
+                        {matchedCustomerByTax && (
+                          <span className="text-3xs font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-300">
+                            Khớp MST [{matchedCustomerByTax.maKh}]
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {/* Option 1: Khớp hồ sơ CRM */}
+                        <div
+                          onClick={() => setProvisionMode('LINK_EXISTING')}
+                          className={`p-2 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
+                            provisionMode === 'LINK_EXISTING'
+                              ? 'bg-blue-50/90 border-blue-500 ring-2 ring-blue-500/20 shadow-xs'
+                              : 'bg-white border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <input
+                              type="radio"
+                              name="provisionMode"
+                              checked={provisionMode === 'LINK_EXISTING'}
+                              onChange={() => setProvisionMode('LINK_EXISTING')}
+                              className="text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="text-2xs font-bold text-slate-800">1. Khớp hồ sơ CRM</span>
+                          </div>
+                          <p className="text-3xs text-slate-500 leading-snug">
+                            {matchedCustomerByTax 
+                              ? `Đã khớp [${matchedCustomerByTax.maKh}]`
+                              : customerResolution?.matchedCustomer 
+                                ? `Khớp [${customerResolution.matchedCustomer.maKh}]`
+                                : 'Chọn từ danh bạ'}
+                          </p>
+                        </div>
+
+                        {/* Option 2: Xem trước tạo mới */}
+                        <div
+                          onClick={() => setProvisionMode('PREVIEW_CREATE')}
+                          className={`p-2 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
+                            provisionMode === 'PREVIEW_CREATE'
+                              ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+                              : 'bg-white border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <input
+                              type="radio"
+                              name="provisionMode"
+                              checked={provisionMode === 'PREVIEW_CREATE'}
+                              onChange={() => setProvisionMode('PREVIEW_CREATE')}
+                              className="text-emerald-600 focus:ring-emerald-500"
+                            />
+                            <span className="text-2xs font-bold text-slate-800">2. Tạo KH mới (Xem trước)</span>
+                          </div>
+                          <p className="text-3xs text-emerald-700 font-medium leading-snug">
+                            Cấp mã <code className="font-bold">{previewCustomerCode || 'KHxxxx'}</code> và lưu CRM
+                          </p>
+                        </div>
+
+                        {/* Option 3: Khách vãng lai */}
+                        <div
+                          onClick={() => setProvisionMode('GUEST_ORDER')}
+                          className={`p-2 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
+                            provisionMode === 'GUEST_ORDER'
+                              ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
+                              : 'bg-white border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <input
+                              type="radio"
+                              name="provisionMode"
+                              checked={provisionMode === 'GUEST_ORDER'}
+                              onChange={() => setProvisionMode('GUEST_ORDER')}
+                              className="text-amber-600 focus:ring-amber-500"
+                            />
+                            <span className="text-2xs font-bold text-slate-800">3. Khách vãng lai</span>
+                          </div>
+                          <p className="text-3xs text-slate-500 leading-snug">
+                            Không lưu CRM, chỉ dùng cho đơn này
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Chi tiết cho từng Option */}
+                      {provisionMode === 'LINK_EXISTING' && (
+                        <div className="p-2 bg-slate-100/80 rounded-lg border border-slate-200 text-2xs space-y-1">
+                          <div className="flex items-center justify-between text-3xs text-slate-500">
+                            <span>Khách hàng CRM liên kết:</span>
+                            {matchedCustomerByTax && <span className="text-emerald-700 font-bold">Khớp tự động theo MST</span>}
+                          </div>
+                          <select
+                            value={selectedCustomerIdOverride || (matchedCustomerByTax || customerResolution?.matchedCustomer)?.id || ''}
+                            onChange={(e) => setSelectedCustomerIdOverride(e.target.value)}
+                            className="w-full text-2xs font-medium border border-slate-300 rounded px-2 py-1 bg-white outline-none focus:ring-1 focus:ring-blue-500 text-slate-900"
+                          >
+                            <option value="">-- Chọn khách hàng từ CRM --</option>
+                            {customers.map(c => (
+                              <option key={c.id} value={c.id}>
+                                [{c.maKh}] {c.tenKhachHang} {c.maSoThue ? `(MST: ${c.maSoThue})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {provisionMode === 'PREVIEW_CREATE' && (
+                        <div className="p-2 bg-emerald-50/70 rounded-lg border border-emerald-200 text-3xs text-emerald-950 space-y-1">
+                          <div className="flex items-center gap-1 font-bold text-emerald-800">
+                            <CheckCircle2 size={12} className="text-emerald-600" />
+                            <span>Xem trước hồ sơ KH mới chuẩn bị thêm vào CRM:</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-3xs">
+                            <div>Mã định danh: <strong className="font-mono text-emerald-700">{previewCustomerCode || 'KHxxxx'}</strong></div>
+                            <div>Phân loại: <strong>{customerType}</strong></div>
+                            <div className="col-span-2 truncate">
+                              Tên: <strong>{customCustomerName.trim() || classifiedCustomer?.cleanCustomerName || erpData.customer_snapshot?.customer_name || 'Khách hàng ERP'}</strong>
+                            </div>
+                            {erpData.customer_snapshot?.tax_code && (
+                              <div>MST: <strong className="font-mono">{erpData.customer_snapshot.tax_code}</strong></div>
+                            )}
+                            <div>SĐT ZNS: <strong className="font-mono">{customMobilePhone.trim() || phoneExtraction.primaryPhone || rawCustomerPhone || 'Chưa rõ'}</strong></div>
+                          </div>
+                        </div>
+                      )}
+
+                      {provisionMode === 'GUEST_ORDER' && (
+                        <div className="p-2 bg-amber-50/80 rounded-lg border border-amber-200 text-3xs text-amber-900 flex items-center gap-1.5">
+                          <AlertTriangle size={13} className="text-amber-600 shrink-0" />
+                          <span>Chế độ <strong>Khách vãng lai</strong>: Dữ liệu được đính kèm trực tiếp vào Báo Giá để phục vụ in ấn/ZNS. Không tạo bản ghi mới trong CRM.</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* 2. Order Header & Tare Weight Card */}

@@ -38,6 +38,7 @@ export interface EnterpriseSearchTarget {
   nguoiDaiDien?: string | null;
   nguoiPhuTrach?: string | null;
   maKh?: string | null;
+  mergedCustomerCodes?: string[] | null;
   diaChi?: string | null;
   diaChiGiaoHang?: string | null;
   tinhThanh?: string | null;
@@ -161,6 +162,15 @@ export function matchesEnterpriseSearch(
   for (const field of directTextFields) {
     if (field && normalizeVietnameseSearch(String(field)).includes(normalizedQuery)) {
       return true;
+    }
+  }
+
+  // 4b. Kiểm tra các mã khách hàng cũ đã từng được gộp (Omni-Search Forwarding)
+  if (Array.isArray(target.mergedCustomerCodes)) {
+    for (const mergedCode of target.mergedCustomerCodes) {
+      if (mergedCode && normalizeVietnameseSearch(String(mergedCode)).includes(normalizedQuery)) {
+        return true;
+      }
     }
   }
 

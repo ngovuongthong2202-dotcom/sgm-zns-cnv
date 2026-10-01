@@ -99,10 +99,21 @@ export function CustomerConsolidationModal({
 
   const currentGroup: DuplicateCustomerGroup | undefined = filteredGroups[selectedGroupIndex] || filteredGroups[0];
 
+  const currentPlan = React.useMemo(() => {
+    if (!currentGroup) return null;
+    return buildConsolidationMigrationPlan(
+      currentGroup,
+      quotations,
+      contracts,
+      payments,
+      deliveries
+    );
+  }, [currentGroup, quotations, contracts, payments, deliveries]);
+
   const handleMergeGroup = async (group: DuplicateCustomerGroup) => {
     setIsProcessing(true);
     try {
-      const plan = buildConsolidationMigrationPlan(
+      const plan = currentPlan || buildConsolidationMigrationPlan(
         group,
         quotations,
         contracts,
@@ -120,6 +131,7 @@ export function CustomerConsolidationModal({
       if (plan.updatedMasterCustomer.id) {
         await customerRepo.update(plan.updatedMasterCustomer.id, {
           contacts: plan.updatedMasterCustomer.contacts,
+          mergedCustomerCodes: plan.updatedMasterCustomer.mergedCustomerCodes,
           nhuCauKhachHang: (plan.updatedMasterCustomer as any).ghiChu || plan.updatedMasterCustomer.nhuCauKhachHang,
         });
       }
@@ -129,7 +141,13 @@ export function CustomerConsolidationModal({
       let backendSuccess = false;
       if (plan.masterCustomer.id) {
         try {
-          await MergeCustomer.execute(plan.masterCustomer.id, secondaryIds, user?.email || undefined);
+          await MergeCustomer.execute(
+            plan.masterCustomer.id, 
+            secondaryIds, 
+            user?.email || undefined,
+            plan.updatedMasterCustomer.contacts,
+            plan.updatedMasterCustomer.mergedCustomerCodes
+          );
           backendSuccess = true;
         } catch (err) {
           console.warn('[CustomerConsolidation] Backend atomic merge failed or offline, falling back to client-side migration:', err);
@@ -542,35 +560,52 @@ export function CustomerConsolidationModal({
 
                     {/* Preview Merged Result */}
                     <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                        <Users size={14} className="text-blue-600" />
-                        Dự kiến danh sách Đầu Mối Liên Hệ sau khi gộp ({currentGroup.distinctContactsCount} đầu mối)
-                      </h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                          <Users size={14} className="text-blue-600" />
+                          Dự kiến danh sách Đầu Mối Liên Hệ sau khi gộp ({currentPlan?.updatedMasterCustomer?.contacts?.length || currentGroup.distinctContactsCount} đầu mối)
+                        </h4>
+                        <span className="text-3xs font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                          <CheckCircle2 size={11} /> Đã khử trùng số điện thoại
+                        </span>
+                      </div>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                        {/* Master contact */}
-                        {currentGroup.masterCustomer.nguoiDaiDien && (
-                          <div className="p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-lg text-xs space-y-0.5">
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-emerald-950">{currentGroup.masterCustomer.nguoiDaiDien}</span>
-                              <span className="text-3xs font-extrabold text-emerald-700 bg-emerald-100 px-1 rounded">Chính</span>
+                        {(currentPlan?.updatedMasterCustomer?.contacts || []).map((ct, idx) => {
+                          const isPrimary = idx === 0 || ct.chucVu?.includes('chính') || ct.chucVu === 'Đại diện' || ct.sdt === currentGroup.masterCustomer.sdt;
+                          return (
+                            <div 
+                              key={idx} 
+                              className={`p-2.5 rounded-lg text-xs space-y-1 border transition-all ${
+                                isPrimary 
+                                  ? 'bg-emerald-50/70 border-emerald-200 shadow-2xs' 
+                                  : 'bg-blue-50/50 border-blue-200'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-slate-900 truncate">
+                                  {ct.nguoiDaiDien || `Đầu mối ${idx + 1}`}
+                                </span>
+                                <span className={`text-3xs font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                                  isPrimary ? 'text-emerald-700 bg-emerald-100 font-extrabold' : 'text-blue-700 bg-blue-100'
+                                }`}>
+                                  {isPrimary ? 'Chính' : (ct.chucVu || 'Đầu mối phụ')}
+                                </span>
+                              </div>
+                              <span className="font-mono text-2xs text-blue-700 font-semibold block">
+                                {ct.sdt || '—'}
+                              </span>
+                              {ct.email && (
+                                <span className="text-3xs text-slate-500 truncate block">
+                                  ✉️ {ct.email}
+                                </span>
+                              )}
+                              <span className="text-3xs text-slate-500 font-medium block truncate" title={ct.chiNhanh || ''}>
+                                {ct.chiNhanh || `Nguồn: ${currentGroup.masterCustomer.maKh}`}
+                              </span>
                             </div>
-                            <span className="font-mono text-2xs text-blue-700 block">{currentGroup.masterCustomer.sdt || '—'}</span>
-                            <span className="text-3xs text-slate-500 block">Nguồn: {currentGroup.masterCustomer.maKh}</span>
-                          </div>
-                        )}
-
-                        {/* Secondary contacts */}
-                        {currentGroup.secondaryCustomers.map((sec, idx) => (
-                          <div key={idx} className="p-2.5 bg-blue-50/50 border border-blue-200 rounded-lg text-xs space-y-0.5">
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-slate-900">{sec.nguoiDaiDien || `Đầu mối ${idx + 1}`}</span>
-                              <span className="text-3xs font-bold text-blue-700 bg-blue-100 px-1 rounded">Đầu mối phụ</span>
-                            </div>
-                            <span className="font-mono text-2xs text-blue-700 block">{sec.sdt || '—'}</span>
-                            <span className="text-3xs text-slate-500 block">Nguồn: {sec.maKh}</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   </div>

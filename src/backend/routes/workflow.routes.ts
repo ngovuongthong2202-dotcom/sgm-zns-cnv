@@ -70,12 +70,13 @@ router.post('/create/:entityType', async (req, res) => {
       const customerDoc = await adminDb.collection('customers').doc(data.customerId).get();
       if (!customerDoc.exists) return res.status(404).json({ error: "Customer not found." });
       
-      // Auto snapshot
+      // Auto snapshot bảo toàn snapshot liên hệ đã chọn trên form Báo giá
       const customerData = customerDoc.data();
-      data.maKh = customerData?.maKh || '';
-      data.tenKhachHang = customerData?.tenKhachHang || '';
-      data.sdt = customerData?.sdt || '';
-      data.nguoiDaiDien = customerData?.nguoiDaiDien || '';
+      data.maKh = data.maKh || customerData?.maKh || '';
+      data.tenKhachHang = data.tenKhachHang || customerData?.tenKhachHang || '';
+      data.sdt = data.sdt || customerData?.sdt || '';
+      data.nguoiDaiDien = data.nguoiDaiDien || customerData?.nguoiDaiDien || '';
+      data.diaChiGiaoHang = data.diaChiGiaoHang || customerData?.diaChi || '';
       
       const newRef = data.id ? adminDb.collection('quotations').doc(data.id) : adminDb.collection('quotations').doc();
       const batch = adminDb.batch();

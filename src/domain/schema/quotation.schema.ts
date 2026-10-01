@@ -17,6 +17,7 @@ export const QuotationSchema = z.object({
   soZaloMacDinh: z.string().optional(),
   chucVu: z.string().optional(),
   diaChi: z.string().optional(),
+  diaChiGiaoHang: z.string().optional(),
   tinhThanh: z.string().optional(),
   ghiChu: z.string().optional(),
   

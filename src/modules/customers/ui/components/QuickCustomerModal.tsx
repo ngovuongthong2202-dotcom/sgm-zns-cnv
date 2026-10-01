@@ -277,6 +277,12 @@ export function QuickCustomerModal({
       return;
     }
 
+    // Khống chế nghiêm ngặt: Tuyệt đối không cho phép tạo mới nếu trùng Mã Số Thuế
+    if (duplicateWarning?.type === 'Mã số thuế (MST)') {
+      notify.error(`Mã số thuế "${duplicateWarning.value}" đã tồn tại trong CRM (${duplicateWarning.matchedCustomer.maKh} - ${duplicateWarning.matchedCustomer.tenKhachHang}). Vui lòng bấm "Nạp ngay vào Báo Giá" để tránh tạo trùng lặp.`);
+      return;
+    }
+
     const primaryContact = contacts.find(c => c.isPrimary) || contacts[0];
     const primaryPhone = primaryContact?.sdt?.trim() || '';
 
@@ -439,25 +445,35 @@ export function QuickCustomerModal({
 
         {/* Realtime Duplicate Warning & 1-Click Attach Banner */}
         {duplicateWarning && (
-          <div className="bg-amber-50 border-b border-amber-200 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950 font-medium animate-fadeIn shrink-0">
+          <div className={`p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-medium animate-fadeIn shrink-0 ${
+            duplicateWarning.type === 'Mã số thuế (MST)' 
+              ? 'bg-rose-50 border-b border-rose-200 text-rose-950' 
+              : 'bg-amber-50 border-b border-amber-200 text-amber-950'
+          }`}>
             <div className="flex items-start gap-2.5">
-              <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+              <AlertTriangle size={18} className={`${duplicateWarning.type === 'Mã số thuế (MST)' ? 'text-rose-600' : 'text-amber-600'} shrink-0 mt-0.5`} />
               <div>
-                <p className="font-bold text-amber-900">
-                  Phát hiện khách hàng đã tồn tại trên hệ thống!
+                <p className={`font-bold ${duplicateWarning.type === 'Mã số thuế (MST)' ? 'text-rose-900' : 'text-amber-900'}`}>
+                  {duplicateWarning.type === 'Mã số thuế (MST)' 
+                    ? 'Khống chế trùng lặp MST: Hồ sơ khách hàng đã tồn tại trong CRM!' 
+                    : 'Phát hiện khách hàng có thể đã tồn tại trên hệ thống!'}
                 </p>
-                <p className="text-2xs text-amber-800 mt-0.5">
-                  {duplicateWarning.type} <code className="bg-amber-100/80 px-1 py-0.5 rounded font-mono font-bold text-amber-950">{duplicateWarning.value}</code> khớp với khách hàng: <strong>{duplicateWarning.matchedCustomer.tenKhachHang}</strong> ({duplicateWarning.matchedCustomer.maKh})
+                <p className={`text-2xs mt-0.5 ${duplicateWarning.type === 'Mã số thuế (MST)' ? 'text-rose-800' : 'text-amber-800'}`}>
+                  {duplicateWarning.type} <code className="bg-white/90 px-1 py-0.5 rounded font-mono font-bold text-slate-900 shadow-2xs">{duplicateWarning.value}</code> đã được cấp cho: <strong>{duplicateWarning.matchedCustomer.tenKhachHang}</strong> ({duplicateWarning.matchedCustomer.maKh})
                 </p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => handleUseExistingCustomer(duplicateWarning.matchedCustomer)}
-              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+              className={`px-3.5 py-1.5 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
+                duplicateWarning.type === 'Mã số thuế (MST)' 
+                  ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 ring-2 ring-emerald-500/30' 
+                  : 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800'
+              }`}
             >
               <ArrowRightCircle size={14} />
-              <span>Nạp ngay vào Báo Giá</span>
+              <span>Nạp ngay hồ sơ [{duplicateWarning.matchedCustomer.maKh}] vào Báo Giá</span>
             </button>
           </div>
         )}
@@ -736,10 +752,15 @@ export function QuickCustomerModal({
           </button>
           
           <div className="w-full sm:w-auto flex items-center gap-2">
+            {duplicateWarning?.type === 'Mã số thuế (MST)' && (
+              <span className="text-3xs font-semibold text-rose-600 hidden sm:inline-block">
+                (Đã khóa tạo mới vì trùng MST)
+              </span>
+            )}
             {onSendZnsImmediately && (
               <button
                 type="button"
-                disabled={isSaving || !tenKhachHang.trim()}
+                disabled={isSaving || !tenKhachHang.trim() || duplicateWarning?.type === 'Mã số thuế (MST)'}
                 onClick={(e) => handleSaveAndAttach(e, true)}
                 className="flex-1 sm:flex-initial px-4 py-2 text-xs font-bold text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-xl border border-blue-300 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
               >
@@ -750,7 +771,7 @@ export function QuickCustomerModal({
 
             <button
               type="button"
-              disabled={isSaving || !tenKhachHang.trim()}
+              disabled={isSaving || !tenKhachHang.trim() || duplicateWarning?.type === 'Mã số thuế (MST)'}
               onClick={(e) => handleSaveAndAttach(e, false)}
               className="flex-1 sm:flex-initial px-5 py-2 text-xs font-bold text-white bg-blue-700 hover:bg-blue-800 active:bg-blue-900 rounded-xl shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
             >
