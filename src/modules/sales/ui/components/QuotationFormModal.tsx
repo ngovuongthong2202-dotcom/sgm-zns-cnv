@@ -18,6 +18,8 @@ import { useSharedFields } from '@/src/hooks/useSharedFields';
 import { useQuotationForm, evaluateQuotationHierarchy, HierarchyEvaluation } from '../hooks/useQuotationForm';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { QuotationTypeDoubleCheckModal } from './QuotationTypeDoubleCheckModal';
+import { ErpCustomerIngestionModal } from './ErpCustomerIngestionModal';
+import { QuickCustomerModal, QuickCustomerInitialData } from '@/src/modules/customers/ui/components/QuickCustomerModal';
 
 interface Props {
   quotation: Quotation | null;
@@ -58,6 +60,8 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
     isLookingUp,
     isErpLocked,
     setIsErpLocked,
+    unmatchedErpCustomer,
+    setUnmatchedErpCustomer,
     
     lastSavedAt,
     clearDraft,
@@ -77,6 +81,9 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
 
   const isCreating = !quotation?.id;
   const watchAll = watch();
+
+  const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
+  const [quickCustomerInitial, setQuickCustomerInitial] = useState<QuickCustomerInitialData | undefined>(undefined);
 
   const [doubleCheckData, setDoubleCheckData] = useState<{
     isOpen: boolean;
@@ -260,6 +267,10 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
               customers={customers}
               ngayHetHan={ngayHetHan}
               nguoiPhuTrachList={effectiveNguoiPhuTrachList}
+              onOpenQuickCustomer={() => {
+                setQuickCustomerInitial(undefined);
+                setIsQuickCustomerOpen(true);
+              }}
             />
 
             {/* 2. CHỌN SẢN PHẨM THIẾT BỊ */}
@@ -380,6 +391,61 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
               const dataToSave = doubleCheckData.pendingData;
               setDoubleCheckData({ isOpen: false, pendingData: null, evaluation: null });
               await submitForm(dataToSave);
+            }}
+          />
+        )}
+
+        {unmatchedErpCustomer && (
+          <ErpCustomerIngestionModal
+            isOpen={Boolean(unmatchedErpCustomer)}
+            onClose={() => setUnmatchedErpCustomer(null)}
+            erpCustomerData={unmatchedErpCustomer}
+            existingCustomers={customers}
+            onCustomerConfirmed={async (newCustomer) => {
+              setValue('customerId', newCustomer.id, { shouldDirty: true, shouldValidate: true });
+              setValue('maKh', newCustomer.maKh, { shouldDirty: true });
+              setValue('tenKhachHang', newCustomer.tenKhachHang, { shouldDirty: true });
+              setValue('sdt', newCustomer.sdt, { shouldDirty: true });
+              setValue('nguoiDaiDien', newCustomer.nguoiDaiDien, { shouldDirty: true });
+              if (newCustomer.diaChi) setValue('diaChi', newCustomer.diaChi, { shouldDirty: true });
+              setUnmatchedErpCustomer(null);
+              notify.success(`Đã tự động khởi tạo và gán Khách hàng ${newCustomer.maKh} (${newCustomer.tenKhachHang}) vào Báo giá`);
+            }}
+            onLinkExistingCustomer={(matchedCust) => {
+              setValue('customerId', matchedCust.id, { shouldDirty: true, shouldValidate: true });
+              setValue('maKh', matchedCust.maKh, { shouldDirty: true });
+              setValue('tenKhachHang', matchedCust.tenKhachHang, { shouldDirty: true });
+              setValue('sdt', matchedCust.sdt || matchedCust.contacts?.[0]?.sdt || '', { shouldDirty: true });
+              setValue('nguoiDaiDien', matchedCust.nguoiDaiDien || matchedCust.contacts?.[0]?.nguoiDaiDien || '', { shouldDirty: true });
+              setUnmatchedErpCustomer(null);
+              notify.success(`Đã liên kết Báo giá với khách hàng ${matchedCust.maKh} (${matchedCust.tenKhachHang})`);
+            }}
+            onEditManually={(initData) => {
+              setUnmatchedErpCustomer(null);
+              setQuickCustomerInitial(initData);
+              setIsQuickCustomerOpen(true);
+            }}
+          />
+        )}
+
+        {isQuickCustomerOpen && (
+          <QuickCustomerModal
+            isOpen={isQuickCustomerOpen}
+            onClose={() => {
+              setIsQuickCustomerOpen(false);
+              setQuickCustomerInitial(undefined);
+            }}
+            initialData={quickCustomerInitial}
+            onCustomerCreated={(newCust) => {
+              setValue('customerId', newCust.id, { shouldDirty: true, shouldValidate: true });
+              setValue('maKh', newCust.maKh, { shouldDirty: true });
+              setValue('tenKhachHang', newCust.tenKhachHang, { shouldDirty: true });
+              setValue('sdt', newCust.sdt, { shouldDirty: true });
+              setValue('nguoiDaiDien', newCust.nguoiDaiDien, { shouldDirty: true });
+              if (newCust.diaChi) setValue('diaChi', newCust.diaChi, { shouldDirty: true });
+              setIsQuickCustomerOpen(false);
+              setQuickCustomerInitial(undefined);
+              notify.success(`Đã gán Khách hàng ${newCust.maKh} vào Báo giá`);
             }}
           />
         )}

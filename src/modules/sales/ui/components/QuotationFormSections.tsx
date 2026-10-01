@@ -15,7 +15,7 @@ import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietna
 // -- Các Component Con --
 
 export function QuotationBasicInfoSection({
-  register, watch, setValue, getValues, errors, isLookingUp, isCreating, businessLock, lookupErp, loaiBaoGiaList, customers, ngayHetHan, nguoiPhuTrachList
+  register, watch, setValue, getValues, errors, isLookingUp, isCreating, businessLock, lookupErp, loaiBaoGiaList, customers, ngayHetHan, nguoiPhuTrachList, onOpenQuickCustomer
 }: any) {
   const { user, userData } = useAuth();
   const isAdmin = isAdministratorRole(userData, user);
@@ -113,7 +113,7 @@ export function QuotationBasicInfoSection({
                 <button
                   type="button"
                   disabled={businessLock?.locked}
-                  onClick={() => setIsQuickCustomerOpen(true)}
+                  onClick={() => onOpenQuickCustomer ? onOpenQuickCustomer() : setIsQuickCustomerOpen(true)}
                   className="text-2xs font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-0.5 rounded transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-2xs"
                 >
                   <span className="text-xs font-black leading-none">+</span> Tạo nhanh Khách Hàng

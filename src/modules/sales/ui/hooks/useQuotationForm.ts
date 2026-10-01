@@ -94,7 +94,7 @@ export function useQuotationForm({
   const currentLoai = watch('loai');
   const isCreating = !quotation?.id;
   
-  const { lookupErp, isLookingUp, isErpLocked, setIsErpLocked } = useErpLookup(setValue, getValues, confirm, customers, trigger);
+  const { lookupErp, isLookingUp, isErpLocked, setIsErpLocked, unmatchedErpCustomer, setUnmatchedErpCustomer } = useErpLookup(setValue, getValues, confirm, customers, trigger);
 
   // Dynamic Sequence Generator with Session Vault & Zero Counter Leakage
   useEffect(() => {
@@ -244,6 +244,8 @@ export function useQuotationForm({
     isLookingUp,
     isErpLocked,
     setIsErpLocked,
+    unmatchedErpCustomer,
+    setUnmatchedErpCustomer,
     
     lastSavedAt,
     clearDraft,

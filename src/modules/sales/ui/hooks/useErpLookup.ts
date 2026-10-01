@@ -15,6 +15,7 @@ export function useErpLookup(
 ) {
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [isErpLocked, setIsErpLocked] = useState(false);
+  const [unmatchedErpCustomer, setUnmatchedErpCustomer] = useState<any | null>(null);
 
   // Helper to parse dates (yyyy-mm-dd or dd/mm/yyyy or ISO format)
   const parseFlexibleDate = (dateStr: string): string | undefined => {
@@ -142,6 +143,12 @@ export function useErpLookup(
       const erpCustomerCode = (data.customer_id || data.ma_khach_hang || '').trim();
       const erpCustomerName = (customerSnapshot.customer_name || data.ten_khach_hang || data.customer_name || '').trim();
 
+      // Address
+      const erpAddress = data.delivery_address || customerSnapshot.address || data.dia_chi || '';
+      if (erpAddress) {
+        setValue('diaChi', erpAddress, { shouldDirty: true });
+      }
+
       if (Array.isArray(customers) && customers.length > 0) {
         const matched = customers.find((c: any) => 
           (erpTaxCode && erpTaxCode.length >= 8 && ((c.maSoThue || '').replace(/[\s\-_]/g, '') === erpTaxCode || (c.taxCode || '').replace(/[\s\-_]/g, '') === erpTaxCode)) ||
@@ -156,24 +163,43 @@ export function useErpLookup(
           setValue('tenKhachHang', matched.tenKhachHang || erpCustomerName, { shouldDirty: true });
           setValue('sdt', matched.sdt || matched.contacts?.[0]?.sdt || erpPhone, { shouldDirty: true });
           setValue('nguoiDaiDien', matched.nguoiDaiDien || matched.contacts?.[0]?.nguoiDaiDien || customerSnapshot.representative || '', { shouldDirty: true });
+          setUnmatchedErpCustomer(null);
         } else {
-          // If customer not yet in CRM, keep customer info visible from ERP without breaking validation
+          // If customer not yet in CRM, keep customer info visible from ERP and trigger Ingestion Gate
           if (erpCustomerName) setValue('tenKhachHang', erpCustomerName, { shouldDirty: true });
           if (erpPhone) setValue('sdt', erpPhone, { shouldDirty: true });
           if (erpCustomerCode) setValue('maKh', erpCustomerCode, { shouldDirty: true });
           if (customerSnapshot.representative) setValue('nguoiDaiDien', customerSnapshot.representative, { shouldDirty: true });
+          
+          if (erpCustomerName || erpTaxCode || erpPhone) {
+            setUnmatchedErpCustomer({
+              tenKhachHang: erpCustomerName,
+              maSoThue: erpTaxCode,
+              sdt: erpPhone,
+              nguoiDaiDien: customerSnapshot.representative || '',
+              diaChi: erpAddress || data.delivery_address || customerSnapshot.address || '',
+              erpOrderCode: data.code || soPhieu,
+              erpCustomerCode
+            });
+          }
         }
       } else {
         if (erpCustomerName) setValue('tenKhachHang', erpCustomerName, { shouldDirty: true });
         if (erpPhone) setValue('sdt', erpPhone, { shouldDirty: true });
         if (erpCustomerCode) setValue('maKh', erpCustomerCode, { shouldDirty: true });
         if (customerSnapshot.representative) setValue('nguoiDaiDien', customerSnapshot.representative, { shouldDirty: true });
-      }
 
-      // Address
-      const erpAddress = data.delivery_address || customerSnapshot.address || data.dia_chi || '';
-      if (erpAddress) {
-        setValue('diaChi', erpAddress, { shouldDirty: true });
+        if (erpCustomerName || erpTaxCode || erpPhone) {
+          setUnmatchedErpCustomer({
+            tenKhachHang: erpCustomerName,
+            maSoThue: erpTaxCode,
+            sdt: erpPhone,
+            nguoiDaiDien: customerSnapshot.representative || '',
+            diaChi: erpAddress || data.delivery_address || customerSnapshot.address || '',
+            erpOrderCode: data.code || soPhieu,
+            erpCustomerCode
+          });
+        }
       }
 
       // Content & Notes
@@ -280,5 +306,5 @@ export function useErpLookup(
     }
   };
 
-  return { lookupErp, isLookingUp, isErpLocked, setIsErpLocked };
+  return { lookupErp, isLookingUp, isErpLocked, setIsErpLocked, unmatchedErpCustomer, setUnmatchedErpCustomer };
 }

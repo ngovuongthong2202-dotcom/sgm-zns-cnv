@@ -350,7 +350,7 @@ export default function DeliveriesFeature() {
                 );
               }
 
-              if (!can('approve', 'delivery', userData?.role)) return null;
+              if (!can('update', 'delivery', userData?.role)) return null;
               return (
                 <Button
                   type="button"
@@ -374,7 +374,7 @@ export default function DeliveriesFeature() {
         drawerDelivery={drawerDelivery}
         onClose={() => setDrawerDelivery(null)}
         onEdit={(del) => { setEditingDelivery(del); setIsFormOpen(true); }}
-        onMarkDelivered={can('approve', 'delivery', userData?.role) ? handleMarkDelivered : undefined}
+        onMarkDelivered={can('update', 'delivery', userData?.role) ? handleMarkDelivered : undefined}
         onRevertDelivered={can('update', 'delivery', userData?.role) ? handleRevertDeliveryConfirmation : undefined}
         onViewConfirmation={handleViewDeliveryConfirmation}
         onSendZns={handleSendZns}

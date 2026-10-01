@@ -34,12 +34,22 @@ export interface QuickContactItem {
   isPrimary?: boolean;
 }
 
+export interface QuickCustomerInitialData {
+  tenKhachHang?: string;
+  maSoThue?: string;
+  diaChi?: string;
+  tinhThanh?: string;
+  sdt?: string;
+  nguoiDaiDien?: string;
+}
+
 interface QuickCustomerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCustomerCreated: (customer: any) => void;
   defaultOfficer?: string;
   onSendZnsImmediately?: (customer: any, contact?: QuickContactItem) => void;
+  initialData?: QuickCustomerInitialData;
 }
 
 export function QuickCustomerModal({
@@ -47,12 +57,13 @@ export function QuickCustomerModal({
   onClose,
   onCustomerCreated,
   defaultOfficer = '',
-  onSendZnsImmediately
+  onSendZnsImmediately,
+  initialData
 }: QuickCustomerModalProps) {
-  const [tenKhachHang, setTenKhachHang] = useState('');
-  const [maSoThue, setMaSoThue] = useState('');
-  const [diaChi, setDiaChi] = useState('');
-  const [tinhThanh, setTinhThanh] = useState('TP. Hồ Chí Minh');
+  const [tenKhachHang, setTenKhachHang] = useState(initialData?.tenKhachHang || '');
+  const [maSoThue, setMaSoThue] = useState(initialData?.maSoThue || '');
+  const [diaChi, setDiaChi] = useState(initialData?.diaChi || '');
+  const [tinhThanh, setTinhThanh] = useState(initialData?.tinhThanh || 'TP. Hồ Chí Minh');
   const [loaiKh, setLoaiKh] = useState<'Doanh nghiệp' | 'Cá nhân'>('Doanh nghiệp');
   const [isLookingUpTax, setIsLookingUpTax] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -65,12 +76,33 @@ export function QuickCustomerModal({
     {
       id: `ct_${Date.now()}_1`,
       danhXung: 'Anh/Chị',
-      nguoiDaiDien: '',
-      sdt: '',
+      nguoiDaiDien: initialData?.nguoiDaiDien || '',
+      sdt: initialData?.sdt || '',
       chucVu: 'Đại diện',
       isPrimary: true
     }
   ]);
+
+  React.useEffect(() => {
+    if (isOpen && initialData) {
+      if (initialData.tenKhachHang) setTenKhachHang(initialData.tenKhachHang);
+      if (initialData.maSoThue) setMaSoThue(initialData.maSoThue);
+      if (initialData.diaChi) setDiaChi(initialData.diaChi);
+      if (initialData.tinhThanh) setTinhThanh(initialData.tinhThanh);
+      if (initialData.sdt || initialData.nguoiDaiDien) {
+        setContacts([
+          {
+            id: `ct_${Date.now()}_1`,
+            danhXung: 'Anh/Chị',
+            nguoiDaiDien: initialData.nguoiDaiDien || '',
+            sdt: initialData.sdt || '',
+            chucVu: 'Đại diện',
+            isPrimary: true
+          }
+        ]);
+      }
+    }
+  }, [isOpen, initialData]);
 
   // Lấy danh sách khách hàng để cảnh báo trùng lặp realtime
   const existingCustomers = useMemo(() => {

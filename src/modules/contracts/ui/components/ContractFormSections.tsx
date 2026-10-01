@@ -6,6 +6,7 @@ import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 import { useSmartFormInput } from '@/src/platform/ui/forms/useSmartFormInput';
+import { normalizeLoai, QUOTATION_LOAI } from '@/src/domain/enums/quotation-loai';
 
 export function ContractBasisSection({
   watch,
@@ -39,8 +40,8 @@ export function ContractBasisSection({
           excludeQuoIds={[]}
           filterOption={(q) => true}
           isOptionDisabled={(q) => {
-            const loai = (q.loai || '').toString().trim().toUpperCase();
-            if (loai !== 'BG MÁY') return { disabled: true, reason: 'Không phải báo giá bán máy' };
+            const normalizedType = normalizeLoai(q.loai);
+            if (normalizedType !== QUOTATION_LOAI.MAY) return { disabled: true, reason: 'Không phải báo giá bán máy' };
 
             // Quota Gate: Không cho phép tạo tiếp HĐ khi Báo giá đã được ký đủ 100% số lượng
             const otherContracts = (contracts || []).filter((c: any) => c.quotationId === q.id && (!contract || c.id !== contract.id));
