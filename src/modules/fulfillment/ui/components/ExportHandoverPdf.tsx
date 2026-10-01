@@ -12,6 +12,7 @@ import {
   SGM_COMPANY_INFO 
 } from '../utils/handoverDocumentHelper';
 import { DigitalVerificationQr } from '@/src/shared/components/DigitalVerificationQr';
+import { detectItemType } from '@/src/widgets/product-list-input/useProductItemSemantic';
 
 export interface ExportHandoverPdfProps {
   delivery: Delivery;
@@ -62,6 +63,15 @@ export function ExportHandoverPdf({
 
   const actualTime = formatVietnamLegalTime(delivery.ngayGiaoThucTe);
   const actualDate = formatVietnamLegalDate(delivery.ngayGiaoThucTe || delivery.ngayGiaoMay);
+
+  const hasMachines = products.some(p => {
+    const t = (p as any).itemType || detectItemType(p.productName, p.unit);
+    return t === 'MACHINE';
+  }) || (Boolean(delivery.slMay) && Number(delivery.slMay) > 0);
+
+  const documentTitle = hasMachines ? 'BIÊN BẢN NGHIỆM THU BÀN GIAO THIẾT BỊ' : 'BIÊN BẢN BÀN GIAO & NGHIỆM THU VẬT TƯ - THIẾT BỊ';
+  const nameColumnLabel = hasMachines ? 'TÊN MÁY' : 'TÊN VẬT TƯ / LINH KIỆN';
+  const serialColumnLabel = hasMachines ? 'SỐ KH' : 'MÃ SỐ / SERIAL / SỐ LÔ';
 
   // Nội dung trang in chuẩn A4 (Dùng chung cho cả bản in ẩn lẫn Live Preview)
   const renderA4Sheet = () => (
@@ -121,21 +131,21 @@ export function ExportHandoverPdf({
       {/* 2. TIÊU ĐỀ BIÊN BẢN */}
       <div className="text-center my-3.5">
         <h2 className="text-base font-black uppercase tracking-wider text-slate-950 font-serif">
-          BIÊN BẢN NGHIỆM THU BÀN GIAO THIẾT BỊ
+          {documentTitle}
         </h2>
         <p className="text-[11px] text-slate-900 italic font-serif mt-1">
-          Căn cứ vào Hợp đồng : <strong className="font-serif">{contractCode}</strong> {contractDateText} giữa hai bên về việc lắp đặt :
+          Căn cứ vào {delivery.soHopDong ? 'Hợp đồng' : 'Báo giá'} : <strong className="font-serif">{contractCode}</strong> {contractDateText} giữa hai bên về việc {hasMachines ? 'lắp đặt máy móc thiết bị' : 'cung cấp vật tư, linh kiện'} :
         </p>
       </div>
 
-      {/* 3. BẢNG MÁY & SỐ KH (SERIAL) */}
+      {/* 3. BẢNG MÁY / VẬT TƯ & SỐ KH (SERIAL) */}
       <div className="my-3 border border-slate-950">
         <table className="w-full text-left border-collapse text-[10.5px]">
           <thead className="bg-slate-100/80 border-b border-slate-950 font-black uppercase text-slate-950 text-center">
             <tr>
               <th className="p-1.5 w-10 border-r border-slate-950">STT</th>
-              <th className="p-1.5 border-r border-slate-950 text-center">TÊN MÁY</th>
-              <th className="p-1.5 w-32 border-r border-slate-950 text-center">SỐ KH</th>
+              <th className="p-1.5 border-r border-slate-950 text-center">{nameColumnLabel}</th>
+              <th className="p-1.5 w-36 border-r border-slate-950 text-center">{serialColumnLabel}</th>
               <th className="p-1.5 w-20 text-center">SỐ LƯỢNG</th>
             </tr>
           </thead>
@@ -248,13 +258,16 @@ export function ExportHandoverPdf({
         </div>
       </div>
 
-      {/* 6. MỤC II: THIẾT BỊ ĐƯỢC XÁC NHẬN & CHECKLIST TIÊU CHUẨN KỸ THUẬT */}
+      {/* 6. MỤC II: THIẾT BỊ / HÀNG HÓA ĐƯỢC XÁC NHẬN & CHECKLIST TIÊU CHUẨN KỸ THUẬT */}
       <div className="my-2.5 space-y-1 text-[10.5px]">
         <h3 className="font-black text-slate-950 uppercase tracking-wide underline underline-offset-2">
-          II./ THIẾT BỊ ĐƯỢC XÁC NHẬN
+          II./ {hasMachines ? 'THIẾT BỊ ĐƯỢC XÁC NHẬN' : 'HÀNG HÓA & VẬT TƯ ĐƯỢC XÁC NHẬN'}
         </h3>
         <p className="italic pl-1">
-          {SGM_COMPANY_INFO.name} đã hoàn thành việc chế tạo, lắp đặt và hiệu chỉnh máy móc thiết bị theo Hợp đồng : <strong>{contractCode}</strong>.
+          {hasMachines 
+            ? `${SGM_COMPANY_INFO.name} đã hoàn thành việc chế tạo, lắp đặt và hiệu chỉnh máy móc thiết bị theo Hợp đồng : ` 
+            : `${SGM_COMPANY_INFO.name} đã hoàn tất kiểm định chất lượng, đóng gói và bàn giao vật tư linh kiện theo ${delivery.soHopDong ? 'Hợp đồng' : 'Báo giá'} : `
+          }<strong>{contractCode}</strong>.
         </p>
 
         {/* Bảng checklist 5 hạng mục vàng */}

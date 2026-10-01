@@ -89,9 +89,12 @@ export function validateDeliveryBusinessRules(data: any, payments: any[], maxQua
         return { valid: false, error: `Số ngày bảo hành của sản phẩm ${p.productName || p.tenSanPham} không được là số âm` };
       }
 
-      // Check serial quota for MACHINE items
-      const isMachine = p.itemType === 'MACHINE' || detectItemType(p.productName || p.tenSanPham) === 'MACHINE';
+      // Resolve item type: strictly respect explicit itemType, fallback heuristic only when undefined
+      const resolvedType = p.itemType || detectItemType(p.productName || p.tenSanPham, p.unit || p.dvt);
+      const isMachine = resolvedType === 'MACHINE';
       const requiredQty = Number(p.quantity || p.soLuong || 1);
+
+      // Check serial quota STRICTLY for MACHINE items only. Material & Service serials are optional!
       if (isMachine && requiredQty > 0) {
         const serials = Array.isArray(p.danhSachMaMay) ? p.danhSachMaMay.filter(Boolean) : [];
         if (serials.length !== requiredQty) {
@@ -104,9 +107,9 @@ export function validateDeliveryBusinessRules(data: any, payments: any[], maxQua
     }
   }
 
-  if (normalizeLoai(data.loai) === QUOTATION_LOAI.MAY) {
+  if (normalizeLoai(data.loai) === QUOTATION_LOAI.MAY && Number(data.slMay || 0) > 0) {
     const serials = data.danhSachMaMay || [];
-    if (data.slMay > 0 && serials.length !== data.slMay) {
+    if (serials.length !== data.slMay) {
       return { valid: false, error: `Bàn giao máy yêu cầu số lượng serial khớp số lượng máy: Bạn đang giao ${data.slMay} máy nhưng nhập ${serials.length} serial.` };
     }
   }

@@ -318,20 +318,6 @@ export function PaymentRecordBasicFields({
                       const loai = normalizeLoai((doc.loai || doc.phanLoai || doc.loaiBaoGia) as string);
                       if (loai === QUOTATION_LOAI.MAY) return false;
                     }
-
-                    // Loại bỏ chứng từ đã được tạo thanh toán rồi (trừ khi đang sửa chính phiếu thanh toán đó)
-                    const isAlreadyPaid = (payments || []).some((p: any) => {
-                      if (p.isDeleted || p.deletedAt || p.deleted_at) return false;
-                      if (currentPaymentId && (p.id === currentPaymentId || p.paymentId === currentPaymentId)) return false;
-                      const rawDocId = doc._rawId || doc.id.replace(/^(CONTRACT|QUOTATION):/, '');
-                      if (isDocContract) {
-                        return (p.contractId && (p.contractId === rawDocId || p.contractId === doc.id)) || (p.soHopDong && doc.soHopDong && p.soHopDong === doc.soHopDong);
-                      } else {
-                        return (p.quotationId && (p.quotationId === rawDocId || p.quotationId === doc.id)) || (p.soPhieuBaoGia && doc.soPhieuBaoGia && p.soPhieuBaoGia === doc.soPhieuBaoGia);
-                      }
-                    });
-
-                    if (isAlreadyPaid) return false;
                     return true;
                   }}
                   renderOption={(doc: any) => {
@@ -342,19 +328,6 @@ export function PaymentRecordBasicFields({
                       };
                   }}
                   isOptionDisabled={(doc: any) => {
-                    const isDocContract = isContractDoc(doc);
-                    const isAlreadyPaid = (payments || []).some((p: any) => {
-                      if (p.isDeleted || p.deletedAt) return false;
-                      if (currentPaymentId && (p.id === currentPaymentId || p.paymentId === currentPaymentId)) return false;
-                      if (isDocContract) {
-                        return (p.contractId && p.contractId === doc.id) || (p.soHopDong && doc.soHopDong && p.soHopDong === doc.soHopDong);
-                      } else {
-                        return (p.quotationId && p.quotationId === doc.id) || (p.soPhieuBaoGia && doc.soPhieuBaoGia && p.soPhieuBaoGia === doc.soPhieuBaoGia);
-                      }
-                    });
-                    if (isAlreadyPaid) {
-                      return { disabled: true, reason: 'Chứng từ này đã có phiếu thanh toán.' };
-                    }
                     const gateResult = canCreatePayment(doc as any);
                     if (!gateResult.allowed) return { disabled: true, reason: gateResult.reason };
                     return { disabled: false };

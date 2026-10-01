@@ -125,16 +125,14 @@ export function smartAllocateSerials(
 
   return products.map(p => {
     const detectedFromText = detectItemType(p.productName, p.unit || (p as any).dvt);
-    const inferredType = (detectedFromText === 'SERVICE' || detectedFromText === 'MATERIAL') 
-      ? detectedFromText 
-      : (p.itemType || detectedFromText);
+    const resolvedType = p.itemType || detectedFromText;
     
-    // Non-machine items should not have serials
-    if (inferredType !== 'MACHINE') {
+    // Non-machine items should not receive root machine serials, but retain any existing serials/lot numbers
+    if (resolvedType !== 'MACHINE') {
       return {
         ...p,
-        itemType: inferredType,
-        danhSachMaMay: []
+        itemType: resolvedType,
+        danhSachMaMay: Array.isArray(p.danhSachMaMay) ? p.danhSachMaMay : []
       };
     }
 

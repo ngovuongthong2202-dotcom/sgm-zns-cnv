@@ -130,15 +130,18 @@ export function ProductFinanceRow({
               )}
            </div>
 
-           {/* Chỉ dòng Máy mới có Quản lý Bảo hành và Serial */}
-           {showBaoHanh && isMachine && (
+           {/* Quản lý Bảo hành và Serial cho Máy và Vật tư */}
+           {showBaoHanh && (isMachine || itemType === 'MATERIAL') && (
              <ProductBaoHanhFields product={p} baseDateForBaoHanh={baseDateForBaoHanh} viewType="table" disabled={disabled} onChange={(f, v) => onUpdate(idx, f as any, v === null ? undefined : v as any)} />
            )}
-           {showSerial && isMachine && (
+           {showSerial && (isMachine || itemType === 'MATERIAL') && (
              <div className="mt-2 pt-2 border-t border-slate-100">
                <div className="flex items-center justify-between mb-1">
                  <span className="text-3xs font-bold text-slate-600 uppercase tracking-wider">
-                   Mã máy / Serial ({p.danhSachMaMay?.length || 0}/{p.quantity || 0} {p.unit || 'Máy'}):
+                   {isMachine 
+                     ? `Mã máy / Serial (${p.danhSachMaMay?.length || 0}/${p.quantity || 0} ${p.unit || 'Máy'}):`
+                     : `Mã serial / Part No. / Số lô (${p.danhSachMaMay?.length || 0} mã - Tùy chọn):`
+                   }
                  </span>
                </div>
                <MachineCodeChipInput 

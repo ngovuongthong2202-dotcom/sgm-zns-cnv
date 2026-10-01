@@ -23,6 +23,8 @@ interface Props {
   hideTotals?: boolean;
   paidAmount?: number;
   remainingDebt?: number;
+  canEditProductType?: boolean;
+  onProductTypeChange?: (itemIndex: number, newType: ItemSemanticType) => void;
 }
 
 function getProductItemKey(p: ProductItem, index: number) {
@@ -36,7 +38,9 @@ export function DrawerProductList({
   accentColorClass = 'text-blue-700',
   hideTotals = false,
   paidAmount,
-  remainingDebt
+  remainingDebt,
+  canEditProductType,
+  onProductTypeChange
 }: Props) {
   const healedProducts = React.useMemo(() => (products || []).map(computeLineItem), [products]);
   const aggs = React.useMemo(() => aggregateProducts(healedProducts), [healedProducts]);
@@ -117,10 +121,26 @@ export function DrawerProductList({
                               </span>
                             )}
                             {/* Semantic Type Badge */}
-                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-extrabold border select-none ${semConfig.badgeClass}`}>
-                              <span>{semConfig.icon}</span>
-                              <span>{semConfig.shortLabel}</span>
-                            </span>
+                            {canEditProductType && onProductTypeChange ? (
+                              <div className="relative inline-flex items-center group/badge">
+                                <select
+                                  value={itemType}
+                                  onChange={(e) => onProductTypeChange(idx, e.target.value as ItemSemanticType)}
+                                  className={`inline-flex items-center gap-1 pl-1.5 pr-4 py-0.5 rounded text-3xs font-extrabold border cursor-pointer appearance-none outline-none ${semConfig.badgeClass} hover:opacity-90 transition-opacity`}
+                                  title="Bấm để đổi loại sản phẩm và tự động đồng bộ liên kết (Admin)"
+                                >
+                                  <option value="MACHINE">📜 Máy & TB</option>
+                                  <option value="MATERIAL">📦 Vật tư</option>
+                                  <option value="SERVICE">🛠️ Dịch vụ</option>
+                                </select>
+                                <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] pointer-events-none opacity-60">▼</span>
+                              </div>
+                            ) : (
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-extrabold border select-none ${semConfig.badgeClass}`}>
+                                <span>{semConfig.icon}</span>
+                                <span>{semConfig.shortLabel}</span>
+                              </span>
+                            )}
                             <span className="font-bold text-slate-950 text-xs leading-snug">
                               {p.productName || 'Sản phẩm chưa đặt tên'}
                             </span>
@@ -147,10 +167,12 @@ export function DrawerProductList({
                             </p>
                           )}
 
-                          {/* Machine Codes / Serials - Strictly for MACHINE items only */}
-                          {itemType === 'MACHINE' && serials.length > 0 && (
+                          {/* Machine & Material Codes / Serials */}
+                          {(itemType === 'MACHINE' || itemType === 'MATERIAL') && serials.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1 items-center">
-                              <span className="text-3xs font-bold text-slate-800 uppercase">Mã máy:</span>
+                              <span className="text-3xs font-bold text-slate-800 uppercase">
+                                {itemType === 'MACHINE' ? 'Mã máy:' : 'Serial/Lô:'}
+                              </span>
                               {serials.map((sn, sIdx) => (
                                 <span key={sIdx} className="font-mono text-3xs bg-slate-100 text-slate-900 px-1.5 py-0.5 rounded font-bold border border-slate-300">
                                   {sn}

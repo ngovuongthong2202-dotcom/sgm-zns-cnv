@@ -277,7 +277,8 @@ export function PaymentRecordDrawer({
         if (typeof fetch === 'function') {
           fetch('/api/workflow/next-code/payment', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(1500)
           })
             .then(res => res.json())
             .then(data => {

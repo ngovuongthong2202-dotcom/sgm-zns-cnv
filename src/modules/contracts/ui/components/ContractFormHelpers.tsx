@@ -8,6 +8,7 @@ import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotati
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { addVietnamWorkingDays } from '@/src/shared/utils/vietnamBusinessDays';
 import { generateDeterministicNextCode } from '@/src/shared/utils/voucherResolver';
+import { calculateActualMachineCount } from '@/src/widgets/product-list-input/useProductItemSemantic';
 
 export const FormSchema = ContractSchema.extend({
   ngayKy: z.string().min(1, 'Ngày ký hợp đồng là bắt buộc'),
@@ -93,9 +94,8 @@ export function applyQuotationToContractForm(setValue: UseFormSetValue<FormValue
   const totalAmount = aggs.totalAfterTax > 0 ? aggs.totalAfterTax : (Number(q.totalAmount) || 0);
   const discountRate = subTotal > 0 ? Number(((discountAmount / subTotal) * 100).toFixed(2)) : (Number(q.discountRate) || 0);
   const vatRate = aggs.totalBeforeTax > 0 ? Math.round((vatAmount / aggs.totalBeforeTax) * 100) : (Number(q.vatRate) || 0);
-  const totalQty = healedProducts.reduce((sum: number, p: any) => sum + (Number(p.quantity) || 0), 0);
-
-  setValue('slMay', totalQty > 0 ? totalQty : (Number(q.slMay) || 1));
+  const actualMachineCount = calculateActualMachineCount(healedProducts);
+  setValue('slMay', actualMachineCount > 0 ? actualMachineCount : (Number(q.slMay) || 1));
   setValue('subTotal', subTotal);
   setValue('vatRate', vatRate);
   setValue('vatAmount', vatAmount);

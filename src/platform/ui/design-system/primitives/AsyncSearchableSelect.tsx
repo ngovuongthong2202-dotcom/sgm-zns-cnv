@@ -136,6 +136,9 @@ export function AsyncSearchableSelect({
           return labelMatch || subMatch || idMatch || codeMatch;
         });
       }
+      if (list.length > 50) {
+        return list.slice(0, 50);
+      }
       return list;
     }
 

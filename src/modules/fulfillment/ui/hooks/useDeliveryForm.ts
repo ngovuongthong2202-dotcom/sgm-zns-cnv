@@ -135,7 +135,8 @@ export function useDeliveryForm(
         if (typeof fetch === 'function') {
           fetch('/api/workflow/next-code/delivery', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(1500)
           })
             .then(res => res.json())
             .then(data => {
@@ -165,15 +166,6 @@ export function useDeliveryForm(
       : quotations?.find((q: any) => q.id === p.quotationId || q.soPhieuBaoGia === p.soPhieuBaoGia);
 
     const targetPayId = p.id || p.paymentId || '';
-    if (getValues('paymentId') !== targetPayId) {
-      setValue('paymentId', targetPayId, { shouldValidate: true });
-    }
-    setValue('customerId', p.customerId || source?.customerId || '');
-    setValue('maKh', p.maKh || source?.maKh || '');
-    setValue('tenKhachHang', p.tenKhachHang || source?.tenKhachHang || '');
-    setValue('sdt', p.sdt || source?.sdt || '');
-    setValue('nguoiDaiDien', source?.nguoiDaiDien || p.nguoiDaiDien || '');
-    // Snapshot quotation lineage from source/contract/payment/quotations
     const resolvedQuot = (quotations || []).find((q: any) => 
       (p.quotationId && (q.id === p.quotationId || q.soPhieuBaoGia === p.quotationId)) ||
       (source?.quotationId && (q.id === source.quotationId || q.soPhieuBaoGia === source.quotationId)) ||
@@ -191,28 +183,6 @@ export function useDeliveryForm(
     const resolvedContractId = isContract ? (p.contractId || (source && 'soHopDong' in source ? source.id : '')) : '';
     const resolvedQuotationId = finalQuotationId || (!isContract && source ? source.id : '') || '';
 
-    setValue('contractId', resolvedContractId, { shouldValidate: true, shouldDirty: true });
-    setValue('quotationId', resolvedQuotationId, { shouldValidate: true, shouldDirty: true });
-    setValue('soPhieuBaoGia', finalSoPhieuBaoGia);
-    setValue('soBaoGia', finalSoPhieuBaoGia);
-    setValue('ngayBaoGia', finalNgayBaoGia);
-    setValue('soDonHang', p.soDonHang || source?.soDonHang || '');
-    setValue('loai', p.loai || source?.loai || '');
-    setValue('dvt', p.dvt || source?.dvt || (p.products?.[0]?.unit || 'Máy'));
-    setValue('slMay', Number(p.slMay || source?.slMay) || 1);
-    setValue('giaTriHopDong', Number(p.giaTriHopDong || p.totalAmount || source?.totalAmount) || 1);
-    setValue('soHopDong', p.soHopDong || source?.soHopDong || '');
-    setValue('ngayKy', p.ngayKy || source?.ngayKy || '');
-    setValue('tinhTrangThanhToan', p.tinhTrangThanhToan || '');
-    setValue('nguoiPhuTrach', defaultOfficer);
-
-    if ((p as any).dacCachGiaoTruoc) {
-      setValue('dacCachGiaoTruoc', true);
-      setValue('lyDoDacCach', (p as any).lyDoDacCach || '');
-      setValue('nguoiPheDuyetDacCach', (p as any).nguoiPheDuyetDacCach || defaultLeader);
-    }
-
-    // Tự động lấy tên người liên hệ, SĐT liên hệ, Địa chỉ giao hàng từ Khách hàng
     const targetCustId = p.customerId || source?.customerId;
     const targetCustMa = p.maKh || source?.maKh;
     const customer = customers?.find((c: any) => (targetCustId && c.id === targetCustId) || (targetCustMa && c.maKh === targetCustMa));
@@ -221,27 +191,18 @@ export function useDeliveryForm(
     const contactPhone = source?.sdt || source?.sdtLienHe || p.sdt || p.sdtLienHe || customer?.contacts?.[0]?.sdt || customer?.sdt || '';
     const deliveryAddress = source?.diaChi || p.diaChi || customer?.diaChi || customer?.tinhThanh || '';
 
-    setValue('nguoiLienHe', contactPerson, { shouldValidate: true });
-    setValue('sdtLienHe', contactPhone, { shouldValidate: true });
-    setValue('diaChiGiaoHang', deliveryAddress, { shouldValidate: true });
-
     const productList = (Array.isArray(source?.products) && source.products.length > 0 ? source.products : null)
       || (Array.isArray(source?.sanPham) && source.sanPham.length > 0 ? source.sanPham : null)
       || (Array.isArray(p.products) && p.products.length > 0 ? p.products : null)
       || (Array.isArray(p.sanPham) && p.sanPham.length > 0 ? p.sanPham : null)
       || [];
 
-    if (source) {
-      setValue('subTotal', source.subTotal || p.subTotal);
-      setValue('vatRate', source.vatRate || p.vatRate);
-      setValue('vatAmount', source.vatAmount || p.vatAmount);
-      setValue('discountRate', source.discountRate || p.discountRate);
-      setValue('discountAmount', source.discountAmount || p.discountAmount);
-      setValue('totalAmount', source.totalAmount || p.totalAmount);
-    }
+    const limits: Record<string, number> = {};
+    let allocatedProducts: any[] = [];
+    let finalSerials: string[] = [];
+    let actualMachineCount = 0;
 
     if (productList.length > 0) {
-      // Tìm deliveries hợp lệ liên kết với chứng từ này
       const validDeliveries = (deliveries || []).filter((d: any) => 
         !d.deletedAt && !d.deleted_at && String(d.tinhTrangGiaoHang || '').toUpperCase() !== 'HỦY'
       );
@@ -276,10 +237,7 @@ export function useDeliveryForm(
       });
 
       const sourceDelivered = (source?.deliveredQuantities || p.deliveredQuantities || {}) as Record<string, number>;
-      const limits: Record<string, number> = {};
-
       const sourceRootSerials: string[] = Array.isArray(source?.danhSachMaMay) ? source.danhSachMaMay : (Array.isArray(p.danhSachMaMay) ? p.danhSachMaMay : []);
-      const currentDeliverySerials: string[] = [];
       const baseDateStr = getValues('ngayGiaoMay') || getValues('ngayLapPgh') || todayStr;
 
       const remainingProducts = productList.map((cp: any, index: number) => {
@@ -297,16 +255,13 @@ export function useDeliveryForm(
         const remaining = Math.max(0, reqQty - delivered);
         limits[itemKey] = remaining;
 
-        // 1. Giữ nguyên serials hiện có trên dòng nếu có
         const currentItemSerials: string[] = Array.isArray(cp.danhSachMaMay) ? [...cp.danhSachMaMay] : [];
 
-        // 2. Khử triệt để số ngày bảo hành âm (như -1365) và đưa về chuẩn 365 ngày
         const rawWarranty = cp.soNgayBaoHanh ?? source?.soNgayBaoHanh;
         const sanitizedWarranty = (rawWarranty !== undefined && rawWarranty !== null && Number(rawWarranty) > 0)
           ? Number(rawWarranty)
           : 365;
 
-        // 3. Tự động tính hạn bảo hành dự kiến chính xác theo ngày giao máy
         let computedExpiry = cp.ngayHetHanBaoHanh;
         if (!computedExpiry || sanitizedWarranty > 0) {
           const b = new Date(baseDateStr);
@@ -328,67 +283,59 @@ export function useDeliveryForm(
         };
       }).filter((cp: any) => limits[cp.id] > 0);
 
-      // Phân bổ thông minh mã máy hợp đồng chỉ vào các dòng MÁY
-      const allocatedProducts = smartAllocateSerials(remainingProducts, sourceRootSerials);
-
+      allocatedProducts = smartAllocateSerials(remainingProducts, sourceRootSerials);
       const allUniqueSerials = Array.from(new Set(allocatedProducts.flatMap((p: any) => p.danhSachMaMay || [])));
-      if (allUniqueSerials.length > 0) {
-        setValue('danhSachMaMay', allUniqueSerials, { shouldDirty: true });
-      } else if (sourceRootSerials.length > 0) {
-        setValue('danhSachMaMay', sourceRootSerials, { shouldDirty: true });
-      }
+      finalSerials = allUniqueSerials.length > 0 ? allUniqueSerials : sourceRootSerials;
+      actualMachineCount = calculateActualMachineCount(allocatedProducts);
 
       if (allocatedProducts.length === 0) {
-        setValue('products', []);
-        setValue('slMay', 0);
-        setMaxQuantities(limits);
         notify.warning('Chứng từ này đã giao đủ 100% số lượng hàng hóa (còn phải giao = 0).');
-      } else {
-        setValue('products', allocatedProducts);
-        const actualMachineCount = calculateActualMachineCount(allocatedProducts);
-        setValue('slMay', actualMachineCount);
-        setMaxQuantities(limits);
       }
     }
-  }, [contracts, quotations, customers, deliveries, setValue, getValues, defaultOfficer, todayStr]);
+
+    const currentValues = getValues();
+    reset({
+      ...currentValues,
+      paymentId: targetPayId,
+      customerId: p.customerId || source?.customerId || '',
+      maKh: p.maKh || source?.maKh || '',
+      tenKhachHang: p.tenKhachHang || source?.tenKhachHang || '',
+      sdt: p.sdt || source?.sdt || '',
+      nguoiDaiDien: source?.nguoiDaiDien || p.nguoiDaiDien || '',
+      contractId: resolvedContractId,
+      quotationId: resolvedQuotationId,
+      soPhieuBaoGia: finalSoPhieuBaoGia,
+      soBaoGia: finalSoPhieuBaoGia,
+      ngayBaoGia: finalNgayBaoGia,
+      soDonHang: p.soDonHang || source?.soDonHang || '',
+      loai: p.loai || source?.loai || '',
+      dvt: p.dvt || source?.dvt || (p.products?.[0]?.unit || 'Máy'),
+      slMay: allocatedProducts.length === 0 ? 0 : (actualMachineCount || Number(p.slMay || source?.slMay) || 0),
+      giaTriHopDong: Number(p.giaTriHopDong || p.totalAmount || source?.totalAmount) || 1,
+      soHopDong: p.soHopDong || source?.soHopDong || '',
+      ngayKy: p.ngayKy || source?.ngayKy || '',
+      tinhTrangThanhToan: p.tinhTrangThanhToan || '',
+      nguoiPhuTrach: defaultOfficer,
+      dacCachGiaoTruoc: Boolean((p as any).dacCachGiaoTruoc || currentValues.dacCachGiaoTruoc),
+      lyDoDacCach: (p as any).lyDoDacCach || currentValues.lyDoDacCach || '',
+      nguoiPheDuyetDacCach: (p as any).nguoiPheDuyetDacCach || currentValues.nguoiPheDuyetDacCach || defaultLeader,
+      nguoiLienHe: contactPerson,
+      sdtLienHe: contactPhone,
+      diaChiGiaoHang: deliveryAddress,
+      subTotal: source ? (source.subTotal || p.subTotal) : currentValues.subTotal,
+      vatRate: source ? (source.vatRate || p.vatRate) : currentValues.vatRate,
+      vatAmount: source ? (source.vatAmount || p.vatAmount) : currentValues.vatAmount,
+      discountRate: source ? (source.discountRate || p.discountRate) : currentValues.discountRate,
+      discountAmount: source ? (source.discountAmount || p.discountAmount) : currentValues.discountAmount,
+      totalAmount: source ? (source.totalAmount || p.totalAmount) : currentValues.totalAmount,
+      products: allocatedProducts,
+      danhSachMaMay: finalSerials
+    });
+    setMaxQuantities(limits);
+  }, [contracts, quotations, customers, deliveries, reset, getValues, defaultOfficer, todayStr, defaultLeader]);
 
   const populateFromContract = useCallback((c: any) => {
     if (!c) return;
-    setValue('contractId', c.id || '', { shouldValidate: true });
-    setValue('soHopDong', c.soHopDong || '', { shouldValidate: true });
-    setValue('ngayKy', c.ngayKy || '');
-    setValue('customerId', c.customerId || '');
-    setValue('maKh', c.maKh || '');
-    setValue('tenKhachHang', c.tenKhachHang || '');
-    setValue('sdt', c.sdt || '');
-    setValue('nguoiDaiDien', c.nguoiDaiDien || '');
-    setValue('soDonHang', c.soDonHang || '');
-    setValue('loai', c.loai || 'BG Máy');
-    setValue('dvt', c.dvt || 'Máy');
-    setValue('giaTriHopDong', Number(c.totalAmount || c.giaTriHopDong) || 1);
-    setValue('subTotal', c.subTotal || 0);
-    setValue('vatRate', c.vatRate || 0);
-    setValue('vatAmount', c.vatAmount || 0);
-    setValue('discountRate', c.discountRate || 0);
-    setValue('discountAmount', c.discountAmount || 0);
-    setValue('totalAmount', c.totalAmount || 0);
-    setValue('nguoiPhuTrach', defaultOfficer);
-
-    // Kích hoạt Đặc cách Lãnh đạo cho xuất kho trước thanh toán
-    setValue('dacCachGiaoTruoc', true);
-    setValue('lyDoDacCach', c.lyDoDacCach || 'Giao hàng trước thanh toán theo phê duyệt của Lãnh đạo');
-    setValue('nguoiPheDuyetDacCach', c.nguoiPheDuyetDacCach || defaultLeader);
-    setValue('tinhTrangThanhToan', 'CHƯA THANH TOÁN');
-
-    // Snapshot quotation lineage nếu có
-    if (c.quotationId) {
-      setValue('quotationId', c.quotationId);
-      setValue('soPhieuBaoGia', c.soPhieuBaoGia || c.soBaoGia || '');
-      setValue('soBaoGia', c.soPhieuBaoGia || c.soBaoGia || '');
-      setValue('ngayBaoGia', c.ngayBaoGia || '');
-    }
-
-    // Liên hệ khách hàng
     const targetCustId = c.customerId;
     const targetCustMa = c.maKh;
     const customer = customers?.find((cust: any) => (targetCustId && cust.id === targetCustId) || (targetCustMa && cust.maKh === targetCustMa));
@@ -397,19 +344,15 @@ export function useDeliveryForm(
     const contactPhone = c.sdt || c.sdtLienHe || customer?.contacts?.[0]?.sdt || customer?.sdt || '';
     const deliveryAddress = c.diaChi || customer?.diaChi || customer?.tinhThanh || '';
 
-    setValue('nguoiLienHe', contactPerson, { shouldValidate: true });
-    setValue('sdtLienHe', contactPhone, { shouldValidate: true });
-    setValue('diaChiGiaoHang', deliveryAddress, { shouldValidate: true });
-
-    // Payment mapping nếu có
     const linkedPayment = payments?.find((p: any) => p.contractId === c.id || (c.soHopDong && p.soHopDong === c.soHopDong));
-    if (linkedPayment) {
-      setValue('paymentId', linkedPayment.id || linkedPayment.paymentId || '');
-    }
-
     const productList = (Array.isArray(c.products) && c.products.length > 0 ? c.products : null)
       || (Array.isArray(c.sanPham) && c.sanPham.length > 0 ? c.sanPham : null)
       || [];
+
+    const limits: Record<string, number> = {};
+    let allocatedProducts: any[] = [];
+    let finalSerials: string[] = [];
+    let actualMachineCount = 0;
 
     if (productList.length > 0) {
       const validDeliveries = (deliveries || []).filter((d: any) => 
@@ -429,7 +372,6 @@ export function useDeliveryForm(
       });
 
       const sourceDelivered = (c.deliveredQuantities || {}) as Record<string, number>;
-      const limits: Record<string, number> = {};
       const sourceRootSerials: string[] = Array.isArray(c.danhSachMaMay) ? c.danhSachMaMay : [];
       const baseDateStr = getValues('ngayGiaoMay') || getValues('ngayLapPgh') || todayStr;
 
@@ -468,50 +410,55 @@ export function useDeliveryForm(
         };
       }).filter((cp: any) => limits[cp.id] > 0);
 
-      // Phân bổ thông minh mã máy hợp đồng chỉ vào các dòng MÁY
-      const allocatedProducts = smartAllocateSerials(remainingCandidates, sourceRootSerials);
-      setValue('products', allocatedProducts);
-
+      allocatedProducts = smartAllocateSerials(remainingCandidates, sourceRootSerials);
       const allUniqueSerials = Array.from(new Set(allocatedProducts.flatMap((p: any) => p.danhSachMaMay || [])));
-      if (allUniqueSerials.length > 0) {
-        setValue('danhSachMaMay', allUniqueSerials, { shouldDirty: true });
-      } else if (sourceRootSerials.length > 0) {
-        setValue('danhSachMaMay', sourceRootSerials, { shouldDirty: true });
-      }
-
-      const actualMachineCount = calculateActualMachineCount(allocatedProducts);
-      setValue('slMay', actualMachineCount);
-      setMaxQuantities(limits);
+      finalSerials = allUniqueSerials.length > 0 ? allUniqueSerials : sourceRootSerials;
+      actualMachineCount = calculateActualMachineCount(allocatedProducts);
     }
-  }, [customers, deliveries, payments, setValue, getValues, defaultOfficer, todayStr]);
+
+    const currentValues = getValues();
+    reset({
+      ...currentValues,
+      contractId: c.id || '',
+      soHopDong: c.soHopDong || '',
+      ngayKy: c.ngayKy || '',
+      customerId: c.customerId || '',
+      maKh: c.maKh || '',
+      tenKhachHang: c.tenKhachHang || '',
+      sdt: c.sdt || '',
+      nguoiDaiDien: c.nguoiDaiDien || '',
+      soDonHang: c.soDonHang || '',
+      loai: c.loai || 'BG Máy',
+      dvt: c.dvt || 'Máy',
+      giaTriHopDong: Number(c.totalAmount || c.giaTriHopDong) || 1,
+      subTotal: c.subTotal || 0,
+      vatRate: c.vatRate || 0,
+      vatAmount: c.vatAmount || 0,
+      discountRate: c.discountRate || 0,
+      discountAmount: c.discountAmount || 0,
+      totalAmount: c.totalAmount || 0,
+      nguoiPhuTrach: defaultOfficer,
+      dacCachGiaoTruoc: true,
+      lyDoDacCach: c.lyDoDacCach || 'Giao hàng trước thanh toán theo phê duyệt của Lãnh đạo',
+      nguoiPheDuyetDacCach: c.nguoiPheDuyetDacCach || defaultLeader,
+      tinhTrangThanhToan: 'CHƯA THANH TOÁN',
+      quotationId: c.quotationId || currentValues.quotationId || '',
+      soPhieuBaoGia: c.soPhieuBaoGia || c.soBaoGia || currentValues.soPhieuBaoGia || '',
+      soBaoGia: c.soPhieuBaoGia || c.soBaoGia || currentValues.soBaoGia || '',
+      ngayBaoGia: c.ngayBaoGia || currentValues.ngayBaoGia || '',
+      nguoiLienHe: contactPerson,
+      sdtLienHe: contactPhone,
+      diaChiGiaoHang: deliveryAddress,
+      paymentId: linkedPayment ? (linkedPayment.id || linkedPayment.paymentId || '') : currentValues.paymentId,
+      products: allocatedProducts,
+      danhSachMaMay: finalSerials,
+      slMay: actualMachineCount || Number(c.slMay) || 0
+    });
+    setMaxQuantities(limits);
+  }, [customers, deliveries, payments, reset, getValues, defaultOfficer, todayStr, defaultLeader]);
 
   const populateFromQuotation = useCallback((q: any) => {
     if (!q) return;
-    setValue('contractId', '', { shouldValidate: true, shouldDirty: true });
-    setValue('soHopDong', '', { shouldDirty: true });
-    setValue('ngayKy', '', { shouldDirty: true });
-    setValue('quotationId', q.id, { shouldValidate: true, shouldDirty: true });
-    setValue('soPhieuBaoGia', q.soPhieuBaoGia || '');
-    setValue('soBaoGia', q.soPhieuBaoGia || '');
-    setValue('ngayBaoGia', q.ngayBaoGia || '');
-    setValue('customerId', q.customerId || '');
-    setValue('maKh', q.maKh || '');
-    setValue('tenKhachHang', q.tenKhachHang || '');
-    setValue('sdt', q.sdt || '');
-    setValue('nguoiDaiDien', q.nguoiDaiDien || '');
-    setValue('loai', q.loai || '');
-    setValue('loaiBaoGia', q.loai || '');
-    setValue('dvt', q.dvt || 'Bộ');
-    setValue('slMay', Number(q.slMay) || 1);
-    setValue('giaTriHopDong', Number(q.totalAmount) || 0);
-    setValue('totalAmount', Number(q.totalAmount) || 0);
-    setValue('subTotal', q.subTotal || 0);
-    setValue('vatRate', q.vatRate || 0);
-    setValue('vatAmount', q.vatAmount || 0);
-    setValue('discountRate', q.discountRate || 0);
-    setValue('discountAmount', q.discountAmount || 0);
-    setValue('nguoiPhuTrach', defaultOfficer);
-
     const targetCustId = q.customerId;
     const targetCustMa = q.maKh;
     const customer = customers?.find((c: any) => (targetCustId && c.id === targetCustId) || (targetCustMa && c.maKh === targetCustMa));
@@ -520,11 +467,12 @@ export function useDeliveryForm(
     const contactPhone = q.sdt || q.sdtLienHe || customer?.contacts?.[0]?.sdt || customer?.sdt || '';
     const deliveryAddress = q.diaChi || customer?.diaChi || customer?.tinhThanh || '';
 
-    setValue('nguoiLienHe', contactPerson, { shouldValidate: true });
-    setValue('sdtLienHe', contactPhone, { shouldValidate: true });
-    setValue('diaChiGiaoHang', deliveryAddress, { shouldValidate: true });
-
     const productList = Array.isArray(q.products) ? q.products : [];
+    const limits: Record<string, number> = {};
+    let allocatedProducts: any[] = [];
+    let finalSerials: string[] = [];
+    let actualMachineCount = 0;
+
     if (productList.length > 0) {
       const validDeliveries = (deliveries || []).filter((d: any) => 
         !d.deletedAt && !d.deleted_at && String(d.tinhTrangGiaoHang || '').toUpperCase() !== 'HỦY'
@@ -542,7 +490,6 @@ export function useDeliveryForm(
         });
       });
 
-      const limits: Record<string, number> = {};
       const quoRootSerials: string[] = Array.isArray(q.danhSachMaMay) ? q.danhSachMaMay : [];
       const baseDateStr = getValues('ngayGiaoMay') || getValues('ngayLapPgh') || todayStr;
 
@@ -579,22 +526,47 @@ export function useDeliveryForm(
         };
       }).filter((cp: any) => limits[cp.id] > 0);
 
-      // Phân bổ thông minh mã máy báo giá chỉ vào các dòng MÁY
-      const allocatedProducts = smartAllocateSerials(remainingCandidates, quoRootSerials);
-      setValue('products', allocatedProducts);
-
+      allocatedProducts = smartAllocateSerials(remainingCandidates, quoRootSerials);
       const allUniqueSerials = Array.from(new Set(allocatedProducts.flatMap((p: any) => p.danhSachMaMay || [])));
-      if (allUniqueSerials.length > 0) {
-        setValue('danhSachMaMay', allUniqueSerials, { shouldDirty: true });
-      } else if (quoRootSerials.length > 0) {
-        setValue('danhSachMaMay', quoRootSerials, { shouldDirty: true });
-      }
-
-      const actualMachineCount = calculateActualMachineCount(allocatedProducts);
-      setValue('slMay', actualMachineCount);
-      setMaxQuantities(limits);
+      finalSerials = allUniqueSerials.length > 0 ? allUniqueSerials : quoRootSerials;
+      actualMachineCount = calculateActualMachineCount(allocatedProducts);
     }
-  }, [customers, deliveries, setValue, getValues, defaultOfficer, todayStr]);
+
+    const currentValues = getValues();
+    reset({
+      ...currentValues,
+      contractId: '',
+      soHopDong: '',
+      ngayKy: '',
+      quotationId: q.id,
+      soPhieuBaoGia: q.soPhieuBaoGia || '',
+      soBaoGia: q.soPhieuBaoGia || '',
+      ngayBaoGia: q.ngayBaoGia || '',
+      customerId: q.customerId || '',
+      maKh: q.maKh || '',
+      tenKhachHang: q.tenKhachHang || '',
+      sdt: q.sdt || '',
+      nguoiDaiDien: q.nguoiDaiDien || '',
+      loai: q.loai || '',
+      loaiBaoGia: q.loai || '',
+      dvt: q.dvt || 'Bộ',
+      slMay: actualMachineCount || Number(q.slMay) || 1,
+      giaTriHopDong: Number(q.totalAmount) || 0,
+      totalAmount: Number(q.totalAmount) || 0,
+      subTotal: q.subTotal || 0,
+      vatRate: q.vatRate || 0,
+      vatAmount: q.vatAmount || 0,
+      discountRate: q.discountRate || 0,
+      discountAmount: q.discountAmount || 0,
+      nguoiPhuTrach: defaultOfficer,
+      nguoiLienHe: contactPerson,
+      sdtLienHe: contactPhone,
+      diaChiGiaoHang: deliveryAddress,
+      products: allocatedProducts,
+      danhSachMaMay: finalSerials
+    });
+    setMaxQuantities(limits);
+  }, [customers, deliveries, reset, getValues, defaultOfficer, todayStr]);
 
   const lastPopulatedQuotationIdRef = useRef<string | null>(null);
   useEffect(() => {

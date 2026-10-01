@@ -17,6 +17,12 @@ import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { hasActualCashCollected } from '@/src/domain/enums/payment-status';
 import { differenceInDays } from 'date-fns';
+import { useAuth } from '@/src/modules/iam';
+import { isAdministratorRole } from '@/src/shared/utils/userProfile';
+import { useConfirm } from '@/src/design-system/Confirm';
+import { notify } from '@/src/shared/utils/notify';
+import { ItemSemanticType } from '@/src/widgets/product-list-input/useProductItemSemantic';
+import { syncProductTypeCascading, analyzeProductTypeImpact } from '@/src/modules/sales/domain/services/productTypeCascadingSyncService';
 
 interface QuotationDetailOverviewProps {
   quotation: Quotation;
@@ -42,14 +48,73 @@ export function QuotationDetailOverview({
   onClose
 }: QuotationDetailOverviewProps) {
   const navigate = useNavigate();
-  const lockResult = checkQuotationLock(quotation, matchingContracts, matchingPayments, matchingDeliveries);
-  const isBgMay = normalizeLoai(quotation.loai) === QUOTATION_LOAI.MAY;
+  const { user, userData } = useAuth();
+  const isAdmin = isAdministratorRole(userData, user);
+  const { confirm } = useConfirm();
+  const [currentQuotation, setCurrentQuotation] = React.useState<Quotation>(quotation);
+
+  React.useEffect(() => {
+    setCurrentQuotation(quotation);
+  }, [quotation]);
+
+  const lockResult = checkQuotationLock(currentQuotation, matchingContracts, matchingPayments, matchingDeliveries);
+  const isBgMay = normalizeLoai(currentQuotation.loai) === QUOTATION_LOAI.MAY;
   const [copiedPhone, setCopiedPhone] = React.useState<string | null>(null);
 
   const handleCopyPhone = (ph: string) => {
     navigator.clipboard.writeText(ph);
     setCopiedPhone(ph);
     setTimeout(() => setCopiedPhone(null), 1500);
+  };
+
+  const handleProductTypeChange = async (itemIndex: number, newType: ItemSemanticType) => {
+    if (!isAdmin) {
+      notify.warning('Chỉ tài khoản Quản trị viên (Admin) mới có quyền đổi phân loại sản phẩm và đồng bộ liên kết.');
+      return;
+    }
+
+    try {
+      const impact = await analyzeProductTypeImpact(currentQuotation, itemIndex, newType);
+      const targetProdName = impact.productName;
+      const oldTypeLabel = impact.oldType === 'MACHINE' ? 'Máy' : impact.oldType === 'MATERIAL' ? 'Vật tư' : 'Dịch vụ';
+      const newTypeLabel = newType === 'MACHINE' ? 'Máy' : newType === 'MATERIAL' ? 'Vật tư' : 'Dịch vụ';
+
+      let confirmMsg = `Bạn có chắc chắn muốn đổi "${targetProdName}" từ [${oldTypeLabel}] sang [${newTypeLabel}]?\n\nHệ thống sẽ tự động cập nhật:`;
+      if (impact.linkedContracts.length > 0) {
+        confirmMsg += `\n• ${impact.linkedContracts.length} Hợp đồng liên quan (tính lại SL máy)`;
+      }
+      if (impact.linkedPayments.length > 0) {
+        confirmMsg += `\n• ${impact.linkedPayments.length} Phiếu thu liên quan`;
+      }
+      if (impact.linkedDeliveries.length > 0) {
+        confirmMsg += `\n• ${impact.linkedDeliveries.length} Phiếu xuất kho liên quan (tính lại SL máy)`;
+      }
+      if (impact.isDeliveredOrAssigned) {
+        confirmMsg += `\n⚠️ Lưu ý: Sản phẩm này đã xuất kho ${impact.deliveredQuantity} sản phẩm.`;
+      }
+
+      const proceed = await confirm({
+        title: 'Đồng bộ Phân loại Sản phẩm (Cascading Sync)',
+        message: confirmMsg,
+        confirmText: 'Đồng bộ ngay',
+        cancelText: 'Hủy',
+        variant: 'warning'
+      });
+
+      if (!proceed) return;
+
+      const res = await syncProductTypeCascading(currentQuotation, itemIndex, newType, {
+        email: user?.email,
+        displayName: (userData as any)?.displayName || user?.displayName
+      });
+
+      if (res.success) {
+        setCurrentQuotation(res.updatedQuotation);
+        notify.success(`Đã cập nhật và đồng bộ ${res.syncedContractsCount} HĐ, ${res.syncedPaymentsCount} Phiếu thu, ${res.syncedDeliveriesCount} Phiếu giao!`);
+      }
+    } catch (err: any) {
+      notify.error(err.message || 'Lỗi khi đồng bộ loại sản phẩm');
+    }
   };
 
   // Realtime calculated financial lineage
@@ -119,17 +184,19 @@ export function QuotationDetailOverview({
 
             <div className="p-4">
               <DrawerProductList 
-                products={quotation.products || []}
-                subTotal={quotation.subTotal}
-                discountRate={quotation.discountRate}
-                discountAmount={quotation.discountAmount}
-                vatRate={quotation.vatRate}
-                vatAmount={quotation.vatAmount}
-                totalAmount={quotation.totalAmount}
-                deliveredQuantities={!isBgMay ? quotation.deliveredQuantities : undefined}
+                products={currentQuotation.products || []}
+                subTotal={currentQuotation.subTotal}
+                discountRate={currentQuotation.discountRate}
+                discountAmount={currentQuotation.discountAmount}
+                vatRate={currentQuotation.vatRate}
+                vatAmount={currentQuotation.vatAmount}
+                totalAmount={currentQuotation.totalAmount}
+                deliveredQuantities={!isBgMay ? currentQuotation.deliveredQuantities : undefined}
                 accentColorClass="text-blue-700"
                 paidAmount={totalPaid > 0 ? totalPaid : undefined}
                 remainingDebt={remainingDebt > 0 && totalPaid > 0 ? remainingDebt : undefined}
+                canEditProductType={isAdmin}
+                onProductTypeChange={handleProductTypeChange}
               />
             </div>
           </section>

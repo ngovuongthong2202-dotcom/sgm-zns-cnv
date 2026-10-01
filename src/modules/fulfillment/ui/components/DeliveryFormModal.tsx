@@ -107,7 +107,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
     return list;
   }, [lanhDaoPheDuyetList, approverValue]);
 
-  // Đồng bộ hóa tức thời 100% với danh sách payments đang hiển thị ở trang Thanh toán
+  // Đồng bộ hóa tức thời 100% với danh sách payments đang hiển thị ở trang Thanh toán (O(1) Map Hash Indexing)
   const enrichedPayments = React.useMemo(() => {
     if (!Array.isArray(payments) || payments.length === 0) return [];
     
@@ -118,6 +118,31 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
     const validDeliveries = (deliveries || []).filter((d: any) => 
       !d.deletedAt && !d.deleted_at && d.tinhTrangGiaoHang !== 'HỦY' && d.tinhTrangGiaoHang !== 'Hủy'
     );
+
+    // Pre-index valid deliveries to achieve O(1) matching instead of O(N*M)
+    const delivsByPaymentKey = new Map<string, any[]>();
+    const delivsByContractKey = new Map<string, any[]>();
+    const delivsByQuotationKey = new Map<string, any[]>();
+    const delivsByOrderCode = new Map<string, any[]>();
+
+    const appendIndex = (map: Map<string, any[]>, key: string | undefined | null, d: any) => {
+      if (!key) return;
+      const k = String(key).trim();
+      if (!k) return;
+      const list = map.get(k) || [];
+      list.push(d);
+      map.set(k, list);
+    };
+
+    validDeliveries.forEach((d: any) => {
+      appendIndex(delivsByPaymentKey, d.paymentId, d);
+      appendIndex(delivsByPaymentKey, d.soChungTuThamChieu, d);
+      appendIndex(delivsByContractKey, d.contractId, d);
+      appendIndex(delivsByContractKey, d.soHopDong, d);
+      appendIndex(delivsByQuotationKey, d.quotationId, d);
+      appendIndex(delivsByQuotationKey, d.soPhieuBaoGia, d);
+      appendIndex(delivsByOrderCode, d.soDonHang, d);
+    });
 
     return payments
       .filter((p: any) => !p.deletedAt && !p.deleted_at)
@@ -135,16 +160,16 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
         let totalDelivered = 0;
         let _isFullyDelivered = false;
 
-        // Match deliveries liên kết đa chiều: qua paymentId, soChungTuThamChieu, contractId, soHopDong, quotationId, soPhieuBaoGia
-        const linkedDeliveries = validDeliveries.filter((d: any) => {
-          if (d.paymentId && (d.paymentId === p.id || d.paymentId === p.paymentId)) return true;
-          if (d.soChungTuThamChieu && (d.soChungTuThamChieu === p.paymentId || d.soChungTuThamChieu === p.id)) return true;
-          if (p.contractId && d.contractId && d.contractId === p.contractId) return true;
-          if (p.soHopDong && d.soHopDong && d.soHopDong === p.soHopDong) return true;
-          if (p.quotationId && d.quotationId && d.quotationId === p.quotationId) return true;
-          if (p.soPhieuBaoGia && d.soPhieuBaoGia && d.soPhieuBaoGia === p.soPhieuBaoGia) return true;
-          return false;
-        });
+        // O(1) Match deliveries liên kết đa chiều
+        const linkedSet = new Set<any>();
+        if (p.id) (delivsByPaymentKey.get(String(p.id)) || []).forEach(d => linkedSet.add(d));
+        if (p.paymentId) (delivsByPaymentKey.get(String(p.paymentId)) || []).forEach(d => linkedSet.add(d));
+        if (p.contractId) (delivsByContractKey.get(String(p.contractId)) || []).forEach(d => linkedSet.add(d));
+        if (p.soHopDong) (delivsByContractKey.get(String(p.soHopDong)) || []).forEach(d => linkedSet.add(d));
+        if (p.quotationId) (delivsByQuotationKey.get(String(p.quotationId)) || []).forEach(d => linkedSet.add(d));
+        if (p.soPhieuBaoGia) (delivsByQuotationKey.get(String(p.soPhieuBaoGia)) || []).forEach(d => linkedSet.add(d));
+        if (p.soDonHang) (delivsByOrderCode.get(String(p.soDonHang)) || []).forEach(d => linkedSet.add(d));
+        const linkedDeliveries = Array.from(linkedSet);
 
         if (productList.length > 0) {
           const actualDeliveredMap: Record<string, number> = {};
@@ -230,6 +255,51 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
       return true;
     });
   }, [quotations]);
+
+  const watchDacCachGiaoTruoc = watch('dacCachGiaoTruoc');
+
+  const filterPaymentOption = React.useCallback((p: any) => {
+    if (p.deletedAt || p.deleted_at) return false;
+    const isCurrentSelected = delivery?.paymentId && (delivery.paymentId === p.id || delivery.paymentId === p.paymentId);
+    if (isCurrentSelected) return true;
+    return !p._isFullyDelivered;
+  }, [delivery?.paymentId]);
+
+  const isPaymentOptionDisabled = React.useCallback((p: any) => {
+    const isWaiver = Boolean(watchDacCachGiaoTruoc || p.dacCachGiaoTruoc);
+    const testDoc = isWaiver ? { ...p, dacCachGiaoTruoc: true } : p;
+    const gateResult = canCreateDelivery(testDoc);
+    if (!gateResult.allowed) return { disabled: true, reason: gateResult.reason };
+    if (p._isFullyDelivered) {
+      return { disabled: true, reason: 'Chứng từ đã giao đủ 100% số lượng (còn phải giao = 0)' };
+    }
+    return { disabled: false };
+  }, [watchDacCachGiaoTruoc]);
+
+  const renderPaymentOption = React.useCallback((p: any) => {
+    const pLoai = resolvePaymentLoai(p);
+    const typeTag = pLoai === QUOTATION_LOAI.MAY 
+      ? '📜 [BG Máy]' 
+      : pLoai === QUOTATION_LOAI.VAT_TU 
+        ? '📦 [BG Vật Tư]' 
+        : '🛠️ [BG Dịch Vụ]';
+    
+    const docRef = p.soHopDong 
+      ? `HĐ: ${p.soHopDong}` 
+      : p.soDonHang 
+        ? `ĐH: ${p.soDonHang}` 
+        : p.soPhieuBaoGia 
+          ? `BG: ${p.soPhieuBaoGia}` 
+          : '';
+          
+    const totalStr = new Intl.NumberFormat('vi-VN').format(p.totalAmount || p.soTien || 0);
+    const paidStr = new Intl.NumberFormat('vi-VN').format(p.soTien || 0);
+
+    return {
+      label: `${typeTag} ${p.paymentId || 'PT'} — ${docRef ? docRef + ' — ' : ''}${p.tenKhachHang || ''}`,
+      subLabel: `Đã thu: ${paidStr} ₫ / Tổng: ${totalStr} ₫ | Trạng thái: ${p.tinhTrangThanhToan || '---'}`
+    };
+  }, []);
 
   const handleSwitchToPaymentTab = () => {
     setSourceMode('payment');
@@ -482,48 +552,9 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                             populateFromPayment(doc);
                           }
                         }}
-                        filterOption={(p: any) => {
-                          if (p.deletedAt || p.deleted_at) return false;
-                          const isCurrentSelected = delivery?.paymentId && (delivery.paymentId === p.id || delivery.paymentId === p.paymentId);
-                          if (isCurrentSelected) return true;
-                          if (p._isFullyDelivered || isDeliverySourceFullyDelivered(p, deliveries, contracts, quotations)) {
-                            return false;
-                          }
-                          return true;
-                        }}
-                        isOptionDisabled={(p: any) => {
-                           const testDoc = watch('dacCachGiaoTruoc') ? { ...p, dacCachGiaoTruoc: true } : p;
-                           const gateResult = canCreateDelivery(testDoc);
-                           if (!gateResult.allowed) return { disabled: true, reason: gateResult.reason };
-                           if (p._isFullyDelivered || isDeliverySourceFullyDelivered(p, deliveries, contracts, quotations)) {
-                             return { disabled: true, reason: 'Chứng từ đã giao đủ 100% số lượng (còn phải giao = 0)' };
-                           }
-                           return { disabled: false };
-                        }}
-                        renderOption={(p: any) => {
-                          const pLoai = resolvePaymentLoai(p);
-                          const typeTag = pLoai === QUOTATION_LOAI.MAY 
-                            ? '📜 [BG Máy]' 
-                            : pLoai === QUOTATION_LOAI.VAT_TU 
-                              ? '📦 [BG Vật Tư]' 
-                              : '🛠️ [BG Dịch Vụ]';
-                          
-                          const docRef = p.soHopDong 
-                            ? `HĐ: ${p.soHopDong}` 
-                            : p.soDonHang 
-                              ? `ĐH: ${p.soDonHang}` 
-                              : p.soPhieuBaoGia 
-                                ? `BG: ${p.soPhieuBaoGia}` 
-                                : '';
-                                
-                          const totalStr = new Intl.NumberFormat('vi-VN').format(p.totalAmount || p.soTien || 0);
-                          const paidStr = new Intl.NumberFormat('vi-VN').format(p.soTien || 0);
-
-                          return {
-                            label: `${typeTag} ${p.paymentId || 'PT'} — ${docRef ? docRef + ' — ' : ''}${p.tenKhachHang || ''}`,
-                            subLabel: `Đã thu: ${paidStr} ₫ / Tổng: ${totalStr} ₫ | Trạng thái: ${p.tinhTrangThanhToan || '---'}`
-                          };
-                        }}
+                        filterOption={filterPaymentOption}
+                        isOptionDisabled={isPaymentOptionDisabled}
+                        renderOption={renderPaymentOption}
                         renderItemWrapper={(p: any, children) => (
                           <PaymentHoverCard
                             payment={p}

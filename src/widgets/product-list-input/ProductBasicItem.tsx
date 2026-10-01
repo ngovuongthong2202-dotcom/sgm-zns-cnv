@@ -194,13 +194,16 @@ export function ProductBasicItem({
           <span className="text-3xs font-bold text-slate-600 uppercase">Còn lại: {maxQ}</span>
         </div>
       ) : null}
-      {showBaoHanh && isMachine && (
+      {showBaoHanh && (isMachine || itemType === 'MATERIAL') && (
         <ProductBaoHanhFields product={p} baseDateForBaoHanh={baseDateForBaoHanh} viewType="table" disabled={disabled} onChange={(field, val) => onUpdate(idx, field, val === null ? undefined : val as any)} />
       )}
-      {showSerial && isMachine && (
+      {showSerial && (isMachine || itemType === 'MATERIAL') && (
         <div className="mt-3 pt-2.5 border-t border-slate-100">
           <span className="text-3xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
-            Mã máy / Serial ({p.danhSachMaMay?.length || 0}/{p.quantity || 0} {p.unit || 'Máy'}):
+            {isMachine 
+              ? `Mã máy / Serial (${p.danhSachMaMay?.length || 0}/${p.quantity || 0} ${p.unit || 'Máy'}):`
+              : `Mã serial / Part No. / Số lô (${p.danhSachMaMay?.length || 0} mã - Tùy chọn):`
+            }
           </span>
           <MachineCodeChipInput
             value={p.danhSachMaMay || []}
