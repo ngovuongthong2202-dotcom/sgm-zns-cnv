@@ -86,7 +86,7 @@ export const collectionTableMap: Record<string, string> = {
   system_locks: 'system_locks',
   jobHeartbeats: 'job_heartbeats',
   job_heartbeats: 'job_heartbeats',
-  counters: 'settings',
+  counters: 'counters',
   idempotencyKeys: 'idempotency_keys',
   idempotency_keys: 'idempotency_keys',
   metrics: 'metrics_rollup',

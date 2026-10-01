@@ -102,7 +102,6 @@ export function CustomerDetailDrawer({
           await paymentRepo.update(p.id, {
             tenKhachHang: customer.tenKhachHang,
             sdt: customer.sdt,
-            tenNguoiNop: customer.nguoiDaiDien || customer.tenKhachHang,
             tinhThanh: customer.tinhThanh
           });
           syncedCount++;

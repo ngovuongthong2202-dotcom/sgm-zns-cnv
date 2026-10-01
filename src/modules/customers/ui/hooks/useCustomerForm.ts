@@ -8,6 +8,50 @@ import { notify } from '@/src/shared/utils/notify';
 import { autoDetectBusinessName, parseVietQRBusinessData } from '../components/CustomerFormHelpers';
 import { supabase } from '@/src/shared/config/supabase.client';
 import { detectProvinceFromAddress } from '@/src/shared/services/vietnamAddressParser';
+import { extractVietnamesePhones } from '../utils/vietnameseTelecomExtractor';
+
+export function normalizeContactForCustomerForm(c: any, fallbackName = '', fallbackPhone = '', fallbackBranch = '') {
+  let allPhones: string[] = [];
+  if (Array.isArray(c?.danhSachSdt) && c.danhSachSdt.length > 0) {
+    allPhones = [...c.danhSachSdt.map((p: string) => String(p).trim()).filter(Boolean)];
+  } else if (c?.sdt) {
+    const ext = extractVietnamesePhones(String(c.sdt));
+    if (ext.phones && ext.phones.length > 0) {
+      allPhones = ext.phones.map(p => p.cleaned);
+    } else {
+      allPhones = [String(c.sdt).trim()];
+    }
+  }
+
+  if (c?.sdtPhu) {
+    const extPhu = extractVietnamesePhones(String(c.sdtPhu));
+    if (extPhu.phones && extPhu.phones.length > 0) {
+      extPhu.phones.forEach(p => {
+        if (!allPhones.includes(p.cleaned)) allPhones.push(p.cleaned);
+      });
+    }
+  }
+
+  const primaryPhone = allPhones[0] || (c?.sdt ? String(c.sdt).trim() : (fallbackPhone ? String(fallbackPhone).trim() : ''));
+  if (primaryPhone && !allPhones.includes(primaryPhone)) {
+    allPhones.unshift(primaryPhone);
+  }
+
+  return {
+    danhXung: c?.danhXung || '',
+    nguoiDaiDien: c?.nguoiDaiDien || fallbackName || '',
+    sdt: primaryPhone,
+    danhSachSdt: allPhones,
+    sdtPhu: allPhones.length > 1 ? allPhones.slice(1).join(' / ') : (c?.sdtPhu || ''),
+    soZaloMacDinh: c?.soZaloMacDinh || primaryPhone,
+    chucVu: c?.chucVu || '',
+    chiNhanh: c?.chiNhanh || fallbackBranch || '',
+    ghiChu: c?.ghiChu || '',
+    email: c?.email || '',
+    trangThaiZns: c?.trangThaiZns,
+    ngayGuiZns: c?.ngayGuiZns
+  };
+}
 
 export function extractSequentialCustomerNumber(code?: string | null): number {
   if (!code) return 0;
@@ -57,24 +101,12 @@ export function useCustomerForm(
   const initialContacts = (customer?.contacts && customer.contacts.length > 0)
     ? customer.contacts
         .filter(Boolean)
-        .map((c) => ({
-          danhXung: c.danhXung || '',
-          nguoiDaiDien: c.nguoiDaiDien || '',
-          sdt: c.sdt || '',
-          chucVu: c.chucVu || '',
-          chiNhanh: c.chiNhanh || ''
-        }))
-    : [{
-        danhXung: '',
-        nguoiDaiDien: customer?.nguoiDaiDien || '',
-        sdt: customer?.sdt || '',
-        chucVu: '',
-        chiNhanh: customer?.chiNhanh || ''
-      }];
+        .map((c) => normalizeContactForCustomerForm(c, customer?.nguoiDaiDien, customer?.sdt, customer?.chiNhanh))
+    : [normalizeContactForCustomerForm(null, customer?.nguoiDaiDien || '', customer?.sdt || '', customer?.chiNhanh || '')];
 
   const validContacts = initialContacts.length > 0
     ? initialContacts
-    : [{ danhXung: '', nguoiDaiDien: customer?.nguoiDaiDien || '', sdt: customer?.sdt || '', chucVu: '', chiNhanh: '' }];
+    : [normalizeContactForCustomerForm(null, customer?.nguoiDaiDien || '', customer?.sdt || '', customer?.chiNhanh || '')];
 
   const {
     register,
@@ -216,20 +248,8 @@ export function useCustomerForm(
         ? ((loaiKhachHangList || []).find((l) => l.toLowerCase() === customer.loaiKh?.toLowerCase()) || customer.loaiKh)
         : '';
       const cContacts = (customer.contacts && customer.contacts.length > 0)
-        ? customer.contacts.filter(Boolean).map(c => ({
-            danhXung: c.danhXung || '',
-            nguoiDaiDien: c.nguoiDaiDien || '',
-            sdt: c.sdt || '',
-            chucVu: c.chucVu || '',
-            chiNhanh: c.chiNhanh || ''
-          }))
-        : [{
-            danhXung: '',
-            nguoiDaiDien: customer.nguoiDaiDien || '',
-            sdt: customer.sdt || '',
-            chucVu: '',
-            chiNhanh: customer.chiNhanh || ''
-          }];
+        ? customer.contacts.filter(Boolean).map(c => normalizeContactForCustomerForm(c, customer.nguoiDaiDien, customer.sdt, customer.chiNhanh))
+        : [normalizeContactForCustomerForm(null, customer.nguoiDaiDien || '', customer.sdt || '', customer.chiNhanh || '')];
 
       reset({
         ...customer,

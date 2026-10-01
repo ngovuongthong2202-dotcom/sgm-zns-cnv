@@ -3,7 +3,7 @@
 exports[`Component Snapshots (Baseline) > renders ContractFormModal 1`] = `
 <div>
   <div
-    class="fixed inset-0 bg-slate-50 z-50 flex flex-col h-screen overflow-hidden"
+    class="fixed inset-0 bg-slate-50 z-[200] flex flex-col h-screen overflow-hidden"
   >
     <div
       class="bg-slate-50 flex flex-col h-full w-full overflow-hidden"
@@ -2050,7 +2050,7 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                     </h3>
                   </div>
                   <button
-                    class="justify-center transition-all duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] hover:text-slate-900 hover:border-slate-300 active:bg-slate-100 shadow-xs focus-visible:ring-slate-200 h-7 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-2xs font-bold flex items-center gap-1.5 border border-slate-200"
+                    class="justify-center transition-all duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] hover:text-slate-900 hover:border-slate-300 active:bg-slate-100 shadow-xs focus-visible:ring-slate-200 h-7 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-2xs font-bold flex items-center gap-1.5 border border-slate-200 cursor-pointer"
                     type="button"
                   >
                     <svg
@@ -2083,7 +2083,7 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                     class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-slate-50/50 border border-slate-200/60 transition-all focus-within:border-slate-300 relative group"
                   >
                     <div
-                      class="space-y-1 sm:col-span-2"
+                      class="space-y-1"
                     >
                       <div
                         class="flex items-center justify-between"
@@ -2112,9 +2112,25 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                     >
                       <label
                         class="text-2xs font-medium uppercase tracking-wide text-slate-500"
+                        for="contact-chucvu-0"
+                      >
+                        Chức vụ / Bộ phận
+                      </label>
+                      <input
+                        class="w-full h-8 border border-slate-200 rounded-lg px-3 bg-white text-sm placeholder:text-slate-300"
+                        id="contact-chucvu-0"
+                        name="contacts.0.chucVu"
+                        placeholder="Ví dụ: Giám đốc, Thu mua..."
+                      />
+                    </div>
+                    <div
+                      class="space-y-1 sm:col-span-2"
+                    >
+                      <label
+                        class="text-2xs font-medium uppercase tracking-wide text-slate-500"
                         for="contact-phone-0"
                       >
-                        Số điện thoại 
+                        Số điện thoại liên hệ 
                         <span
                           class="text-red-500"
                         >
@@ -2122,17 +2138,24 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                         </span>
                       </label>
                       <div
-                        class="w-full flex flex-col gap-0.5"
+                        class="space-y-2"
                       >
                         <div
-                          class="relative w-full flex items-center"
+                          class="flex items-center gap-2"
                         >
                           <div
-                            class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center"
+                            class="relative flex-1"
                           >
+                            <input
+                              class="w-full h-8 text-xs font-mono px-3 pl-8 bg-white border rounded-lg focus:outline-none transition-colors border-slate-200 focus:border-blue-500"
+                              id="contact-phone-0"
+                              placeholder="Nhập số điện thoại (hỗ trợ dán nhiều số dính chùm)..."
+                              type="tel"
+                              value=""
+                            />
                             <svg
                               aria-hidden="true"
-                              class="lucide lucide-phone text-slate-400"
+                              class="lucide lucide-phone absolute left-2.5 top-2.5 text-slate-400 pointer-events-none"
                               fill="none"
                               height="13"
                               stroke="currentColor"
@@ -2148,31 +2171,15 @@ exports[`Component Snapshots (Baseline) > renders CustomerFormModal 1`] = `
                               />
                             </svg>
                           </div>
-                          <input
-                            class="w-full pl-7.5 pr-3 py-1.5 text-xs font-mono font-bold text-slate-900 bg-white border border-slate-200 rounded-lg outline-none transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400"
-                            id="contact-phone-0"
-                            placeholder="09xx xxx xxx"
-                            type="tel"
-                            value=""
-                          />
+                        </div>
+                        <div
+                          class="flex items-center justify-between text-3xs text-slate-500 px-1"
+                        >
+                          <span>
+                            * Hỗ trợ 2-3 số điện thoại cho 1 đầu mối. Dán trực tiếp chuỗi dính chùm để tự động tách.
+                          </span>
                         </div>
                       </div>
-                    </div>
-                    <div
-                      class="space-y-1"
-                    >
-                      <label
-                        class="text-2xs font-medium uppercase tracking-wide text-slate-500"
-                        for="contact-chucvu-0"
-                      >
-                        Chức vụ / Bộ phận
-                      </label>
-                      <input
-                        class="w-full h-8 border border-slate-200 rounded-lg px-3 bg-white text-sm placeholder:text-slate-300"
-                        id="contact-chucvu-0"
-                        name="contacts.0.chucVu"
-                        placeholder="Ví dụ: Giám đốc, Thu mua..."
-                      />
                     </div>
                     <div
                       class="sm:col-span-2 flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-200 text-xs mt-1"
@@ -5212,7 +5219,7 @@ exports[`Component Snapshots (Baseline) > renders PaymentRecordDrawer 1`] = `
 exports[`Component Snapshots (Baseline) > renders QuotationFormModal 1`] = `
 <div>
   <div
-    class="fixed inset-0 z-50 flex flex-col bg-slate-50 overflow-hidden"
+    class="fixed inset-0 z-[200] flex flex-col bg-slate-50 overflow-hidden"
   >
     <div
       class="w-full h-full flex flex-col relative"

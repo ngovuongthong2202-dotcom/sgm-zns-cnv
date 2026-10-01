@@ -46,6 +46,7 @@ const PaymentRouteSync = React.memo(function PaymentRouteSync({
 }) {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const processedActionNonceRef = React.useRef<string | null>(null);
 
   useEffect(() => {
     if (location.pathname.startsWith('/payments') && location.state?.openDrawer && !hasDrawer) {
@@ -57,9 +58,24 @@ const PaymentRouteSync = React.memo(function PaymentRouteSync({
   useEffect(() => {
     if (!location.pathname.startsWith('/payments')) return;
     const fromQuoId = searchParams.get('fromQuotation');
-    if (fromQuoId && quotations.length > 0) {
+    if (!fromQuoId) {
+      processedActionNonceRef.current = null;
+      return;
+    }
+
+    if (processedActionNonceRef.current === fromQuoId) return;
+
+    if (quotations.length > 0) {
       const foundQuo = quotations.find((q: any) => q.id === fromQuoId);
       if (foundQuo) {
+        // Idempotent lock: Mark as processed immediately before executing side-effects
+        processedActionNonceRef.current = fromQuoId;
+
+        // Atomically strip query param from URL without trigger loops
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('fromQuotation');
+        setSearchParams(nextParams, { replace: true });
+
         const canProceed = canCreatePayment(foundQuo);
         if (!canProceed.allowed) {
           notify.error(canProceed.reason || "Báo giá không đủ điều kiện lập phiếu thu.");
@@ -67,9 +83,6 @@ const PaymentRouteSync = React.memo(function PaymentRouteSync({
           onPrefillQuotation(foundQuo);
           onOpenForm();
         }
-        const nextParams = new URLSearchParams(searchParams);
-        nextParams.delete('fromQuotation');
-        setSearchParams(nextParams, { replace: true });
       }
     }
   }, [location.pathname, searchParams, quotations, setSearchParams, onPrefillQuotation, onOpenForm]);
@@ -206,14 +219,23 @@ export default function PaymentsFeature() {
     (activeTab && activeTab !== 'ALL')
   );
 
+  const handlePrefillQuotation = React.useCallback((q: any) => {
+    setPrefillQuotationForPayment(q);
+    setEditingPayment(null);
+  }, [setEditingPayment]);
+
+  const handleOpenForm = React.useCallback(() => {
+    setIsFormOpen(true);
+  }, [setIsFormOpen]);
+
   return (
     <div className="flex flex-col h-full bg-surface-sunken relative overflow-hidden select-none animate-in fade-in duration-150">
       <PaymentRouteSync
         hasDrawer={!!drawerPayment}
         onOpenDrawer={setDrawerPayment}
         quotations={quotations}
-        onPrefillQuotation={(q) => { setPrefillQuotationForPayment(q); setEditingPayment(null); }}
-        onOpenForm={() => setIsFormOpen(true)}
+        onPrefillQuotation={handlePrefillQuotation}
+        onOpenForm={handleOpenForm}
       />
 
       <PaymentDeliveryBanner

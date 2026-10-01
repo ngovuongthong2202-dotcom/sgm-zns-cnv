@@ -129,14 +129,16 @@ export function PaymentRecordDrawer({
     return list;
   }, [_nguoiPhuTrachList, defaultOfficer, payment?.nguoiPhuTrach]);
 
-  const hasInitializedRef = React.useRef(false);
+  const lastInitializedKeyRef = React.useRef<string | null>(null);
   useEffect(() => {
     if (!isOpen) {
-      hasInitializedRef.current = false;
+      lastInitializedKeyRef.current = null;
       return;
     }
 
-    if (hasInitializedRef.current) return;
+    const currentKey = payment?.id || (prefillQuotation?.id ? `prefill_quo_${prefillQuotation.id}` : (draft?.paymentId ? `draft_${draft.paymentId}` : 'new_empty'));
+    if (lastInitializedKeyRef.current === currentKey) return;
+    lastInitializedKeyRef.current = currentKey;
 
     const currentPaymentId = getValues('paymentId') || draft?.paymentId || (payment?.paymentId ? payment.paymentId : generateDeterministicNextCode('PT', allPaymentsList));
 
@@ -163,7 +165,6 @@ export function PaymentRecordDrawer({
         paymentId: enriched.paymentId || currentPaymentId,
         sourceValue: payment.contractId ? `CONTRACT:${payment.contractId}` : payment.quotationId ? `QUOTATION:${payment.quotationId}` : '' 
       });
-      hasInitializedRef.current = true;
     } else if (isNew) {
       if (prefillQuotation) {
         const normLoai = (prefillQuotation.phanLoai || (prefillQuotation as any).loai || (prefillQuotation as any).loaiBaoGia) || 'BG Vật tư';
@@ -223,7 +224,6 @@ export function PaymentRecordDrawer({
           loai: ''
         } as any);
       }
-      hasInitializedRef.current = true;
     }
   }, [payment, isOpen, reset, draft, isNew, contracts, prefillQuotation, getValues, defaultOfficer, allPaymentsList]);
 

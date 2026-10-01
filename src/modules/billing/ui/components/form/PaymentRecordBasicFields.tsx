@@ -409,6 +409,63 @@ export function PaymentRecordBasicFields({
                     );
                   })()}
 
+                  {/* Payer Disambiguation & Third-party remitter toggle */}
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-2xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(watch('isNguoiNopKhac'))}
+                          onChange={(e) => {
+                            const isChecked = e.target.checked;
+                            setValue('isNguoiNopKhac', isChecked, { shouldDirty: true });
+                            if (!isChecked) {
+                              setValue('tenNguoiNop', '', { shouldDirty: true });
+                              setValue('sdtNguoiNop', '', { shouldDirty: true });
+                            }
+                          }}
+                          disabled={disabled}
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                        />
+                        <span>Bên thứ 3 nộp thay (Ủy nhiệm chi / Người nộp khác tên khách hàng)</span>
+                      </label>
+                      {!watch('isNguoiNopKhac') && (
+                        <span className="text-3xs text-emerald-700 bg-emerald-50 border border-emerald-200 font-bold px-2 py-0.5 rounded-full">
+                          ✓ Khách hàng chính chủ tự nộp
+                        </span>
+                      )}
+                    </div>
+
+                    {watch('isNguoiNopKhac') && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/60 animate-in fade-in duration-150">
+                        <div className="space-y-1">
+                          <label className="text-3xs uppercase font-bold text-slate-500 block">
+                            Họ tên Người nộp thay <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Nhập họ tên người nộp thay..."
+                            {...register('tenNguoiNop')}
+                            disabled={disabled}
+                            className="w-full text-xs h-9 px-3 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 font-medium"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-3xs uppercase font-bold text-slate-500 block">
+                            Số điện thoại Người nộp thay
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Nhập SĐT người nộp thay..."
+                            {...register('sdtNguoiNop')}
+                            disabled={disabled}
+                            className="w-full text-xs h-9 px-3 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 font-mono font-medium"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
                     <span className="text-2xs uppercase tracking-wider font-bold text-slate-500">Đối soát công nợ & tiến độ dòng tiền</span>
                     <div className="flex flex-col gap-1 items-stretch">

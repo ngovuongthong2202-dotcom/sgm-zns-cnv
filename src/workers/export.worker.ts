@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 
 self.onmessage = async (e) => {
-  const { action, data, filename, format } = e.data;
+  const { action, data, filename } = e.data;
 
   try {
     if (action === 'exportXLSX') {

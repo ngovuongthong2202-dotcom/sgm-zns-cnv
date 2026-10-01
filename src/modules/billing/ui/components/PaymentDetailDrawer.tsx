@@ -1,5 +1,6 @@
 /* eslint-disable max-lines */
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import useSWR from 'swr';
 import { swrColFetcher, swrDocFetcher } from '@/src/data/swr-fetchers';
@@ -60,6 +61,7 @@ export function PaymentDetailDrawer({
   const [flowFocusTarget, setFlowFocusTarget] = useState<'quotation' | 'contract' | 'delivery' | 'payment'>('payment');
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+  const [activeDeliveryPrefill, setActiveDeliveryPrefill] = useState<any>(null);
   const { nguoiPhuTrachList } = useSharedFields();
   const { confirm } = useConfirm();
 
@@ -759,6 +761,7 @@ export function PaymentDetailDrawer({
       notify.warning(`Đơn hàng/Hợp đồng này đã điều phối đủ ${allocGate.totalAssignedMachines}/${allocGate.totalOrderMachines} máy xuất kho. Không thể tạo thêm phiếu!`);
       return;
     }
+    setActiveDeliveryPrefill(deliveryPrefill ? { ...deliveryPrefill } : null);
     setIsDeliveryModalOpen(true);
   };
 
@@ -994,18 +997,22 @@ export function PaymentDetailDrawer({
         />
       )}
 
-      {isDeliveryModalOpen && deliveryPrefill && (
+      {isDeliveryModalOpen && activeDeliveryPrefill && typeof document !== 'undefined' && createPortal(
         <DeliveryFormModal
-          delivery={deliveryPrefill}
+          delivery={activeDeliveryPrefill}
           payments={allRelatedPayments}
           contracts={contractsList}
           quotations={quotationsList}
           customers={customersList}
           deliveries={deliveries}
           nguoiPhuTrachList={nguoiPhuTrachList}
-          onClose={() => setIsDeliveryModalOpen(false)}
+          onClose={() => {
+            setIsDeliveryModalOpen(false);
+            setActiveDeliveryPrefill(null);
+          }}
           onSave={handleSaveDelivery}
-        />
+        />,
+        document.body
       )}
     </>
   );

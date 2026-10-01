@@ -164,7 +164,10 @@ export function useDeliveryForm(
       ? contracts?.find((c: any) => c.id === p.contractId || c.soHopDong === p.soHopDong)
       : quotations?.find((q: any) => q.id === p.quotationId || q.soPhieuBaoGia === p.soPhieuBaoGia);
 
-    setValue('paymentId', p.id || p.paymentId || '', { shouldValidate: true });
+    const targetPayId = p.id || p.paymentId || '';
+    if (getValues('paymentId') !== targetPayId) {
+      setValue('paymentId', targetPayId, { shouldValidate: true });
+    }
     setValue('customerId', p.customerId || source?.customerId || '');
     setValue('maKh', p.maKh || source?.maKh || '');
     setValue('tenKhachHang', p.tenKhachHang || source?.tenKhachHang || '');
@@ -622,18 +625,20 @@ export function useDeliveryForm(
   const lastPopulatedPaymentIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (selectedPaymentId && !delivery?.id) {
-      if (lastPopulatedPaymentIdRef.current === selectedPaymentId) return;
-      lastPopulatedPaymentIdRef.current = selectedPaymentId;
+      const currentPayId = String(selectedPaymentId).trim();
+      if (lastPopulatedPaymentIdRef.current === currentPayId) return;
 
-      const p = payments?.find((x: any) => x.id === selectedPaymentId || x.paymentId === selectedPaymentId);
+      const p = payments?.find((x: any) => x.id === currentPayId || x.paymentId === currentPayId);
       if (p) {
+        lastPopulatedPaymentIdRef.current = currentPayId;
         populateFromPayment(p);
       } else {
-        fetch(`/api/search/payments?q=${encodeURIComponent(selectedPaymentId)}&limit=1`)
+        lastPopulatedPaymentIdRef.current = currentPayId;
+        fetch(`/api/search/payments?q=${encodeURIComponent(currentPayId)}&limit=1`)
           .then(res => res.json())
           .then(resData => {
             const found = resData?.data?.[0];
-            if (found && (found.id === selectedPaymentId || found.paymentId === selectedPaymentId)) {
+            if (found && (found.id === currentPayId || found.paymentId === currentPayId)) {
               populateFromPayment(found);
             }
           })

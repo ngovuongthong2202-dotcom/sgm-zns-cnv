@@ -2,10 +2,10 @@ import React from "react";
 import { useFieldArray, Control, UseFormRegister, FieldErrors, UseFormSetValue, Controller } from "react-hook-form";
 import { Customer } from "@/src/domain/schema/customer.schema";
 import { Button } from "@/src/design-system/Button";
-import { SmartPhoneInput } from "@/src/design-system";
 import { Plus, Trash, Contact, Users, Check } from "lucide-react";
 import { cleanProperVietnameseText } from "@/src/shared/utils/textFormatter";
 import { sanitizeText } from "@/src/shared/utils/inputSanitizer";
+import { SmartPolyPhoneInput } from "./SmartPolyPhoneInput";
 
 interface CustomerContactsArrayProps {
   control: Control<Customer>;
@@ -32,8 +32,8 @@ export function CustomerContactsArray({ control, register, errors, setValue, isI
         </div>
         <Button
           type="button"
-          onClick={() => append({ nguoiDaiDien: "", sdt: "", chiNhanh: "", chucVu: "" })}
-          className="h-7 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-2xs font-bold flex items-center gap-1.5 border border-slate-200"
+          onClick={() => append({ nguoiDaiDien: "", sdt: "", danhSachSdt: [], chiNhanh: "", chucVu: "" })}
+          className="h-7 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-2xs font-bold flex items-center gap-1.5 border border-slate-200 cursor-pointer"
         >
           <Plus size={12} /> Thêm đầu mối
         </Button>
@@ -54,7 +54,7 @@ export function CustomerContactsArray({ control, register, errors, setValue, isI
             key={field.id}
             className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-slate-50/50 border border-slate-200/60 transition-all focus-within:border-slate-300 relative group"
           >
-            <div className="space-y-1 sm:col-span-2">
+            <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <label className="text-2xs font-medium uppercase tracking-wide text-slate-500" htmlFor={"contact-name-" + index}>
                   Họ & Tên Người đại diện {index === 0 && <span className="text-red-500">*</span>}
@@ -90,33 +90,6 @@ export function CustomerContactsArray({ control, register, errors, setValue, isI
             </div>
 
             <div className="space-y-1">
-              <label className="text-2xs font-medium uppercase tracking-wide text-slate-500" htmlFor={"contact-phone-" + index}>
-                Số điện thoại {index === 0 && <span className="text-red-500">*</span>}
-              </label>
-              <Controller
-                control={control}
-                name={`contacts.${index}.sdt` as any}
-                render={({ field }) => (
-                  <SmartPhoneInput
-                    id={"contact-phone-" + index}
-                    value={field.value}
-                    onChange={(cleanPhone: string) => {
-                      field.onChange(cleanPhone);
-                      if (index === 0) {
-                        setValue("sdt", cleanPhone, { shouldDirty: true, shouldValidate: true });
-                      }
-                    }}
-                    compact
-                    error={Boolean(errors.contacts?.[index]?.sdt)}
-                  />
-                )}
-              />
-              {errors.contacts?.[index]?.sdt && (
-                <p className="text-xs text-red-650 mt-1">{errors.contacts?.[index]?.sdt?.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-1">
               <label className="text-2xs font-medium uppercase tracking-wide text-slate-500" htmlFor={"contact-chucvu-" + index}>
                 Chức vụ / Bộ phận
               </label>
@@ -125,6 +98,39 @@ export function CustomerContactsArray({ control, register, errors, setValue, isI
                 {...register("contacts." + index + ".chucVu" as any)}
                 className="w-full h-8 border border-slate-200 rounded-lg px-3 bg-white text-sm placeholder:text-slate-300"
                 placeholder="Ví dụ: Giám đốc, Thu mua..."
+              />
+            </div>
+
+            <div className="space-y-1 sm:col-span-2">
+              <label className="text-2xs font-medium uppercase tracking-wide text-slate-500" htmlFor={"contact-phone-" + index}>
+                Số điện thoại liên hệ {index === 0 && <span className="text-red-500">*</span>}
+              </label>
+              <Controller
+                control={control}
+                name={`contacts.${index}` as any}
+                render={({ field: contactField }) => {
+                  const currentContact = contactField.value || {};
+                  return (
+                    <SmartPolyPhoneInput
+                      id={"contact-phone-" + index}
+                      primaryPhone={currentContact.sdt || ''}
+                      phoneList={currentContact.danhSachSdt || []}
+                      onChange={(allPhones, primaryPhone) => {
+                        setValue(`contacts.${index}.sdt` as any, primaryPhone, { shouldDirty: true, shouldValidate: true });
+                        setValue(`contacts.${index}.danhSachSdt` as any, allPhones, { shouldDirty: true });
+                        if (allPhones.length > 1) {
+                          setValue(`contacts.${index}.sdtPhu` as any, allPhones.slice(1).join(' / '), { shouldDirty: true });
+                        } else {
+                          setValue(`contacts.${index}.sdtPhu` as any, '', { shouldDirty: true });
+                        }
+                        if (index === 0) {
+                          setValue("sdt", primaryPhone, { shouldDirty: true, shouldValidate: true });
+                        }
+                      }}
+                      error={errors.contacts?.[index]?.sdt?.message}
+                    />
+                  );
+                }}
               />
             </div>
 

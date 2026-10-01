@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 import React, { useState } from 'react';
 import { Customer } from '@/src/domain/schema/customer.schema';
-import { MapPin, Calendar, DollarSign, Tag, Activity, Flame, FileText, Copy, Check, Info } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, Tag, Activity, Flame, FileText, Copy, Check, Info, Smartphone, Building2, Star } from 'lucide-react';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
@@ -13,6 +13,8 @@ import { extractAvatarBadge } from '@/src/shared/utils/userProfile';
 import { reconcileEnterpriseReceivables } from '@/src/domain/services/financial-reconciler';
 import { cleanDuplicateAddress, formatCustomerRegionDisplay } from '@/src/shared/utils/vietnamRegionHelper';
 import { cleanDuplicateCorporatePrefix } from '@/src/shared/utils/textFormatter';
+import { extractVietnamesePhones } from '../utils/vietnameseTelecomExtractor';
+import { detectCarrier, formatPhoneDisplay, normalizePhone } from '@/src/platform/ui/design-system/form/SmartPhoneInput';
 
 interface Props {
   customer: Customer;
@@ -358,13 +360,46 @@ export function CustomerOverviewBento({
             </span>
           </div>
 
-          <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-0.5">
+          <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-0.5">
             {customer.contacts?.length ? (
               customer.contacts.map((contact, idx) => {
-                const hasSent = contact.trangThaiZns === 'THANH_CONG' || Boolean(contact.ngayGuiZns) || Boolean((customer as any)?.contactsZnsHistory?.[contact.sdt || '']);
-                const isCopied = copiedPhone === contact.sdt;
+                const seenPhones = new Set<string>();
+                const contactPhones: string[] = [];
+                const addP = (p?: string) => {
+                  if (!p) return;
+                  const normalized = normalizePhone(p);
+                  if (normalized && !seenPhones.has(normalized)) {
+                    seenPhones.add(normalized);
+                    contactPhones.push(normalized);
+                  }
+                };
+
+                if (Array.isArray(contact.danhSachSdt)) {
+                  contact.danhSachSdt.forEach(addP);
+                }
+                if (contact.sdt) {
+                  const ext = extractVietnamesePhones(contact.sdt, customer.diaChi);
+                  if (ext.phones && ext.phones.length > 0) {
+                    ext.phones.forEach(ep => addP(ep.cleaned));
+                  } else {
+                    addP(contact.sdt);
+                  }
+                }
+                if (contact.sdtPhu) {
+                  const extPhu = extractVietnamesePhones(contact.sdtPhu, customer.diaChi);
+                  if (extPhu.phones && extPhu.phones.length > 0) {
+                    extPhu.phones.forEach(ep => addP(ep.cleaned));
+                  } else {
+                    addP(contact.sdtPhu);
+                  }
+                }
+
+                const primaryTarget = contact.sdt ? normalizePhone(contact.sdt) : (contactPhones[0] || '');
+                const hasSent = contact.trangThaiZns === 'THANH_CONG' || Boolean(contact.ngayGuiZns) || 
+                  contactPhones.some(p => Boolean((customer as any)?.contactsZnsHistory?.[p]));
+
                 return (
-                  <div key={idx} className="p-3 bg-slate-50/80 rounded-xl border border-slate-150 space-y-1.5">
+                  <div key={idx} className="p-3 bg-slate-50/80 rounded-xl border border-slate-150 space-y-2">
                     <div className="flex items-center justify-between gap-1">
                       <div className="font-bold text-slate-900 text-xs truncate">
                         {contact.nguoiDaiDien || `Đầu mối #${idx + 1}`}
@@ -386,44 +421,107 @@ export function CustomerOverviewBento({
                       </span>
                     )}
 
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/60">
-                      <span className="font-mono text-xs font-bold text-slate-800">
-                        {contact.sdt || '---'}
-                      </span>
-                      {contact.sdt && (
-                        <button
-                          type="button"
-                          onClick={() => handleCopyPhone(contact.sdt!)}
-                          className="text-3xs font-bold text-blue-700 hover:text-blue-800 bg-white hover:bg-blue-50 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1 transition-colors cursor-pointer"
-                          title="Sao chép SĐT"
-                        >
-                          {isCopied ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
-                          {isCopied ? 'Đã copy' : 'Sao chép'}
-                        </button>
+                    {/* Danh sách các số điện thoại của đầu mối */}
+                    <div className="space-y-1.5 pt-1 border-t border-slate-200/60">
+                      {contactPhones.length > 0 ? (
+                        contactPhones.map((phone, pIdx) => {
+                          const isPrimary = phone === primaryTarget || (pIdx === 0 && !primaryTarget);
+                          const carrier = detectCarrier(phone);
+                          const isMobile = phone.length === 10 && phone.startsWith('0');
+                          const isCopied = copiedPhone === phone;
+
+                          return (
+                            <div key={phone} className="flex items-center justify-between gap-1.5 bg-white p-1.5 rounded-lg border border-slate-200/70 shadow-2xs">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                {isMobile ? (
+                                  <Smartphone size={12} className={isPrimary ? "text-blue-600 shrink-0" : "text-slate-400 shrink-0"} />
+                                ) : (
+                                  <Building2 size={12} className="text-slate-400 shrink-0" />
+                                )}
+                                <span className={`font-mono text-xs font-bold tracking-tight truncate ${isPrimary ? 'text-blue-900' : 'text-slate-800'}`}>
+                                  {formatPhoneDisplay(phone)}
+                                </span>
+                                {carrier && (
+                                  <span className={`text-3xs px-1 py-0.1 rounded font-bold border shrink-0 ${carrier.badgeBg}`}>
+                                    {carrier.name}
+                                  </span>
+                                )}
+                                {isPrimary && (
+                                  <span className="text-amber-500 flex items-center shrink-0" title="SĐT chính (ZNS)">
+                                    <Star size={11} fill="currentColor" />
+                                  </span>
+                                )}
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleCopyPhone(phone)}
+                                className="text-3xs font-bold text-blue-700 hover:text-blue-800 bg-slate-50 hover:bg-blue-50 px-1.5 py-0.5 rounded border border-slate-200 flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                                title="Sao chép SĐT"
+                              >
+                                {isCopied ? <Check size={10} className="text-emerald-600" /> : <Copy size={10} />}
+                                {isCopied ? 'Đã copy' : 'Copy'}
+                              </button>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <span className="font-mono text-xs text-slate-400 italic">Chưa có số điện thoại</span>
                       )}
                     </div>
                   </div>
                 );
               })
             ) : (
-              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-150 space-y-1.5">
+              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-150 space-y-2">
                 <div className="font-bold text-slate-900 text-xs">
                   {customer.nguoiDaiDien || 'Chưa ghi nhận người đại diện'}
                 </div>
-                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/60">
-                  <span className="font-mono text-xs font-bold text-slate-800">
-                    {customer.sdt || '---'}
-                  </span>
-                  {customer.sdt && (
-                    <button
-                      type="button"
-                      onClick={() => handleCopyPhone(customer.sdt!)}
-                      className="text-3xs font-bold text-blue-700 hover:text-blue-800 bg-white hover:bg-blue-50 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1 transition-colors cursor-pointer"
-                      title="Sao chép SĐT"
-                    >
-                      {copiedPhone === customer.sdt ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
-                      {copiedPhone === customer.sdt ? 'Đã copy' : 'Sao chép'}
-                    </button>
+                <div className="space-y-1.5 pt-1 border-t border-slate-200/60">
+                  {customer.sdt ? (() => {
+                    const ext = extractVietnamesePhones(customer.sdt, customer.diaChi);
+                    const phones = ext.phones.length > 0 ? ext.phones.map(p => p.cleaned) : [normalizePhone(customer.sdt)];
+                    return phones.map((phone, pIdx) => {
+                      const isPrimary = pIdx === 0;
+                      const carrier = detectCarrier(phone);
+                      const isMobile = phone.length === 10 && phone.startsWith('0');
+                      const isCopied = copiedPhone === phone;
+                      return (
+                        <div key={phone} className="flex items-center justify-between gap-1.5 bg-white p-1.5 rounded-lg border border-slate-200/70 shadow-2xs">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {isMobile ? (
+                              <Smartphone size={12} className={isPrimary ? "text-blue-600 shrink-0" : "text-slate-400 shrink-0"} />
+                            ) : (
+                              <Building2 size={12} className="text-slate-400 shrink-0" />
+                            )}
+                            <span className={`font-mono text-xs font-bold tracking-tight truncate ${isPrimary ? 'text-blue-900' : 'text-slate-800'}`}>
+                              {formatPhoneDisplay(phone)}
+                            </span>
+                            {carrier && (
+                              <span className={`text-3xs px-1 py-0.1 rounded font-bold border shrink-0 ${carrier.badgeBg}`}>
+                                {carrier.name}
+                              </span>
+                            )}
+                            {isPrimary && (
+                              <span className="text-amber-500 flex items-center shrink-0" title="SĐT chính">
+                                <Star size={11} fill="currentColor" />
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPhone(phone)}
+                            className="text-3xs font-bold text-blue-700 hover:text-blue-800 bg-slate-50 hover:bg-blue-50 px-1.5 py-0.5 rounded border border-slate-200 flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                            title="Sao chép SĐT"
+                          >
+                            {isCopied ? <Check size={10} className="text-emerald-600" /> : <Copy size={10} />}
+                            {isCopied ? 'Đã copy' : 'Copy'}
+                          </button>
+                        </div>
+                      );
+                    });
+                  })() : (
+                    <span className="font-mono text-xs text-slate-400 italic">Chưa có số điện thoại</span>
                   )}
                 </div>
               </div>

@@ -121,7 +121,7 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-50 overflow-hidden">
+    <div className="fixed inset-0 z-[200] flex flex-col bg-slate-50 overflow-hidden">
       <motion.div 
          initial={{ opacity: 0 }}
          animate={{ opacity: 1 }}

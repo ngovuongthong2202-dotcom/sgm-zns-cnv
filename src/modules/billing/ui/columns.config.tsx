@@ -214,24 +214,50 @@ export const getPaymentColumns = (
       const rawName = liveCustomer?.tenKhachHang || p.tenKhachHang || String(info.getValue() || 'Chưa rõ');
       const cName = normalizeBusinessName(rawName);
       
-      if (p.tenNguoiNop || p.sdt) {
-        contactsToDisplay.push({ name: normalizePersonName(p.tenNguoiNop || 'Người nộp tiền'), phone: p.sdt || '' });
+      const payerNameClean = (p.tenNguoiNop || '').trim();
+      const customerRepName = (liveCustomer?.nguoiDaiDien || '').trim().toLowerCase();
+      const customerLegalName = (rawName || '').trim().toLowerCase();
+      const isExplicitThirdPartyPayer = Boolean(
+        payerNameClean &&
+        payerNameClean.toLowerCase() !== 'người nộp tiền' &&
+        payerNameClean.toLowerCase() !== 'nguoi nop tien' &&
+        payerNameClean.toLowerCase() !== customerRepName &&
+        payerNameClean.toLowerCase() !== customerLegalName
+      );
+
+      if (isExplicitThirdPartyPayer) {
+        contactsToDisplay.push({ 
+          name: `Nộp thay: ${normalizePersonName(payerNameClean)}`, 
+          phone: (p as any).sdtNguoiNop || p.sdt || '' 
+        });
       }
+
       if (liveCustomer) {
         if (liveCustomer.nguoiDaiDien || liveCustomer.sdt) {
-          contactsToDisplay.push({ name: normalizePersonName(liveCustomer.nguoiDaiDien || 'Không tên'), phone: liveCustomer.sdt || '' });
+          contactsToDisplay.push({ name: normalizePersonName(liveCustomer.nguoiDaiDien || 'Đại diện'), phone: liveCustomer.sdt || '' });
         }
         if (Array.isArray(liveCustomer.contacts)) {
           liveCustomer.contacts.forEach((contact) => {
             if (contact.nguoiDaiDien || contact.sdt) {
-              contactsToDisplay.push({ name: normalizePersonName(contact.nguoiDaiDien || 'Không tên'), phone: contact.sdt || '' });
+              contactsToDisplay.push({ name: normalizePersonName(contact.nguoiDaiDien || 'Liên hệ'), phone: contact.sdt || '' });
             }
           });
         }
+      } else if (p.sdt) {
+        contactsToDisplay.push({ name: 'Liên hệ', phone: p.sdt });
       }
 
-      // Deduplicate contacts
-      const uniqueContacts = Array.from(new Map(contactsToDisplay.map(item => [`${item.name}-${item.phone}`, item])).values());
+      // Deduplicate contacts by sanitized phone number & name
+      const seenPhones = new Set<string>();
+      const uniqueContacts: { name: string; phone: string }[] = [];
+      for (const item of contactsToDisplay) {
+        const cleanPhone = item.phone ? item.phone.replace(/\D/g, '') : '';
+        if (cleanPhone) {
+          if (seenPhones.has(cleanPhone)) continue;
+          seenPhones.add(cleanPhone);
+        }
+        uniqueContacts.push(item);
+      }
 
       return (
         <div className="flex flex-col gap-1 py-1" title={cName}>

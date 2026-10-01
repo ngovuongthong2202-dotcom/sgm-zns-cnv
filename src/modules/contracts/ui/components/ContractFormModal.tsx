@@ -123,7 +123,7 @@ export function ContractFormModal({ contract, contracts, quotations, nguoiPhuTra
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-50 z-50 flex flex-col h-screen overflow-hidden">
+    <div className="fixed inset-0 bg-slate-50 z-[200] flex flex-col h-screen overflow-hidden">
       <div 
         className="bg-slate-50 flex flex-col h-full w-full overflow-hidden"
         onClick={(e) => e.stopPropagation()}

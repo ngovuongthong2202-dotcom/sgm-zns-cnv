@@ -43,7 +43,8 @@ const collectionTableMap: Record<string, string> = {
   znsWebhookDebug: 'zns_callbacks',
   productCatalog: 'settings',
   jobHeartbeats: 'settings',
-  systemLocks: 'settings'
+  systemLocks: 'settings',
+  counters: 'counters'
 };
 
 export function toTableName(collectionName: string): string {
@@ -282,6 +283,21 @@ export class BaseRepository<T> {
     if ('title' in rec && rec.title) setCol('title', rec.title);
     if ('message' in rec && rec.message) setCol('message', rec.message);
     if ('type' in rec && this.tableName !== 'notifications' && rec.type) setCol('type', rec.type);
+
+    // ASUCM Financial Physical Projections for Analytics & High-Performance Indexing
+    if (this.tableName === 'quotations') {
+      const total = rec.tongTien ?? rec.totalAmount;
+      if (total !== undefined && total !== null) setCol('tong_tien', Number(total) || 0);
+    } else if (this.tableName === 'contracts') {
+      const val = rec.giaTriHopDong ?? rec.totalAmount;
+      if (val !== undefined && val !== null) setCol('gia_tri_hop_dong', Number(val) || 0);
+    } else if (this.tableName === 'payments') {
+      const amt = rec.soTien ?? rec.amount ?? rec.totalAmount;
+      if (amt !== undefined && amt !== null) setCol('so_tien', Number(amt) || 0);
+    } else if (this.tableName === 'customers') {
+      if (rec.totalDebt !== undefined && rec.totalDebt !== null) setCol('total_debt', Number(rec.totalDebt) || 0);
+      if (rec.ltv !== undefined && rec.ltv !== null) setCol('ltv', Number(rec.ltv) || 0);
+    }
 
     // Update L1 cache
     const merged = { ...data, id } as T;

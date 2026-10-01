@@ -171,20 +171,36 @@ router.post('/create/:entityType', async (req, res) => {
     }
 
     if (entityType === 'delivery') {
-      if (!data.paymentId) return res.status(422).json({ error: "Thiếu reference paymentId." });
-      const payDoc = await adminDb.collection('payments').doc(data.paymentId).get();
-      if (!payDoc.exists) return res.status(404).json({ error: "Payment not found" });
+      const isDirectOrExempt = Boolean(data.dacCachGiaoTruoc || (!data.paymentId && (data.contractId || data.quotationId)));
+      if (!data.paymentId && !isDirectOrExempt) return res.status(422).json({ error: "Thiếu reference paymentId." });
       
-      const payData = payDoc.data() as any;
-      const gateResult = canCreateDelivery(payData);
-      if (!gateResult.allowed) return res.status(422).json({ error: gateResult.reason });
+      let payData: any = null;
+      let targetSource: any = null;
 
-      let targetSource = payData.contractId 
-        ? await adminDb.collection('contracts').doc(payData.contractId).get()
-        : (payData.quotationId ? await adminDb.collection('quotations').doc(payData.quotationId).get() : null);
+      if (data.paymentId) {
+        const payDoc = await adminDb.collection('payments').doc(data.paymentId).get();
+        if (!payDoc.exists && !isDirectOrExempt) return res.status(404).json({ error: "Payment not found" });
+        if (payDoc.exists) {
+          payData = payDoc.data() as any;
+          const gateResult = canCreateDelivery(payData);
+          if (!gateResult.allowed && !data.dacCachGiaoTruoc) return res.status(422).json({ error: gateResult.reason });
+          
+          targetSource = payData.contractId 
+            ? await adminDb.collection('contracts').doc(payData.contractId).get()
+            : (payData.quotationId ? await adminDb.collection('quotations').doc(payData.quotationId).get() : null);
+        }
+      }
+
+      if (!targetSource || !targetSource.exists) {
+        if (data.contractId) {
+          targetSource = await adminDb.collection('contracts').doc(data.contractId).get();
+        } else if (data.quotationId) {
+          targetSource = await adminDb.collection('quotations').doc(data.quotationId).get();
+        }
+      }
       
       // Self-healing: Nếu contractId không tồn tại trên contracts collection nhưng tồn tại trên quotations collection
-      if (payData.contractId && (!targetSource || !targetSource.exists)) {
+      if (payData?.contractId && (!targetSource || !targetSource.exists)) {
         const quoFallback = await adminDb.collection('quotations').doc(payData.contractId).get();
         if (quoFallback.exists) {
           targetSource = quoFallback;
@@ -192,7 +208,7 @@ router.post('/create/:entityType', async (req, res) => {
       }
       
       const sourceObj = (targetSource && targetSource.exists ? targetSource.data() : null) || payData;
-      const srcProducts: any[] = sourceObj?.products || payData.products || [];
+      const srcProducts: any[] = sourceObj?.products || payData?.products || [];
       
       if (srcProducts.length > 0) {
         const existingDeliveriesSnap = await adminDb.collection('deliveries')
