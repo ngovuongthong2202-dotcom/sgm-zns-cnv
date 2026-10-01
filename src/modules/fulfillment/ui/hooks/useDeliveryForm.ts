@@ -217,9 +217,9 @@ export function useDeliveryForm(
     const targetCustMa = p.maKh || source?.maKh;
     const customer = customers?.find((c: any) => (targetCustId && c.id === targetCustId) || (targetCustMa && c.maKh === targetCustMa));
 
-    const contactPerson = customer?.contacts?.[0]?.nguoiDaiDien || customer?.nguoiDaiDien || source?.nguoiDaiDien || p.nguoiDaiDien || '';
-    const contactPhone = customer?.contacts?.[0]?.sdt || customer?.sdt || source?.sdt || p.sdt || '';
-    const deliveryAddress = customer?.diaChi || customer?.tinhThanh || source?.diaChi || p.diaChi || '';
+    const contactPerson = source?.nguoiDaiDien || source?.nguoiLienHe || p.nguoiDaiDien || p.nguoiLienHe || (p as any).tenNguoiNop || customer?.contacts?.[0]?.nguoiDaiDien || customer?.nguoiDaiDien || '';
+    const contactPhone = source?.sdt || source?.sdtLienHe || p.sdt || p.sdtLienHe || customer?.contacts?.[0]?.sdt || customer?.sdt || '';
+    const deliveryAddress = source?.diaChi || p.diaChi || customer?.diaChi || customer?.tinhThanh || '';
 
     setValue('nguoiLienHe', contactPerson, { shouldValidate: true });
     setValue('sdtLienHe', contactPhone, { shouldValidate: true });
@@ -393,9 +393,9 @@ export function useDeliveryForm(
     const targetCustMa = c.maKh;
     const customer = customers?.find((cust: any) => (targetCustId && cust.id === targetCustId) || (targetCustMa && cust.maKh === targetCustMa));
 
-    const contactPerson = customer?.contacts?.[0]?.nguoiDaiDien || customer?.nguoiDaiDien || c.nguoiDaiDien || '';
-    const contactPhone = customer?.contacts?.[0]?.sdt || customer?.sdt || c.sdt || '';
-    const deliveryAddress = customer?.diaChi || customer?.tinhThanh || c.diaChi || '';
+    const contactPerson = c.nguoiDaiDien || c.nguoiLienHe || customer?.contacts?.[0]?.nguoiDaiDien || customer?.nguoiDaiDien || '';
+    const contactPhone = c.sdt || c.sdtLienHe || customer?.contacts?.[0]?.sdt || customer?.sdt || '';
+    const deliveryAddress = c.diaChi || customer?.diaChi || customer?.tinhThanh || '';
 
     setValue('nguoiLienHe', contactPerson, { shouldValidate: true });
     setValue('sdtLienHe', contactPhone, { shouldValidate: true });
@@ -516,9 +516,9 @@ export function useDeliveryForm(
     const targetCustMa = q.maKh;
     const customer = customers?.find((c: any) => (targetCustId && c.id === targetCustId) || (targetCustMa && c.maKh === targetCustMa));
 
-    const contactPerson = customer?.contacts?.[0]?.nguoiDaiDien || customer?.nguoiDaiDien || q.nguoiDaiDien || '';
-    const contactPhone = customer?.contacts?.[0]?.sdt || customer?.sdt || q.sdt || '';
-    const deliveryAddress = customer?.diaChi || customer?.tinhThanh || q.diaChi || '';
+    const contactPerson = q.nguoiDaiDien || q.nguoiLienHe || customer?.contacts?.[0]?.nguoiDaiDien || customer?.nguoiDaiDien || '';
+    const contactPhone = q.sdt || q.sdtLienHe || customer?.contacts?.[0]?.sdt || customer?.sdt || '';
+    const deliveryAddress = q.diaChi || customer?.diaChi || customer?.tinhThanh || '';
 
     setValue('nguoiLienHe', contactPerson, { shouldValidate: true });
     setValue('sdtLienHe', contactPhone, { shouldValidate: true });

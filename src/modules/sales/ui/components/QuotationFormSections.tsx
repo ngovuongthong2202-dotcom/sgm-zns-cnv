@@ -137,6 +137,7 @@ export function QuotationBasicInfoSection({
                options={customers}
                value={watch('customerId') || ''}
                disabled={businessLock?.locked}
+               filterOption={(c: any) => !c.isArchived && !c.mergedInto && !(c as any).is_archived && !(c as any).merged_into && !c.tenKhachHang?.startsWith('[ĐÃ GỘP VÀO')}
                onChange={(val, doc?: Record<string, unknown>) => {
                   setValue('customerId', val, { shouldValidate: true, shouldDirty: true });
                   if (doc) {

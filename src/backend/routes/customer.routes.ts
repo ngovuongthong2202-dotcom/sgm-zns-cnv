@@ -78,17 +78,19 @@ router.post('/merge', async (req, res) => {
       sourceCustomerIds.map((id: string) => adminDb.collection('customers').doc(id).get())
     );
 
+    const sourceCustomersSnapshotsData: Record<string, any> = {};
     const updatedTags: string[] = [];
     
-    // Process sources: archive source profiles
+    // Process sources: archive source profiles and capture previous snapshot
     sourceCustomersSnap.forEach(snap => {
       if (snap.exists) {
+        const data = snap.data() || {};
+        sourceCustomersSnapshotsData[snap.id] = data;
         batch.update(snap.ref, {
           isArchived: true,
           mergedInto: targetCustomerId,
           ngayCapNhat: new Date().toISOString()
         });
-        const data = snap.data();
         if (data?.tags) {
           updatedTags.push(...data.tags);
         }
@@ -101,11 +103,18 @@ router.post('/merge', async (req, res) => {
     }
     const tgtData = targetCustomerSnap.data() || {};
     const targetMaKh = tgtData.maKh || '';
-    const targetTenKhachHang = tgtData.tenKhachHang || '';
-    const targetSdt = tgtData.sdt || '';
 
-    // Deep Cascading Customer Merge: Reassign all active child documents & synchronize snapshots
+    // Track all affected child documents for exact rollback capability
+    const affectedQuotations: Array<{ id: string; previousCustomerId: string; previousMaKh: string }> = [];
+    const affectedContracts: Array<{ id: string; previousCustomerId: string; previousMaKh: string }> = [];
+    const affectedPayments: Array<{ id: string; previousCustomerId: string; previousMaKh: string }> = [];
+    const affectedDeliveries: Array<{ id: string; previousCustomerId: string; previousMaKh: string }> = [];
+
+    // Deep Cascading Customer Merge: Reassign active child documents WITHOUT OVERWRITING historic contact/phone snapshots
     for (const srcId of sourceCustomerIds) {
+      const srcData = sourceCustomersSnapshotsData[srcId] || {};
+      const srcMaKh = srcData.maKh || '';
+
       const [quotesSnap, contractsSnap, paymentsSnap, deliveriesSnap] = await Promise.all([
         adminDb.collection('quotations').where('customerId', '==', srcId).get(),
         adminDb.collection('contracts').where('customerId', '==', srcId).get(),
@@ -114,38 +123,41 @@ router.post('/merge', async (req, res) => {
       ]);
 
       quotesSnap.docs.filter(d => !d.data()?.deletedAt).forEach(d => {
+        affectedQuotations.push({ id: d.id, previousCustomerId: srcId, previousMaKh: d.data()?.maKh || srcMaKh });
         batch.update(d.ref, {
           customerId: targetCustomerId,
           maKh: targetMaKh,
-          tenKhachHang: targetTenKhachHang,
-          sdt: targetSdt,
+          // BẢO TOÀN 100% SNAPSHOT LỊCH SỬ: Giữ nguyên sdt, tenKhachHang, nguoiDaiDien, danhSachSdt
           updatedAt: new Date().toISOString()
         });
       });
+
       contractsSnap.docs.filter(d => !d.data()?.deletedAt).forEach(d => {
+        affectedContracts.push({ id: d.id, previousCustomerId: srcId, previousMaKh: d.data()?.maKh || srcMaKh });
         batch.update(d.ref, {
           customerId: targetCustomerId,
           maKh: targetMaKh,
-          tenKhachHang: targetTenKhachHang,
-          sdt: targetSdt,
+          // BẢO TOÀN 100% SNAPSHOT LỊCH SỬ
           updatedAt: new Date().toISOString()
         });
       });
+
       paymentsSnap.docs.filter(d => !d.data()?.deletedAt).forEach(d => {
+        affectedPayments.push({ id: d.id, previousCustomerId: srcId, previousMaKh: d.data()?.maKh || srcMaKh });
         batch.update(d.ref, {
           customerId: targetCustomerId,
           maKh: targetMaKh,
-          tenKhachHang: targetTenKhachHang,
-          sdt: targetSdt,
+          // BẢO TOÀN 100% SNAPSHOT LỊCH SỬ
           updatedAt: new Date().toISOString()
         });
       });
+
       deliveriesSnap.docs.filter(d => !d.data()?.deletedAt).forEach(d => {
+        affectedDeliveries.push({ id: d.id, previousCustomerId: srcId, previousMaKh: d.data()?.maKh || srcMaKh });
         batch.update(d.ref, {
           customerId: targetCustomerId,
           maKh: targetMaKh,
-          tenKhachHang: targetTenKhachHang,
-          sdt: targetSdt,
+          // BẢO TOÀN 100% SNAPSHOT LỊCH SỬ
           updatedAt: new Date().toISOString()
         });
       });
@@ -158,11 +170,199 @@ router.post('/merge', async (req, res) => {
       ngayCapNhat: new Date().toISOString()
     });
 
+    // Record Permanent Audit Trail to auditLogs Collection
+    const auditRef = adminDb.collection('auditLogs').doc();
+    const auditData = {
+      action: 'MERGE_CUSTOMERS',
+      entityId: targetCustomerId,
+      entityType: 'customers',
+      userId: userEmail || 'system',
+      userEmail: userEmail || 'system',
+      timestamp: new Date().toISOString(),
+      details: {
+        masterId: targetCustomerId,
+        masterMaKh: targetMaKh,
+        masterCustomerSnapshot: tgtData,
+        secondaryIds: sourceCustomerIds,
+        secondarySnapshots: sourceCustomersSnapshotsData,
+        affectedDocuments: {
+          quotations: affectedQuotations,
+          contracts: affectedContracts,
+          payments: affectedPayments,
+          deliveries: affectedDeliveries,
+        },
+        mergedAt: new Date().toISOString(),
+      }
+    };
+    batch.set(auditRef, auditData);
+
     await batch.commit();
 
-    return res.json({ success: true, message: 'Đã hợp nhất khách hàng và chuyển giao toàn bộ chứng từ liên quan' });
+    return res.json({ 
+      success: true, 
+      message: 'Đã hợp nhất khách hàng và bảo toàn 100% chứng từ lịch sử',
+      auditLogId: auditRef.id 
+    });
   } catch (err: unknown) {
      return res.status(500).json({ success: false, error: (err instanceof Error ? err.message : String(err)) });
+  }
+});
+
+router.post('/rollback-merge', async (req, res) => {
+  try {
+    const { auditLogId, userEmail } = req.body;
+    if (!auditLogId) {
+      return res.status(400).json({ success: false, error: 'Thiếu auditLogId để hoàn tác' });
+    }
+
+    const auditSnap = await adminDb.collection('auditLogs').doc(auditLogId).get();
+    if (!auditSnap.exists) {
+      return res.status(404).json({ success: false, error: 'Không tìm thấy bản ghi nhật ký gộp khách hàng' });
+    }
+
+    const auditDocData = auditSnap.data() as any;
+    if (auditDocData?.action !== 'MERGE_CUSTOMERS') {
+      return res.status(400).json({ success: false, error: 'Bản ghi này không phải thao tác gộp khách hàng' });
+    }
+
+    const details = auditDocData?.details;
+    if (!details) {
+      return res.status(400).json({ success: false, error: 'Bản ghi không chứa thông tin chi tiết để hoàn tác' });
+    }
+
+    if (details.rolledBackAt) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Thao tác gộp này đã được hoàn tác trước đó lúc ${details.rolledBackAt} bởi ${details.rolledBackBy || 'người dùng'}` 
+      });
+    }
+
+    const batch = adminDb.batch();
+    const secondarySnapshots = details.secondarySnapshots || {};
+    const secondaryIds: string[] = details.secondaryIds || Object.keys(secondarySnapshots);
+
+    // 1. Phục hồi các khách hàng phụ
+    secondaryIds.forEach((secId: string) => {
+      const originalSec = secondarySnapshots[secId] || {};
+      const secRef = adminDb.collection('customers').doc(secId);
+      
+      let cleanName = originalSec.tenKhachHang || '';
+      if (cleanName.startsWith('[ĐÃ GỘP VÀO')) {
+        cleanName = cleanName.replace(/^\[ĐÃ GỘP VÀO [^\]]+\]\s*/, '');
+      }
+
+      batch.update(secRef, {
+        isArchived: false,
+        mergedInto: null,
+        tenKhachHang: cleanName || undefined,
+        ngayCapNhat: new Date().toISOString()
+      });
+    });
+
+    // 2. Phục hồi chứng từ con về khách hàng phụ ban đầu
+    const affectedDocs = details.affectedDocuments || {};
+    const quotations = affectedDocs.quotations || [];
+    const contracts = affectedDocs.contracts || [];
+    const payments = affectedDocs.payments || [];
+    const deliveries = affectedDocs.deliveries || [];
+
+    quotations.forEach((q: any) => {
+      if (q.id && q.previousCustomerId) {
+        batch.update(adminDb.collection('quotations').doc(q.id), {
+          customerId: q.previousCustomerId,
+          maKh: q.previousMaKh || '',
+          updatedAt: new Date().toISOString()
+        });
+      }
+    });
+
+    contracts.forEach((c: any) => {
+      if (c.id && c.previousCustomerId) {
+        batch.update(adminDb.collection('contracts').doc(c.id), {
+          customerId: c.previousCustomerId,
+          maKh: c.previousMaKh || '',
+          updatedAt: new Date().toISOString()
+        });
+      }
+    });
+
+    payments.forEach((p: any) => {
+      if (p.id && p.previousCustomerId) {
+        batch.update(adminDb.collection('payments').doc(p.id), {
+          customerId: p.previousCustomerId,
+          maKh: p.previousMaKh || '',
+          updatedAt: new Date().toISOString()
+        });
+      }
+    });
+
+    deliveries.forEach((d: any) => {
+      if (d.id && d.previousCustomerId) {
+        batch.update(adminDb.collection('deliveries').doc(d.id), {
+          customerId: d.previousCustomerId,
+          maKh: d.previousMaKh || '',
+          updatedAt: new Date().toISOString()
+        });
+      }
+    });
+
+    // 3. Đánh dấu bản ghi Audit Log là đã hoàn tác
+    batch.update(auditSnap.ref, {
+      'details.rolledBackAt': new Date().toISOString(),
+      'details.rolledBackBy': userEmail || 'system'
+    });
+
+    // 4. Ghi nhận thêm 1 bản ghi ROLLBACK_MERGE
+    const rollbackAuditRef = adminDb.collection('auditLogs').doc();
+    batch.set(rollbackAuditRef, {
+      action: 'ROLLBACK_MERGE',
+      entityId: details.masterId,
+      entityType: 'customers',
+      userId: userEmail || 'system',
+      userEmail: userEmail || 'system',
+      timestamp: new Date().toISOString(),
+      details: {
+        originalMergeAuditId: auditLogId,
+        masterId: details.masterId,
+        masterMaKh: details.masterMaKh,
+        restoredSecondaryIds: secondaryIds,
+        restoredQuotationsCount: quotations.length,
+        restoredContractsCount: contracts.length,
+        restoredPaymentsCount: payments.length,
+        restoredDeliveriesCount: deliveries.length,
+        rolledBackAt: new Date().toISOString()
+      }
+    });
+
+    await batch.commit();
+
+    return res.json({
+      success: true,
+      message: `Đã hoàn tác thành công lần gộp! Phục hồi ${secondaryIds.length} khách hàng và chuyển giao lại ${quotations.length + contracts.length + payments.length + deliveries.length} chứng từ về hồ sơ ban đầu.`
+    });
+  } catch (err: unknown) {
+    return res.status(500).json({ success: false, error: (err instanceof Error ? err.message : String(err)) });
+  }
+});
+
+router.get('/merge-history', async (req, res) => {
+  try {
+    const snap = await adminDb
+      .collection('auditLogs')
+      .where('action', '==', 'MERGE_CUSTOMERS')
+      .get();
+
+    const history = snap.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      .sort((a: any, b: any) => (b.timestamp || '').localeCompare(a.timestamp || ''))
+      .slice(0, 30);
+
+    return res.json({ success: true, history });
+  } catch (err: unknown) {
+    return res.status(500).json({ success: false, error: (err instanceof Error ? err.message : String(err)) });
   }
 });
 

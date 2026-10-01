@@ -398,7 +398,7 @@ export function PaymentRecordBasicFields({
                       (watchAll.maKh && c.maKh === watchAll.maKh)
                     );
                     const displayName = liveCustomer?.tenKhachHang || watchAll.tenKhachHang || '---';
-                    const displayPhone = liveCustomer?.sdt || watchAll.sdt || '---';
+                    const displayPhone = watchAll.sdt || liveCustomer?.sdt || '---';
                     return (
                       <div className="grid grid-cols-2 gap-4 border border-slate-150 text-xs font-semibold text-slate-700 bg-slate-50/50 p-4 rounded-xl shadow-xs">
                         <div>

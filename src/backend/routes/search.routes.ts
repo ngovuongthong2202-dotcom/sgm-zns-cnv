@@ -53,6 +53,9 @@ router.get('/:collection', async (req, res) => {
           if (r.deletedAt || r.deleted_at || r.data?.deletedAt || r.data?.deleted_at || r.isDeleted || r.status === 'DELETED') {
             return false;
           }
+          if (coll === 'customers' && (r.isArchived || r.mergedInto || (typeof r.tenKhachHang === 'string' && r.tenKhachHang.startsWith('[ĐÃ GỘP VÀO')))) {
+            return false;
+          }
           return true;
         });
       

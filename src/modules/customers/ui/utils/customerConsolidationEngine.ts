@@ -36,12 +36,61 @@ export function normalizeTaxCode(tax?: string): string {
   return (tax || '').trim().replace(/[\s\-_]/g, '');
 }
 
+export const BLACKLISTED_DUMMY_TAX_CODES = new Set([
+  '0000000000',
+  '1111111111',
+  '2222222222',
+  '3333333333',
+  '4444444444',
+  '5555555555',
+  '6666666666',
+  '7777777777',
+  '8888888888',
+  '9999999999',
+  '1234567890',
+  '0123456789',
+  '9876543210'
+]);
+
 /**
  * Kiểm tra xem MST có phải là Chi nhánh (13 số) hay không
  */
 export function isBranchTaxCode(tax?: string): boolean {
   const norm = normalizeTaxCode(tax);
   return norm.length === 13;
+}
+
+/**
+ * Kiểm tra tính hợp lệ của MST doanh nghiệp dùng trong MDM gom nhóm
+ */
+export function isValidEnterpriseTaxCode(tax?: string): boolean {
+  const norm = normalizeTaxCode(tax);
+  if (!norm || norm.length < 8) return false;
+  if (isBranchTaxCode(norm)) return false; // Không gom nhầm chi nhánh 13 số
+  if (BLACKLISTED_DUMMY_TAX_CODES.has(norm)) return false; // Không gom nhầm MST rác/tạm
+  if (/^(\d)\1+$/.test(norm)) return false; // Không gom chuỗi ký tự lặp vô nghĩa
+  return true;
+}
+
+/**
+ * Tính toán độ tương đồng giữa 2 tên doanh nghiệp chuẩn hóa (Token Jaccard)
+ */
+export function calculateBusinessNameSimilarity(nameA?: string, nameB?: string): number {
+  if (!nameA || !nameB) return 0;
+  const normA = normalizeBusinessName(nameA).toLowerCase();
+  const normB = normalizeBusinessName(nameB).toLowerCase();
+  if (normA === normB) return 1.0;
+
+  const tokensA = new Set(normA.split(/\s+/).filter(w => w.length > 1));
+  const tokensB = new Set(normB.split(/\s+/).filter(w => w.length > 1));
+  if (tokensA.size === 0 || tokensB.size === 0) return 0;
+
+  let intersection = 0;
+  tokensA.forEach(t => {
+    if (tokensB.has(t)) intersection++;
+  });
+  const union = new Set([...tokensA, ...tokensB]).size;
+  return union > 0 ? intersection / union : 0;
 }
 
 /**
@@ -62,7 +111,7 @@ export function detectDuplicateCustomerGroups(
     }
   });
 
-  // Nhóm theo Mã Số Thuế (Chỉ nhóm MST 10 số pháp nhân, không gộp nhầm Chi Nhánh 13 số)
+  // Nhóm theo Mã Số Thuế (Chỉ nhóm MST 10 số pháp nhân hợp lệ, bỏ qua rác và chi nhánh)
   const groupsByTax = new Map<string, Customer[]>();
 
   customers.forEach(c => {
@@ -70,8 +119,8 @@ export function detectDuplicateCustomerGroups(
     if (c.isArchived || c.mergedInto || (c as any).is_archived || (c as any).merged_into || c.tenKhachHang?.startsWith('[ĐÃ GỘP VÀO')) return;
 
     const normTax = normalizeTaxCode(c.maSoThue);
-    // Bỏ qua khách hàng cá nhân không có MST hoặc MST < 8 số
-    if (normTax && normTax.length >= 8 && !isBranchTaxCode(normTax)) {
+    // Bỏ qua khách hàng cá nhân không có MST, MST < 8 số hoặc MST nằm trong Blacklist rác
+    if (isValidEnterpriseTaxCode(normTax)) {
       if (!groupsByTax.has(normTax)) {
         groupsByTax.set(normTax, []);
       }
@@ -174,7 +223,7 @@ export function buildConsolidationMigrationPlan(
           nguoiDaiDien: sec.nguoiDaiDien || 'Đầu mối liên hệ',
           sdt: sec.sdt || '',
           chucVu: 'Đầu mối phụ trách',
-          chiNhanh: sec.chiNhanh || 'Trụ sở'
+          chiNhanh: `${sec.chiNhanh || 'Trụ sở'} [Nguồn: ${sec.maKh || 'Gộp'}]`
         });
       }
     }
@@ -190,7 +239,10 @@ export function buildConsolidationMigrationPlan(
         return false;
       });
       if (!isDuplicate) {
-        mergedContacts.push(secContact);
+        mergedContacts.push({
+          ...secContact,
+          chiNhanh: `${secContact.chiNhanh || sec.chiNhanh || 'Trụ sở'} [Nguồn: ${sec.maKh || 'Gộp'}]`
+        });
       }
     });
   });

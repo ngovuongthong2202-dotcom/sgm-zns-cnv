@@ -22,9 +22,7 @@ export async function syncCustomerSnapshots(forceFullSync = false): Promise<{ pr
 
         const updates: Record<string, string> = {};
         if (tenKhachHang !== undefined) updates.tenKhachHang = tenKhachHang;
-        if (sdt !== undefined) updates.sdt = sdt;
         if (nguoiPhuTrach !== undefined) updates.nguoiPhuTrach = nguoiPhuTrach;
-        if (nguoiDaiDien !== undefined) updates.nguoiDaiDien = nguoiDaiDien;
         if (maKh !== undefined) updates.maKh = maKh;
 
         if (Object.keys(updates).length === 0) continue;
@@ -164,9 +162,7 @@ export async function syncCustomerSnapshots(forceFullSync = false): Promise<{ pr
         const nguoiDaiDien = custData?.nguoiDaiDien || job.nguoiDaiDien;
 
         if (tenKhachHang !== undefined) updates.tenKhachHang = tenKhachHang;
-        if (sdt !== undefined) updates.sdt = sdt;
         if (nguoiPhuTrach !== undefined) updates.nguoiPhuTrach = nguoiPhuTrach;
-        if (nguoiDaiDien !== undefined) updates.nguoiDaiDien = nguoiDaiDien;
         if (targetMaKh !== undefined) updates.maKh = targetMaKh;
 
         if (Object.keys(updates).length > 0) {
