@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   Search, Plus, Package, Loader2, RefreshCw, X, ShoppingCart, Trash2, 
-  Check, Layers, Sparkles, AlertCircle, ArrowRight, CornerDownLeft, 
-  Minus, Tag, Hash, FilePlus
+  Check, Sparkles, AlertCircle, ArrowRight, Minus, Tag, Hash, FilePlus,
+  Percent, ShieldCheck, Calendar, StickyNote, Wrench, ChevronRight
 } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { ProductItem } from '@/src/domain/schema/product.schema';
+import { computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 import { notify } from '@/src/shared/utils/notify';
+import { detectItemType } from '@/src/widgets/product-list-input/useProductItemSemantic';
 
 export interface ErpCatalogItem {
   item_code: string;
@@ -26,6 +28,19 @@ interface ProductCatalogExplorerModalProps {
   onAddItems: (items: ProductItem[]) => void;
   initialCategory?: 'Máy' | 'Vật tư' | 'Dịch vụ';
   defaultVatRate?: number;
+  baseDateForBaoHanh?: string;
+}
+
+function calculateWarrantyExpiry(baseDate: string, days: number): string {
+  try {
+    if (!days || days <= 0) return '';
+    const d = new Date(baseDate || new Date().toISOString().split('T')[0]);
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+  } catch {
+    return '';
+  }
 }
 
 export function ProductCatalogExplorerModal({
@@ -33,11 +48,9 @@ export function ProductCatalogExplorerModal({
   onClose,
   onAddItems,
   initialCategory,
-  defaultVatRate = 8
+  defaultVatRate = 8,
+  baseDateForBaoHanh
 }: ProductCatalogExplorerModalProps) {
-  const [activeTab, setActiveTab] = useState<'ALL' | 'Máy' | 'Vật tư' | 'Dịch vụ'>(
-    initialCategory || 'ALL'
-  );
   const [search, setSearch] = useState('');
   const [items, setItems] = useState<ErpCatalogItem[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -45,8 +58,12 @@ export function ProductCatalogExplorerModal({
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 
-  // Staging Basket
+  // Staging Basket Workspace
   const [basket, setBasket] = useState<BasketItem[]>([]);
+
+  // Bulk tools state
+  const [bulkDiscountInput, setBulkDiscountInput] = useState<string>('');
+  const [bulkWarrantyInput, setBulkWarrantyInput] = useState<string>('365');
 
   // Ad-hoc custom material creation drawer/form
   const [showCustomModal, setShowCustomModal] = useState<boolean>(false);
@@ -59,10 +76,13 @@ export function ProductCatalogExplorerModal({
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
 
-  // Sync initial tab when opening
+  const effectiveBaseDate = useMemo(() => {
+    return baseDateForBaoHanh || new Date().toISOString().split('T')[0];
+  }, [baseDateForBaoHanh]);
+
+  // Sync when opening
   useEffect(() => {
     if (isOpen) {
-      if (initialCategory) setActiveTab(initialCategory);
       setTimeout(() => {
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
@@ -71,11 +91,12 @@ export function ProductCatalogExplorerModal({
       setBasket([]);
       setSearch('');
       setSelectedIndex(-1);
+      setShowCustomModal(false);
     }
-  }, [isOpen, initialCategory]);
+  }, [isOpen]);
 
-  // Fetch Items from ERP API
-  const fetchItems = useCallback(async (query: string = '', catFilter: string = activeTab, isManual: boolean = false) => {
+  // Fetch Items from ERP API (No category tabs - direct omni-search across 86,000 items)
+  const fetchItems = useCallback(async (query: string = '', isManual: boolean = false) => {
     if (isManual) {
       setIsRefreshing(true);
     } else {
@@ -89,7 +110,6 @@ export function ProductCatalogExplorerModal({
 
       const params = new URLSearchParams();
       if (query.trim()) params.append('q', query.trim());
-      if (catFilter && catFilter !== 'ALL') params.append('category', catFilter);
       params.append('limit', '80');
 
       const res = await fetch(`/api/items?${params.toString()}`);
@@ -107,13 +127,13 @@ export function ProductCatalogExplorerModal({
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [activeTab]);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
-      fetchItems(search, activeTab);
+      fetchItems(search);
     }
-  }, [isOpen, activeTab, fetchItems]);
+  }, [isOpen, fetchItems]);
 
   const handleSearchChange = (val: string) => {
     setSearch(val);
@@ -121,11 +141,11 @@ export function ProductCatalogExplorerModal({
       clearTimeout(searchTimeoutRef.current);
     }
     searchTimeoutRef.current = setTimeout(() => {
-      fetchItems(val, activeTab);
+      fetchItems(val);
     }, 200);
   };
 
-  // Add item from catalog to staging basket
+  // Add item from catalog to staging basket with full financial & warranty defaults
   const handleAddToBasket = useCallback((erpItem: ErpCatalogItem) => {
     setBasket((prev) => {
       const existingIdx = prev.findIndex((b) => b.productId === erpItem.item_code);
@@ -134,29 +154,27 @@ export function ProductCatalogExplorerModal({
         const updated = [...prev];
         const cur = updated[existingIdx];
         const newQty = (cur.quantity || 1) + 1;
-        const price = cur.price || 0;
-        const subtotal = price * newQty;
-        const vatPct = cur.vatPct !== undefined ? cur.vatPct : defaultVatRate;
-        const vatAmount = Math.round(subtotal * (vatPct / 100));
+        const recomputed = computeLineItem({
+          ...cur,
+          quantity: newQty
+        });
         updated[existingIdx] = {
           ...cur,
-          quantity: newQty,
-          subtotalBeforeTax: subtotal,
-          vatAmount,
-          subtotalAfterTax: subtotal + vatAmount,
-          total: subtotal + vatAmount
+          ...recomputed,
+          quantity: newQty
         };
         return updated;
       }
 
-      // Add new basket entry
+      // Add new basket entry with smart warranty and semantic type defaults
+      const detectedType = detectItemType(erpItem.name, erpItem.display_unit);
+      const isMachine = detectedType === 'MACHINE';
       const initialPrice = erpItem.default_price || 0;
       const initialQty = 1;
-      const subtotal = initialPrice * initialQty;
-      const vatAmount = Math.round(subtotal * (defaultVatRate / 100));
+      const defaultDays = isMachine ? 365 : (detectedType === 'MATERIAL' ? 180 : 0);
+      const defaultExpiry = defaultDays > 0 ? calculateWarrantyExpiry(effectiveBaseDate, defaultDays) : undefined;
 
-      const newEntry: BasketItem = {
-        stagedKey: `${erpItem.item_code}_${Date.now()}`,
+      const rawEntry: ProductItem = {
         id: crypto.randomUUID(),
         productId: erpItem.item_code,
         item_code: erpItem.item_code,
@@ -165,79 +183,179 @@ export function ProductCatalogExplorerModal({
         quantity: initialQty,
         price: initialPrice,
         vatPct: defaultVatRate,
-        subtotalBeforeTax: subtotal,
-        vatAmount,
-        subtotalAfterTax: subtotal + vatAmount,
-        total: subtotal + vatAmount,
-        itemType: activeTab === 'Máy' ? 'MACHINE' : (activeTab === 'Dịch vụ' ? 'SERVICE' : 'MATERIAL')
+        discountPct: undefined,
+        discountAmount: undefined,
+        soNgayBaoHanh: defaultDays > 0 ? defaultDays : undefined,
+        ngayHetHanBaoHanh: defaultExpiry,
+        ghiChu: '',
+        itemType: detectedType
       };
+
+      const computed = computeLineItem(rawEntry);
+      const newEntry: BasketItem = {
+        ...rawEntry,
+        ...computed,
+        stagedKey: `${erpItem.item_code}_${Date.now()}`
+      };
+
       return [...prev, newEntry];
     });
-  }, [defaultVatRate, activeTab]);
+  }, [defaultVatRate, effectiveBaseDate]);
 
   // Remove single item from basket
   const handleRemoveFromBasket = (stagedKey: string) => {
     setBasket((prev) => prev.filter((b) => b.stagedKey !== stagedKey));
   };
 
-  // Update basket item fields
+  // Update specific fields of a basket item with bidirectional financial & warranty calculation
   const handleUpdateBasketItem = (stagedKey: string, updates: Partial<BasketItem>) => {
     setBasket((prev) =>
       prev.map((item) => {
         if (item.stagedKey !== stagedKey) return item;
-        const merged = { ...item, ...updates };
-        const qty = Math.max(0, Number(merged.quantity) || 0);
-        const price = Math.max(0, Number(merged.price) || 0);
-        const subtotal = qty * price;
-        const vatPct = merged.vatPct !== undefined ? Number(merged.vatPct) : defaultVatRate;
-        const vatAmount = Math.round(subtotal * (vatPct / 100));
+
+        let merged: ProductItem = { ...item, ...updates };
+
+        // Bidirectional Discount Handling
+        const gross = (Number(merged.price) || 0) * (Number(merged.quantity) || 1);
+        if ('discountPct' in updates) {
+          const pct = updates.discountPct !== undefined && updates.discountPct !== null ? Number(updates.discountPct) : undefined;
+          if (pct !== undefined && pct > 0 && gross > 0) {
+            merged.discountAmount = Math.round(gross * (Math.min(100, pct) / 100));
+            merged.discountType = 'PERCENT';
+          } else {
+            merged.discountAmount = 0;
+            merged.discountPct = undefined;
+          }
+        } else if ('discountAmount' in updates) {
+          const amt = Number(updates.discountAmount) || 0;
+          if (amt > 0 && gross > 0) {
+            merged.discountPct = parseFloat(((amt / gross) * 100).toFixed(2));
+            merged.discountType = 'AMOUNT';
+          } else {
+            merged.discountPct = undefined;
+            merged.discountAmount = undefined;
+          }
+        }
+
+        // Auto calculate warranty expiry date if days updated
+        if ('soNgayBaoHanh' in updates) {
+          const days = Number(updates.soNgayBaoHanh) || 0;
+          if (days > 0) {
+            merged.ngayHetHanBaoHanh = calculateWarrantyExpiry(effectiveBaseDate, days);
+          } else {
+            merged.ngayHetHanBaoHanh = undefined;
+          }
+        }
+
+        const computed = computeLineItem(merged);
         return {
+          ...item,
           ...merged,
-          quantity: qty,
-          price,
-          vatPct,
-          subtotalBeforeTax: subtotal,
-          vatAmount,
-          subtotalAfterTax: subtotal + vatAmount,
-          total: subtotal + vatAmount
+          ...computed
         };
       })
     );
   };
 
-  // Create custom non-catalog item into basket
-  const handleAddCustomItem = () => {
-    if (!customName.trim()) {
+  // Bulk Apply Tools
+  const handleBulkApplyVat = (rate: number) => {
+    setBasket((prev) =>
+      prev.map((item) => {
+        const recomputed = computeLineItem({ ...item, vatPct: rate });
+        return { ...item, ...recomputed, vatPct: rate };
+      })
+    );
+    notify.success(`Đã áp dụng thuế VAT ${rate}% cho toàn bộ ${basket.length} sản phẩm`);
+  };
+
+  const handleBulkApplyDiscount = (pct: number) => {
+    setBasket((prev) =>
+      prev.map((item) => {
+        const gross = (Number(item.price) || 0) * (Number(item.quantity) || 1);
+        const amt = pct > 0 ? Math.round(gross * (Math.min(100, pct) / 100)) : undefined;
+        const recomputed = computeLineItem({
+          ...item,
+          discountPct: pct > 0 ? pct : undefined,
+          discountAmount: amt,
+          discountType: 'PERCENT'
+        });
+        return { ...item, ...recomputed, discountPct: pct > 0 ? pct : undefined, discountAmount: amt };
+      })
+    );
+    notify.success(`Đã áp dụng chiết khấu ${pct}% cho toàn bộ ${basket.length} sản phẩm`);
+  };
+
+  const handleBulkApplyWarranty = (days: number) => {
+    const expiry = days > 0 ? calculateWarrantyExpiry(effectiveBaseDate, days) : undefined;
+    setBasket((prev) =>
+      prev.map((item) => ({
+        ...item,
+        soNgayBaoHanh: days > 0 ? days : undefined,
+        ngayHetHanBaoHanh: expiry
+      }))
+    );
+    notify.success(`Đã gán bảo hành ${days} ngày cho toàn bộ ${basket.length} sản phẩm`);
+  };
+
+  // Add Custom Item (Not in ERP catalog)
+  const handleAddCustomMaterial = () => {
+    const trimmedName = customName.trim();
+    if (!trimmedName) {
       notify.warning('Vui lòng nhập tên vật tư / sản phẩm');
       return;
     }
-    const code = customCode.trim() || `VT-${Date.now().toString().slice(-5)}`;
-    const newItem: ErpCatalogItem = {
+
+    const code = customCode.trim().toUpperCase() || `VT-${Date.now().toString().slice(-6)}`;
+    const detectedType = detectItemType(trimmedName, customUnit);
+    const initialPrice = customPrice || 0;
+    const initialQty = 1;
+    const defaultDays = detectedType === 'MACHINE' ? 365 : (detectedType === 'MATERIAL' ? 180 : 0);
+    const defaultExpiry = defaultDays > 0 ? calculateWarrantyExpiry(effectiveBaseDate, defaultDays) : undefined;
+
+    const rawEntry: ProductItem = {
+      id: crypto.randomUUID(),
+      productId: code,
       item_code: code,
-      name: customName.trim(),
-      display_unit: customUnit.trim() || 'Cái',
-      default_price: customPrice || 0
+      productName: trimmedName,
+      unit: customUnit || 'Cái',
+      quantity: initialQty,
+      price: initialPrice,
+      vatPct: defaultVatRate,
+      soNgayBaoHanh: defaultDays > 0 ? defaultDays : undefined,
+      ngayHetHanBaoHanh: defaultExpiry,
+      ghiChu: '',
+      itemType: detectedType
     };
-    handleAddToBasket(newItem);
+
+    const computed = computeLineItem(rawEntry);
+    const newEntry: BasketItem = {
+      ...rawEntry,
+      ...computed,
+      stagedKey: `custom_${Date.now()}`
+    };
+
+    setBasket((prev) => [...prev, newEntry]);
+    setShowCustomModal(false);
     setCustomName('');
     setCustomCode('');
     setCustomPrice(0);
-    setShowCustomModal(false);
-    notify.success(`Đã thêm "${newItem.name}" vào giỏ hàng`);
+    notify.success(`Đã thêm "${trimmedName}" vào giỏ`);
   };
 
-  // Commit all items from basket into Quotation
-  const handleCommitAll = () => {
+  // Commit items to outer Quotation Form
+  const handleCommitAll = useCallback(() => {
     if (basket.length === 0) {
-      notify.warning('Chưa có sản phẩm nào trong giỏ hàng');
+      notify.warning('Vui lòng chọn ít nhất một mặt hàng vào giỏ');
       return;
     }
-    onAddItems(basket);
-    notify.success(`Đã thêm ${basket.length} sản phẩm từ thư viện vào báo giá`);
-    onClose();
-  };
 
-  // Keyboard navigation
+    const cleanItems: ProductItem[] = basket.map(({ stagedKey, ...item }) => item);
+    onAddItems(cleanItems);
+    notify.success(`Đã chèn thành công ${cleanItems.length} sản phẩm vào Báo Giá`);
+    onClose();
+  }, [basket, onAddItems, onClose]);
+
+  // Keyboard navigation & shortcuts
   useEffect(() => {
     if (!isOpen) return;
 
@@ -255,7 +373,6 @@ export function ProductCatalogExplorerModal({
         e.preventDefault();
         handleCommitAll();
       } else if (e.key === 'Enter' && selectedIndex >= 0 && selectedIndex < items.length && !showCustomModal) {
-        // If focus is in search input and enter is pressed, add currently selected item
         if (document.activeElement === searchInputRef.current) {
           e.preventDefault();
           handleAddToBasket(items[selectedIndex]);
@@ -267,27 +384,29 @@ export function ProductCatalogExplorerModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, items, selectedIndex, handleAddToBasket, handleCommitAll, onClose, showCustomModal]);
 
-  // Basket totals
+  // Real-time Basket Financial Aggregations
   const basketAggs = useMemo(() => {
-    const totalQty = basket.reduce((acc, it) => acc + (it.quantity || 0), 0);
-    const subtotal = basket.reduce((acc, it) => acc + (it.subtotalBeforeTax || 0), 0);
-    const vat = basket.reduce((acc, it) => acc + (it.vatAmount || 0), 0);
-    const total = subtotal + vat;
-    return { totalQty, subtotal, vat, total };
+    const totalQty = basket.reduce((acc, it) => acc + (Number(it.quantity) || 0), 0);
+    const totalGross = basket.reduce((acc, it) => acc + ((Number(it.price) || 0) * (Number(it.quantity) || 0)), 0);
+    const totalDiscount = basket.reduce((acc, it) => acc + (Number(it.discountAmount) || 0), 0);
+    const subtotalBeforeTax = Math.max(0, totalGross - totalDiscount);
+    const totalVat = basket.reduce((acc, it) => acc + (Number(it.vatAmount) || 0), 0);
+    const totalAfterTax = subtotalBeforeTax + totalVat;
+    return { totalQty, totalGross, totalDiscount, subtotalBeforeTax, totalVat, totalAfterTax };
   }, [basket]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-2 sm:p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-150">
       <div 
-        className="relative w-full max-w-5xl h-[90vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-[1440px] h-[92vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
         aria-label="Thư viện sản phẩm & vật tư ERP"
       >
         {/* Top Header */}
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
+        <div className="px-6 py-3.5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-bold">
               <Package size={20} />
@@ -300,9 +419,12 @@ export function ProductCatalogExplorerModal({
                 <span className="px-2 py-0.5 text-3xs font-bold rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 font-mono">
                   {totalCount.toLocaleString('vi-VN')} mặt hàng
                 </span>
+                <span className="px-2 py-0.5 text-3xs font-semibold rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 hidden sm:inline">
+                  Tự động loại trừ mâu thuẫn 1T / 2T
+                </span>
               </div>
               <p className="text-2xs text-slate-400">
-                Tìm kiếm thông minh, hỗ trợ chọn nhiều món cùng lúc và gán số lượng/đơn giá tức thời
+                Tìm kiếm thông minh ngữ nghĩa, hỗ trợ gán đầy đủ % Chiết khấu, Tiền CK, Bảo hành và Hạn BH trước khi chèn vào báo giá
               </p>
             </div>
           </div>
@@ -326,44 +448,13 @@ export function ProductCatalogExplorerModal({
           </div>
         </div>
 
-        {/* Modal Body: Split Dual Pane */}
+        {/* Modal Body: Split Dual Pane (38% Catalog Explorer | 62% Staging Studio) */}
         <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden bg-slate-50">
-          {/* Left Pane (Catalog Browser - 58%) */}
-          <div className="flex-[3] flex flex-col min-w-0 border-r border-slate-200 bg-white">
-            {/* Search & Filter Toolbar */}
-            <div className="p-4 border-b border-slate-100 bg-white space-y-3 shrink-0">
-              {/* Category Filter Pills */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
-                  {(['ALL', 'Máy', 'Vật tư', 'Dịch vụ'] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => setActiveTab(tab)}
-                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                        activeTab === tab
-                          ? 'bg-white text-blue-700 shadow-xs border border-slate-200/80 font-bold'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-                      }`}
-                    >
-                      {tab === 'ALL' ? 'Tất cả' : tab}
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => fetchItems(search, activeTab, true)}
-                  disabled={isRefreshing}
-                  className="px-2.5 py-1 text-2xs font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Tải lại danh mục từ máy chủ ERP"
-                >
-                  <RefreshCw size={12} className={isRefreshing ? 'animate-spin text-blue-600' : ''} />
-                  Làm mới ERP
-                </button>
-              </div>
-
-              {/* Search input with keyboard hint */}
+          
+          {/* LEFT PANE: Catalog Explorer (38%) */}
+          <div className="w-full md:w-[38%] lg:w-[36%] flex flex-col min-w-0 border-r border-slate-200 bg-white">
+            {/* Search Toolbar (No Redundant Category Tabs) */}
+            <div className="p-3.5 border-b border-slate-100 bg-white space-y-2 shrink-0">
               <div className="relative flex items-center">
                 <Search className="absolute left-3 text-slate-400 pointer-events-none" size={16} />
                 <input
@@ -371,10 +462,10 @@ export function ProductCatalogExplorerModal({
                   type="text"
                   value={search}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder="Nhập tên vật tư, quy cách hoặc mã ERP (VD: Mực in, Dây curoa, Lõi lọc...)..."
-                  className="w-full h-10 pl-9 pr-20 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                  placeholder="Nhập tên máy, quy cách, mã ERP (VD: may can ton 2 tang, lõi lọc, dây curoa)..."
+                  className="w-full h-10 pl-9 pr-24 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all placeholder:text-slate-400"
                 />
-                <div className="absolute right-2.5 flex items-center gap-1 text-3xs text-slate-400 font-mono">
+                <div className="absolute right-2 flex items-center gap-1">
                   {loading ? (
                     <Loader2 size={16} className="animate-spin text-blue-600" />
                   ) : search ? (
@@ -382,18 +473,28 @@ export function ProductCatalogExplorerModal({
                       type="button"
                       onClick={() => {
                         setSearch('');
-                        fetchItems('', activeTab);
+                        fetchItems('');
                         searchInputRef.current?.focus();
                       }}
                       className="p-1 hover:bg-slate-200 rounded text-slate-500 cursor-pointer"
+                      title="Xóa từ khóa"
                     >
                       <X size={12} />
                     </button>
                   ) : (
-                    <span className="px-1.5 py-0.5 rounded bg-slate-200/80 border border-slate-300/60 font-semibold">
+                    <span className="text-3xs text-slate-400 font-mono px-1.5 py-0.5 rounded bg-slate-200/70 border border-slate-300/50">
                       Enter để chọn
                     </span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => fetchItems(search, true)}
+                    disabled={isRefreshing}
+                    className="p-1 hover:bg-slate-200 rounded text-slate-500 cursor-pointer"
+                    title="Đồng bộ danh mục ERP"
+                  >
+                    <RefreshCw size={13} className={isRefreshing ? 'animate-spin text-blue-600' : ''} />
+                  </button>
                 </div>
               </div>
             </div>
@@ -406,7 +507,7 @@ export function ProductCatalogExplorerModal({
               {loading && items.length === 0 ? (
                 <div className="h-64 flex flex-col items-center justify-center text-slate-400 gap-2">
                   <Loader2 size={28} className="animate-spin text-blue-600" />
-                  <span className="text-xs font-medium">Đang tra cứu danh mục vật tư ERP...</span>
+                  <span className="text-xs font-medium">Đang tra cứu danh mục ERP...</span>
                 </div>
               ) : items.length === 0 ? (
                 <div className="h-64 flex flex-col items-center justify-center text-slate-400 gap-3 px-4 text-center">
@@ -416,7 +517,7 @@ export function ProductCatalogExplorerModal({
                       Không tìm thấy mặt hàng nào khớp với "{search}"
                     </p>
                     <p className="text-xs text-slate-500 mt-1">
-                      Bạn có thể thử tìm với từ khóa ngắn hơn hoặc tạo nhanh vật tư ngoài danh mục.
+                      Thử từ khóa khác hoặc bấm bên dưới để tạo nhanh mặt hàng ngoài danh mục.
                     </p>
                   </div>
                   <Button
@@ -436,6 +537,7 @@ export function ProductCatalogExplorerModal({
                   const isInBasket = basket.some((b) => b.productId === item.item_code);
                   const basketItem = basket.find((b) => b.productId === item.item_code);
                   const isSelected = index === selectedIndex;
+                  const itemSemantic = detectItemType(item.name, item.display_unit);
 
                   return (
                     <div
@@ -444,45 +546,50 @@ export function ProductCatalogExplorerModal({
                         setSelectedIndex(index);
                         handleAddToBasket(item);
                       }}
-                      className={`group flex items-center justify-between p-3 rounded-xl transition-all cursor-pointer border ${
+                      className={`group flex items-center justify-between p-2.5 rounded-xl transition-all cursor-pointer border ${
                         isSelected
                           ? 'bg-blue-50/70 border-blue-200 shadow-2xs'
                           : 'border-transparent hover:bg-slate-50 hover:border-slate-200'
                       }`}
                     >
-                      <div className="flex-1 pr-3 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-2xs font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 group-hover:bg-blue-100 group-hover:text-blue-800 transition-colors">
+                      <div className="min-w-0 flex-1 pr-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-3xs font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 group-hover:bg-blue-100 group-hover:text-blue-800 transition-colors">
                             {item.item_code}
                           </span>
-                          <span className="text-3xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className={`text-3xs font-bold px-1.5 py-0.5 rounded ${
+                            itemSemantic === 'MACHINE' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
+                            itemSemantic === 'SERVICE' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                            'bg-slate-100 text-slate-600'
+                          }`}>
+                            {itemSemantic === 'MACHINE' ? 'Máy' : itemSemantic === 'SERVICE' ? 'Dịch vụ' : 'Vật tư'}
+                          </span>
+                          <span className="text-3xs font-medium text-slate-500">
                             ĐVT: {item.display_unit || 'Cái'}
                           </span>
                         </div>
-                        <h4 className="text-xs sm:text-sm font-semibold text-slate-800 mt-1.5 leading-snug group-hover:text-blue-700 transition-colors">
+                        <h4 className="text-xs font-semibold text-slate-800 leading-snug mt-1 group-hover:text-blue-700 transition-colors line-clamp-2">
                           {item.name}
                         </h4>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="shrink-0 flex items-center gap-2">
                         {isInBasket ? (
-                          <div className="flex items-center gap-1.5 bg-blue-600 text-white px-2.5 py-1 rounded-lg text-2xs font-bold shadow-xs">
-                            <Check size={12} />
-                            <span>Đã chọn ({basketItem?.quantity || 1})</span>
-                          </div>
+                          <span className="inline-flex items-center gap-1 text-2xs font-bold px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <Check size={12} /> Đã chọn ({basketItem?.quantity || 1})
+                          </span>
                         ) : (
-                          <Button
+                          <button
                             type="button"
-                            size="xs"
-                            variant="ghost"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleAddToBasket(item);
                             }}
-                            className="text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white border border-blue-200 transition-all rounded-lg px-2.5 py-1 flex items-center gap-1 shadow-2xs"
+                            className="h-7 w-7 rounded-lg bg-blue-50 text-blue-600 border border-blue-200/80 hover:bg-blue-600 hover:text-white flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                            title="Thêm vào giỏ"
                           >
-                            <Plus size={13} /> Chọn
-                          </Button>
+                            <Plus size={14} />
+                          </button>
                         )}
                       </div>
                     </div>
@@ -490,199 +597,401 @@ export function ProductCatalogExplorerModal({
                 })
               )}
             </div>
-
-            {/* List Footer Info */}
-            <div className="px-4 py-2 bg-slate-100/70 border-t border-slate-200 text-3xs text-slate-500 font-semibold flex items-center justify-between shrink-0">
-              <span>Hiển thị tối đa 80 kết quả tìm kiếm đầu tiên</span>
-              <span className="text-slate-400">Ấn [Enter] hoặc nhấp chuột để đưa vào giỏ</span>
-            </div>
           </div>
 
-          {/* Right Pane (Staging Basket - 42%) */}
-          <div className="flex-[2] flex flex-col min-w-0 bg-slate-50">
-            {/* Basket Header */}
-            <div className="p-4 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <ShoppingCart size={16} className="text-blue-600" />
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  Mặt Hàng Đã Chọn ({basket.length})
-                </h3>
+          {/* RIGHT PANE: Financial & Warranty Staging Studio (62%) */}
+          <div className="w-full md:w-[62%] lg:w-[64%] flex flex-col min-w-0 bg-slate-50 border-t md:border-t-0">
+            {/* Staging Studio Header & Bulk Action Toolbar */}
+            <div className="p-3.5 border-b border-slate-200 bg-white space-y-2.5 shrink-0 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-6 w-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                    <ShoppingCart size={15} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                      Không Gian Tài Chính Đệm ({basket.length} mặt hàng)
+                    </h3>
+                  </div>
+                </div>
+
+                {basket.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setBasket([])}
+                    className="text-3xs font-semibold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 size={12} /> Xóa sạch giỏ
+                  </button>
+                )}
               </div>
+
+              {/* Bulk Actions Quick Bar */}
               {basket.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setBasket([])}
-                  className="text-3xs font-semibold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <Trash2 size={12} /> Xóa tất cả
-                </button>
+                <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-slate-100 text-3xs">
+                  <span className="font-bold text-slate-500 uppercase tracking-wider">Áp dụng cả giỏ:</span>
+                  
+                  {/* VAT Bulk Buttons */}
+                  <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden bg-slate-50">
+                    <button
+                      type="button"
+                      onClick={() => handleBulkApplyVat(0)}
+                      className="px-2 py-0.5 font-bold hover:bg-blue-600 hover:text-white transition-colors text-slate-700 border-r border-slate-200"
+                    >
+                      VAT 0%
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBulkApplyVat(8)}
+                      className="px-2 py-0.5 font-bold hover:bg-blue-600 hover:text-white transition-colors text-slate-700 border-r border-slate-200"
+                    >
+                      VAT 8%
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBulkApplyVat(10)}
+                      className="px-2 py-0.5 font-bold hover:bg-blue-600 hover:text-white transition-colors text-slate-700"
+                    >
+                      VAT 10%
+                    </button>
+                  </div>
+
+                  {/* Discount % Bulk Tool */}
+                  <div className="inline-flex items-center gap-1 bg-amber-50/60 border border-amber-200 px-1.5 py-0.5 rounded-lg">
+                    <Percent size={10} className="text-amber-600" />
+                    <input
+                      type="number"
+                      placeholder="% CK"
+                      value={bulkDiscountInput}
+                      onChange={(e) => setBulkDiscountInput(e.target.value)}
+                      className="w-10 text-center font-bold text-amber-800 bg-transparent outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = parseFloat(bulkDiscountInput) || 0;
+                        handleBulkApplyDiscount(val);
+                      }}
+                      className="px-1.5 py-0.2 rounded bg-amber-600 text-white font-bold hover:bg-amber-700"
+                    >
+                      Áp
+                    </button>
+                  </div>
+
+                  {/* Warranty Days Bulk Tool */}
+                  <div className="inline-flex items-center gap-1 bg-blue-50/60 border border-blue-200 px-1.5 py-0.5 rounded-lg">
+                    <ShieldCheck size={10} className="text-blue-600" />
+                    <input
+                      type="number"
+                      placeholder="Ngày BH"
+                      value={bulkWarrantyInput}
+                      onChange={(e) => setBulkWarrantyInput(e.target.value)}
+                      className="w-12 text-center font-bold text-blue-800 bg-transparent outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = parseInt(bulkWarrantyInput, 10) || 0;
+                        handleBulkApplyWarranty(val);
+                      }}
+                      className="px-1.5 py-0.2 rounded bg-blue-600 text-white font-bold hover:bg-blue-700"
+                    >
+                      Gán BH
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 
-            {/* Basket Items List */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin">
+            {/* Staging Studio Items List */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2.5 scrollbar-thin">
               {basket.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3 px-6 text-center">
-                  <div className="h-12 w-12 rounded-full bg-slate-200/60 flex items-center justify-center text-slate-400">
-                    <ShoppingCart size={24} />
+                  <div className="h-14 w-14 rounded-full bg-slate-200/70 flex items-center justify-center text-slate-400">
+                    <ShoppingCart size={28} />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-700">Giỏ chọn hàng đang trống</p>
-                    <p className="text-3xs text-slate-500 mt-1 max-w-[220px]">
-                      Nhấp vào bất kỳ mặt hàng nào ở cột danh mục bên trái để thêm vào đây trước khi chèn vào báo giá.
+                    <p className="text-sm font-bold text-slate-700">Không gian đệm đang trống</p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-[320px]">
+                      Nhấp vào mặt hàng ở cột danh mục bên trái để thêm vào đây. Tại đây bạn có thể cấu hình chi tiết % Chiết khấu, Tiền CK, Bảo hành và Ghi chú trước khi đưa vào báo giá.
                     </p>
                   </div>
                 </div>
               ) : (
-                basket.map((item, idx) => (
-                  <div
-                    key={item.stagedKey}
-                    className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all space-y-2.5"
-                  >
-                    {/* Item Top Info */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-mono text-3xs font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                            {item.productId || item.item_code}
-                          </span>
-                          <span className="text-3xs font-medium text-slate-500">
-                            ĐVT: {item.unit || 'Cái'}
-                          </span>
-                        </div>
-                        <h5 className="text-xs font-bold text-slate-800 leading-snug mt-1">
-                          {item.productName}
-                        </h5>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFromBasket(item.stagedKey)}
-                        className="text-slate-400 hover:text-rose-600 p-1 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
-                        title="Bỏ mặt hàng này"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                basket.map((item, idx) => {
+                  const gross = (Number(item.price) || 0) * (Number(item.quantity) || 1);
+                  const isMachine = item.itemType === 'MACHINE';
 
-                    {/* Inline Form: Quantity, Price, VAT */}
-                    <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
-                      {/* Quantity with quick buttons */}
-                      <div className="space-y-1">
-                        <label className="text-3xs font-bold text-slate-500 block uppercase">
-                          Số lượng
-                        </label>
-                        <div className="flex items-center border border-slate-200 rounded-lg bg-slate-50 overflow-hidden">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleUpdateBasketItem(item.stagedKey, {
-                                quantity: Math.max(1, (item.quantity || 1) - 1)
-                              })
-                            }
-                            className="px-1.5 py-1 text-slate-500 hover:bg-slate-200 text-xs transition-colors"
-                          >
-                            <Minus size={11} />
-                          </button>
+                  return (
+                    <div
+                      key={item.stagedKey}
+                      className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs hover:border-blue-200 hover:shadow-xs transition-all space-y-2.5"
+                    >
+                      {/* Top Item Summary Row */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-3xs font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                              #{idx + 1} | {item.productId || item.item_code}
+                            </span>
+                            <span className={`text-3xs font-bold px-1.5 py-0.5 rounded ${
+                              item.itemType === 'MACHINE' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
+                              item.itemType === 'SERVICE' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                              'bg-slate-100 text-slate-600'
+                            }`}>
+                              {item.itemType === 'MACHINE' ? 'Máy' : item.itemType === 'SERVICE' ? 'Dịch vụ' : 'Vật tư'}
+                            </span>
+                          </div>
+                          <h4 className="text-xs font-bold text-slate-900 leading-snug mt-1">
+                            {item.productName}
+                          </h4>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFromBasket(item.stagedKey)}
+                          className="text-slate-400 hover:text-rose-600 p-1 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                          title="Bỏ mặt hàng này khỏi giỏ"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+
+                      {/* Main Financial Grid (5 Columns) */}
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2 border-t border-slate-100">
+                        {/* 1. SL & ĐVT */}
+                        <div className="space-y-1">
+                          <label className="text-3xs font-bold text-slate-500 uppercase block">
+                            SL &amp; ĐVT
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <div className="flex items-center border border-slate-200 rounded-lg bg-slate-50 overflow-hidden flex-1">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUpdateBasketItem(item.stagedKey, {
+                                    quantity: Math.max(1, (Number(item.quantity) || 1) - 1)
+                                  })
+                                }
+                                className="px-1.5 py-1 text-slate-500 hover:bg-slate-200 text-xs"
+                              >
+                                <Minus size={11} />
+                              </button>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity || 1}
+                                onChange={(e) =>
+                                  handleUpdateBasketItem(item.stagedKey, {
+                                    quantity: Math.max(1, Number(e.target.value) || 1)
+                                  })
+                                }
+                                className="w-full text-center text-xs font-bold bg-transparent outline-none py-1 text-slate-800 font-mono"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUpdateBasketItem(item.stagedKey, {
+                                    quantity: (Number(item.quantity) || 1) + 1
+                                  })
+                                }
+                                className="px-1.5 py-1 text-slate-500 hover:bg-slate-200 text-xs"
+                              >
+                                <Plus size={11} />
+                              </button>
+                            </div>
+                            <input
+                              type="text"
+                              value={item.unit || 'Cái'}
+                              onChange={(e) => handleUpdateBasketItem(item.stagedKey, { unit: e.target.value })}
+                              placeholder="ĐVT"
+                              className="w-12 h-7 px-1 text-xs font-semibold text-center border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-blue-500 outline-none"
+                              title="Đơn vị tính"
+                            />
+                          </div>
+                        </div>
+
+                        {/* 2. Đơn giá */}
+                        <div className="space-y-1">
+                          <label className="text-3xs font-bold text-slate-500 uppercase block">
+                            Đơn giá (₫)
+                          </label>
                           <input
-                            type="number"
-                            min="1"
-                            value={item.quantity || 1}
+                            type="text"
+                            value={item.price ? new Intl.NumberFormat('vi-VN').format(item.price) : ''}
+                            placeholder="0"
+                            onChange={(e) => {
+                              const raw = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
+                              handleUpdateBasketItem(item.stagedKey, { price: raw });
+                            }}
+                            className="w-full h-7 px-2 text-xs font-mono font-bold text-right border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-blue-500 outline-none"
+                          />
+                          <div className="text-right text-3xs text-slate-400 font-mono leading-none">
+                            Tạm tính: {new Intl.NumberFormat('vi-VN').format(gross)} ₫
+                          </div>
+                        </div>
+
+                        {/* 3. Chiết khấu 2 chiều (% hoặc Tiền) */}
+                        <div className="space-y-1 bg-amber-50/20 p-1 rounded-lg border border-amber-100">
+                          <label className="text-3xs font-bold text-amber-700 uppercase block">
+                            Chiết khấu (% / Tiền)
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <div className="relative flex-1">
+                              <input
+                                type="number"
+                                step="any"
+                                min="0"
+                                max="100"
+                                placeholder="%"
+                                value={item.discountPct ?? ''}
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                                  handleUpdateBasketItem(item.stagedKey, { discountPct: val });
+                                }}
+                                className="w-full h-7 px-1 text-xs font-mono font-bold text-center text-amber-800 border border-amber-200 rounded-lg bg-white focus:border-amber-500 outline-none"
+                              />
+                            </div>
+                            <div className="relative flex-[1.4]">
+                              <input
+                                type="text"
+                                placeholder="Trừ tiền"
+                                value={item.discountAmount ? new Intl.NumberFormat('vi-VN').format(item.discountAmount) : ''}
+                                onChange={(e) => {
+                                  const raw = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
+                                  handleUpdateBasketItem(item.stagedKey, { discountAmount: raw || undefined });
+                                }}
+                                className="w-full h-7 px-1 text-xs font-mono font-bold text-right text-amber-800 border border-amber-200 rounded-lg bg-white focus:border-amber-500 outline-none"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 4. Thuế VAT */}
+                        <div className="space-y-1 bg-sky-50/20 p-1 rounded-lg border border-sky-100">
+                          <label className="text-3xs font-bold text-sky-700 uppercase block">
+                            Thuế VAT %
+                          </label>
+                          <select
+                            value={item.vatPct ?? defaultVatRate}
                             onChange={(e) =>
                               handleUpdateBasketItem(item.stagedKey, {
-                                quantity: Math.max(1, Number(e.target.value) || 1)
+                                vatPct: Number(e.target.value)
                               })
                             }
-                            className="w-full text-center text-xs font-bold bg-transparent outline-none py-1 text-slate-800"
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleUpdateBasketItem(item.stagedKey, {
-                                quantity: (item.quantity || 1) + 1
-                              })
-                            }
-                            className="px-1.5 py-1 text-slate-500 hover:bg-slate-200 text-xs transition-colors"
+                            className="w-full h-7 px-1 text-xs font-bold text-center border border-sky-200 rounded-lg bg-white focus:border-sky-500 outline-none"
                           >
-                            <Plus size={11} />
-                          </button>
+                            <option value="0">0%</option>
+                            <option value="5">5%</option>
+                            <option value="8">8%</option>
+                            <option value="10">10%</option>
+                          </select>
+                          <div className="text-right text-3xs font-bold text-sky-700 font-mono leading-none">
+                            +{new Intl.NumberFormat('vi-VN').format(item.vatAmount || 0)} ₫
+                          </div>
+                        </div>
+
+                        {/* 5. Bảo hành & Hạn BH */}
+                        <div className="space-y-1 bg-emerald-50/20 p-1 rounded-lg border border-emerald-100">
+                          <label className="text-3xs font-bold text-emerald-700 uppercase block">
+                            Bảo hành &amp; Hạn BH
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              placeholder="Số ngày"
+                              value={item.soNgayBaoHanh ?? ''}
+                              onChange={(e) => {
+                                const days = parseInt(e.target.value, 10);
+                                handleUpdateBasketItem(item.stagedKey, {
+                                  soNgayBaoHanh: isNaN(days) ? undefined : days
+                                });
+                              }}
+                              className="w-14 h-7 text-xs font-mono font-bold text-center border border-emerald-200 rounded-lg bg-white focus:border-emerald-500 outline-none"
+                              title="Số ngày bảo hành"
+                            />
+                            <div className="flex-1 text-3xs font-mono text-emerald-800 truncate" title={item.ngayHetHanBaoHanh || 'Chưa tính'}>
+                              {item.ngayHetHanBaoHanh ? `Hạn: ${item.ngayHetHanBaoHanh}` : 'Không BH'}
+                            </div>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Unit Price */}
-                      <div className="space-y-1">
-                        <label className="text-3xs font-bold text-slate-500 block uppercase">
-                          Đơn giá (₫)
-                        </label>
-                        <input
-                          type="text"
-                          value={item.price ? new Intl.NumberFormat('vi-VN').format(item.price) : ''}
-                          placeholder="0"
-                          onChange={(e) => {
-                            const raw = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
-                            handleUpdateBasketItem(item.stagedKey, { price: raw });
-                          }}
-                          className="w-full h-7 px-2 text-xs font-mono font-bold text-right border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-blue-500 outline-none"
-                        />
-                      </div>
+                      {/* Ghi chú & Thành tiền dòng hàng */}
+                      <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100 text-xs">
+                        <div className="flex items-center gap-2 flex-1">
+                          <StickyNote size={13} className="text-slate-400 shrink-0" />
+                          <input
+                            type="text"
+                            placeholder="Ghi chú thêm cho sản phẩm (màu sắc, quy cách, nơi giao)..."
+                            value={item.ghiChu || ''}
+                            onChange={(e) => handleUpdateBasketItem(item.stagedKey, { ghiChu: e.target.value })}
+                            className="w-full text-2xs italic text-slate-600 bg-transparent border-b border-dashed border-slate-200 focus:border-blue-400 outline-none py-0.5 placeholder:text-slate-300"
+                          />
+                        </div>
 
-                      {/* VAT % Selector */}
-                      <div className="space-y-1">
-                        <label className="text-3xs font-bold text-slate-500 block uppercase">
-                          VAT %
-                        </label>
-                        <select
-                          value={item.vatPct ?? defaultVatRate}
-                          onChange={(e) =>
-                            handleUpdateBasketItem(item.stagedKey, {
-                              vatPct: Number(e.target.value)
-                            })
-                          }
-                          className="w-full h-7 px-1 text-xs font-bold text-center border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:border-blue-500 outline-none"
-                        >
-                          <option value="0">0%</option>
-                          <option value="5">5%</option>
-                          <option value="8">8%</option>
-                          <option value="10">10%</option>
-                        </select>
+                        <div className="flex items-center gap-1 shrink-0 font-mono">
+                          <span className="text-3xs font-bold text-slate-400 uppercase">Thành tiền:</span>
+                          <span className="text-sm font-extrabold text-emerald-700">
+                            {new Intl.NumberFormat('vi-VN').format(item.subtotalAfterTax || 0)} ₫
+                          </span>
+                        </div>
                       </div>
                     </div>
-
-                    {/* Subtotal preview */}
-                    <div className="flex items-center justify-between text-3xs font-semibold text-slate-500 pt-1">
-                      <span>Thành tiền trước thuế:</span>
-                      <span className="font-mono text-slate-700 font-bold">
-                        {new Intl.NumberFormat('vi-VN').format(item.subtotalBeforeTax || 0)} ₫
-                      </span>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
-            {/* Basket Financial Summary Bar */}
+            {/* Real-time Financial Summary Balance Bar */}
             {basket.length > 0 && (
-              <div className="p-3.5 bg-white border-t border-slate-200 shrink-0 space-y-1.5 shadow-xs">
-                <div className="flex items-center justify-between text-2xs text-slate-600">
-                  <span>Tổng số lượng:</span>
-                  <span className="font-bold text-slate-800">{basketAggs.totalQty} món</span>
+              <div className="p-3.5 bg-white border-t border-slate-200 shrink-0 space-y-1.5 shadow-sm">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-2xs text-slate-600">
+                  <div>
+                    <span>Tổng số lượng: </span>
+                    <span className="font-bold text-slate-800">{basketAggs.totalQty} món</span>
+                  </div>
+                  <div>
+                    <span>Tiền trước CK: </span>
+                    <span className="font-mono font-bold text-slate-800">
+                      {new Intl.NumberFormat('vi-VN').format(basketAggs.totalGross)} ₫
+                    </span>
+                  </div>
+                  <div>
+                    <span>Tổng Chiết Khấu: </span>
+                    <span className="font-mono font-bold text-amber-700">
+                      -{new Intl.NumberFormat('vi-VN').format(basketAggs.totalDiscount)} ₫
+                    </span>
+                  </div>
+                  <div>
+                    <span>Tiền Thuế VAT: </span>
+                    <span className="font-mono font-bold text-sky-700">
+                      +{new Intl.NumberFormat('vi-VN').format(basketAggs.totalVat)} ₫
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-2xs text-slate-600">
-                  <span>Tiền hàng trước thuế:</span>
-                  <span className="font-mono font-bold text-slate-800">
-                    {new Intl.NumberFormat('vi-VN').format(basketAggs.subtotal)} ₫
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-2xs text-slate-600">
-                  <span>Tiền thuế VAT:</span>
-                  <span className="font-mono font-bold text-sky-700">
-                    {new Intl.NumberFormat('vi-VN').format(basketAggs.vat)} ₫
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs font-bold text-slate-900 pt-1 border-t border-slate-100">
-                  <span>Tổng cộng thanh toán:</span>
-                  <span className="font-mono font-bold text-emerald-700 text-sm">
-                    {new Intl.NumberFormat('vi-VN').format(basketAggs.total)} ₫
-                  </span>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                      Tổng Cộng Thanh Toán:
+                    </span>
+                    <span className="font-mono font-black text-emerald-700 text-base sm:text-lg">
+                      {new Intl.NumberFormat('vi-VN').format(basketAggs.totalAfterTax)} ₫
+                    </span>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="accent"
+                    size="sm"
+                    onClick={handleCommitAll}
+                    className="text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 flex items-center gap-1.5 px-4 py-2 rounded-xl shadow-md transition-all cursor-pointer"
+                  >
+                    <Check size={16} />
+                    <span>Chèn {basket.length} mặt hàng vào Báo Giá</span>
+                    <span className="text-3xs font-mono font-normal opacity-80">(Ctrl+Enter)</span>
+                  </Button>
                 </div>
               </div>
             )}
@@ -690,102 +999,107 @@ export function ProductCatalogExplorerModal({
         </div>
 
         {/* Modal Bottom Footer Actions */}
-        <div className="px-6 py-3.5 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-3 text-2xs text-slate-500 font-medium">
-            <span className="hidden sm:inline">Phím tắt:</span>
-            <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+        <div className="px-6 py-2.5 bg-slate-100 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 text-3xs text-slate-500">
+          <div className="flex items-center gap-3">
+            <span>Phím tắt tiện ích:</span>
+            <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">
               Esc: Đóng
             </span>
-            <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-              Ctrl+Enter: Chèn ngay
+            <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">
+              Enter: Chọn vào giỏ
+            </span>
+            <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">
+              Ctrl+Enter: Chèn ngay vào Báo Giá
             </span>
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
+              size="xs"
               onClick={onClose}
-              className="text-xs font-semibold text-slate-600 hover:text-slate-800 px-4 h-9"
+              className="text-slate-600 hover:bg-slate-200"
             >
-              Hủy bỏ (Esc)
+              Hủy bỏ
             </Button>
-            <Button
-              type="button"
-              variant="accent"
-              onClick={handleCommitAll}
-              disabled={basket.length === 0}
-              className="text-xs font-bold px-5 h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md flex items-center gap-2 transition-all disabled:opacity-50"
-            >
-              <Check size={16} />
-              Chèn {basket.length > 0 ? `${basket.length} sản phẩm` : ''} vào Báo Giá
-            </Button>
+            {basket.length > 0 && (
+              <Button
+                type="button"
+                variant="accent"
+                size="xs"
+                onClick={handleCommitAll}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+              >
+                Chèn vào Báo Giá
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Submodal: Ad-hoc Custom Item Form */}
+        {/* Ad-Hoc Material Creation Modal Overlay */}
         {showCustomModal && (
-          <div className="absolute inset-0 z-50 bg-slate-950/60 backdrop-blur-2xs flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-white rounded-2xl p-5 shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95 duration-150">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                  <FilePlus size={16} className="text-blue-600" />
-                  Thêm Vật Tư / Sản Phẩm Ngoài Danh Mục
-                </h4>
+          <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-2xs animate-in fade-in duration-150">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                  <FilePlus size={18} className="text-blue-600" />
+                  <h4>Thêm Vật Tư / Sản Phẩm Ngoài Danh Mục ERP</h4>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowCustomModal(false)}
-                  className="text-slate-400 hover:text-slate-600 p-1"
+                  className="text-slate-400 hover:text-slate-600"
                 >
                   <X size={16} />
                 </button>
               </div>
 
               <div className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-2xs font-bold text-slate-600 uppercase">
-                    Tên sản phẩm / vật tư <span className="text-red-500">*</span>
+                <div>
+                  <label className="text-2xs font-bold text-slate-700 block mb-1">
+                    Tên vật tư / sản phẩm <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
-                    autoFocus
                     value={customName}
                     onChange={(e) => setCustomName(e.target.value)}
-                    placeholder="VD: Dây nguồn chuyển đổi 24V..."
-                    className="w-full h-8 px-3 text-xs border border-slate-200 rounded-lg outline-none focus:border-blue-500 font-medium"
+                    placeholder="VD: Dây curoa B68, Khung sườn máy..."
+                    className="w-full h-9 px-3 text-xs border border-slate-200 rounded-xl focus:border-blue-500 outline-none"
+                    autoFocus
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-2xs font-bold text-slate-600 uppercase">
-                      Mã tham chiếu (tùy chọn)
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-2xs font-bold text-slate-700 block mb-1">
+                      Mã vật tư (Tùy chọn)
                     </label>
                     <input
                       type="text"
                       value={customCode}
                       onChange={(e) => setCustomCode(e.target.value)}
                       placeholder="Tự sinh nếu trống"
-                      className="w-full h-8 px-3 text-xs border border-slate-200 rounded-lg outline-none focus:border-blue-500 font-mono"
+                      className="w-full h-9 px-3 text-xs font-mono border border-slate-200 rounded-xl focus:border-blue-500 outline-none"
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-2xs font-bold text-slate-600 uppercase">
-                      Đơn vị tính (ĐVT)
+                  <div>
+                    <label className="text-2xs font-bold text-slate-700 block mb-1">
+                      Đơn vị tính
                     </label>
                     <input
                       type="text"
                       value={customUnit}
                       onChange={(e) => setCustomUnit(e.target.value)}
-                      placeholder="Cái, Bộ, Mét, Gói..."
-                      className="w-full h-8 px-3 text-xs border border-slate-200 rounded-lg outline-none focus:border-blue-500"
+                      placeholder="Cái, Bộ, Mét..."
+                      className="w-full h-9 px-3 text-xs border border-slate-200 rounded-xl focus:border-blue-500 outline-none"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-2xs font-bold text-slate-600 uppercase">
+                <div>
+                  <label className="text-2xs font-bold text-slate-700 block mb-1">
                     Đơn giá dự kiến (₫)
                   </label>
                   <input
@@ -793,31 +1107,31 @@ export function ProductCatalogExplorerModal({
                     value={customPrice ? new Intl.NumberFormat('vi-VN').format(customPrice) : ''}
                     placeholder="0"
                     onChange={(e) => {
-                      const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
-                      setCustomPrice(val);
+                      const raw = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
+                      setCustomPrice(raw);
                     }}
-                    className="w-full h-8 px-3 text-xs border border-slate-200 rounded-lg outline-none focus:border-blue-500 font-mono font-bold text-right"
+                    className="w-full h-9 px-3 text-xs font-mono font-bold border border-slate-200 rounded-xl focus:border-blue-500 outline-none"
                   />
                 </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <Button
-                  size="xs"
-                  variant="ghost"
+                  size="sm"
+                  variant="secondary"
                   type="button"
                   onClick={() => setShowCustomModal(false)}
                 >
                   Hủy
                 </Button>
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="accent"
                   type="button"
-                  onClick={handleAddCustomItem}
-                  className="bg-blue-600 text-white font-bold px-3 py-1.5"
+                  onClick={handleAddCustomMaterial}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
                 >
-                  + Đưa vào giỏ hàng
+                  + Thêm vào giỏ
                 </Button>
               </div>
             </div>

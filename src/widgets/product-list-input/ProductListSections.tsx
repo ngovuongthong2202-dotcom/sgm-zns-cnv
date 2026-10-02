@@ -19,6 +19,7 @@ export function ProductListHeader({
   setBulkDiscAmount,
   applyBulkDiscAmount,
   defaultUnit,
+  baseDateForBaoHanh,
   addFromCatalog,
   addMultipleFromCatalog,
   addProduct
@@ -40,7 +41,7 @@ export function ProductListHeader({
               
               <div className="flex group focus-within:ring-1 focus-within:ring-sky-200 bg-sky-50/20">
                  <input type="number" placeholder="% VAT" value={bulkVat} onChange={e=>setBulkVat(e.target.value)} onKeyDown={e=>e.key==='Enter'&&applyBulkVat()} className="w-16 px-2 py-1.5 text-xs text-center font-bold text-sky-700 bg-transparent outline-none placeholder:text-sky-300" />
-                 <Button type="button" variant="ghost" size="xs" onClick={applyBulkVat} className="bg-sky-100 hover:bg-sky-500 hover:text-white transition-colors text-sky-700 px-2 py-1.5 text-2xs font-bold border-r border-slate-200 rounded-none">ÁP</Button>
+                 <Button type="button" variant="ghost" size="xs" onClick={applyBulkVat} className="bg-sky-100 hover:bg-sky-500 hover:text-white transition-colors text-sky-700 px-2.5 py-1.5 text-2xs font-bold border-r border-slate-200 rounded-none">ÁP</Button>
               </div>
               
               <div className="flex focus-within:ring-1 focus-within:ring-amber-200 bg-amber-50/20">
@@ -60,6 +61,7 @@ export function ProductListHeader({
               onSelect={addFromCatalog} 
               onSelectMultiple={addMultipleFromCatalog}
               category={defaultUnit === 'Máy' ? 'Máy' : (defaultUnit === 'Cái' || defaultUnit === 'Bộ' ? 'Vật tư' : (defaultUnit === 'Gói' ? 'Dịch vụ' : undefined))} 
+              baseDateForBaoHanh={baseDateForBaoHanh}
             />
             <Button aria-label="Nút bấm"
               type="button"

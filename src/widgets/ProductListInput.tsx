@@ -77,6 +77,7 @@ export default function ProductListInput({
         setBulkDiscAmount={setBulkDiscAmount}
         applyBulkDiscAmount={applyBulkDiscAmount}
         defaultUnit={defaultUnit}
+        baseDateForBaoHanh={baseDateForBaoHanh}
         addFromCatalog={addFromCatalog}
         addMultipleFromCatalog={addMultipleFromCatalog}
         addProduct={addProduct}

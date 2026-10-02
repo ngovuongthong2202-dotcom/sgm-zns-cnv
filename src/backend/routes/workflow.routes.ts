@@ -6,6 +6,7 @@ import { canCreateContract, checkContractLock } from '../../modules/contracts/do
 import { eventBus } from '../../platform/events/EventBus';
 import { validateDocumentUpdate } from '../../domain/policy/document-integrity.policy';
 import { sequenceGeneratorService } from '../services/workflow/sequence-generator.service';
+import { reconcileHistoricalDuplicateQuotations } from '../services/workflow/reconcile-duplicates.service';
 import { normalizeLoai } from '../../domain/enums/quotation-loai';
 import { isSourceDocumentFullyDelivered, validateShipmentQuantities } from '../../domain/services/delivery-reconciler';
 import crypto from 'crypto';
@@ -21,6 +22,16 @@ export function normalizeEntityType(entityType: string): string {
 }
 
 const router = Router();
+
+// Endpoint tự động hòa giải và tách số kế toán các chứng từ trùng lịch sử (như BGVT-2026-0171)
+router.post('/reconcile-duplicates', async (req, res) => {
+  try {
+    const result = await reconcileHistoricalDuplicateQuotations();
+    return res.json({ success: true, result });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message || String(error) });
+  }
+});
 
 // Universal Sequence Engine (USE) - Atomic sequence code generator (Hỗ trợ cả GET và POST)
 router.all('/next-code/:entityType', async (req, res) => {
@@ -77,6 +88,26 @@ router.post('/create/:entityType', async (req, res) => {
       data.sdt = data.sdt || customerData?.sdt || '';
       data.nguoiDaiDien = data.nguoiDaiDien || customerData?.nguoiDaiDien || '';
       data.diaChiGiaoHang = data.diaChiGiaoHang || customerData?.diaChi || '';
+
+      // Pre-Write Collision Interceptor & Atomic Auto-Heal (Tier 3 Shield)
+      let candidateQuotationCode = (data.soPhieuBaoGia || '').trim();
+      const currentYear = data.ngayBaoGia ? new Date(data.ngayBaoGia).getFullYear() : new Date().getFullYear();
+      const validYear = isNaN(currentYear) ? new Date().getFullYear() : currentYear;
+
+      if (!candidateQuotationCode || candidateQuotationCode === 'N/A' || candidateQuotationCode === '---') {
+        candidateQuotationCode = await sequenceGeneratorService.getNextCode('quotation', { loai: data.loai || data.phanLoai, year: validYear });
+        data.soPhieuBaoGia = candidateQuotationCode;
+      } else {
+        const dupSnap = await adminDb.collection('quotations')
+          .where('soPhieuBaoGia', '==', candidateQuotationCode)
+          .get();
+        const existingDocs = dupSnap.docs.filter((d: any) => !d.data()?.deletedAt && d.id !== data.id);
+        if (existingDocs.length > 0) {
+          const healedCode = await sequenceGeneratorService.getNextCode('quotation', { loai: data.loai || data.phanLoai, year: validYear });
+          console.warn(`[WorkflowRoutes] Quotation code collision for "${candidateQuotationCode}". Auto-healed to "${healedCode}".`);
+          data.soPhieuBaoGia = healedCode;
+        }
+      }
       
       const newRef = data.id ? adminDb.collection('quotations').doc(data.id) : adminDb.collection('quotations').doc();
       const batch = adminDb.batch();
@@ -101,6 +132,26 @@ router.post('/create/:entityType', async (req, res) => {
         const cusDoc = await adminDb.collection('customers').doc(data.customerId).get();
         if (cusDoc.exists) {
           data.tinhThanh = cusDoc.data()?.tinhThanh || '';
+        }
+      }
+
+      // Pre-Write Collision Interceptor & Atomic Auto-Heal for Contract
+      let candidateContractCode = (data.soHopDong || '').trim();
+      const contractYear = data.ngayKy ? new Date(data.ngayKy).getFullYear() : new Date().getFullYear();
+      const validContractYear = isNaN(contractYear) ? new Date().getFullYear() : contractYear;
+
+      if (!candidateContractCode || candidateContractCode === 'N/A' || candidateContractCode === '---') {
+        candidateContractCode = await sequenceGeneratorService.getNextCode('contract', { year: validContractYear });
+        data.soHopDong = candidateContractCode;
+      } else {
+        const dupSnap = await adminDb.collection('contracts')
+          .where('soHopDong', '==', candidateContractCode)
+          .get();
+        const existingDocs = dupSnap.docs.filter((d: any) => !d.data()?.deletedAt && d.id !== data.id);
+        if (existingDocs.length > 0) {
+          const healedCode = await sequenceGeneratorService.getNextCode('contract', { year: validContractYear });
+          console.warn(`[WorkflowRoutes] Contract code collision for "${candidateContractCode}". Auto-healed to "${healedCode}".`);
+          data.soHopDong = healedCode;
         }
       }
 
@@ -151,12 +202,27 @@ router.post('/create/:entityType', async (req, res) => {
         data.loai = normLoai;
       }
 
-      if (!data.paymentId || data.paymentId === 'N/A' || data.paymentId === '---') {
+      // Pre-Write Collision Interceptor & Atomic Auto-Heal for Payment
+      let candidatePaymentCode = (data.paymentId || '').trim();
+      const paymentYear = data.ngayThanhToan ? new Date(data.ngayThanhToan).getFullYear() : new Date().getFullYear();
+      const validPaymentYear = isNaN(paymentYear) ? new Date().getFullYear() : paymentYear;
+
+      if (!candidatePaymentCode || candidatePaymentCode === 'N/A' || candidatePaymentCode === '---') {
         try {
-          const year = data.ngayThanhToan ? new Date(data.ngayThanhToan).getFullYear() : new Date().getFullYear();
-          data.paymentId = await sequenceGeneratorService.getNextCode('payment', { year: isNaN(year) ? new Date().getFullYear() : year });
+          candidatePaymentCode = await sequenceGeneratorService.getNextCode('payment', { year: validPaymentYear });
+          data.paymentId = candidatePaymentCode;
         } catch (e) {
           console.error('[WorkflowRoutes] Failed to generate paymentId sequence:', e);
+        }
+      } else {
+        const dupSnap = await adminDb.collection('payments')
+          .where('paymentId', '==', candidatePaymentCode)
+          .get();
+        const existingDocs = dupSnap.docs.filter((d: any) => !d.data()?.deletedAt && d.id !== data.id);
+        if (existingDocs.length > 0) {
+          const healedCode = await sequenceGeneratorService.getNextCode('payment', { year: validPaymentYear });
+          console.warn(`[WorkflowRoutes] Payment code collision for "${candidatePaymentCode}". Auto-healed to "${healedCode}".`);
+          data.paymentId = healedCode;
         }
       }
 
@@ -259,12 +325,27 @@ router.post('/create/:entityType', async (req, res) => {
         }
       }
       
-      if (!data.deliveryId || data.deliveryId === 'N/A' || data.deliveryId === '---') {
+      // Pre-Write Collision Interceptor & Atomic Auto-Heal for Delivery
+      let candidateDeliveryId = (data.deliveryId || '').trim();
+      const deliveryYear = data.ngayGiaoHang ? new Date(data.ngayGiaoHang).getFullYear() : new Date().getFullYear();
+      const validDeliveryYear = isNaN(deliveryYear) ? new Date().getFullYear() : deliveryYear;
+
+      if (!candidateDeliveryId || candidateDeliveryId === 'N/A' || candidateDeliveryId === '---') {
         try {
-          const year = data.ngayGiaoHang ? new Date(data.ngayGiaoHang).getFullYear() : new Date().getFullYear();
-          data.deliveryId = await sequenceGeneratorService.getNextCode('delivery', { year: isNaN(year) ? new Date().getFullYear() : year });
+          candidateDeliveryId = await sequenceGeneratorService.getNextCode('delivery', { year: validDeliveryYear });
+          data.deliveryId = candidateDeliveryId;
         } catch (e) {
           console.error('[WorkflowRoutes] Failed to generate deliveryId sequence:', e);
+        }
+      } else {
+        const dupSnap = await adminDb.collection('deliveries')
+          .where('deliveryId', '==', candidateDeliveryId)
+          .get();
+        const existingDocs = dupSnap.docs.filter((d: any) => !d.data()?.deletedAt && d.id !== data.id);
+        if (existingDocs.length > 0) {
+          const healedCode = await sequenceGeneratorService.getNextCode('delivery', { year: validDeliveryYear });
+          console.warn(`[WorkflowRoutes] Delivery code collision for "${candidateDeliveryId}". Auto-healed to "${healedCode}".`);
+          data.deliveryId = healedCode;
         }
       }
 

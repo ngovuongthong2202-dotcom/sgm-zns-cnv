@@ -247,7 +247,24 @@ export function PaymentRecordBasicFields({
         const loai = normalizeLoai((q.loai || q.phanLoai || q.loaiBaoGia) as string);
         if (loai === QUOTATION_LOAI.MAY) return false; // BG Máy bắt buộc phải qua HĐ
         if (paidQuotationIds.has(String(q.id).trim())) return false;
-        if (q.soPhieuBaoGia && paidQuotationCodes.has(String(q.soPhieuBaoGia).trim())) return false;
+        
+        // Anti-Collision Shield: Only block if the payment matching this code actually belongs to this quotation/customer
+        if (q.soPhieuBaoGia && paidQuotationCodes.has(String(q.soPhieuBaoGia).trim())) {
+          const normCode = String(q.soPhieuBaoGia).trim().toLowerCase();
+          const matchingPayment = (payments || []).find((p: any) => 
+            !p.deletedAt && !p.deleted_at && !p.isDeleted &&
+            p.soPhieuBaoGia && String(p.soPhieuBaoGia).trim().toLowerCase() === normCode
+          );
+          if (matchingPayment) {
+            const isDiffQuotation = matchingPayment.quotationId && matchingPayment.quotationId !== q.id;
+            const isDiffCustomer = matchingPayment.customerId && q.customerId && matchingPayment.customerId !== q.customerId;
+            if (isDiffQuotation || isDiffCustomer) {
+              // Different document/customer with accidental collision - allow through
+              return true;
+            }
+            return false;
+          }
+        }
         return true;
       })
       .map((q: any) => ({

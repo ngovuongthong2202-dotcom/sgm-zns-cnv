@@ -132,32 +132,108 @@ router.get('/', async (req, res) => {
       });
     }
 
-    // Smart multi-word search matching item_code or name (both with and without Vietnamese tones)
+    // Smart multi-word search with Technical Specifier Parser, Bounded Numeric Tokenizer and Contradiction Elimination
     const tokens = cleanQ.split(/\s+/).filter(Boolean);
     const tokensNoTone = cleanQNoTone.split(/\s+/).filter(Boolean);
 
-    const matches: ErpItem[] = [];
+    // 1. Phân giải cặp lượng từ quy cách kỹ thuật (Technical Specifier Parser)
+    // Nhận diện truy vấn số tầng máy cán tôn (1 tầng, 2 tầng, 3 tầng...)
+    let queryTier: number | null = null;
+    const hasTangWord = tokensNoTone.includes('tang') || tokensNoTone.includes('t') || cleanQ.includes('tầng');
+    if (hasTangWord) {
+      if (tokensNoTone.includes('2') || /(?:^|\s)(?:2\s*t(?:[^\w]|$)|2\s*tang|2\s*tầng|hai\s*tang|hai\s*tầng)/i.test(cleanQNoTone)) {
+        queryTier = 2;
+      } else if (tokensNoTone.includes('1') || /(?:^|\s)(?:1\s*t(?:[^\w]|$)|1\s*tang|1\s*tầng|mot\s*tang|mot\s*tầng)/i.test(cleanQNoTone)) {
+        queryTier = 1;
+      } else if (tokensNoTone.includes('3') || /(?:^|\s)(?:3\s*t(?:[^\w]|$)|3\s*tang|3\s*tầng|ba\s*tang|ba\s*tầng)/i.test(cleanQNoTone)) {
+        queryTier = 3;
+      }
+    }
+
+    interface ScoredErpItem extends ErpItem {
+      relevanceScore: number;
+    }
+
+    const matches: ScoredErpItem[] = [];
+
     for (let i = 0; i < allItems.length; i++) {
       const item = allItems[i];
       const code = item.codeLower || '';
       const name = item.name.toLowerCase();
       const noTone = item.nameNoTone || '';
 
-      // Check if all search tokens match either code or name or name without tones
+      // 2. Bộ Lọc Triệt Tiêu Mâu Thuẫn (Contradiction Elimination Engine)
+      // Khi người dùng tìm "2 tầng", TUYỆT ĐỐI LOẠI BỎ các sản phẩm có "1 tầng"
+      if (queryTier === 2) {
+        const has1Tier = /(?:^|[^\d])1\s*(?:tầng|tang|t)(?:[^\d\w]|$)/i.test(name) || /(?:^|[^\d])1\s*tang(?:[^\d\w]|$)/i.test(noTone);
+        if (has1Tier) continue;
+      } else if (queryTier === 1) {
+        const has2Tier = /(?:^|[^\d])2\s*(?:tầng|tang|t)(?:[^\d\w]|$)/i.test(name) || /(?:^|[^\d])2\s*tang(?:[^\d\w]|$)/i.test(noTone);
+        if (has2Tier) continue;
+      }
+
+      // 3. Tách từ có nhận thức chữ số (Bounded Numeric Tokenizer)
       let matched = true;
+      let tokenMatchBonus = 0;
+
       for (let t = 0; t < tokens.length; t++) {
         const tok = tokens[t];
         const tokNoTone = tokensNoTone[t] || tok;
-        if (!code.includes(tok) && !name.includes(tok) && !noTone.includes(tokNoTone)) {
-          matched = false;
-          break;
+
+        // Nếu token là một chuỗi số thuần túy (e.g. "2", "1", "3"):
+        // Bắt buộc phải khớp với ranh giới từ số độc lập, TUYỆT ĐỐI không khớp vào 1200mm hay 420
+        if (/^\d+$/.test(tok)) {
+          const numRegex = new RegExp(`(?:^|[^0-9])${tok}(?:[^0-9]|$)`, 'i');
+          const isNumMatched = numRegex.test(name) || numRegex.test(noTone) || numRegex.test(code);
+          if (!isNumMatched) {
+            matched = false;
+            break;
+          }
+          tokenMatchBonus += 500;
+        } else {
+          // Token chữ: đối soát có dấu và không dấu
+          const isTextMatched = code.includes(tok) || name.includes(tok) || noTone.includes(tokNoTone);
+          if (!isTextMatched) {
+            matched = false;
+            break;
+          }
+          tokenMatchBonus += 100;
         }
       }
 
-      if (matched) {
-        matches.push(item);
+      if (!matched) continue;
+
+      // 4. Hệ Thống Chấm Điểm Trọng Số Độ Liên Quan (BM25-Style Contextual Scorer)
+      let score = tokenMatchBonus;
+
+      // Khớp nguyên cụm từ khóa (Exact phrase match)
+      if (name.includes(cleanQ) || noTone.includes(cleanQNoTone)) {
+        score += 10000;
       }
+
+      // Khớp chính xác quy cách số tầng
+      if (queryTier === 2 && (/(?:^|[^\d])2\s*(?:tầng|tang|t)(?:[^\d\w]|$)/i.test(name) || /(?:^|[^\d])2\s*tang(?:[^\d\w]|$)/i.test(noTone))) {
+        score += 5000;
+      } else if (queryTier === 1 && (/(?:^|[^\d])1\s*(?:tầng|tang|t)(?:[^\d\w]|$)/i.test(name) || /(?:^|[^\d])1\s*tang(?:[^\d\w]|$)/i.test(noTone))) {
+        score += 5000;
+      }
+
+      // Khớp mã vật tư
+      if (code === cleanQ || code.startsWith(cleanQ)) {
+        score += 4000;
+      }
+
+      // Ưu tiên vị trí xuất hiện sớm hơn trong tên
+      const firstIdx = noTone.indexOf(tokensNoTone[0]);
+      if (firstIdx >= 0) {
+        score += Math.max(0, 300 - firstIdx);
+      }
+
+      matches.push({ ...item, relevanceScore: score });
     }
+
+    // Sắp xếp theo điểm liên quan giảm dần (sản phẩm chính xác nhất luôn ở top 1)
+    matches.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
     const paged = matches.slice(offset, offset + limit).map(({ item_code, name, display_unit }) => ({
       item_code,

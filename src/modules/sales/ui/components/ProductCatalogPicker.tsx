@@ -9,13 +9,15 @@ interface ProductCatalogPickerProps {
   onSelectMultiple?: (items: ProductItem[]) => void;
   category?: 'Máy' | 'Vật tư' | 'Dịch vụ';
   defaultVatRate?: number;
+  baseDateForBaoHanh?: string;
 }
 
 export function ProductCatalogPicker({
   onSelect,
   onSelectMultiple,
   category,
-  defaultVatRate = 8
+  defaultVatRate = 8,
+  baseDateForBaoHanh
 }: ProductCatalogPickerProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -68,6 +70,7 @@ export function ProductCatalogPicker({
           onAddItems={handleAddItems}
           initialCategory={category}
           defaultVatRate={defaultVatRate}
+          baseDateForBaoHanh={baseDateForBaoHanh}
         />
       )}
     </>
