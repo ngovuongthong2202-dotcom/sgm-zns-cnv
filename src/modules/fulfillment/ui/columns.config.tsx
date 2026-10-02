@@ -26,9 +26,21 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
       return (
         <DeliveryHoverCard delivery={p}>
           <div className="w-full min-w-0 flex flex-col items-start justify-center text-xs h-full cursor-pointer py-1">
-            <span className={`font-mono font-bold truncate transition-colors ${isLate ? 'text-red-700' : 'text-slate-900 group-hover:text-blue-600'}`}>
-              {p.deliveryId}
-            </span>
+            <div className="flex items-center gap-1.5 max-w-full">
+              <span className={`font-mono font-bold truncate transition-colors ${isLate ? 'text-red-700' : 'text-slate-900 group-hover:text-blue-600'}`}>
+                {p.deliveryId}
+              </span>
+              {p.dotGiaoHang ? (
+                <span className="text-3xs font-extrabold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200 shrink-0">
+                  Đợt {p.dotGiaoHang}{p.isDotCuoiCung ? ' (Cuối)' : ''}
+                </span>
+              ) : null}
+              {p.dacCachGiaoTruoc ? (
+                <span className="text-3xs font-bold text-amber-800 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 shrink-0" title="Đặc cách Ban Giám Đốc xuất hàng trước">
+                  ⭐ ĐC
+                </span>
+              ) : null}
+            </div>
             {p.soPhieuXuat ? (
               <span className="text-2xs text-slate-500 font-mono tracking-tight shrink-0">PX: {p.soPhieuXuat}</span>
             ) : <span className="text-2xs text-slate-500 italic">---</span>}

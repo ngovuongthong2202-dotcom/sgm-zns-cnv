@@ -63,6 +63,14 @@ export const DeliverySchema = z.object({
   loai: z.string().optional(),
   loaiBaoGia: z.string().optional(),
   
+  // Multi-Shipment Milestones (Phân kỳ giao hàng)
+  dotGiaoHang: z.number().int().positive().optional().default(1),
+  tongSoDotUocTinh: z.number().int().positive().optional(),
+  isDotCuoiCung: z.boolean().optional().default(false),
+  tienDoLuyKe: z.number().optional().default(100),
+  giaTriXuatKhoDotNay: z.number().optional(),
+  chenhLechTaiChinh: z.number().optional(),
+  
   // Executive Pre-delivery Waiver (Đặc cách Ban Giám Đốc)
   dacCachGiaoTruoc: z.boolean().optional().default(false),
   lyDoDacCach: z.string().optional(),

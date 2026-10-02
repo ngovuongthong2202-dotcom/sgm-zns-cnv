@@ -17,6 +17,8 @@ interface ProductFinanceCardProps {
   readOnly?: boolean;
   disabled?: boolean;
   hideAddRemove?: boolean;
+  allowRemove?: boolean;
+  removeTooltip?: string;
   allowEditProductId?: boolean;
   showBaoHanh?: boolean;
   baseDateForBaoHanh?: string;
@@ -33,6 +35,8 @@ export function ProductFinanceCard({
   readOnly,
   disabled,
   hideAddRemove,
+  allowRemove,
+  removeTooltip,
   allowEditProductId,
   showBaoHanh,
   baseDateForBaoHanh,
@@ -56,14 +60,14 @@ export function ProductFinanceCard({
 
   return (
     <div className="group relative bg-white border border-slate-200 rounded-xl mb-3 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] overflow-hidden lg:hidden">
-      {!readOnly && !hideAddRemove && !disabled && (
+      {!readOnly && !disabled && (allowRemove || !hideAddRemove) && (
         <Button
           type="button"
           variant="ghost"
           size="xs"
           iconOnly
-          title="Xóa"
-          aria-label="Xóa"
+          title={removeTooltip || "Xóa"}
+          aria-label={removeTooltip || "Xóa"}
           onClick={() => onRemove(idx)}
           className="absolute top-2 right-2 z-10 p-1.5 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-md transition-all shadow-sm"
         >

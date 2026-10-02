@@ -289,14 +289,45 @@ export function useDeliveryForm(
       finalSerials = allUniqueSerials.length > 0 ? allUniqueSerials : sourceRootSerials;
       actualMachineCount = calculateActualMachineCount(allocatedProducts);
 
+      const previousCompletedPhases = linkedDeliveries.filter((d: any) => 
+        !d.deletedAt && !d.deleted_at && String(d.tinhTrangGiaoHang || '').toUpperCase() !== 'HỦY'
+      ).length;
+      const currentPhaseNumber = previousCompletedPhases + 1;
+
+      const isInheritedWaiver = Boolean(
+        (p as any).dacCachGiaoTruoc ||
+        (source as any)?.dacCachGiaoTruoc ||
+        linkedDeliveries.some((d: any) => d.dacCachGiaoTruoc) ||
+        getValues('dacCachGiaoTruoc')
+      );
+      const waiverReason = (p as any).lyDoDacCach || (source as any)?.lyDoDacCach || linkedDeliveries.find((d: any) => d.lyDoDacCach)?.lyDoDacCach || getValues('lyDoDacCach') || 'Kế thừa Đặc cách Ban Giám Đốc từ đợt giao trước';
+      const waiverLeader = (p as any).nguoiPheDuyetDacCach || (source as any)?.nguoiPheDuyetDacCach || linkedDeliveries.find((d: any) => d.nguoiPheDuyetDacCach)?.nguoiPheDuyetDacCach || getValues('nguoiPheDuyetDacCach') || defaultLeader;
+
+      const phaseSubTotal = allocatedProducts.reduce((sum: number, it: any) => sum + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
+      const phaseVatRate = Number(source?.vatRate ?? p?.vatRate ?? getValues('vatRate') ?? 0);
+      const phaseVatAmount = Math.round(phaseSubTotal * (phaseVatRate / 100));
+      const phaseTotalAmount = phaseSubTotal + phaseVatAmount;
+
       if (allocatedProducts.length === 0) {
         notify.warning('Chứng từ này đã giao đủ 100% số lượng hàng hóa (còn phải giao = 0).');
       }
     }
 
     const currentValues = getValues();
+    const previousCompletedPhases = (deliveries || []).filter((d: any) => 
+      !d.deletedAt && !d.deleted_at && String(d.tinhTrangGiaoHang || '').toUpperCase() !== 'HỦY' &&
+      (d.paymentId === targetPayId || (p.contractId && d.contractId === p.contractId) || (p.quotationId && d.quotationId === p.quotationId))
+    ).length;
+    const currentPhaseNumber = previousCompletedPhases + 1;
+
+    const phaseSubTotal = allocatedProducts.reduce((sum: number, it: any) => sum + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
+    const phaseVatRate = Number(source?.vatRate ?? p?.vatRate ?? currentValues.vatRate ?? 0);
+    const phaseVatAmount = Math.round(phaseSubTotal * (phaseVatRate / 100));
+    const phaseTotalAmount = phaseSubTotal + phaseVatAmount;
+
     reset({
       ...currentValues,
+      dotGiaoHang: currentPhaseNumber,
       paymentId: targetPayId,
       customerId: p.customerId || source?.customerId || '',
       maKh: p.maKh || source?.maKh || '',
@@ -317,18 +348,19 @@ export function useDeliveryForm(
       ngayKy: p.ngayKy || source?.ngayKy || '',
       tinhTrangThanhToan: p.tinhTrangThanhToan || '',
       nguoiPhuTrach: defaultOfficer,
-      dacCachGiaoTruoc: Boolean((p as any).dacCachGiaoTruoc || currentValues.dacCachGiaoTruoc),
-      lyDoDacCach: (p as any).lyDoDacCach || currentValues.lyDoDacCach || '',
-      nguoiPheDuyetDacCach: (p as any).nguoiPheDuyetDacCach || currentValues.nguoiPheDuyetDacCach || defaultLeader,
+      dacCachGiaoTruoc: Boolean((p as any).dacCachGiaoTruoc || (source as any)?.dacCachGiaoTruoc || currentValues.dacCachGiaoTruoc),
+      lyDoDacCach: (p as any).lyDoDacCach || (source as any)?.lyDoDacCach || currentValues.lyDoDacCach || '',
+      nguoiPheDuyetDacCach: (p as any).nguoiPheDuyetDacCach || (source as any)?.nguoiPheDuyetDacCach || currentValues.nguoiPheDuyetDacCach || defaultLeader,
       nguoiLienHe: contactPerson,
       sdtLienHe: contactPhone,
       diaChiGiaoHang: deliveryAddress,
-      subTotal: source ? (source.subTotal || p.subTotal) : currentValues.subTotal,
-      vatRate: source ? (source.vatRate || p.vatRate) : currentValues.vatRate,
-      vatAmount: source ? (source.vatAmount || p.vatAmount) : currentValues.vatAmount,
+      subTotal: phaseSubTotal > 0 ? phaseSubTotal : (source?.subTotal || p.subTotal || currentValues.subTotal),
+      vatRate: phaseVatRate,
+      vatAmount: phaseVatAmount,
       discountRate: source ? (source.discountRate || p.discountRate) : currentValues.discountRate,
       discountAmount: source ? (source.discountAmount || p.discountAmount) : currentValues.discountAmount,
-      totalAmount: source ? (source.totalAmount || p.totalAmount) : currentValues.totalAmount,
+      totalAmount: phaseTotalAmount > 0 ? phaseTotalAmount : (source?.totalAmount || p.totalAmount || currentValues.totalAmount),
+      giaTriXuatKhoDotNay: phaseTotalAmount > 0 ? phaseTotalAmount : (source?.totalAmount || p.totalAmount || currentValues.totalAmount),
       products: allocatedProducts,
       danhSachMaMay: finalSerials
     });
@@ -418,8 +450,20 @@ export function useDeliveryForm(
     }
 
     const currentValues = getValues();
+    const previousCompletedPhases = (deliveries || []).filter((d: any) => 
+      !d.deletedAt && !d.deleted_at && String(d.tinhTrangGiaoHang || '').toUpperCase() !== 'HỦY' && 
+      (d.contractId === c.id || (c.soHopDong && d.soHopDong === c.soHopDong))
+    ).length;
+    const currentPhaseNumber = previousCompletedPhases + 1;
+
+    const phaseSubTotal = allocatedProducts.reduce((sum: number, it: any) => sum + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
+    const phaseVatRate = Number(c.vatRate || currentValues.vatRate || 0);
+    const phaseVatAmount = Math.round(phaseSubTotal * (phaseVatRate / 100));
+    const phaseTotalAmount = phaseSubTotal + phaseVatAmount;
+
     reset({
       ...currentValues,
+      dotGiaoHang: currentPhaseNumber,
       contractId: c.id || '',
       soHopDong: c.soHopDong || '',
       ngayKy: c.ngayKy || '',
@@ -432,12 +476,13 @@ export function useDeliveryForm(
       loai: c.loai || 'BG Máy',
       dvt: c.dvt || 'Máy',
       giaTriHopDong: Number(c.totalAmount || c.giaTriHopDong) || 1,
-      subTotal: c.subTotal || 0,
-      vatRate: c.vatRate || 0,
-      vatAmount: c.vatAmount || 0,
+      subTotal: phaseSubTotal > 0 ? phaseSubTotal : (c.subTotal || 0),
+      vatRate: phaseVatRate,
+      vatAmount: phaseVatAmount,
       discountRate: c.discountRate || 0,
       discountAmount: c.discountAmount || 0,
-      totalAmount: c.totalAmount || 0,
+      totalAmount: phaseTotalAmount > 0 ? phaseTotalAmount : (c.totalAmount || 0),
+      giaTriXuatKhoDotNay: phaseTotalAmount > 0 ? phaseTotalAmount : (c.totalAmount || 0),
       nguoiPhuTrach: defaultOfficer,
       dacCachGiaoTruoc: true,
       lyDoDacCach: c.lyDoDacCach || 'Giao hàng trước thanh toán theo phê duyệt của Lãnh đạo',
@@ -534,8 +579,27 @@ export function useDeliveryForm(
     }
 
     const currentValues = getValues();
+    const previousCompletedPhases = (deliveries || []).filter((d: any) => 
+      !d.deletedAt && !d.deleted_at && String(d.tinhTrangGiaoHang || '').toUpperCase() !== 'HỦY' && 
+      (d.quotationId === q.id || d.soPhieuBaoGia === q.soPhieuBaoGia)
+    ).length;
+    const currentPhaseNumber = previousCompletedPhases + 1;
+
+    const isInheritedWaiver = Boolean(
+      (q as any).dacCachGiaoTruoc ||
+      currentValues.dacCachGiaoTruoc
+    );
+    const waiverReason = (q as any).lyDoDacCach || currentValues.lyDoDacCach || 'Kế thừa Đặc cách Ban Giám Đốc từ đơn hàng';
+    const waiverLeader = (q as any).nguoiPheDuyetDacCach || currentValues.nguoiPheDuyetDacCach || defaultLeader;
+
+    const phaseSubTotal = allocatedProducts.reduce((sum: number, it: any) => sum + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
+    const phaseVatRate = Number(q.vatRate || currentValues.vatRate || 0);
+    const phaseVatAmount = Math.round(phaseSubTotal * (phaseVatRate / 100));
+    const phaseTotalAmount = phaseSubTotal + phaseVatAmount;
+
     reset({
       ...currentValues,
+      dotGiaoHang: currentPhaseNumber,
       contractId: '',
       soHopDong: '',
       ngayKy: '',
@@ -553,13 +617,17 @@ export function useDeliveryForm(
       dvt: q.dvt || 'Bộ',
       slMay: actualMachineCount || Number(q.slMay) || 1,
       giaTriHopDong: Number(q.totalAmount) || 0,
-      totalAmount: Number(q.totalAmount) || 0,
-      subTotal: q.subTotal || 0,
-      vatRate: q.vatRate || 0,
-      vatAmount: q.vatAmount || 0,
+      totalAmount: phaseTotalAmount > 0 ? phaseTotalAmount : (Number(q.totalAmount) || 0),
+      giaTriXuatKhoDotNay: phaseTotalAmount > 0 ? phaseTotalAmount : (Number(q.totalAmount) || 0),
+      subTotal: phaseSubTotal > 0 ? phaseSubTotal : (q.subTotal || 0),
+      vatRate: phaseVatRate,
+      vatAmount: phaseVatAmount,
       discountRate: q.discountRate || 0,
       discountAmount: q.discountAmount || 0,
       nguoiPhuTrach: defaultOfficer,
+      dacCachGiaoTruoc: isInheritedWaiver,
+      lyDoDacCach: isInheritedWaiver ? waiverReason : '',
+      nguoiPheDuyetDacCach: isInheritedWaiver ? waiverLeader : defaultLeader,
       nguoiLienHe: contactPerson,
       sdtLienHe: contactPhone,
       diaChiGiaoHang: deliveryAddress,
@@ -567,7 +635,7 @@ export function useDeliveryForm(
       danhSachMaMay: finalSerials
     });
     setMaxQuantities(limits);
-  }, [customers, deliveries, reset, getValues, defaultOfficer, todayStr]);
+  }, [customers, deliveries, reset, getValues, defaultOfficer, todayStr, defaultLeader]);
 
   const lastPopulatedQuotationIdRef = useRef<string | null>(null);
   useEffect(() => {

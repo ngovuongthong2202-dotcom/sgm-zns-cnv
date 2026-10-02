@@ -85,16 +85,48 @@ export function DeliveryConfirmationModal({
                       <ShieldCheck size={22} />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Dialog.Title className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                          Thông tin xác nhận giao hàng
+                          {(() => {
+                            const delAny = delivery as any;
+                            const isService = delAny.loaiDonHang === 'DICH_VU' || 
+                              delivery.soBaoGia?.startsWith('BGDV') || 
+                              delivery.soPhieuBaoGia?.startsWith('BGDV') ||
+                              delivery.products?.some(p => p.unit === 'Gói' || p.unit === 'Lần' || p.productName?.toLowerCase().includes('dịch vụ'));
+                            const isSupplies = delAny.loaiDonHang === 'VAT_TU' || 
+                              delivery.soBaoGia?.startsWith('BGVT') || 
+                              delivery.soPhieuBaoGia?.startsWith('BGVT');
+                            const isMachinery = delAny.loaiDonHang === 'MAY_MOC' || 
+                              delivery.soBaoGia?.startsWith('BGM') || 
+                              delivery.soPhieuBaoGia?.startsWith('BGM');
+                            if (isService) return 'Biên bản nghiệm thu & bàn giao dịch vụ';
+                            if (isSupplies) return 'Phiếu xuất kho & bàn giao vật tư';
+                            if (isMachinery) return 'Biên bản bàn giao thiết bị & nghiệm thu máy';
+                            return 'Thông tin xác nhận giao hàng';
+                          })()}
                         </Dialog.Title>
                         <span className="bg-emerald-100 text-emerald-800 text-3xs font-extrabold px-2.5 py-0.5 rounded-full border border-emerald-200">
                           Đã hoàn tất
                         </span>
+                        {delivery.dotGiaoHang && (
+                          <span className="bg-indigo-50 text-indigo-700 text-3xs font-extrabold px-2.5 py-0.5 rounded-full border border-indigo-200 shadow-2xs">
+                            Đợt {delivery.dotGiaoHang}{delivery.tongSoDotUocTinh ? `/${delivery.tongSoDotUocTinh}` : ''}
+                            {delivery.isDotCuoiCung ? ' (Đợt cuối)' : ''}
+                          </span>
+                        )}
+                        {delivery.dacCachGiaoTruoc && (
+                          <span className="bg-amber-50 text-amber-800 text-3xs font-extrabold px-2 py-0.5 rounded-full border border-amber-200 shadow-2xs">
+                            ⭐ Đặc cách BGĐ
+                          </span>
+                        )}
                       </div>
                       <Dialog.Description className="text-xs text-slate-500 mt-0.5 font-medium">
                         Biên bản bàn giao thực tế cho phiếu <strong className="font-mono text-slate-800">{resolveDeliveryDisplayCode(delivery)}</strong>
+                        {delivery.giaTriXuatKhoDotNay ? (
+                          <span className="ml-2 text-emerald-700 font-bold">
+                            • Giá trị xuất đợt: {new Intl.NumberFormat('vi-VN').format(delivery.giaTriXuatKhoDotNay)} đ
+                          </span>
+                        ) : null}
                       </Dialog.Description>
 
                       {/* Tab selector */}

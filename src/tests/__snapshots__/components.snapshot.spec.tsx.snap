@@ -3624,6 +3624,25 @@ exports[`Component Snapshots (Baseline) > renders DeliveryFormModal 1`] = `
             class="bg-slate-50/50 rounded-xl border border-slate-200 overflow-hidden shadow-sm pt-2"
           >
             <div
+              class="px-4 py-2 mx-3 mb-2 rounded-xl bg-blue-50/70 border border-blue-200/80 flex items-center justify-between gap-3 text-xs"
+            >
+              <div
+                class="flex items-center gap-2"
+              >
+                <span
+                  class="px-2 py-0.5 rounded-full bg-blue-600 text-white font-extrabold text-3xs uppercase tracking-wide"
+                >
+                  Đợt 
+                  1
+                </span>
+                <span
+                  class="text-slate-700 font-medium"
+                >
+                  Phân kỳ giao hàng: Quý khách có thể điều chỉnh số lượng xuất đợt này hoặc bấm nút xóa để chuyển các hạng mục chưa bàn giao sang đợt sau (không ảnh hưởng đơn hàng gốc).
+                </span>
+              </div>
+            </div>
+            <div
               class="px-3 pb-2"
             >
               <div

@@ -16,6 +16,8 @@ interface ProductBasicItemProps {
   readOnly?: boolean;
   disabled?: boolean;
   hideAddRemove?: boolean;
+  allowRemove?: boolean;
+  removeTooltip?: string;
   allowEditProductId?: boolean;
   showPrice?: boolean;
   showBaoHanh?: boolean;
@@ -33,6 +35,8 @@ export function ProductBasicItem({
   readOnly,
   disabled,
   hideAddRemove,
+  allowRemove,
+  removeTooltip,
   allowEditProductId,
   showPrice,
   showBaoHanh,
@@ -167,14 +171,14 @@ export function ProductBasicItem({
         )}
 
         <div className="col-span-12 md:col-span-1 flex items-end justify-end md:justify-center md:items-center h-full pb-1 md:pb-0">
-          {!readOnly && !hideAddRemove && !disabled && (
+          {!readOnly && !disabled && (allowRemove || !hideAddRemove) && (
             <Button
               type="button"
               variant="ghost"
               size="xs"
               iconOnly
-              title="Xóa"
-              aria-label="Xóa"
+              title={removeTooltip || "Xóa"}
+              aria-label={removeTooltip || "Xóa"}
               onClick={() => onRemove(idx)}
               className="p-2 text-slate-400 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
             >

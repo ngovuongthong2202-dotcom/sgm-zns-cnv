@@ -18,6 +18,9 @@ interface ProductListInputProps {
   readOnly?: boolean;
   allowEditProductId?: boolean;
   hideAddRemove?: boolean;
+  hideAdd?: boolean;
+  allowRemove?: boolean;
+  removeTooltip?: string;
   maxQuantities?: Record<string, number>; 
   showBaoHanh?: boolean;
   baseDateForBaoHanh?: string;
@@ -36,6 +39,9 @@ export default function ProductListInput({
   readOnly,
   allowEditProductId,
   hideAddRemove,
+  hideAdd,
+  allowRemove,
+  removeTooltip,
   maxQuantities,
   showBaoHanh,
   baseDateForBaoHanh,
@@ -63,7 +69,7 @@ export default function ProductListInput({
     <div className="space-y-4">
       <ProductListHeader 
         readOnly={readOnly}
-        hideAddRemove={hideAddRemove}
+        hideAddRemove={hideAddRemove || hideAdd}
         disabled={disabled}
         showFinance={showFinance}
         productsLength={products.length}
@@ -125,6 +131,8 @@ export default function ProductListInput({
                     readOnly={readOnly}
                     disabled={disabled}
                     hideAddRemove={hideAddRemove}
+                    allowRemove={allowRemove}
+                    removeTooltip={removeTooltip}
                     showBaoHanh={showBaoHanh}
                     baseDateForBaoHanh={baseDateForBaoHanh}
                     showSerial={showSerial}
@@ -226,6 +234,8 @@ export default function ProductListInput({
                 readOnly={readOnly}
                 disabled={disabled}
                 hideAddRemove={hideAddRemove}
+                allowRemove={allowRemove}
+                removeTooltip={removeTooltip}
                 allowEditProductId={allowEditProductId}
                 showBaoHanh={showBaoHanh}
                 baseDateForBaoHanh={baseDateForBaoHanh}
@@ -245,6 +255,8 @@ export default function ProductListInput({
               readOnly={readOnly}
               disabled={disabled}
               hideAddRemove={hideAddRemove}
+              allowRemove={allowRemove}
+              removeTooltip={removeTooltip}
               allowEditProductId={allowEditProductId}
               showPrice={showPrice}
               showBaoHanh={showBaoHanh}

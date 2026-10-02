@@ -26,7 +26,9 @@ export class SequenceGeneratorService {
       else if (normLoai === QUOTATION_LOAI.DICH_VU) prefix = 'BGDV-';
       else prefix = 'BG-';
 
-      counterKey = `quotation_${prefix.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}_${year}`;
+      // Global Unified Sequence Counter: All quotation types (Máy, Vật tư, Dịch vụ) share ONE single sequence per year!
+      // This completely eliminates duplicate numbers like BGM-2026-0174 vs BGVT-2026-0174.
+      counterKey = `quotation_unified_${year}`;
     } else if (normEntityType === 'contract' || normEntityType === 'contracts') {
       prefix = 'HD-';
       counterKey = `contract_${year}`;
@@ -82,15 +84,20 @@ export class SequenceGeneratorService {
       const snap = await adminDb.collection(collectionName).get();
       let max = 0;
 
+      const isQuotation = entityType.startsWith('quotation');
       snap.forEach((doc) => {
         const d = doc.data();
         const code = d?.soPhieuBaoGia || d?.soHopDong || d?.paymentId || d?.deliveryId || d?.maKh || d?.maBaoGia || d?.maHopDong || '';
-        if (typeof code === 'string' && code.startsWith(prefix)) {
+        const isMatch = isQuotation
+          ? (typeof code === 'string' && (code.startsWith('BGM-') || code.startsWith('BGVT-') || code.startsWith('BGDV-') || code.startsWith('BG-')))
+          : (typeof code === 'string' && code.startsWith(prefix));
+
+        if (isMatch) {
           // Trích xuất cụm số ở cuối chuỗi
           const match = code.match(/(\d+)$/);
           if (match && match[1]) {
             const num = parseInt(match[1], 10);
-            if (!isNaN(num) && num > max) {
+            if (!isNaN(num) && num > max && num < 9000) {
               max = num;
             }
           }

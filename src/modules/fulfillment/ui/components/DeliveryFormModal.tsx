@@ -853,6 +853,22 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                 );
               })()}
 
+              <div className="px-4 py-2 mx-3 mb-2 rounded-xl bg-blue-50/70 border border-blue-200/80 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white font-extrabold text-3xs uppercase tracking-wide">
+                    Đợt {watch('dotGiaoHang') || 1}
+                  </span>
+                  <span className="text-slate-700 font-medium">
+                    Phân kỳ giao hàng: Quý khách có thể điều chỉnh số lượng xuất đợt này hoặc bấm nút xóa để chuyển các hạng mục chưa bàn giao sang đợt sau (không ảnh hưởng đơn hàng gốc).
+                  </span>
+                </div>
+                {deliveryProducts.length > 0 && (
+                  <span className="font-mono font-bold text-blue-800 text-xs shrink-0">
+                    {deliveryProducts.length} hạng mục đợt này
+                  </span>
+                )}
+              </div>
+
               <div className="px-3 pb-2">
                 <ProductListInput 
                   products={deliveryProducts} 
@@ -862,10 +878,20 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                     if (allSerials.length > 0) {
                       setValue('danhSachMaMay', allSerials, { shouldDirty: true });
                     }
+                    const phaseSub = newProducts.reduce((sum, p) => sum + (Number(p.quantity || 0) * Number(p.price || 0)), 0);
+                    const vRate = Number(watch('vatRate') || 0);
+                    const vAmt = Math.round(phaseSub * (vRate / 100));
+                    const totalAmt = phaseSub + vAmt;
+                    setValue('subTotal', phaseSub, { shouldDirty: true });
+                    setValue('vatAmount', vAmt, { shouldDirty: true });
+                    setValue('totalAmount', totalAmt, { shouldDirty: true });
+                    setValue('giaTriXuatKhoDotNay', totalAmt, { shouldDirty: true });
                   }}
                   readOnly={false}
                   allowEditProductId={false}
-                  hideAddRemove={true}
+                  hideAdd={true}
+                  allowRemove={true}
+                  removeTooltip="Chuyển hạng mục này sang đợt giao tiếp theo (không ảnh hưởng đơn hàng gốc)"
                   maxQuantities={maxQuantities}
                   showBaoHanh={true}
                   baseDateForBaoHanh={watch('ngayGiaoMay') as string}

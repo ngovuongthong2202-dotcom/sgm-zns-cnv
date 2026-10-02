@@ -18,6 +18,8 @@ interface ProductFinanceRowProps {
   readOnly?: boolean;
   disabled?: boolean;
   hideAddRemove?: boolean;
+  allowRemove?: boolean;
+  removeTooltip?: string;
   showBaoHanh?: boolean;
   baseDateForBaoHanh?: string;
   showSerial?: boolean;
@@ -33,6 +35,8 @@ export function ProductFinanceRow({
   readOnly,
   disabled,
   hideAddRemove,
+  allowRemove,
+  removeTooltip,
   showBaoHanh,
   baseDateForBaoHanh,
   showSerial,
@@ -244,14 +248,14 @@ export function ProductFinanceRow({
 
         {/* Actions */}
         <td className="p-3 align-top text-center w-[40px]">
-           {!readOnly && !hideAddRemove && !disabled && (
+           {!readOnly && !disabled && (allowRemove || !hideAddRemove) && (
              <Button
                type="button" 
                variant="ghost"
                size="xs"
                iconOnly
-               title="Xóa dòng" 
-               aria-label="Xóa dòng"
+               title={removeTooltip || "Xóa dòng"} 
+               aria-label={removeTooltip || "Xóa dòng"}
                onClick={() => onRemove(idx)}
                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
              >

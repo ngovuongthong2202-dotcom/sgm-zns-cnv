@@ -45,7 +45,7 @@ const ENTITY_REQUIRED_SNAPSHOT: Record<string, string[]> = {
   QUOTATION: ['tenKhachHang', 'sdt', 'soPhieuBaoGia'],
   CONTRACT: ['tenKhachHang', 'sdt', 'soHopDong'], // It might not have DonHang
   PAYMENT: ['tenKhachHang', 'sdt'], // Cho phép thanh toán từ báo giá dịch vụ/vật tư không có hợp đồng
-  DELIVERY: ['tenKhachHang', 'sdt', 'soHopDong'],
+  DELIVERY: ['tenKhachHang', 'sdt'], // Cho phép giao hàng từ báo giá dịch vụ/vật tư không có hợp đồng (fallback số hợp đồng)
 };
 
 export function preCheckEntitySnapshot(entityType: string, entity: Record<string, unknown>): { ok: boolean; missing: string[] } {

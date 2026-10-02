@@ -1066,10 +1066,21 @@ export function DeliveryDetailDrawer({
       className={className}
       title={`XUẤT KHO VẬN CHUYỂN: ${drawerDelivery.soPhieuXuat || resolveDeliveryDisplayCode(drawerDelivery)}`}
       subTitle={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
             {resolveDeliveryDisplayCode(drawerDelivery)}
           </span>
+          {drawerDelivery.dotGiaoHang && (
+            <span className="font-extrabold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 text-3xs">
+              Đợt {drawerDelivery.dotGiaoHang}{drawerDelivery.tongSoDotUocTinh ? `/${drawerDelivery.tongSoDotUocTinh}` : ''}
+              {drawerDelivery.isDotCuoiCung ? ' (Đợt cuối)' : ''}
+            </span>
+          )}
+          {drawerDelivery.dacCachGiaoTruoc && (
+            <span className="font-extrabold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-3xs">
+              ⭐ Đặc cách BGĐ
+            </span>
+          )}
           {drawerDelivery.soPhieuXuat && drawerDelivery.soPhieuXuat !== resolveDeliveryDisplayCode(drawerDelivery) && (
             <>
               •
