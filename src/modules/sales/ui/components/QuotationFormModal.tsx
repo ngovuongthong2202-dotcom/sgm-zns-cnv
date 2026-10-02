@@ -149,6 +149,42 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
     await submitForm(data);
   };
 
+  const formatValidationErrors = (err: Record<string, any>): string => {
+    const messages: string[] = [];
+    const fieldLabels: Record<string, string> = {
+      customerId: 'Khách hàng',
+      soPhieuBaoGia: 'Số phiếu báo giá',
+      loai: 'Phân loại báo giá',
+      slMay: 'Tổng số lượng',
+      hieuLuc: 'Thời hạn hiệu lực',
+      ngayBaoGia: 'Ngày báo giá',
+      products: 'Danh mục sản phẩm',
+    };
+
+    Object.entries(err).forEach(([key, val]: [string, any]) => {
+      if (!val) return;
+      const label = fieldLabels[key] || key;
+      if (val.message) {
+        messages.push(`${label}: ${val.message}`);
+      } else if (Array.isArray(val)) {
+        val.forEach((itemErr, i) => {
+          if (itemErr) {
+            Object.entries(itemErr).forEach(([subKey, subVal]: [string, any]) => {
+              if (subVal?.message) {
+                messages.push(`SP #${i + 1} (${subKey}): ${subVal.message}`);
+              }
+            });
+          }
+        });
+      } else if (typeof val === 'object' && val.message) {
+        messages.push(`${label}: ${val.message}`);
+      }
+    });
+
+    if (messages.length === 0) return 'Vui lòng rà soát lại các trường thông tin bắt buộc còn thiếu.';
+    return messages.slice(0, 3).join(' | ');
+  };
+
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-slate-50 overflow-hidden">
       <motion.div 
@@ -226,7 +262,7 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
                 }
                 await handlePreSubmit(data);
               }, (err) => {
-                notify.error("Vui lòng rà soát lại các trường thông tin bắt buộc còn thiếu.");
+                notify.error(formatValidationErrors(err));
                 console.warn("Quotation validation error:", err);
               })();
               return;
@@ -244,7 +280,7 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
             }
             await handlePreSubmit(data);
           }, (err) => {
-            notify.error("Vui lòng rà soát lại các trường thông tin bắt buộc còn thiếu.");
+            notify.error(formatValidationErrors(err));
             console.warn("Quotation validation error:", err);
           })}
           className="flex-1 flex flex-col lg:flex-row min-h-0 bg-slate-50"

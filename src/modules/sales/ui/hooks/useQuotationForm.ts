@@ -232,6 +232,34 @@ export function useQuotationForm({
   // ANCHOR: D4 - Pure Financial Calculations (derived from Line Items)
   const aggs = useMemo(() => aggregateProducts(products), [products]);
 
+  // Reactive Semantic Alignment on Classification Change:
+  // When user switches quotation category to "BG Vật tư" or "BG Dịch vụ", items automatically adapt
+  useEffect(() => {
+    if (!currentLoai) return;
+    const norm = normalizeLoai(currentLoai);
+    const targetType = norm === QUOTATION_LOAI.VAT_TU ? 'MATERIAL' : (norm === QUOTATION_LOAI.DICH_VU ? 'SERVICE' : 'MACHINE');
+    const currentProducts = getValues('products') || [];
+    if (!currentProducts.length) return;
+
+    let hasChange = false;
+    const aligned = currentProducts.map((p: any) => {
+      const detected = detectItemType(p.productName, p.unit, targetType, p.productId || p.item_code);
+      if (p.itemType !== detected) {
+        hasChange = true;
+        return { 
+          ...p, 
+          itemType: detected,
+          soNgayBaoHanh: detected === 'MACHINE' ? (p.soNgayBaoHanh ?? 365) : (p.soNgayBaoHanh || undefined)
+        };
+      }
+      return p;
+    });
+
+    if (hasChange) {
+      setValue('products', aligned, { shouldDirty: true });
+    }
+  }, [currentLoai, setValue, getValues]);
+
   useEffect(() => {
     let shouldUpdate = false;
     if (getValues('subTotal') !== aggs.totalGross) { setValue('subTotal', aggs.totalGross); shouldUpdate = true; }
@@ -296,8 +324,11 @@ export function evaluateQuotationHierarchy(products: any[], currentLoai?: string
   let materialCount = 0;
   let serviceCount = 0;
 
+  const normLoai = normalizeLoai(currentLoai);
+  const defaultType = normLoai === QUOTATION_LOAI.VAT_TU ? 'MATERIAL' : (normLoai === QUOTATION_LOAI.DICH_VU ? 'SERVICE' : 'MACHINE');
+
   for (const item of items) {
-    const rawType = item.itemType || detectItemType(item.productName || item.tenSanPham, item.unit || item.dvt);
+    const rawType = item.itemType || detectItemType(item.productName || item.tenSanPham, item.unit || item.dvt, defaultType, item.productId || item.item_code);
     if (rawType === 'MACHINE') {
       machineCount += 1;
     } else if (rawType === 'MATERIAL') {

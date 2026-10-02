@@ -22,6 +22,9 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
     cell: (info) => {
       const p = info.row.original;
       const isLate = !p.ngayGiaoThucTe && p.ngayGiaoMay && p.ngayGiaoMay < new Date().toISOString().split('T')[0];
+      const shipments = Array.isArray(p.cacDotGiao) ? p.cacDotGiao : [];
+      const hasMulti = shipments.length > 0;
+      const latestShipment = hasMulti ? shipments[shipments.length - 1] : null;
       
       return (
         <DeliveryHoverCard delivery={p}>
@@ -30,7 +33,11 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
               <span className={`font-mono font-bold truncate transition-colors ${isLate ? 'text-red-700' : 'text-slate-900 group-hover:text-blue-600'}`}>
                 {p.deliveryId}
               </span>
-              {p.dotGiaoHang ? (
+              {hasMulti ? (
+                <span className="text-3xs font-extrabold text-blue-800 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200 shrink-0" title={`Tổng cộng ${shipments.length} đợt giao`}>
+                  {shipments.length} đợt
+                </span>
+              ) : p.dotGiaoHang ? (
                 <span className="text-3xs font-extrabold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200 shrink-0">
                   Đợt {p.dotGiaoHang}{p.isDotCuoiCung ? ' (Cuối)' : ''}
                 </span>
@@ -41,7 +48,9 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
                 </span>
               ) : null}
             </div>
-            {p.soPhieuXuat ? (
+            {latestShipment?.soPhieuXuat ? (
+              <span className="text-2xs text-slate-500 font-mono tracking-tight shrink-0">PX: {latestShipment.soPhieuXuat} (Đ{latestShipment.dotGiaoHang})</span>
+            ) : p.soPhieuXuat ? (
               <span className="text-2xs text-slate-500 font-mono tracking-tight shrink-0">PX: {p.soPhieuXuat}</span>
             ) : <span className="text-2xs text-slate-500 italic">---</span>}
           </div>
@@ -305,21 +314,56 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
     id: 'workflow',
     header: 'Tiến độ',
     meta: { label: 'Tiến độ' },
-    size: 140,
+    size: 145,
     cell: (info) => {
       const d = info.row.original;
+      const shipments = Array.isArray(d.cacDotGiao) ? d.cacDotGiao : [];
+      const hasShipments = shipments.length > 0;
       
+      const isCancelled = (d as any).tinhTrangGiaoHang === 'HUY' || (d as any).tinhTrangGiaoHang === 'Hủy';
+      if (isCancelled) {
+        return (
+          <div className="w-full flex items-center min-w-0 py-1">
+            <div className="px-2 py-0.5 text-2xs font-medium rounded-md border bg-red-50 text-red-700 border-red-200 truncate">
+              Đã hủy
+            </div>
+          </div>
+        );
+      }
+
+      if (hasShipments) {
+        const totalBaseline = (d.products || []).reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+        const totalShipped = shipments.reduce((sum, s) => {
+          return sum + (s.products || []).reduce((ssum, sp) => ssum + (Number(sp.quantity) || 0), 0);
+        }, 0);
+        const pct = totalBaseline > 0 ? Math.min(100, Math.round((totalShipped / totalBaseline) * 100)) : (d.tienDoLuyKe || 100);
+        const isDone = pct >= 100 || d.tinhTrangGiaoHang === 'HOAN_TAT';
+
+        return (
+          <div className="w-full flex flex-col justify-center min-w-0 py-1 gap-1">
+            <div className="flex items-center justify-between text-3xs font-mono">
+              <span className={`font-bold ${isDone ? 'text-emerald-700' : 'text-blue-700'}`}>
+                {isDone ? 'Hoàn tất' : `Giao ${shipments.length} đợt`}
+              </span>
+              <span className="font-bold text-slate-700">{pct}%</span>
+            </div>
+            <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden shadow-inner">
+              <div 
+                style={{ width: `${pct}%` }} 
+                className={`h-full rounded-full transition-all duration-300 ${isDone ? 'bg-emerald-500' : 'bg-blue-600'}`}
+              />
+            </div>
+          </div>
+        );
+      }
+
       const znsStatus = normalizeLegacyStatus(d.trangThaiGuiTinGiaoHang);
       const isDelivered = !!d.ngayGiaoThucTe;
-      const isCancelled = (d as any).tinhTrangGiaoHang === 'HUY' || (d as any).tinhTrangGiaoHang === 'Hủy';
 
       let statusLabel: string;
       let statusColor: string;
 
-      if (isCancelled) {
-        statusLabel = 'Đã hủy';
-        statusColor = 'bg-red-50 text-red-700 border-red-200';
-      } else if (!isDelivered) {
+      if (!isDelivered) {
         statusLabel = 'Đang giao hàng';
         statusColor = 'bg-blue-50 text-blue-700 border-blue-200';
       } else if (znsStatus === EntityZnsStatus.THAT_BAI) {

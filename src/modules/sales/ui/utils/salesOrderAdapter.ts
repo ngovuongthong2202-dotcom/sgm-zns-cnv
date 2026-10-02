@@ -215,7 +215,7 @@ export function resolveCustomerFromErp(
  * Chuyển đổi danh sách dòng sản phẩm từ ERP sang mảng ProductItem của SGM
  * Đảm bảo đủ 9 trường và tính toán chuẩn xác số thực (float quantity)
  */
-export function convertErpLinesToProductItems(lines: ErpSalesOrderItemLine[], tareInfo?: TareDecompositionResult): ProductItem[] {
+export function convertErpLinesToProductItems(lines: ErpSalesOrderItemLine[], tareInfo?: TareDecompositionResult, defaultItemType: 'MACHINE' | 'MATERIAL' | 'SERVICE' = 'MATERIAL'): ProductItem[] {
   if (!Array.isArray(lines) || lines.length === 0) return [];
 
   return lines.map((line, idx) => {
@@ -236,7 +236,7 @@ export function convertErpLinesToProductItems(lines: ErpSalesOrderItemLine[], ta
       noteText = noteText ? `${noteText}. ${tareInfo.summaryNote}` : tareInfo.summaryNote;
     }
 
-    const detectedType = detectItemType(itemName, unit);
+    const detectedType = detectItemType(itemName, unit, defaultItemType, itemCode);
 
     const rawItem: ProductItem = {
       id: crypto.randomUUID(),
@@ -272,15 +272,17 @@ export function adaptSalesOrderToQuotation(
 ): Partial<Quotation> {
   const snapshot = erpData.customer_snapshot || {};
   const tareInfo = parseTareDecomposition(erpData.content);
-  const products = convertErpLinesToProductItems(erpData.lines || [], tareInfo);
+  const products = convertErpLinesToProductItems(erpData.lines || [], tareInfo, 'MATERIAL');
   const aggs = aggregateProducts(products);
 
   // Phân loại báo giá tự động
   let loaiBaoGia = QUOTATION_LOAI.VAT_TU;
   const hasMachine = products.some((p) => p.itemType === 'MACHINE');
+  const hasMaterial = products.some((p) => p.itemType === 'MATERIAL');
   const hasService = products.some((p) => p.itemType === 'SERVICE');
   if (hasMachine) loaiBaoGia = QUOTATION_LOAI.MAY;
-  else if (hasService) loaiBaoGia = QUOTATION_LOAI.DICH_VU;
+  else if (hasService && !hasMaterial) loaiBaoGia = QUOTATION_LOAI.DICH_VU;
+  else loaiBaoGia = QUOTATION_LOAI.VAT_TU;
 
   // Ngày báo giá
   let ngayBaoGia = new Date().toISOString().split('T')[0];

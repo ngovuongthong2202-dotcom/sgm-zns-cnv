@@ -24,6 +24,7 @@ interface ProductFinanceRowProps {
   baseDateForBaoHanh?: string;
   showSerial?: boolean;
   allContracts?: any[];
+  defaultItemType?: ItemSemanticType;
   onUpdate: <K extends keyof ProductItem>(index: number, field: K, value: ProductItem[K]) => void;
   onRemove: (index: number) => void;
 }
@@ -41,6 +42,7 @@ export function ProductFinanceRow({
   baseDateForBaoHanh,
   showSerial,
   allContracts,
+  defaultItemType,
   onUpdate,
   onRemove
 }: ProductFinanceRowProps) {
@@ -48,7 +50,7 @@ export function ProductFinanceRow({
   const computed = React.useMemo(() => computeLineItem(p), [p]);
   const isPromo = computed.price === 0 && Boolean(computed.productName || computed.productId);
 
-  const itemType: ItemSemanticType = (p.itemType as ItemSemanticType) || detectItemType(p.productName);
+  const itemType: ItemSemanticType = (p.itemType as ItemSemanticType) || detectItemType(p.productName, p.unit, defaultItemType, p.productId || p.item_code);
   const nextType: Record<ItemSemanticType, ItemSemanticType> = {
     MACHINE: 'MATERIAL',
     MATERIAL: 'SERVICE',
@@ -100,8 +102,8 @@ export function ProductFinanceRow({
                 onChange={e => {
                   onUpdate(idx, 'productName', e.target.value);
                   if (!p.itemType) {
-                    const detected = detectItemType(e.target.value);
-                    if (detected !== 'MACHINE') onUpdate(idx, 'itemType', detected);
+                    const detected = detectItemType(e.target.value, p.unit, defaultItemType, p.productId || p.item_code);
+                    if (detected !== 'MACHINE' || defaultItemType === 'MACHINE') onUpdate(idx, 'itemType', detected);
                   }
                 }}
                 onBlur={e => onUpdate(idx, 'productName', e.target.value.trim())}

@@ -18,6 +18,7 @@ import { parseVietnamAddressComplete } from '@/src/shared/services/vietnamAddres
 import { ExportDeliveryPdf } from './ExportDeliveryPdf';
 import { ExportHandoverPdf } from './ExportHandoverPdf';
 import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
+import { TabLichSuGiaoHang } from '@/src/widgets/TabLichSuGiaoHang';
 
 import { Button } from '@/src/design-system/Button';
 
@@ -30,6 +31,7 @@ interface DeliveryDetailDrawerProps {
   onViewConfirmation?: (delivery: Delivery) => void;
   onSendZns: (delivery: Delivery, templateCode: 'GIAOHANG_ZNS' | 'GIAOHANG_HOANTAT') => void;
   onCancelDelivery: (delivery: Delivery, reason: string) => Promise<void>;
+  onOpenRecordShipment?: (delivery: Delivery) => void;
   drawerContract: any | null;
   drawerQuotation: any | null;
   modal?: boolean;
@@ -48,6 +50,7 @@ export function DeliveryDetailDrawer({
   onViewConfirmation,
   onSendZns,
   onCancelDelivery,
+  onOpenRecordShipment,
   drawerContract,
   drawerQuotation,
   modal,
@@ -667,6 +670,29 @@ export function DeliveryDetailDrawer({
                 </div>
               </div>
             )}
+          </section>
+
+          {/* Khối 4: Sổ cái phân kỳ giao hàng nhiều đợt (Omni-Milestone Nexus) */}
+          <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+            <TabLichSuGiaoHang 
+              delivery={drawerDelivery}
+              onOpenRecordShipment={onOpenRecordShipment ? () => onOpenRecordShipment(drawerDelivery) : undefined}
+              onSendShipmentZns={(shipment) => {
+                const shipmentContext = {
+                  ...drawerDelivery,
+                  soPhieuXuat: shipment.soPhieuXuat,
+                  ngayGiaoMay: shipment.ngayGiaoMay,
+                  slMay: shipment.slMay,
+                  dvt: shipment.dvt,
+                  products: shipment.products,
+                  danhSachMaMay: shipment.danhSachMaMay,
+                  thoGiaoMay: shipment.thoGiaoMay,
+                  sdtThoGiaoMay: shipment.sdtThoGiaoMay,
+                };
+                onSendZns(shipmentContext as any, 'GIAOHANG_ZNS');
+              }}
+              canEdit={Boolean(onOpenRecordShipment)}
+            />
           </section>
         </div>
 

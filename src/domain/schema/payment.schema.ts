@@ -66,7 +66,7 @@ export const PaymentSchema = z.object({
   // Product details snapshot
   products: z.array(ProductItemSchema).optional().default([]),
   danhSachMaMay: z.array(z.string()).optional().default([]),
-  slMay: z.number().int().nonnegative().optional(),
+  slMay: z.number().nonnegative().optional(),
   dvt: z.string().optional(),
   loai: z.string().optional(),
   loaiBaoGia: z.string().optional(),

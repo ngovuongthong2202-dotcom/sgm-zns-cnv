@@ -2,6 +2,54 @@ import { z } from 'zod';
 
 import { ProductItemSchema } from './product.schema';
 
+export const DeliveryShipmentSchema = z.object({
+  id: z.string(), // "DOT-1", "DOT-2", UUID...
+  dotGiaoHang: z.number().int().positive(), // 1, 2, 3...
+  soPhieuXuat: z.string().min(1, 'Số phiếu xuất kho là bắt buộc'), // VD: "PXK-2605-012"
+  
+  // Thời gian & Trạng thái
+  ngayGiaoMay: z.string().optional(), // Ngày hẹn giao (YYYY-MM-DD)
+  ngayGiaoThucTe: z.string().optional().nullable(), // Ngày thực tế giao xong
+  tinhTrangGiaoHang: z.string().optional().default('CHO_GIAO'), // 'CHO_GIAO' | 'DANG_GIAO' | 'HOAN_TAT'
+  
+  // Danh mục sản phẩm xuất kho đợt này
+  products: z.array(ProductItemSchema).optional().default([]),
+  danhSachMaMay: z.array(z.string()).optional().default([]), // Danh sách serial máy của đợt này
+  slMay: z.number().nonnegative().optional(), // Tổng SL sản phẩm đợt này (hỗ trợ số thực lẻ)
+  dvt: z.string().optional().default('Máy'),
+  
+  // Vận chuyển & Bàn giao
+  thoGiaoMay: z.string().optional().or(z.literal('')),
+  sdtThoGiaoMay: z.string().optional().or(z.literal('')),
+  donViVanChuyen: z.string().optional(),
+  soDienThoaiDonViVanChuyen: z.string().optional(),
+  keToanKho: z.string().optional(),
+  khoXuat: z.string().optional(),
+  
+  // Nghiệm thu & Biên bản
+  soBienBanNghiemThu: z.string().optional(),
+  ngayNghiemThu: z.string().optional(),
+  tinhTrangNghiemThu: z.string().optional().default('DONG_Y'),
+  yKienNghiemThu: z.string().optional(),
+  kyNhan: z.string().optional(),
+  ghiChu: z.string().optional(),
+  
+  // Đặc cách Ban Giám Đốc cho riêng đợt này
+  dacCachGiaoTruoc: z.boolean().optional().default(false),
+  lyDoDacCach: z.string().optional(),
+  nguoiPheDuyetDacCach: z.string().optional(),
+  
+  // ZNS Giao hàng riêng của đợt này
+  thongTinGuiZnsGiaoHang: z.record(z.string(), z.unknown()).optional(),
+  trangThaiGuiTinGiaoHang: z.string().optional().nullable(),
+  
+  isDotCuoiCung: z.boolean().optional().default(false),
+  giaTriXuatKhoDotNay: z.number().optional(),
+  createdAt: z.string().optional(),
+});
+
+export type DeliveryShipment = z.infer<typeof DeliveryShipmentSchema>;
+
 export const DeliverySchema = z.object({
   id: z.string().optional(),
   deliveryId: z.string().min(1, 'Số hiệu giao hàng là bắt buộc'),
@@ -55,14 +103,17 @@ export const DeliverySchema = z.object({
   tinhTrangNghiemThu: z.string().optional().default('DONG_Y'),
   yKienNghiemThu: z.string().optional(),
   
-  // Product snapshot (Current shipment items)
+  // Product snapshot (Current shipment items or Scope gốc)
   products: z.array(ProductItemSchema).optional().default([]),
   danhSachMaMay: z.array(z.string()).optional().default([]),
-  slMay: z.number().int().nonnegative().optional(),
+  slMay: z.number().nonnegative().optional(), // Bỏ ràng buộc .int()
   dvt: z.string().optional(),
   loai: z.string().optional(),
   loaiBaoGia: z.string().optional(),
   
+  // SỔ CÁI CÁC ĐỢT GIAO THỰC TẾ (SOVEREIGN MULTI-SHIPMENT LEDGER)
+  cacDotGiao: z.array(DeliveryShipmentSchema).optional().default([]),
+
   // Multi-Shipment Milestones (Phân kỳ giao hàng)
   dotGiaoHang: z.number().int().positive().optional().default(1),
   tongSoDotUocTinh: z.number().int().positive().optional(),

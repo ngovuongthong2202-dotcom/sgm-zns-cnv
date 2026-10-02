@@ -48,14 +48,16 @@ export function ProductBaoHanhFields({ product, viewType = 'card', disabled, bas
     <div className={`mt-2 ${viewType === 'card' ? 'pt-3 border-t border-slate-100' : 'pt-2'} grid grid-cols-2 gap-4 w-full md:max-w-md`}>
       <div className="space-y-1">
          <div className="flex items-center justify-between">
-           <label className="text-2xs font-bold text-slate-700 uppercase tracking-tight">Ngày BH <span className="text-red-600">*</span></label>
+           <label className="text-2xs font-bold text-slate-700 uppercase tracking-tight">
+             Ngày BH {product.itemType === 'MATERIAL' ? <span className="text-slate-400 font-normal">(Tùy chọn)</span> : <span className="text-red-600">*</span>}
+           </label>
            <span className="text-3xs text-slate-600 font-medium">Bấm chọn nhanh</span>
          </div>
          <input aria-label="Nhập thông tin"
            type="number"
            min="0"
-           placeholder="VD: 365"
-           required={true}
+           placeholder={product.itemType === 'MATERIAL' ? 'Tùy chọn' : 'VD: 365'}
+           required={product.itemType !== 'MATERIAL'}
            value={product.soNgayBaoHanh !== undefined && product.soNgayBaoHanh !== null ? Math.max(0, product.soNgayBaoHanh) : ''}
            readOnly={disabled}
            onChange={(e) => {

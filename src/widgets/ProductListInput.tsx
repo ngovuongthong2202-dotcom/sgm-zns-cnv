@@ -137,6 +137,7 @@ export default function ProductListInput({
                     baseDateForBaoHanh={baseDateForBaoHanh}
                     showSerial={showSerial}
                     allContracts={allContracts}
+                    defaultItemType={defaultItemType}
                     onUpdate={updateProduct}
                     onRemove={removeProduct}
                   />
@@ -241,6 +242,7 @@ export default function ProductListInput({
                 baseDateForBaoHanh={baseDateForBaoHanh}
                 showSerial={showSerial}
                 allContracts={allContracts}
+                defaultItemType={defaultItemType}
                 onUpdate={updateProduct}
                 onRemove={removeProduct}
               />
@@ -263,6 +265,7 @@ export default function ProductListInput({
               baseDateForBaoHanh={baseDateForBaoHanh}
               showSerial={showSerial}
               allContracts={allContracts}
+              defaultItemType={defaultItemType}
               onUpdate={updateProduct}
               onRemove={removeProduct}
             />

@@ -31,6 +31,10 @@ import { CollapsibleStatsBanner } from '@/src/platform/ui/design-system/stats/Co
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
 import { CompleteDeliveryModal } from './components/CompleteDeliveryModal';
 import { DeliveryConfirmationModal } from './components/DeliveryConfirmationModal';
+import { RecordShipmentModal } from './components/RecordShipmentModal';
+import { migrateLegacyDeliveriesToUnifiedLedger, reconcileDeliveryShipments } from './utils/delivery-reconciler';
+import { DeliveryShipment } from '@/src/domain/schema/delivery.schema';
+import { notify } from '@/src/shared/utils/notify';
 import { CheckCircle2 } from 'lucide-react';
 const DeliveryDrawerRouteListener = React.memo(function DeliveryDrawerRouteListener({
   hasDrawer,
@@ -62,6 +66,7 @@ export default function DeliveriesFeature() {
   const [viewMode, setViewMode] = useState<'table'>('table');
 
   const [editingDelivery, setEditingDelivery] = useState<Delivery | null>(null);
+  const [recordingShipmentDelivery, setRecordingShipmentDelivery] = useState<Delivery | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [drawerDelivery, setDrawerDelivery] = useState<Delivery | null>(null);
 
@@ -108,6 +113,10 @@ export default function DeliveriesFeature() {
     return map;
   }, [customers]);
 
+  const unifiedDeliveries = useMemo(() => {
+    return migrateLegacyDeliveriesToUnifiedLedger(deliveries);
+  }, [deliveries]);
+
   const activeTab: string = 'all';
   const {
     selectedStatus, setSelectedStatus,
@@ -118,7 +127,7 @@ export default function DeliveriesFeature() {
     selectedNgayDuKien, setSelectedNgayDuKien,
     selectedNgayThucTe, setSelectedNgayThucTe,
     filteredDeliveries
-  } = useDeliveriesFilters(deliveries, activeTab, customerTinhThanhMap);
+  } = useDeliveriesFilters(unifiedDeliveries, activeTab, customerTinhThanhMap);
 
   const { 
     handleDeleteDelivery, handleMarkDelivered, onCompleteDeliverySubmit, 
@@ -133,6 +142,54 @@ export default function DeliveriesFeature() {
     confirm, setDrawerDelivery, drawerDelivery, editingDelivery, setEditingDelivery, setIsFormOpen,
     userData?.role
   );
+
+  const handleRecordShipment = async (masterDelivery: Delivery, newShipment: DeliveryShipment, shouldSendZns: boolean) => {
+    const existingShipments = Array.isArray(masterDelivery.cacDotGiao) ? masterDelivery.cacDotGiao : [];
+    const updatedShipments = [...existingShipments, newShipment];
+
+    const totalBaseline = (masterDelivery.products || []).reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+    const totalShipped = updatedShipments.reduce((sum, s) => {
+      return sum + (s.products || []).reduce((ssum, sp) => ssum + (Number(sp.quantity) || 0), 0);
+    }, 0);
+    const pct = totalBaseline > 0 ? Math.min(100, Math.round((totalShipped / totalBaseline) * 100)) : 100;
+    const isDone = pct >= 100 || newShipment.isDotCuoiCung;
+
+    const updatedMaster: Delivery = {
+      ...masterDelivery,
+      cacDotGiao: updatedShipments,
+      slMay: totalShipped,
+      soPhieuXuat: newShipment.soPhieuXuat,
+      ngayGiaoMay: newShipment.ngayGiaoMay,
+      thoGiaoMay: newShipment.thoGiaoMay || masterDelivery.thoGiaoMay,
+      sdtThoGiaoMay: newShipment.sdtThoGiaoMay || masterDelivery.sdtThoGiaoMay,
+      donViVanChuyen: newShipment.donViVanChuyen || masterDelivery.donViVanChuyen,
+      khoXuat: newShipment.khoXuat || masterDelivery.khoXuat,
+      tienDoLuyKe: pct,
+      tinhTrangGiaoHang: isDone ? 'HOAN_TAT' : 'CHO_GIAO',
+    };
+
+    await updateDelivery(updatedMaster.id || updatedMaster.deliveryId, updatedMaster);
+    notify.success(`Đã ghi nhận Đợt ${newShipment.dotGiaoHang} (${newShipment.soPhieuXuat}) thành công!`);
+
+    if (shouldSendZns) {
+      try {
+        const shipmentContext = {
+          ...updatedMaster,
+          soPhieuXuat: newShipment.soPhieuXuat,
+          ngayGiaoMay: newShipment.ngayGiaoMay,
+          slMay: newShipment.slMay,
+          dvt: newShipment.dvt,
+          products: newShipment.products,
+          danhSachMaMay: newShipment.danhSachMaMay,
+          thoGiaoMay: newShipment.thoGiaoMay,
+          sdtThoGiaoMay: newShipment.sdtThoGiaoMay,
+        };
+        await handleSendZns(shipmentContext as any, 'GIAOHANG_ZNS');
+      } catch (err) {
+        console.error('Failed to send ZNS for shipment:', err);
+      }
+    }
+  };
 
   const handlePrefetchDelivery = (delivery: Delivery) => {
     if (!delivery) return;
@@ -335,31 +392,41 @@ export default function DeliveriesFeature() {
             customRowActions={(row) => {
               const delivery = row as Delivery;
               const isCompleted = !!delivery.ngayGiaoThucTe;
-              if (!can('update', 'delivery', userData?.role)) return null;
+              const recon = reconcileDeliveryShipments(delivery);
+              const canAddShipment = !recon.isFullyDelivered && can('update', 'delivery', userData?.role);
 
-              if (isCompleted) {
-                return (
-                  <Button
-                    type="button"
-                    title="Xem / Hủy xác nhận giao hàng"
-                    onClick={(e) => { e.stopPropagation(); handleViewDeliveryConfirmation(delivery); }}
-                    className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
-                  >
-                    <CheckCircle2 size={15} />
-                  </Button>
-                );
-              }
-
-              if (!can('update', 'delivery', userData?.role)) return null;
               return (
-                <Button
-                  type="button"
-                  title="Xác nhận hoàn tất giao hàng"
-                  onClick={(e) => { e.stopPropagation(); handleMarkDelivered(delivery); }}
-                  className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-100 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                </Button>
+                <div className="flex items-center gap-1">
+                  {canAddShipment && (
+                    <Button
+                      type="button"
+                      title="Ghi nhận đợt xuất kho mới"
+                      onClick={(e) => { e.stopPropagation(); setRecordingShipmentDelivery(delivery); }}
+                      className="px-2 py-0.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md border border-blue-200 bg-white cursor-pointer flex items-center gap-1 font-bold text-3xs transition-colors shadow-2xs whitespace-nowrap"
+                    >
+                      + Đợt {recon.nextDotGiaoHang}
+                    </Button>
+                  )}
+                  {isCompleted ? (
+                    <Button
+                      type="button"
+                      title="Xem / Hủy xác nhận giao hàng"
+                      onClick={(e) => { e.stopPropagation(); handleViewDeliveryConfirmation(delivery); }}
+                      className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
+                    >
+                      <CheckCircle2 size={15} />
+                    </Button>
+                  ) : can('update', 'delivery', userData?.role) ? (
+                    <Button
+                      type="button"
+                      title="Xác nhận hoàn tất giao hàng"
+                      onClick={(e) => { e.stopPropagation(); handleMarkDelivered(delivery); }}
+                      className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-100 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                    </Button>
+                  ) : null}
+                </div>
               );
             }}
             fetchMore={loadMore}
@@ -379,12 +446,25 @@ export default function DeliveriesFeature() {
         onViewConfirmation={handleViewDeliveryConfirmation}
         onSendZns={handleSendZns}
         onCancelDelivery={handleCancelDelivery}
+        onOpenRecordShipment={(del) => setRecordingShipmentDelivery(del)}
         drawerContract={drawerContract}
         drawerQuotation={drawerQuotation}
         completingDelivery={completingDelivery}
         setCompletingDelivery={setCompletingDelivery}
         onCompleteDeliverySubmit={onCompleteDeliverySubmit}
       />
+
+      {recordingShipmentDelivery && (
+        <RecordShipmentModal
+          isOpen={Boolean(recordingShipmentDelivery)}
+          delivery={recordingShipmentDelivery}
+          allPayments={payments}
+          onClose={() => setRecordingShipmentDelivery(null)}
+          onSave={async (newShipment, shouldSendZns) => {
+            await handleRecordShipment(recordingShipmentDelivery, newShipment, shouldSendZns);
+          }}
+        />
+      )}
 
       {isFormOpen && (
         <DeliveryFormModal 

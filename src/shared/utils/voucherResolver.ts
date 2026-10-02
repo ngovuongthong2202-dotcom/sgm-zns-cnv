@@ -99,24 +99,36 @@ export interface DeliveryVoucherMeta {
 export function resolveDeliveryVoucherMeta(del?: any): DeliveryVoucherMeta {
   const displayCode = resolveDeliveryDisplayCode(del);
   const erpCode = del?.soPhieuXuat && del.soPhieuXuat !== displayCode ? del.soPhieuXuat.trim() : undefined;
-  const isDelivered = Boolean(del?.ngayGiaoThucTe);
+  const shipments = Array.isArray(del?.cacDotGiao) ? del.cacDotGiao : [];
+  const hasShipments = shipments.length > 0;
+  const isDelivered = hasShipments 
+    ? shipments.every((s: any) => Boolean(s.ngayGiaoThucTe))
+    : Boolean(del?.ngayGiaoThucTe);
   
   const machineList: string[] = Array.isArray(del?.danhSachMaMay) ? del.danhSachMaMay : [];
-  const prodQty = del?.products?.reduce((s: number, p: any) => s + (Number(p.quantity) || 0), 0) || 0;
+  let prodQty = 0;
+  if (hasShipments) {
+    prodQty = shipments.reduce((sum: number, s: any) => {
+      const sProds = Array.isArray(s.products) ? s.products : [];
+      return sum + sProds.reduce((ssum: number, sp: any) => ssum + (Number(sp.quantity) || 0), 0);
+    }, 0);
+  } else {
+    prodQty = del?.products?.reduce((s: number, p: any) => s + (Number(p.quantity) || 0), 0) || 0;
+  }
   const machineQty = prodQty > 0 ? prodQty : (machineList.length > 0 ? machineList.length : (Number(del?.slMay) || 0));
 
   return {
     displayCode,
     erpCode,
     isDelivered,
-    deliveredDate: del?.ngayGiaoThucTe || null,
-    plannedDate: del?.ngayGiaoMay || del?.ngayTaoPhieuXuat || null,
+    deliveredDate: del?.ngayGiaoThucTe || (hasShipments ? shipments[shipments.length - 1]?.ngayGiaoThucTe : null) || null,
+    plannedDate: del?.ngayGiaoMay || del?.ngayTaoPhieuXuat || (hasShipments ? shipments[shipments.length - 1]?.ngayGiaoMay : null) || null,
     recipientName: del?.kyNhan || del?.tenNguoiNhan || undefined,
-    carrierName: del?.tenNguoiGiao || del?.donViVanChuyen || undefined,
-    technicianName: del?.thoGiaoMay || del?.kyThuatBanGiao || del?.nguoiPhuTrach || undefined,
+    carrierName: del?.tenNguoiGiao || del?.donViVanChuyen || (hasShipments ? shipments[shipments.length - 1]?.donViVanChuyen : undefined),
+    technicianName: del?.thoGiaoMay || del?.kyThuatBanGiao || del?.nguoiPhuTrach || (hasShipments ? shipments[shipments.length - 1]?.thoGiaoMay : undefined),
     machineList,
     machineQty,
-    statusLabel: isDelivered ? '✓ Đã bàn giao thực tế' : 'Đang xử lý xuất kho',
+    statusLabel: isDelivered ? '✓ Đã bàn giao thực tế' : (hasShipments ? `Đang giao (${shipments.length} đợt)` : 'Đang xử lý xuất kho'),
   };
 }
 

@@ -15,6 +15,7 @@ import { DeliveryStatusVO } from '@/src/domain/value-objects/DeliveryStatusVO';
 import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
 
 import { auditLogsRepo } from '@/src/data/repositories/system.repo';
+import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { resolveDeliverySourceDocument } from '../utils/deliverySourceResolver';
 
 export function useDeliveriesActions(
@@ -491,17 +492,112 @@ export function useDeliveriesActions(
           }
         }).catch(() => {});
       } else {
-        const createdId = await apiCreateEntity('delivery', data);
-        auditLogsRepo.create({
-          action: 'CREATE',
-          entityId: String((createdId as any)?.id || createdId || data.deliveryId),
-          entityType: 'delivery',
-          userId: userRole || 'user',
-          timestamp: new Date().toISOString(),
-          details: {
-            after: data
+        // Physical Invariance Interceptor: Tìm xem đã có Phiếu giao hàng Master nào cho Hợp đồng / Đơn hàng này chưa
+        let existingMaster: Delivery | null = null;
+        try {
+          const cachedDeliveries = entityCachePool.getAll<Delivery>('deliveries') || [];
+          existingMaster = cachedDeliveries.find((d: any) => {
+            if (d.deletedAt || d.deleted_at || d.tinhTrangGiaoHang === 'HUY') return false;
+            if (data.contractId && d.contractId === data.contractId) return true;
+            if (data.soHopDong && d.soHopDong === data.soHopDong) return true;
+            if (data.quotationId && d.quotationId === data.quotationId) return true;
+            if (data.soDonHang && d.soDonHang === data.soDonHang) return true;
+            return false;
+          }) || null;
+        } catch {
+          // ignore cache lookup error
+        }
+
+        if (existingMaster && existingMaster.id) {
+          // Tự động gộp thành Đợt tiếp theo vào Phiếu Master duy nhất!
+          const existingShipments = Array.isArray(existingMaster.cacDotGiao) ? existingMaster.cacDotGiao : [];
+          const nextDot = existingShipments.length + 1;
+          const newShipment = {
+            id: `DOT-${nextDot}-${Date.now()}`,
+            dotGiaoHang: nextDot,
+            soPhieuXuat: data.soPhieuXuat || `PXK-DOT-${nextDot}`,
+            ngayGiaoMay: data.ngayGiaoMay || new Date().toISOString().split('T')[0],
+            products: data.products || [],
+            slMay: data.slMay,
+            dvt: data.dvt || 'Máy',
+            danhSachMaMay: data.danhSachMaMay || [],
+            tinhTrangGiaoHang: data.tinhTrangGiaoHang || 'CHO_GIAO',
+            tinhTrangNghiemThu: 'DONG_Y',
+            dacCachGiaoTruoc: Boolean(data.dacCachGiaoTruoc),
+            thoGiaoMay: data.thoGiaoMay,
+            sdtThoGiaoMay: data.sdtThoGiaoMay,
+            donViVanChuyen: data.donViVanChuyen,
+            khoXuat: data.khoXuat,
+            ghiChu: data.ghiChu || `Giao hàng đợt ${nextDot}`,
+            isDotCuoiCung: data.tinhTrangGiaoHang === 'HOAN_TAT' || data.tinhTrangGiaoHang === 'Hoàn tất',
+            trangThaiGuiTinGiaoHang: data.trangThaiGuiTinGiaoHang || 'CHUA_GUI'
+          };
+          const updatedShipments = [...existingShipments, newShipment];
+          const totalBaseline = (existingMaster.products || []).reduce((sum: number, p: any) => sum + (Number(p.quantity) || 0), 0);
+          const totalShipped = updatedShipments.reduce((sum: number, s: any) => {
+            return sum + (s.products || []).reduce((ssum: number, sp: any) => ssum + (Number(sp.quantity) || 0), 0);
+          }, 0);
+          const pct = totalBaseline > 0 ? Math.min(100, Math.round((totalShipped / totalBaseline) * 100)) : 100;
+
+          await updateDelivery(existingMaster.id, {
+            cacDotGiao: updatedShipments,
+            slMay: totalShipped,
+            soPhieuXuat: newShipment.soPhieuXuat,
+            ngayGiaoMay: newShipment.ngayGiaoMay,
+            tienDoLuyKe: pct,
+            tinhTrangGiaoHang: pct >= 100 || newShipment.isDotCuoiCung ? 'HOAN_TAT' : 'CHO_GIAO'
+          });
+
+          auditLogsRepo.create({
+            action: 'UPDATE',
+            entityId: existingMaster.id,
+            entityType: 'delivery',
+            userId: userRole || 'user',
+            timestamp: new Date().toISOString(),
+            details: {
+              note: `Tự động gộp Đợt ${nextDot} vào Master Delivery`,
+              newShipment
+            }
+          }).catch(() => {});
+
+          notify.success(`Đã tự động ghi nhận Đợt ${nextDot} vào Phiếu Master [${existingMaster.deliveryId || existingMaster.id}]!`);
+        } else {
+          // Omni-Milestone Nexus: Khởi tạo Đợt 1 cho phiếu giao hàng master mới
+          if (!data.cacDotGiao || data.cacDotGiao.length === 0) {
+            data.cacDotGiao = [{
+              id: `DOT-1-${Date.now()}`,
+              dotGiaoHang: 1,
+              soPhieuXuat: data.soPhieuXuat || '',
+              ngayGiaoMay: data.ngayGiaoMay || new Date().toISOString().split('T')[0],
+              products: data.products || [],
+              slMay: data.slMay,
+              dvt: data.dvt || 'Máy',
+              danhSachMaMay: data.danhSachMaMay || [],
+              tinhTrangGiaoHang: data.tinhTrangGiaoHang || 'CHO_GIAO',
+              tinhTrangNghiemThu: 'DONG_Y',
+              dacCachGiaoTruoc: Boolean(data.dacCachGiaoTruoc),
+              thoGiaoMay: data.thoGiaoMay,
+              sdtThoGiaoMay: data.sdtThoGiaoMay,
+              donViVanChuyen: data.donViVanChuyen,
+              khoXuat: data.khoXuat,
+              ghiChu: data.ghiChu || 'Đợt 1 ban đầu',
+              isDotCuoiCung: data.tinhTrangGiaoHang === 'HOAN_TAT' || data.tinhTrangGiaoHang === 'Hoàn tất',
+              trangThaiGuiTinGiaoHang: data.trangThaiGuiTinGiaoHang || 'CHUA_GUI'
+            }];
           }
-        }).catch(() => {});
+
+          const createdId = await apiCreateEntity('delivery', data);
+          auditLogsRepo.create({
+            action: 'CREATE',
+            entityId: String((createdId as any)?.id || createdId || data.deliveryId),
+            entityType: 'delivery',
+            userId: userRole || 'user',
+            timestamp: new Date().toISOString(),
+            details: {
+              after: data
+            }
+          }).catch(() => {});
+        }
       }
       await updateSourceFn(source.id!, { deliveredQuantities: newDeliveredQuantities });
 

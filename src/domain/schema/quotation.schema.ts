@@ -23,7 +23,7 @@ export const QuotationSchema = z.object({
   
   // Quotation specific
   ngayBaoGia: z.string().optional(),
-  hieuLuc: z.number().int().optional().default(7),
+  hieuLuc: z.number().optional().default(7),
   ngayHetHan: z.string().optional(),
   tinhTrangBaoGia: z.string().optional(), // Legacy / Text
   lifecycleStatus: z.enum(['DRAFT', 'SENT', 'VIEWING', 'WON', 'LOST', 'EXPIRED']).optional().default('DRAFT'),
@@ -50,7 +50,7 @@ export const QuotationSchema = z.object({
   
   // Product details
   products: z.array(ProductItemSchema).optional().default([]),
-  slMay: z.number().int().nonnegative().optional(), // Total machine count (calculated)
+  slMay: z.number().nonnegative().optional(), // Total machine count (calculated - float support)
   loai: z.string().min(1, 'Phân loại Báo giá là bắt buộc'),
   loaiBaoGia: z.string().optional(),
   phanLoaiKhach: z.string().optional(),

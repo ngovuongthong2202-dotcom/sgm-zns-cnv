@@ -708,6 +708,38 @@ export function DocumentOmniFlowRibbon({
                       ))}
                     </div>
                   )}
+
+                  {/* Multi-shipment breakdown table if exists (Omni-Milestone Nexus) */}
+                  {del.cacDotGiao && Array.isArray(del.cacDotGiao) && del.cacDotGiao.length > 0 && (
+                    <div className="mt-1 bg-white rounded border border-slate-200 overflow-hidden divide-y divide-slate-100 text-xs">
+                      {del.cacDotGiao.map((dot: any, dIdx: number) => (
+                        <div key={dIdx} className="px-2.5 py-1.5 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-800">Đợt {dot.dotGiaoHang || dIdx + 1}:</span>
+                            <span className="text-slate-700 font-mono">{formatDate(dot.ngayGiaoMay)}</span>
+                            {dot.soPhieuXuat && (
+                              <span className="font-mono text-cyan-800 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-200 font-bold">
+                                PXK: {dot.soPhieuXuat}
+                              </span>
+                            )}
+                            {dot.donViVanChuyen && (
+                              <span className="text-slate-600 font-medium">({dot.donViVanChuyen})</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-slate-900 tabular-nums">
+                              {dot.slMay || (dot.products ? dot.products.reduce((s: number, p: any) => s + (Number(p.quantity) || 0), 0) : 0)} {dot.dvt || 'máy/sp'}
+                            </span>
+                            {dot.isDotCuoiCung && (
+                              <span className="text-3xs font-extrabold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded uppercase">
+                                Hoàn tất
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}

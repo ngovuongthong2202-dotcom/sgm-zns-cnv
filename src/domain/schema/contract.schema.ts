@@ -27,7 +27,7 @@ export const ContractSchema = z.object({
   products: z.array(ProductItemSchema).optional().default([]),
   deliveredQuantities: z.record(z.string(), z.number()).optional(), // productId -> total delivered quantity
   danhSachMaMay: z.array(z.string()).optional().default([]),
-  slMay: z.number().int().nonnegative().optional(),
+  slMay: z.number().nonnegative().optional(),
   dvt: z.string().optional(),
   loai: z.string().optional(),
   loaiSanPham: z.string().optional(),

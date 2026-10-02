@@ -5,6 +5,8 @@ import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { notify } from '@/src/shared/utils/notify';
 import { ProductItem } from '@/src/domain/schema/product.schema';
 import { computeLineItem } from '@/src/domain/pricing/quotation-pricing';
+import { detectItemType } from '@/src/widgets/product-list-input/useProductItemSemantic';
+import { normalizeLoai, QUOTATION_LOAI } from '@/src/domain/enums/quotation-loai';
 
 export function useErpLookup(
   setValue: UseFormSetValue<Quotation>,
@@ -247,6 +249,10 @@ export function useErpLookup(
       // Map all 9 fields from ERP lines / items with float quantity support
       const erpItems = data.lines || data.items || [];
       if (Array.isArray(erpItems) && erpItems.length > 0) {
+        const currentLoaiVal = getValues('loai') || getValues('loaiBaoGia');
+        const normLoai = normalizeLoai(currentLoaiVal);
+        const defaultItemType = normLoai === QUOTATION_LOAI.VAT_TU ? 'MATERIAL' : (normLoai === QUOTATION_LOAI.DICH_VU ? 'SERVICE' : 'MACHINE');
+
         const mappedProducts: ProductItem[] = erpItems.map((item: any, idx: number) => {
           const snapshot = item.item_snapshot || {};
           const itemCode = (snapshot.item_code || item.item_code || item.item_id || '').trim();
@@ -266,6 +272,8 @@ export function useErpLookup(
             : undefined;
           const noteText = item.notes || item.note || item.ghiChu || '';
 
+          const itemType = detectItemType(itemName, unit, defaultItemType, itemCode);
+
           const baseItem: ProductItem = {
             id: crypto.randomUUID(),
             stt: idx + 1,
@@ -281,6 +289,8 @@ export function useErpLookup(
             discountAmount,
             vatPct,
             taxAmount,
+            itemType,
+            soNgayBaoHanh: itemType === 'MACHINE' ? 365 : undefined,
           };
           return computeLineItem(baseItem);
         });

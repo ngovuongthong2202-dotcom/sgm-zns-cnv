@@ -194,13 +194,20 @@ export default function ContractsFeature() {
   }, [setIsFormOpen]);
 
   const getRemainingProducts = (contract: Contract, deliveries: any[]) => {
-    const contractDels = deliveries.filter(d => d.contractId === contract.id);
+    const contractDels = deliveries.filter(d => d.contractId === contract.id || (d.soHopDong && contract.soHopDong && d.soHopDong.trim().toLowerCase() === contract.soHopDong.trim().toLowerCase()));
     const raw = (contract.products || []).map(p => {
       const delivered = contractDels.reduce((sum, d) => {
+        if (Array.isArray(d.cacDotGiao) && d.cacDotGiao.length > 0) {
+          const shippedFromShipments = d.cacDotGiao.reduce((ssum: number, s: any) => {
+            const sp = s.products?.find((x: any) => (x.productId && x.productId === p.productId) || (x.productName === p.productName));
+            return ssum + (Number(sp?.quantity) || 0);
+          }, 0);
+          return sum + shippedFromShipments;
+        }
         const dp = d.products?.find((x: any) => (x.productId && x.productId === p.productId) || (x.productName === p.productName));
-        return sum + (dp?.quantity || 0);
+        return sum + (Number(dp?.quantity) || 0);
       }, 0);
-      const remaining = Math.max(0, (p.quantity || 0) - delivered);
+      const remaining = Math.max(0, (Number(p.quantity) || 0) - delivered);
       return {
         ...p,
         quantity: remaining,

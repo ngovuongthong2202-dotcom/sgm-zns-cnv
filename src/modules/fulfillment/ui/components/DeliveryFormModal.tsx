@@ -257,6 +257,26 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
   }, [quotations]);
 
   const watchDacCachGiaoTruoc = watch('dacCachGiaoTruoc');
+  const curPaymentId = watch('paymentId');
+  const curContractId = watch('contractId');
+  const curQuotationId = watch('quotationId');
+  const curSoHopDong = watch('soHopDong');
+  const curSoDonHang = watch('soDonHang');
+
+  const existingMasterDelivery = React.useMemo(() => {
+    if (delivery?.id) return null; // đang chỉnh sửa phiếu cũ, không phải tạo mới
+    if (!curPaymentId && !curContractId && !curQuotationId && !curSoHopDong && !curSoDonHang) return null;
+
+    return (deliveries || []).find((d: any) => {
+      if (d.deletedAt || d.deleted_at || d.tinhTrangGiaoHang === 'HUY') return false;
+      if (curPaymentId && (d.paymentId === curPaymentId || d.soChungTuThamChieu === curPaymentId)) return true;
+      if (curContractId && d.contractId === curContractId) return true;
+      if (curSoHopDong && d.soHopDong === curSoHopDong) return true;
+      if (curQuotationId && d.quotationId === curQuotationId) return true;
+      if (curSoDonHang && d.soDonHang === curSoDonHang) return true;
+      return false;
+    }) || null;
+  }, [delivery?.id, curPaymentId, curContractId, curQuotationId, curSoHopDong, curSoDonHang, deliveries]);
 
   const filterPaymentOption = React.useCallback((p: any) => {
     if (p.deletedAt || p.deleted_at) return false;
@@ -540,6 +560,29 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                         📋 Căn cứ Báo Giá (Vật tư / DV)
                       </button>
                     </div>
+
+                    {/* Smart Duplicate Interceptor Banner */}
+                    {existingMasterDelivery && (
+                      <div className="p-3.5 bg-blue-50/90 border border-blue-200 rounded-xl text-xs text-blue-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs mb-3">
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                            <Package size={13} />
+                          </div>
+                          <div>
+                            <div className="font-bold text-blue-900 flex items-center gap-1.5 flex-wrap">
+                              <span>Hồ sơ này đã có Phiếu Giao Hàng Master:</span>
+                              <span className="font-mono bg-white px-2 py-0.5 rounded border border-blue-300 font-bold text-blue-950">
+                                {existingMasterDelivery.deliveryId || existingMasterDelivery.id}
+                              </span>
+                            </div>
+                            <p className="text-blue-800 text-2xs mt-1">
+                              Tiến độ lũy kế: <strong className="font-bold text-blue-950">{existingMasterDelivery.tienDoLuyKe || 0}%</strong> • Đã xuất: <strong className="font-bold text-blue-950">{existingMasterDelivery.cacDotGiao?.length || 1} đợt</strong>.
+                              <br />Khi lưu form này, hệ thống sẽ <strong>tự động ghi nhận thành Đợt tiếp theo</strong> vào Phiếu Master trên để không làm phát sinh phiếu mới.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {sourceMode === 'payment' && (
                       <AsyncSearchableSelect

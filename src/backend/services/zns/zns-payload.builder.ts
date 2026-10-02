@@ -500,3 +500,34 @@ export class ZnsPayloadBuilder {
 }
 
 export const znsPayloadBuilder = new ZnsPayloadBuilder();
+
+/**
+ * Builds outbound delivery ZNS payload for a specific shipment milestone
+ * strictly conforming to Zalo's 9 registered variables.
+ */
+export function buildDeliveryZnsPayload(shipmentContext: any, template: any) {
+  const vars: Record<string, any> = {};
+  const tVars = template?.variables || [];
+  tVars.forEach((v: any) => {
+    const val = shipmentContext[v.sourceField] || shipmentContext[v.name];
+    if (val !== undefined) {
+      vars[v.name] = val;
+    }
+  });
+
+  return {
+    template_id: template?.templateId || 'GIAOHANG_ZNS',
+    template_data: {
+      customer_name: sanitizeZnsCustomerName(shipmentContext.tenKhachHang || shipmentContext.customer_name || ''),
+      phone: shipmentContext.sdt || shipmentContext.phone || '',
+      So_hop_dong: shipmentContext.soHopDong || '',
+      So_don_hang: shipmentContext.soDonHang || '',
+      so_phieu_xuat: shipmentContext.soPhieuXuat || '',
+      ngay_giao_may: shipmentContext.ngayGiaoMay ? formatDate(shipmentContext.ngayGiaoMay) : '',
+      danh_sach_ma_may: Array.isArray(shipmentContext.danhSachMaMay) ? shipmentContext.danhSachMaMay.join(' | ') : (shipmentContext.danhSachMaMay || ''),
+      so_luong: shipmentContext.slMay || 1,
+      dvt: shipmentContext.dvt || 'Máy',
+      ...vars,
+    }
+  };
+}
