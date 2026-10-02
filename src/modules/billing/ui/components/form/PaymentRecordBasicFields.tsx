@@ -1,6 +1,7 @@
 import React from 'react';
 import { Controller } from 'react-hook-form';
-import { FileText, Clock, DollarSign, Lock } from 'lucide-react';
+import { FileText, Clock, DollarSign, Lock, Loader2, CheckCircle2 } from 'lucide-react';
+import { resolveSalesOrderByContractNumber } from '@/src/modules/sales/domain/services/salesOrderErpBridgeService';
 import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
 import { format } from 'date-fns';
@@ -81,6 +82,35 @@ export function PaymentRecordBasicFields({
 
   // Fix: Local state for smooth typing of percentage
   const [localRate, setLocalRate] = React.useState<string>('');
+  const [isLookingUpOrder, setIsLookingUpOrder] = React.useState(false);
+  const [matchedOrderInfo, setMatchedOrderInfo] = React.useState<string | null>(null);
+
+  const handleContractLookup = React.useCallback(async (contractCode: string) => {
+    if (!contractCode || !contractCode.trim()) {
+      setMatchedOrderInfo(null);
+      return;
+    }
+    setIsLookingUpOrder(true);
+    try {
+      const res = await resolveSalesOrderByContractNumber(contractCode, contracts);
+      if (res.matched && res.soDonHang) {
+        setValue('soDonHang', res.soDonHang, { shouldDirty: true, shouldValidate: true });
+        setMatchedOrderInfo(`✓ Đã khớp ĐH từ ERP: [${res.soDonHang}]`);
+        if (!watchAll.tenKhachHang && res.customerName) {
+          setValue('tenKhachHang', res.customerName, { shouldDirty: true });
+        }
+        if (!watchAll.sdt && res.phone) {
+          setValue('sdt', res.phone, { shouldDirty: true });
+        }
+      } else {
+        setMatchedOrderInfo(null);
+      }
+    } catch {
+      setMatchedOrderInfo(null);
+    } finally {
+      setIsLookingUpOrder(false);
+    }
+  }, [contracts, setValue, watchAll.tenKhachHang, watchAll.sdt]);
 
   React.useEffect(() => {
     if (totalAmountVal > 0 && !isNaN(totalAmountVal) && !isNaN(soTienVal)) {
@@ -446,29 +476,44 @@ export function PaymentRecordBasicFields({
                 )}
                 <div className="col-span-2 grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-2xs font-medium uppercase tracking-wide text-slate-600 block">
-                      Số Hợp Đồng
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-2xs font-bold uppercase tracking-wide text-slate-700 block">
+                        Số Hợp Đồng <span className="text-red-650 font-bold">*</span>
+                      </label>
+                      {isLookingUpOrder && (
+                        <span className="text-3xs text-blue-600 flex items-center gap-1 font-semibold">
+                          <Loader2 className="animate-spin" size={10} /> Đang dò ERP...
+                        </span>
+                      )}
+                    </div>
                     <input 
                       aria-label="Số hợp đồng" 
                       disabled={disabled} 
-                      {...register('soHopDong')} 
-                      onBlur={(e) => handleBlurUppercase(e, (val) => setValue('soHopDong', val, { shouldDirty: true }))}
-                      className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" 
-                      placeholder={isContract ? "HD..." : "Nhập số hợp đồng (nếu có)..."}
+                      {...register('soHopDong', { required: 'Số hợp đồng là bắt buộc' })} 
+                      onBlur={(e) => handleBlurUppercase(e, (val) => {
+                        setValue('soHopDong', val, { shouldDirty: true, shouldValidate: true });
+                        handleContractLookup(val);
+                      })}
+                      className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75 font-semibold text-slate-900" 
+                      placeholder="Ví dụ: 244/SC-SGM/2026 (Bắt buộc)..."
                     />
+                    {matchedOrderInfo && (
+                      <span className="text-3xs text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+                        <CheckCircle2 size={10} /> {matchedOrderInfo}
+                      </span>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <label className="text-2xs font-medium uppercase tracking-wide text-slate-600 block">
-                      Số Đơn Hàng
+                      Số Đơn Hàng (Tự động từ ERP)
                     </label>
                     <input 
                       aria-label="Số đơn hàng" 
                       disabled={disabled} 
                       {...register('soDonHang')} 
                       onBlur={(e) => handleBlurUppercase(e, (val) => setValue('soDonHang', val, { shouldDirty: true }))}
-                      className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75" 
-                      placeholder={isContract ? (watchAll.soDonHang ? watchAll.soDonHang : "Tự động kế thừa từ HĐ") : "Nhập số đơn hàng (nếu có)..."}
+                      className="h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none w-full font-mono bg-white disabled:bg-slate-50/50 disabled:opacity-75 font-medium text-slate-800" 
+                      placeholder={isContract ? (watchAll.soDonHang ? watchAll.soDonHang : "Tự động kế thừa từ HĐ") : "Tự động lấy khi nhập Số hợp đồng..."}
                     />
                   </div>
                 </div>

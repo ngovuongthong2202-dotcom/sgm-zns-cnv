@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import axios from 'axios';
 import { getErpConfig } from '../services/erp/erp.config';
 
@@ -222,7 +222,117 @@ const handleErpSalesOrderLookup = async (req: any, res: any) => {
   }
 };
 
+// In-memory cache for ERP Sales Orders list (60 seconds TTL)
+let cachedSalesOrdersList: { items: any[]; expireAt: number } | null = null;
+
+const handleErpSalesOrdersListLookup: RequestHandler = async (req, res) => {
+  const rawSoHopDong = String(req.query.soHopDong || req.query.q || '').trim();
+  const cleanTarget = rawSoHopDong
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim()
+    .toLowerCase();
+
+  try {
+    const now = Date.now();
+    let items = (cachedSalesOrdersList && cachedSalesOrdersList.expireAt > now)
+      ? cachedSalesOrdersList.items
+      : null;
+
+    if (!items) {
+      const erpConfig = await getErpConfig();
+      const currentYear = new Date().getFullYear();
+      const fromDate = `01-01-${currentYear}`;
+      const toDate = `31-12-${currentYear}`;
+      const url = `${erpConfig.salesOrdersUrl || 'https://sgm.vnaisoft.com/api/public/sales-orders'}?from_date=${fromDate}&to_date=${toDate}`;
+
+      const response = await axios.get(url, {
+        timeout: (erpConfig.timeoutSeconds || 20) * 1000,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'SGM-ZNS-Client/1.0'
+        },
+        validateStatus: () => true
+      });
+
+      if (response.status === 200 && response.data) {
+        items = Array.isArray(response.data) ? response.data : (response.data.data || []);
+        cachedSalesOrdersList = {
+          items: items || [],
+          expireAt: now + 60000 // 60 seconds TTL
+        };
+      } else {
+        items = cachedSalesOrdersList?.items || [];
+      }
+    }
+
+    if (!cleanTarget) {
+      return res.json({ success: true, count: items?.length || 0, items: items || [] });
+    }
+
+    const matched = (items || []).find((it: any) => {
+      const c = String(it.code || '').trim().toLowerCase();
+      const oc = String(it.original_code || '').trim().toLowerCase();
+      if (c === cleanTarget || oc === cleanTarget) return true;
+      // Normalization ignoring slashes and dashes for robust fuzzy matching
+      const stripRegex = /[^a-z0-9]/g;
+      const strippedTarget = cleanTarget.replace(stripRegex, '');
+      if (strippedTarget && (c.replace(stripRegex, '') === strippedTarget || oc.replace(stripRegex, '') === strippedTarget)) {
+        return true;
+      }
+      return false;
+    });
+
+    if (matched) {
+      const c = String(matched.code || '').trim();
+      const oc = String(matched.original_code || '').trim();
+      let resolvedOrder = oc;
+      let resolvedContract = c;
+
+      if (c.toLowerCase() === cleanTarget || c.replace(/[^a-z0-9]/gi, '') === cleanTarget.replace(/[^a-z0-9]/gi, '')) {
+        resolvedOrder = oc || c;
+        resolvedContract = c;
+      } else if (oc.toLowerCase() === cleanTarget || oc.replace(/[^a-z0-9]/gi, '') === cleanTarget.replace(/[^a-z0-9]/gi, '')) {
+        resolvedOrder = c || oc;
+        resolvedContract = oc;
+      }
+
+      // If one of the codes clearly starts with 11-KDDH, that is definitely the sales order
+      if (/11-KDDH/i.test(c) && !/11-KDDH/i.test(oc)) {
+        resolvedOrder = c;
+        resolvedContract = oc || rawSoHopDong;
+      } else if (/11-KDDH/i.test(oc) && !/11-KDDH/i.test(c)) {
+        resolvedOrder = oc;
+        resolvedContract = c || rawSoHopDong;
+      }
+
+      return res.json({
+        success: true,
+        matched: true,
+        soHopDong: resolvedContract || rawSoHopDong,
+        soDonHang: resolvedOrder || '',
+        customerName: matched.customer_name_display || '',
+        phone: matched.customer_id || '',
+        content: matched.content || '',
+        totalAfterTax: Number(matched.total_after_tax) || 0,
+        raw: matched
+      });
+    }
+
+    return res.json({
+      success: true,
+      matched: false,
+      soHopDong: rawSoHopDong,
+      message: `Không tìm thấy đơn hàng ERP nào khớp với số hợp đồng "${rawSoHopDong}"`
+    });
+  } catch (error: any) {
+    console.warn('ERP Sales Orders List Lookup Error:', error.message);
+    return res.status(200).json({ success: false, matched: false, error: error.message });
+  }
+};
+
+router.get('/erp-sales-orders-lookup', handleErpSalesOrdersListLookup);
 router.get('/erp-sales-order', handleErpSalesOrderLookup);
 router.get('/erp-sales-order/:code', handleErpSalesOrderLookup);
 
 export default router;
+

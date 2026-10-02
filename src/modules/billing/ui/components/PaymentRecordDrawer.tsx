@@ -28,6 +28,7 @@ import { PaymentRecordBasicFields } from './form/PaymentRecordBasicFields';
 import { PaymentRecordProductsSection } from './form/PaymentRecordProductsSection';
 import { handleEnterToTab } from '@/src/shared/utils/formNavigation';
 import { calculateOtherPaid, determinePaymentStatus } from '../utils/payment-limits';
+import { notify } from '@/src/shared/utils/notify';
 
 interface PaymentRecordDrawerProps {
   isOpen?: boolean;
@@ -171,22 +172,30 @@ export function PaymentRecordDrawer({
         const quoTotal = Number(prefillQuotation.totalAmount) || Number(prefillQuotation.subTotal) || 0;
         const initialStatus = quoTotal > 0 ? 'Tất toán' : 'Chưa TT';
 
+        const linkedContract = contracts?.find((c: any) => 
+          (c.quotationId && (c.quotationId === prefillQuotation.id || c.quotationId === prefillQuotation.soPhieuBaoGia)) ||
+          (c.soPhieuBaoGia && (c.soPhieuBaoGia === prefillQuotation.soPhieuBaoGia || c.soPhieuBaoGia === prefillQuotation.id))
+        );
+        const resolvedContractId = linkedContract?.id || '';
+        const resolvedSoHopDong = linkedContract?.soHopDong || '';
+        const resolvedSoDonHang = linkedContract?.soDonHang || prefillQuotation.soDonHang || '';
+
         reset({
           paymentId: currentPaymentId,
           trangThaiGuiTinThanhToan: EntityZnsStatus.CHUA_GUI,
           tinhTrangThanhToan: initialStatus,
           phuongThucThanhToan: 'Chuyển khoản',
-          sourceValue: `QUOTATION:${prefillQuotation.id}`,
+          sourceValue: resolvedContractId ? `CONTRACT:${resolvedContractId}` : `QUOTATION:${prefillQuotation.id}`,
           quotationId: prefillQuotation.id,
-          contractId: '',
+          contractId: resolvedContractId,
           customerId: prefillQuotation.customerId || (prefillQuotation as any).customer_id || '',
           maKh: prefillQuotation.maKh || '',
           tenKhachHang: prefillQuotation.tenKhachHang || '',
           sdt: prefillQuotation.soZaloMacDinh || prefillQuotation.sdt || '',
           tenNguoiNop: prefillQuotation.nguoiLienHe || prefillQuotation.nguoiNhan || prefillQuotation.tenKhachHang || '',
           isNguoiNopKhac: false,
-          soDonHang: prefillQuotation.soDonHang || '',
-          soHopDong: '',
+          soDonHang: resolvedSoDonHang,
+          soHopDong: resolvedSoHopDong,
           soPhieuBaoGia: prefillQuotation.soPhieuBaoGia || '',
           subTotal: prefillQuotation.subTotal || 0,
           vatRate: prefillQuotation.vatRate || 0,
@@ -357,6 +366,12 @@ export function PaymentRecordDrawer({
     }
     if (!data.nguoiPhuTrach || !String(data.nguoiPhuTrach).trim()) {
       data.nguoiPhuTrach = defaultOfficer;
+    }
+
+    // Ràng buộc nghiệp vụ: Bắt buộc người dùng phải nhập Số Hợp Đồng căn cứ
+    if (!data.soHopDong || !String(data.soHopDong).trim()) {
+      notify.error('Vui lòng nhập Số Hợp Đồng căn cứ trước khi lưu chứng từ thanh toán.');
+      return;
     }
 
     // Kiểm tra nghiệp vụ: Kế thừa số đơn hàng nếu từ Hợp Đồng

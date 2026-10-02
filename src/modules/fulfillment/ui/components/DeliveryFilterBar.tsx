@@ -45,6 +45,7 @@ export function DeliveryFilterBar({
       <FilterDropdown
         label="Trạng thái"
         options={[
+          { value: 'undelivered', label: 'Tất cả chưa giao' },
           { value: 'pending', label: 'Chờ giao' },
           { value: 'ongoing', label: 'Đang đi giao' },
           { value: 'completed', label: 'Đã hoàn tất' },

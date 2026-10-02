@@ -1,5 +1,6 @@
 import React from 'react';
-import { Search, FileText, CreditCard, Calendar } from 'lucide-react';
+import { Search, FileText, CreditCard, Calendar, Loader2, CheckCircle2 } from 'lucide-react';
+import { resolveSalesOrderByContractNumber } from '@/src/modules/sales/domain/services/salesOrderErpBridgeService';
 import { QuotationSmartSearch } from '@/src/widgets/QuotationSmartSearch';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
@@ -90,6 +91,31 @@ export function ContractDefinitionSection({ register, setValue, errors, estimate
   const { user, userData } = useAuth();
   const isAdmin = isAdministratorRole(userData, user);
   const { handleBlurUppercase, handleBlurTrim } = useSmartFormInput();
+  const [isLookingUpErpOrder, setIsLookingUpErpOrder] = React.useState(false);
+  const [matchedOrderNotice, setMatchedOrderNotice] = React.useState<string | null>(null);
+
+  const handleContractBlur = React.useCallback(async (val: string) => {
+    setValue?.('soHopDong', val, { shouldDirty: true });
+    if (!val || !val.trim()) {
+      setMatchedOrderNotice(null);
+      return;
+    }
+    setIsLookingUpErpOrder(true);
+    try {
+      const res = await resolveSalesOrderByContractNumber(val);
+      if (res.matched && res.soDonHang) {
+        setValue?.('soDonHang', res.soDonHang, { shouldDirty: true, shouldValidate: true });
+        setMatchedOrderNotice(`✓ Đã khớp ĐH từ ERP: [${res.soDonHang}]`);
+      } else {
+        setMatchedOrderNotice(null);
+      }
+    } catch {
+      setMatchedOrderNotice(null);
+    } finally {
+      setIsLookingUpErpOrder(false);
+    }
+  }, [setValue]);
+
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
       <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -101,15 +127,29 @@ export function ContractDefinitionSection({ register, setValue, errors, estimate
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">Số Hợp Đồng <span className="text-red-650">*</span></label>
+          <div className="flex items-center justify-between">
+            <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">
+              Số Hợp Đồng <span className="text-red-650">*</span>
+            </label>
+            {isLookingUpErpOrder && (
+              <span className="text-3xs text-blue-600 flex items-center gap-1 font-semibold">
+                <Loader2 className="animate-spin" size={10} /> Đang dò ERP...
+              </span>
+            )}
+          </div>
           <input 
             aria-label="Số Hợp Đồng" 
             disabled={businessLock.locked} 
             {...register('soHopDong')} 
-            onBlur={(e) => handleBlurUppercase(e, (val) => setValue?.('soHopDong', val, { shouldDirty: true }))}
+            onBlur={(e) => handleBlurUppercase(e, handleContractBlur)}
             className="premium-input w-full font-mono font-bold text-slate-900 h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white disabled:bg-slate-100 disabled:opacity-75" 
-            placeholder="HD-XXXX/SGM" 
+            placeholder="Ví dụ: 244/SC-SGM/2026..." 
           />
+          {matchedOrderNotice && (
+            <span className="text-3xs text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+              <CheckCircle2 size={10} /> {matchedOrderNotice}
+            </span>
+          )}
           {errors.soHopDong && <p className="text-red-600 text-xs font-medium mt-1">{errors.soHopDong.message as string}</p>}
         </div>
 

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Target, Cpu, Package, Briefcase, FileCheck2 } from 'lucide-react';
 import { normalizeLoai } from '@/src/domain/enums/quotation-loai';
+import { readVietnameseCurrency } from '@/src/shared/utils/textFormatter';
 
 interface Props {
   quotations: import('@/src/domain/schema/quotation.schema').Quotation[];
@@ -40,7 +41,6 @@ export function QuotationStats({
       return Number(q.totalAmount || q.tongGiaTri || q.tongTien) || prodSum || 0;
     };
 
-
     const isQuotationChot = (q: any): boolean => {
       const status = String(q.tinhTrangBaoGia || q.trangThai || '').toUpperCase();
       if (status.includes('CHỐT') || status.includes('ĐÃ KÝ') || status.includes('THÀNH CÔNG') || status.includes('HOÀN TẤT')) {
@@ -74,6 +74,8 @@ export function QuotationStats({
       
       return { 
         count, 
+        rawTotalValue: totalValue,
+        rawDsChot: dsChot,
         totalValue: formatCurrency(totalValue), 
         totalPayment: formatCurrency(dsChot), 
         winRate: winRate.toFixed(1) + '%'
@@ -93,6 +95,8 @@ export function QuotationStats({
 
     const hasContractStat = {
       count: contractCount,
+      rawTotalValue: contractTotalVal,
+      rawDsChot: contractTotalVal,
       totalValue: formatCurrency(contractTotalVal),
       totalPayment: formatCurrency(contractTotalVal),
       winRate: contractRate.toFixed(1) + '%'
@@ -103,29 +107,33 @@ export function QuotationStats({
     return [
       {
         id: 'ALL', label: 'Toàn Bộ Báo Giá', type: '',
-        ...all, icon: Target, iconColor: 'bg-slate-100 text-slate-600',
-        barColor: 'bg-slate-600',
+        ...all, icon: Target, iconColor: 'bg-slate-100 text-slate-700',
+        barColor: 'bg-slate-700',
+        activeClasses: 'border-slate-500 bg-slate-50/90 ring-2 ring-slate-400/20 shadow-sm',
         isActive: !selectedLoai && !isContractFilterActive,
         isContractCard: false
       },
       {
         id: 'MAY', label: 'Báo Giá Máy', type: 'BG Máy',
-        ...may, icon: Cpu, iconColor: 'bg-blue-100 text-blue-600',
-        barColor: 'bg-blue-500',
+        ...may, icon: Cpu, iconColor: 'bg-blue-100 text-blue-700',
+        barColor: 'bg-blue-600',
+        activeClasses: 'border-blue-500 bg-blue-50/70 ring-2 ring-blue-400/20 shadow-sm',
         isActive: selectedLoai === 'BG Máy' && !isContractFilterActive,
         isContractCard: false
       },
       {
         id: 'VAT_TU', label: 'Báo Giá Vật Tư', type: 'BG Vật tư',
-        ...vattu, icon: Package, iconColor: 'bg-emerald-100 text-emerald-600',
-        barColor: 'bg-emerald-500',
+        ...vattu, icon: Package, iconColor: 'bg-emerald-100 text-emerald-700',
+        barColor: 'bg-emerald-600',
+        activeClasses: 'border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-400/20 shadow-sm',
         isActive: selectedLoai === 'BG Vật tư' && !isContractFilterActive,
         isContractCard: false
       },
       {
         id: 'DICH_VU', label: 'Báo Giá Dịch Vụ', type: 'BG Dịch vụ',
-        ...dichvu, icon: Briefcase, iconColor: 'bg-amber-100 text-amber-600',
-        barColor: 'bg-amber-500',
+        ...dichvu, icon: Briefcase, iconColor: 'bg-amber-100 text-amber-700',
+        barColor: 'bg-amber-600',
+        activeClasses: 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-400/20 shadow-sm',
         isActive: selectedLoai === 'BG Dịch vụ' && !isContractFilterActive,
         isContractCard: false
       },
@@ -133,6 +141,7 @@ export function QuotationStats({
         id: 'HAS_CONTRACT', label: 'Đã Có Hợp Đồng', type: 'CO_HOP_DONG',
         ...hasContractStat, icon: FileCheck2, iconColor: 'bg-teal-100 text-teal-700',
         barColor: 'bg-teal-600',
+        activeClasses: 'border-teal-500 bg-teal-50/70 ring-2 ring-teal-400/20 shadow-sm',
         isActive: isContractFilterActive,
         isContractCard: true
       }
@@ -140,17 +149,20 @@ export function QuotationStats({
   }, [quotations, allContracts, allPayments, selectedLoai, selectedTienDo]);
 
   const handleCardClick = (stat: typeof stats[0]) => {
-    if (stat.isContractCard) {
-      if (selectedTienDo === 'CO_HOP_DONG') {
-        setSelectedTienDo?.('');
-      } else {
-        setSelectedLoai('');
-        setSelectedTienDo?.('CO_HOP_DONG');
-      }
+    // Toggle off if already active
+    if (stat.isActive) {
+      setSelectedLoai('');
+      setSelectedTienDo?.('');
       return;
     }
 
-    // Card 1-4: reset selectedTienDo if it was set
+    if (stat.isContractCard) {
+      setSelectedLoai('');
+      setSelectedTienDo?.('CO_HOP_DONG');
+      return;
+    }
+
+    // Reset contract filter and set category
     if (selectedTienDo) {
       setSelectedTienDo?.('');
     }
@@ -158,14 +170,17 @@ export function QuotationStats({
   };
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-2 select-none">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mb-2.5 select-none">
       {stats.map((stat, idx) => {
-        let activeBorders = 'border-slate-200/80 bg-white hover:border-slate-300';
+        let borderAndBg = 'border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-xs';
         if (stat.isActive) {
-          activeBorders = stat.isContractCard
-            ? 'border-teal-400 bg-teal-50/60 ring-1 ring-teal-400/20'
-            : 'border-slate-400 bg-slate-50 ring-1 ring-slate-400/10';
+          borderAndBg = stat.activeClasses;
         }
+
+        const verbalText = readVietnameseCurrency(stat.rawTotalValue);
+        const fullTooltip = verbalText 
+          ? `${stat.totalValue} (${verbalText})\nGồm: ${stat.count} Báo giá`
+          : `${stat.totalValue} - Gồm ${stat.count} Báo giá`;
 
         return (
           <div
@@ -173,32 +188,63 @@ export function QuotationStats({
             onClick={() => handleCardClick(stat)}
             role="button"
             tabIndex={0}
-            className={`relative border rounded-xl p-2.5 lg:p-2 lg:px-2 xl:p-2.5 flex flex-col gap-1.5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition-all select-none overflow-hidden duration-150 cursor-pointer active:scale-[0.98] ${activeBorders}`}
+            className={`relative border rounded-xl p-2.5 flex flex-col justify-between gap-1.5 transition-all select-none duration-150 cursor-pointer active:scale-[0.99] ${borderAndBg}`}
           >
+            {/* Hàng 1: Tiêu đề + Huy hiệu số lượng + Icon */}
             <div className="flex items-center justify-between gap-1">
-              <span className="text-2xs lg:text-3xs xl:text-2xs font-bold uppercase tracking-wider text-slate-600 font-sans truncate">
-                {stat.label}
-              </span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-2xs font-bold uppercase tracking-wider text-slate-700 font-sans truncate">
+                  {stat.label}
+                </span>
+                <span className="px-1.5 py-0.2 rounded-full text-3xs font-black bg-slate-100 text-slate-700 border border-slate-200/80 shrink-0">
+                  {stat.count} BG
+                </span>
+              </div>
               <div className={`w-5 h-5 xl:w-6 xl:h-6 shrink-0 rounded-md flex items-center justify-center ${stat.iconColor}`}>
-                <stat.icon size={12} strokeWidth={2.5} />
+                <stat.icon size={13} strokeWidth={2.5} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-x-1.5 gap-y-1 mt-0.5">
-              <div className="flex flex-col min-w-0">
-                <span className="text-3xs text-slate-500 font-medium truncate">SL / Giá trị</span>
-                <span className="text-xs font-semibold font-currency tabular-nums text-slate-900 truncate">{stat.count} / {stat.totalValue}</span>
-              </div>
+
+            {/* Hàng 2: FULL GIÁ TRỊ TIỀN TỆ (Adaptive Typography - Không bao giờ truncate) */}
+            <div className="flex flex-col mt-0.5 min-w-0">
+              <span className="text-3xs text-slate-500 font-semibold uppercase tracking-wide">
+                Tổng giá trị
+              </span>
+              <span 
+                className={`font-bold font-currency tabular-nums tracking-tight text-slate-950 leading-snug whitespace-nowrap overflow-visible ${
+                  stat.totalValue.length > 17
+                    ? 'text-2xs xl:text-xs'
+                    : stat.totalValue.length > 14
+                      ? 'text-xs xl:text-sm'
+                      : 'text-sm xl:text-base'
+                }`}
+                title={fullTooltip}
+              >
+                {stat.totalValue}
+              </span>
+            </div>
+
+            {/* Hàng 3: DS Chốt & Thanh tiến độ Tỷ lệ ký HĐ */}
+            <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-slate-100 items-end mt-0.5">
               <div className="flex flex-col min-w-0">
                 <span className="text-3xs text-slate-500 font-medium truncate">DS Chốt</span>
-                <span className="text-xs font-semibold font-currency tabular-nums text-emerald-700 truncate">{stat.totalPayment}</span>
+                <span 
+                  className="text-2xs xl:text-xs font-bold font-currency tabular-nums text-emerald-700 truncate"
+                  title={`${stat.totalPayment} (Doanh số chốt thành công)`}
+                >
+                  {stat.totalPayment}
+                </span>
               </div>
-              <div className="flex flex-col col-span-2">
-                <span className="text-3xs text-slate-500 font-medium">Tỷ lệ chốt HĐ</span>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <div className="h-1.5 flex-1 bg-slate-100 rounded-full overflow-hidden">
-                    <div className={`h-full ${stat.barColor || 'bg-emerald-500'} rounded-full transition-all`} style={{ width: stat.winRate }} />
-                  </div>
-                  <span className="text-2xs font-bold text-slate-700 shrink-0">{stat.winRate}</span>
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center justify-between text-3xs text-slate-500 mb-0.5">
+                  <span className="truncate">Tỷ lệ</span>
+                  <span className="font-bold text-slate-800 shrink-0">{stat.winRate}</span>
+                </div>
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full ${stat.barColor} rounded-full transition-all duration-300`} 
+                    style={{ width: stat.winRate }} 
+                  />
                 </div>
               </div>
             </div>
@@ -208,3 +254,4 @@ export function QuotationStats({
     </div>
   );
 }
+

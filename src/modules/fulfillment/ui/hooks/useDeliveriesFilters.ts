@@ -68,7 +68,9 @@ export function useDeliveriesFilters(
 
     if (selectedStatus) {
       const statusUpper = selectedStatus.toUpperCase().trim();
-      if (statusUpper === 'DELIVERED' || statusUpper === 'COMPLETED' || selectedStatus === 'completed' || selectedStatus === 'Đã hoàn tất' || selectedStatus === 'Đã giao') {
+      if (statusUpper === 'UNDELIVERED' || selectedStatus === 'undelivered' || selectedStatus === 'chua_giao' || selectedStatus === 'Tất cả chưa giao') {
+        result = result.filter(d => !d.ngayGiaoThucTe && (d as any).tinhTrangGiaoHang !== 'HUY' && (d as any).tinhTrangGiaoHang !== 'Hủy');
+      } else if (statusUpper === 'DELIVERED' || statusUpper === 'COMPLETED' || selectedStatus === 'completed' || selectedStatus === 'Đã hoàn tất' || selectedStatus === 'Đã giao') {
         result = result.filter(d => !!d.ngayGiaoThucTe || (d as any).trangThai === 'COMPLETED' || (d as any).trangThai === 'DELIVERED');
       } else if (statusUpper === 'PENDING' || selectedStatus === 'pending' || selectedStatus === 'Chờ giao') {
         result = result.filter(d => !d.ngayGiaoThucTe && ((d as any).trangThai !== 'ONGOING' && (d as any).trangThai !== 'Đang đi giao'));
@@ -78,11 +80,22 @@ export function useDeliveriesFilters(
     }
 
     if (selectedSchedule) {
-      if (selectedSchedule === 'OVERDUE') {
-         result = result.filter(d => !d.ngayGiaoThucTe && (!d.ngayGiaoMay || new Date(d.ngayGiaoMay).getTime() < now));
+      const todayStr = new Date().toISOString().substring(0, 10);
+      if (selectedSchedule === 'OVERDUE' || selectedSchedule === 'late') {
+         result = result.filter(d => {
+           if ((d as any).tinhTrangGiaoHang === 'HUY' || (d as any).tinhTrangGiaoHang === 'Hủy') return false;
+           if (!d.ngayGiaoThucTe && d.ngayGiaoMay && d.ngayGiaoMay < todayStr) return true;
+           if (d.ngayGiaoThucTe && d.ngayGiaoMay && d.ngayGiaoThucTe > d.ngayGiaoMay) return true;
+           return false;
+         });
+      } else if (selectedSchedule === 'on_time' || selectedSchedule === 'ON_TIME') {
+         result = result.filter(d => {
+           if ((d as any).tinhTrangGiaoHang === 'HUY' || (d as any).tinhTrangGiaoHang === 'Hủy') return false;
+           if (!d.ngayGiaoThucTe) return false;
+           return Boolean(d.ngayGiaoMay && d.ngayGiaoThucTe <= d.ngayGiaoMay);
+         });
       } else if (selectedSchedule === 'TODAY') {
-         const tday = new Date().toISOString().substring(0, 10);
-         result = result.filter(d => d.ngayGiaoMay === tday && !d.ngayGiaoThucTe);
+         result = result.filter(d => d.ngayGiaoMay === todayStr && !d.ngayGiaoThucTe);
       }
     }
 

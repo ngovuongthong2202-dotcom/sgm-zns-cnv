@@ -22,9 +22,9 @@ export function DeliveryKPIs({ kpis, selectedStatus, setSelectedStatus, selected
         subtitle={`${kpis.inTransit.c} Khách hàng • ${kpis.inTransit.p} Tỉnh thành`}
         icon={<Coins />}
         color="amber"
-        isActive={selectedStatus === 'ongoing' || selectedStatus === 'pending'}
+        isActive={selectedStatus === 'undelivered' || selectedStatus === 'chua_giao'}
         onClick={() => {
-          setSelectedStatus(selectedStatus === 'ongoing' ? '' : 'ongoing');
+          setSelectedStatus(selectedStatus === 'undelivered' ? '' : 'undelivered');
         }}
       />
       <KPICard
