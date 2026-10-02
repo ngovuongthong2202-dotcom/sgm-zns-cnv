@@ -53,7 +53,7 @@ export class UsersRepository {
     const { data, error } = await supabase
       .from(this.tableName)
       .select('*')
-      .or(`username.eq.${username},id.eq.${username}`)
+      .or(`username.eq."${username}",id.eq."${username}"`)
       .maybeSingle();
 
     if (error || !data) {

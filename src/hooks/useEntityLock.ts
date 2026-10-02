@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/src/modules/iam';
 import { logger } from '@/src/shared/lib/logger';
 import { systemLocksRepo } from '@/src/data/repositories/system.repo';
@@ -16,9 +16,26 @@ export function useEntityLock(entityType: string, entityId: string | null | unde
   const [isLockedByMe, setIsLockedByMe] = useState(false);
   const [isLockedByOther, setIsLockedByOther] = useState(false);
 
+  const isLockedByMeRef = useRef(isLockedByMe);
+  const isLockedByOtherRef = useRef(isLockedByOther);
+  const lockInfoRef = useRef(lockInfo);
+
+  useEffect(() => {
+    isLockedByMeRef.current = isLockedByMe;
+  }, [isLockedByMe]);
+
+  useEffect(() => {
+    isLockedByOtherRef.current = isLockedByOther;
+  }, [isLockedByOther]);
+
+  useEffect(() => {
+    lockInfoRef.current = lockInfo;
+  }, [lockInfo]);
+
   useEffect(() => {
     let isMounted = true;
-    if (!entityId || !user) {
+    const userId = user?.uid;
+    if (!entityId || !userId) {
       setLockInfo(null);
       setIsLockedByMe(false);
       setIsLockedByOther(false);
@@ -35,11 +52,12 @@ export function useEntityLock(entityType: string, entityId: string | null | unde
         const now = Date.now();
         if (data.expiresAt > now) {
           setLockInfo(data);
-          const byMe = data.userId === user.uid;
+          const byMe = data.userId === userId;
           setIsLockedByMe(byMe);
           setIsLockedByOther(!byMe);
         } else {
-          // Lock expired in our view
+          // Lock expired in our view -> Evict zombie lock from DB asynchronously
+          systemLocksRepo.hardDelete(lockId).catch(() => {});
           setLockInfo(null);
           setIsLockedByMe(false);
           setIsLockedByOther(false);
@@ -57,25 +75,18 @@ export function useEntityLock(entityType: string, entityId: string | null | unde
       isMounted = false;
       unsubscribe();
     };
-  }, [entityType, entityId, user]);
+  }, [entityType, entityId, user?.uid]);
 
   const lastInteractionRef = useRef(Date.now());
-  const isLockedByMeRef = useRef(isLockedByMe);
-  const isLockedByOtherRef = useRef(isLockedByOther);
 
-  useEffect(() => {
-    isLockedByMeRef.current = isLockedByMe;
-  }, [isLockedByMe]);
-
-  useEffect(() => {
-    isLockedByOtherRef.current = isLockedByOther;
-  }, [isLockedByOther]);
-
-  const acquireLock = async () => {
-    if (!entityId || !user) return false;
+  const acquireLock = useCallback(async (isRenew: boolean = false) => {
+    if (!entityId || !user?.uid) return false;
     
+    // If already locked by me and not an explicit renewal, avoid redundant database writes
+    if (isLockedByMeRef.current && !isRenew) return true;
+
     // Safety check if already locked by other and not expired
-    if (isLockedByOther && lockInfo && lockInfo.expiresAt > Date.now()) {
+    if (!isRenew && isLockedByOtherRef.current && lockInfoRef.current && lockInfoRef.current.expiresAt > Date.now()) {
       return false;
     }
 
@@ -83,29 +94,35 @@ export function useEntityLock(entityType: string, entityId: string | null | unde
     const now = Date.now();
     const newLock: EntityLockInfo = {
       userId: user.uid,
-      userEmail: user.email,
+      userEmail: user.email || null,
       lockedAt: now,
       expiresAt: now + 15 * 60 * 1000, // 15 minutes TTL
     };
     
     try {
       await systemLocksRepo.set(lockId, newLock as unknown as Partial<Record<string, unknown>>);
+      setIsLockedByMe(true);
+      setIsLockedByOther(false);
+      setLockInfo(newLock);
       return true;
     } catch (e) {
       logger.error('Failed to acquire lock', e);
       return false;
     }
-  };
+  }, [entityType, entityId, user?.uid, user?.email]);
 
-  const releaseLock = async (force: boolean = false) => {
-    if (!entityId || (!isLockedByMe && !force)) return;
+  const releaseLock = useCallback(async (force: boolean = false) => {
+    if (!entityId || (!isLockedByMeRef.current && !force)) return;
     const lockId = `${entityType}_${entityId}`;
     try {
       await systemLocksRepo.hardDelete(lockId);
+      setIsLockedByMe(false);
+      setIsLockedByOther(false);
+      setLockInfo(null);
     } catch (e) {
       logger.error('Failed to release lock', e);
     }
-  };
+  }, [entityType, entityId]);
 
   // Heartbeat to keep lock alive if acquired, with idle threshold checking
   useEffect(() => {
@@ -129,7 +146,7 @@ export function useEntityLock(entityType: string, entityId: string | null | unde
         logger.warn(`[useEntityLock] Idle for more than 15 minutes. Releasing lock on ${entityType}_${entityId}`);
         releaseLock(); 
       } else {
-        acquireLock(); // Renew expiration (extends TTL by 15 mins)
+        acquireLock(true); // Renew expiration (extends TTL by 15 mins)
       }
     }, 60 * 1000); // Every 1 minute
     

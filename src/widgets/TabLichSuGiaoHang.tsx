@@ -40,6 +40,9 @@ export function TabLichSuGiaoHang({
 }: TabLichSuGiaoHangProps) {
   const recon = reconcileDeliveryShipments(delivery);
   const shipments = Array.isArray(delivery.cacDotGiao) ? delivery.cacDotGiao : [];
+  const isRemainingZero = recon.isFullyDelivered ||
+    (recon.remainingProducts.length > 0 && recon.remainingProducts.every(p => (Number(p.remainingQuantity) || 0) <= 0)) ||
+    (recon.totalBaselineQuantity > 0 && recon.totalShippedQuantity >= recon.totalBaselineQuantity);
 
   return (
     <div className="space-y-6">
@@ -57,7 +60,7 @@ export function TabLichSuGiaoHang({
             <p className="text-xs text-slate-300">
               Tổng số lượng đơn hàng: <strong className="text-white font-mono">{recon.totalBaselineQuantity}</strong> sản phẩm 
               • Đã xuất kho: <strong className="text-emerald-400 font-mono">{recon.totalShippedQuantity}</strong> 
-              • Còn lại: <strong className="text-amber-300 font-mono">{recon.totalBaselineQuantity - recon.totalShippedQuantity}</strong>
+              • Còn lại: <strong className="text-amber-300 font-mono">{Math.max(0, recon.totalBaselineQuantity - recon.totalShippedQuantity)}</strong>
             </p>
           </div>
 
@@ -66,7 +69,7 @@ export function TabLichSuGiaoHang({
               <span className="text-3xs uppercase font-bold text-slate-400 tracking-wider block">Tiến độ thực xuất</span>
               <span className="text-lg font-black font-mono text-emerald-400">{recon.tienDoLuyKe}%</span>
             </div>
-            {canEdit && onOpenRecordShipment && (
+            {canEdit && onOpenRecordShipment && !isRemainingZero ? (
               <Button
                 type="button"
                 onClick={onOpenRecordShipment}
@@ -76,7 +79,12 @@ export function TabLichSuGiaoHang({
                 <Plus size={14} />
                 <span>+ Đợt {recon.nextDotGiaoHang}</span>
               </Button>
-            )}
+            ) : isRemainingZero ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold shadow-2xs">
+                <CheckCircle2 size={14} className="text-emerald-400" />
+                <span>Đã xuất đủ 100%</span>
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -149,13 +157,20 @@ export function TabLichSuGiaoHang({
                   {/* Card Header */}
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2.5">
-                      <span className="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 font-extrabold text-xs">
-                        Đợt {shipment.dotGiaoHang || sIdx + 1}
-                      </span>
+                      {shipments.length <= 1 && isRemainingZero ? (
+                        <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-extrabold text-xs flex items-center gap-1">
+                          <CheckCircle2 size={12} className="text-emerald-600" />
+                          Phiếu xuất kho & Bàn giao
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 font-extrabold text-xs">
+                          Đợt {shipment.dotGiaoHang || sIdx + 1}
+                        </span>
+                      )}
                       <span className="font-mono font-bold text-sm text-slate-900">
                         {shipment.soPhieuXuat}
                       </span>
-                      {shipment.isDotCuoiCung && (
+                      {shipment.isDotCuoiCung && shipments.length > 1 && (
                         <span className="px-2 py-0.5 rounded text-3xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-wider">
                           Đợt Cuối
                         </span>
@@ -175,10 +190,10 @@ export function TabLichSuGiaoHang({
                             type="button"
                             onClick={() => onConfirmShipment(shipment)}
                             className="text-xs h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 rounded-lg shadow-2xs border-none cursor-pointer transition-transform active:scale-95"
-                            title={`Xác nhận hoàn tất giao hàng Đợt ${shipment.dotGiaoHang}`}
+                            title={shipments.length <= 1 && isRemainingZero ? 'Xác nhận hoàn tất giao hàng' : `Xác nhận hoàn tất giao hàng Đợt ${shipment.dotGiaoHang}`}
                           >
                             <CheckCircle2 size={13} />
-                            <span>Xác nhận giao Đợt {shipment.dotGiaoHang}</span>
+                            <span>{shipments.length <= 1 && isRemainingZero ? 'Xác nhận bàn giao' : `Xác nhận giao Đợt ${shipment.dotGiaoHang}`}</span>
                           </Button>
                         )
                       ) : (
@@ -206,7 +221,7 @@ export function TabLichSuGiaoHang({
                       {/* Print Handover Protocol for this Shipment */}
                       <ExportHandoverPdf 
                         delivery={projectedDelivery}
-                        label={`In BB Đợt ${shipment.dotGiaoHang}`}
+                        label={shipments.length <= 1 && isRemainingZero ? 'In BB Bàn giao' : `In BB Đợt ${shipment.dotGiaoHang}`}
                         variant="secondary"
                         className="text-xs h-8 px-3"
                       />

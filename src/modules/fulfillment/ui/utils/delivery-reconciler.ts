@@ -28,7 +28,10 @@ export function reconcileDeliveryShipments(delivery: Delivery): DeliveryReconcil
   const shipments = Array.isArray(delivery.cacDotGiao) ? delivery.cacDotGiao : [];
 
   // Compute total baseline quantity
-  const totalBaselineQuantity = baselineProducts.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+  let totalBaselineQuantity = baselineProducts.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+  if (totalBaselineQuantity === 0 && Number(delivery.slMay) > 0) {
+    totalBaselineQuantity = Number(delivery.slMay);
+  }
 
   // Map total shipped quantity per product key
   const shippedQuantityMap = new Map<string, number>();
@@ -80,7 +83,18 @@ export function reconcileDeliveryShipments(delivery: Delivery): DeliveryReconcil
     };
   });
 
-  const isFullyDelivered = remainingProducts.length > 0 && remainingProducts.every(p => p.remainingQuantity <= 0);
+  // If baseline products array was empty, aggregate total shipped from shipment records directly
+  if (baselineProducts.length === 0 && shipments.length > 0) {
+    totalShippedQuantity = shipments.reduce((sum, s) => {
+      const sQty = Array.isArray(s.products) && s.products.length > 0
+        ? s.products.reduce((sSum, p) => sSum + (Number(p.quantity) || 0), 0)
+        : (Number(s.slMay) || 0);
+      return sum + sQty;
+    }, 0);
+  }
+
+  const isFullyDelivered = (remainingProducts.length > 0 && remainingProducts.every(p => p.remainingQuantity <= 0))
+    || (totalBaselineQuantity > 0 && totalShippedQuantity >= totalBaselineQuantity);
   const tienDoLuyKe = totalBaselineQuantity > 0 
     ? Math.min(100, Math.round((totalShippedQuantity / totalBaselineQuantity) * 100))
     : (isFullyDelivered ? 100 : 0);

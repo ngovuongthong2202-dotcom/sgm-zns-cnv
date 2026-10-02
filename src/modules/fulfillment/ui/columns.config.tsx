@@ -23,8 +23,9 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
       const p = info.row.original;
       const isLate = !p.ngayGiaoThucTe && p.ngayGiaoMay && p.ngayGiaoMay < new Date().toISOString().split('T')[0];
       const shipments = Array.isArray(p.cacDotGiao) ? p.cacDotGiao : [];
-      const hasMulti = shipments.length > 0;
-      const latestShipment = hasMulti ? shipments[shipments.length - 1] : null;
+      const hasMulti = shipments.length > 1;
+      const latestShipment = shipments.length > 0 ? shipments[shipments.length - 1] : null;
+      const isSinglePartial = shipments.length === 1 && shipments[0]?.isDotCuoiCung === false;
       
       return (
         <DeliveryHoverCard delivery={p}>
@@ -37,7 +38,11 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
                 <span className="text-3xs font-extrabold text-blue-800 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200 shrink-0" title={`Tổng cộng ${shipments.length} đợt giao`}>
                   {shipments.length} đợt
                 </span>
-              ) : p.dotGiaoHang ? (
+              ) : isSinglePartial ? (
+                <span className="text-3xs font-extrabold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200 shrink-0" title="Đợt giao phân kỳ">
+                  Đợt 1
+                </span>
+              ) : p.dotGiaoHang && p.dotGiaoHang > 1 ? (
                 <span className="text-3xs font-extrabold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200 shrink-0">
                   Đợt {p.dotGiaoHang}{p.isDotCuoiCung ? ' (Cuối)' : ''}
                 </span>
@@ -49,7 +54,9 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
               ) : null}
             </div>
             {latestShipment?.soPhieuXuat ? (
-              <span className="text-2xs text-slate-500 font-mono tracking-tight shrink-0">PX: {latestShipment.soPhieuXuat} (Đ{latestShipment.dotGiaoHang})</span>
+              <span className="text-2xs text-slate-500 font-mono tracking-tight shrink-0">
+                PX: {latestShipment.soPhieuXuat}{hasMulti ? ` (Đ${latestShipment.dotGiaoHang || shipments.length})` : ''}
+              </span>
             ) : p.soPhieuXuat ? (
               <span className="text-2xs text-slate-500 font-mono tracking-tight shrink-0">PX: {p.soPhieuXuat}</span>
             ) : <span className="text-2xs text-slate-500 italic">---</span>}
@@ -332,25 +339,56 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
       }
 
       if (hasShipments) {
-        const totalBaseline = (d.products || []).reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+        let totalBaseline = (d.products || []).reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+        if (totalBaseline === 0 && Number(d.slMay) > 0) totalBaseline = Number(d.slMay);
+
         const totalShipped = shipments.reduce((sum, s) => {
-          return sum + (s.products || []).reduce((ssum, sp) => ssum + (Number(sp.quantity) || 0), 0);
+          const sQty = (s.products || []).reduce((ssum, sp) => ssum + (Number(sp.quantity) || 0), 0);
+          return sum + (sQty || Number(s.slMay) || 0);
         }, 0);
+
         const pct = totalBaseline > 0 ? Math.min(100, Math.round((totalShipped / totalBaseline) * 100)) : (d.tienDoLuyKe || 100);
-        const isDone = pct >= 100 || d.tinhTrangGiaoHang === 'HOAN_TAT';
+        const isPhysicalConfirmed = Boolean(d.ngayGiaoThucTe) || 
+          ['HOAN_TAT', 'DA_GIAO', 'ĐÃ GIAO', 'HOÀN TẤT'].includes(d.tinhTrangGiaoHang || '') ||
+          (shipments.length > 0 && shipments.every(s => Boolean(s.ngayGiaoThucTe)));
+
+        const isDone = pct >= 100 && isPhysicalConfirmed;
+        const isAwaitingConfirm = pct >= 100 && !isPhysicalConfirmed;
+
+        let statusText = `${pct}%`;
+        let statusTitle = `Tiến độ: ${pct}%`;
+        let barColor = 'bg-blue-600';
+        let textColor = 'text-blue-700';
+
+        if (isDone) {
+          statusText = 'Hoàn tất 100%';
+          statusTitle = 'Đã bàn giao và xác nhận nhận hàng 100%';
+          barColor = 'bg-emerald-500';
+          textColor = 'text-emerald-700 font-extrabold';
+        } else if (isAwaitingConfirm) {
+          statusText = 'Chờ xác nhận (100%)';
+          statusTitle = 'Đã xuất đủ 100% hàng nhưng chưa có ngày giao thực tế / xác nhận ký nhận';
+          barColor = 'bg-blue-500';
+          textColor = 'text-blue-700 font-bold';
+        } else {
+          statusText = shipments.length > 1 ? `Giao ${shipments.length} đợt (${pct}%)` : `Đã xuất ${pct}%`;
+          statusTitle = `Đã giao ${totalShipped}/${totalBaseline} sản phẩm (${pct}%)`;
+          barColor = 'bg-blue-600';
+          textColor = 'text-blue-700 font-semibold';
+        }
 
         return (
-          <div className="w-full flex flex-col justify-center min-w-0 py-1 gap-1">
+          <div className="w-full flex flex-col justify-center min-w-0 py-1 gap-1" title={statusTitle}>
             <div className="flex items-center justify-between text-3xs font-mono">
-              <span className={`font-bold ${isDone ? 'text-emerald-700' : 'text-blue-700'}`}>
-                {isDone ? 'Hoàn tất' : `Giao ${shipments.length} đợt`}
+              <span className={`truncate ${textColor}`}>
+                {statusText}
               </span>
-              <span className="font-bold text-slate-700">{pct}%</span>
+              <span className="font-bold text-slate-750">{pct}%</span>
             </div>
             <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden shadow-inner">
               <div 
                 style={{ width: `${pct}%` }} 
-                className={`h-full rounded-full transition-all duration-300 ${isDone ? 'bg-emerald-500' : 'bg-blue-600'}`}
+                className={`h-full rounded-full transition-all duration-300 ${barColor}`}
               />
             </div>
           </div>
@@ -358,13 +396,13 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
       }
 
       const znsStatus = normalizeLegacyStatus(d.trangThaiGuiTinGiaoHang);
-      const isDelivered = !!d.ngayGiaoThucTe;
+      const isDelivered = Boolean(d.ngayGiaoThucTe) || ['HOAN_TAT', 'DA_GIAO', 'ĐÃ GIAO', 'HOÀN TẤT'].includes(d.tinhTrangGiaoHang || '');
 
       let statusLabel: string;
       let statusColor: string;
 
       if (!isDelivered) {
-        statusLabel = 'Đang giao hàng';
+        statusLabel = 'Chờ xác nhận';
         statusColor = 'bg-blue-50 text-blue-700 border-blue-200';
       } else if (znsStatus === EntityZnsStatus.THAT_BAI) {
         statusLabel = 'ZNS Thất bại';
@@ -373,8 +411,8 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
         statusLabel = 'Chờ gửi ZNS';
         statusColor = 'bg-slate-50 text-slate-500 border-slate-200';
       } else {
-        statusLabel = 'Hoàn tất';
-        statusColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        statusLabel = 'Hoàn tất 100%';
+        statusColor = 'bg-emerald-50 text-emerald-700 border-emerald-200 font-bold';
       }
       
       return (

@@ -16,6 +16,7 @@ import { resolvePaymentLoai } from '../domain/resolvePaymentLoai';
 import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
 import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
 import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
+import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
 
 function QuickEditAmount({ value, onSave }: { value: number, onSave: (v: number) => void }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -387,6 +388,7 @@ export const getPaymentColumns = (
 
       // Delivery info
       const relatedDeliveries = deliveries.filter(d => {
+         if (!isSameCustomer(p, d)) return false;
          if (p.id && (d.paymentId === p.id || (d as any).paymentId === (p as any).paymentId)) return true;
          if (p.contractId && d.contractId === p.contractId) return true;
          if (p.soHopDong && d.soHopDong === p.soHopDong) return true;
@@ -395,7 +397,11 @@ export const getPaymentColumns = (
          return false;
       });
       
-      const isDelivered = relatedDeliveries.some(d => d.tinhTrangGiaoHang === 'Đã Giao' || !!d.ngayGiaoThucTe);
+      const isDelivered = relatedDeliveries.some(d => 
+        Boolean(d.ngayGiaoThucTe) || 
+        ['HOAN_TAT', 'DA_GIAO', 'ĐÃ GIAO', 'HOÀN TẤT', 'Đã Giao'].includes(d.tinhTrangGiaoHang || '') ||
+        (Array.isArray(d.cacDotGiao) && d.cacDotGiao.length > 0 && d.cacDotGiao.every(s => Boolean(s.ngayGiaoThucTe)))
+      );
       const hasDeliveries = relatedDeliveries.length > 0;
       const waiverDelivery = relatedDeliveries.find((d: any) => d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU');
       const hasWaiverDelivery = Boolean(waiverDelivery);

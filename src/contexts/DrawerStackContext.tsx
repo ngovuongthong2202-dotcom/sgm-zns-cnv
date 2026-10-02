@@ -108,18 +108,19 @@ export function DrawerStackProvider({ children }: { children: React.ReactNode })
     }
   };
 
-  const openDrawer = useCallback((entityType: DrawerStackItem['entityType'], entityId: string) => {
-    if (!entityId) return;
+  const openDrawer = useCallback((entityType: DrawerStackItem['entityType'], entityId: string | any) => {
+    const rawId = typeof entityId === 'string' ? entityId : (entityId?.id || entityId?._id || String(entityId || ''));
+    if (!rawId || rawId === '[object Object]') return;
     setStack((prev) => {
       // Avoid pushing duplicate adjacent drawers to prevent infinite cycles
       const top = prev[prev.length - 1];
-      if (top && top.entityType === entityType && top.entityId === entityId) {
+      if (top && top.entityType === entityType && top.entityId === rawId) {
         return prev;
       }
       const newItem = {
-        id: `${entityType}-${entityId}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        id: `${entityType}-${rawId}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         entityType,
-        entityId,
+        entityId: rawId,
       };
       const nextStack = [...prev, newItem];
       pushedCountRef.current += 1;

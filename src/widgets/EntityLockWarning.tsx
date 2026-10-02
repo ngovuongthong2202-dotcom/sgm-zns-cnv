@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Lock, Unlock, BellRing } from 'lucide-react';
 import { useEntityLock } from '@/src/hooks/useEntityLock';
 import { useAuth } from '@/src/modules/iam';
@@ -14,21 +14,26 @@ interface EntityLockWarningProps {
 }
 
 export function EntityLockWarning({ entityType, entityId, onLockStateChange }: EntityLockWarningProps) {
-  const { isLockedByOther, lockInfo, acquireLock, releaseLock } = useEntityLock(entityType, entityId);
+  const { isLockedByMe, isLockedByOther, lockInfo, acquireLock, releaseLock } = useEntityLock(entityType, entityId);
   const { userData, user } = useAuth();
   const canForceUnlock = can('force_unlock', 'settings', userData?.role);
 
+  // Keep onLockStateChange isolated via ref to prevent parent re-render loops
+  const onLockStateChangeRef = useRef(onLockStateChange);
   useEffect(() => {
-    if (entityId) {
-      if (!isLockedByOther) {
-        acquireLock();
-      }
-    }
-  }, [entityId, isLockedByOther, acquireLock]);
+    onLockStateChangeRef.current = onLockStateChange;
+  }, [onLockStateChange]);
 
   useEffect(() => {
-    onLockStateChange?.(isLockedByOther);
-  }, [isLockedByOther, onLockStateChange]);
+    onLockStateChangeRef.current?.(isLockedByOther);
+  }, [isLockedByOther]);
+
+  // Initial acquire: only run once per entityId when not locked by other and not already locked by me
+  useEffect(() => {
+    if (entityId && !isLockedByOther && !isLockedByMe) {
+      acquireLock();
+    }
+  }, [entityId, isLockedByOther, isLockedByMe, acquireLock]);
 
   if (!isLockedByOther || !lockInfo) return null;
 

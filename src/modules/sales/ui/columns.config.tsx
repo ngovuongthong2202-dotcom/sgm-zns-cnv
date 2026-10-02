@@ -196,9 +196,17 @@ export const getQuotationColumns = (
     cell: (info) => {
       const q = info.row.original;
       
-      const hasContract = contracts.some(c => c.quotationId === q.id);
-      const hasPayment = payments.some(p => p.quotationId === q.id || (hasContract && contracts.find(c => c.quotationId === q.id)?.id === p.contractId));
-      const hasDelivery = deliveries.some(d => d.quotationId === q.id || (hasContract && contracts.find(c => c.quotationId === q.id)?.id === d.contractId));
+      const relatedContract = contracts.find(c => c.quotationId === q.id);
+      const hasContract = Boolean(relatedContract);
+      const hasPayment = payments.some(p => p.quotationId === q.id || (relatedContract && relatedContract.id === p.contractId));
+      
+      const relatedDeliveries = deliveries.filter(d => d.quotationId === q.id || (relatedContract && relatedContract.id === d.contractId));
+      const hasDelivery = relatedDeliveries.length > 0;
+      const isDeliveryConfirmed = relatedDeliveries.some(d => 
+        Boolean(d.ngayGiaoThucTe) || 
+        ['HOAN_TAT', 'DA_GIAO', 'ĐÃ GIAO', 'HOÀN TẤT'].includes(d.tinhTrangGiaoHang || '') ||
+        (Array.isArray(d.cacDotGiao) && d.cacDotGiao.length > 0 && d.cacDotGiao.every(s => Boolean(s.ngayGiaoThucTe)))
+      );
       
       const isMachine = normalizeLoai(q.loai) === QUOTATION_LOAI.MAY;
       const znsStatus = normalizeLegacyStatus(q.trangThaiGuiTinBaoGia);
@@ -226,6 +234,9 @@ export const getQuotationColumns = (
           statusColor = 'bg-blue-50 text-blue-700 border-blue-200';
         } else if (!hasDelivery) {
           statusLabel = 'Chờ giao hàng';
+          statusColor = 'bg-blue-50 text-blue-700 border-blue-200';
+        } else if (!isDeliveryConfirmed) {
+          statusLabel = 'Đang giao hàng';
           statusColor = 'bg-blue-50 text-blue-700 border-blue-200';
         } else {
           statusLabel = 'Hoàn tất';

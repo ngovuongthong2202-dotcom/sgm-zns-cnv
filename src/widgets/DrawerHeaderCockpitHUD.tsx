@@ -133,10 +133,12 @@ export function DrawerHeaderCockpitHUD({
   // Handler mở drawer
   const handleSelectDoc = (type: 'quotation' | 'contract' | 'payment' | 'delivery', doc: any) => {
     if (!doc) return;
+    const targetId = typeof doc === 'string' ? doc : (doc.id || doc._id);
+    if (!targetId) return;
     if (onOpenRelatedDoc) {
       onOpenRelatedDoc(type, doc);
     } else {
-      openDrawer(type, doc);
+      openDrawer(type, targetId);
     }
   };
 
@@ -151,7 +153,7 @@ export function DrawerHeaderCockpitHUD({
             currentType === 'quotation'
               ? 'bg-blue-950/90 border-blue-500 text-white shadow-xs ring-1 ring-blue-500/50'
               : quotation
-                ? 'bg-slate-900 border-slate-700 text-slate-200 hover:border-slate-500 hover:text-white'
+                ? 'bg-slate-900 border-slate-700 text-slate-200 hover:border-blue-400 hover:text-white hover:scale-[1.02] active:scale-95'
                 : 'bg-slate-900/80 border-slate-700/60 text-slate-400 cursor-default'
           }`}
           title={quotation ? `Báo giá: ${quotation.soPhieuBaoGia || 'Đã có'}` : 'Chưa có Báo giá gốc'}
@@ -182,7 +184,7 @@ export function DrawerHeaderCockpitHUD({
                 currentType === 'contract'
                   ? 'bg-blue-950/90 border-blue-500 text-white shadow-xs ring-1 ring-blue-500/50'
                   : matchedContract
-                    ? 'bg-slate-900 border-slate-700 text-slate-200 hover:border-slate-500 hover:text-white'
+                    ? 'bg-slate-900 border-slate-700 text-slate-200 hover:border-blue-400 hover:text-white hover:scale-[1.02] active:scale-95'
                     : 'bg-slate-900/80 border-slate-700/60 text-slate-400 cursor-default'
               }`}
               title={matchedContract ? `Hợp đồng: ${matchedContract.soHopDong}` : 'Chưa lập Hợp đồng'}
@@ -214,7 +216,7 @@ export function DrawerHeaderCockpitHUD({
             currentType === 'payment'
               ? 'bg-blue-950/90 border-blue-500 text-white shadow-xs ring-1 ring-blue-500/50'
               : matchedPayments.length > 0
-                ? 'bg-slate-900 border-slate-700 text-slate-200 hover:border-slate-500 hover:text-white'
+                ? 'bg-slate-900 border-slate-700 text-slate-200 hover:border-blue-400 hover:text-white hover:scale-[1.02] active:scale-95'
                 : 'bg-slate-900/80 border-slate-700/60 text-slate-300 cursor-default'
           }`}
           title={matchedPayments.length > 0 ? `${primaryPaymentDisplayCode} - Đã thu: ${new Intl.NumberFormat('vi-VN').format(totalPaid)}đ (${paidRatio.toFixed(0)}%)` : 'Chưa thu cọc'}
@@ -255,7 +257,7 @@ export function DrawerHeaderCockpitHUD({
             currentType === 'delivery'
               ? 'bg-blue-950/90 border-blue-500 text-white shadow-xs ring-1 ring-blue-500/50'
               : matchedDeliveries.length > 0
-                ? 'bg-slate-900 border-slate-700 text-slate-200 hover:border-slate-500 hover:text-white'
+                ? 'bg-slate-900 border-slate-700 text-slate-200 hover:border-blue-400 hover:text-white hover:scale-[1.02] active:scale-95'
                 : 'bg-slate-900/90 border-slate-700/80 hover:border-slate-600'
           }`}
           title={matchedDeliveries[0] ? `Lệnh giao: ${primaryDeliveryDisplayCode}` : (lifecycleBadge.track === 'TRACK_SERVICE' ? 'Chờ triển khai' : 'Chờ xuất kho')}

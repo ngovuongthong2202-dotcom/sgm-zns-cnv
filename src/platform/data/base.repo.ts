@@ -126,6 +126,71 @@ function getOrCreateTableChannel(tableName: string, onPayload: (payload: any) =>
   };
 }
 
+const entityChannelPool = new Map<string, SharedTableChannel>();
+
+function getOrCreateEntityChannel(tableName: string, id: string, onPayload: (payload: any) => void): () => void {
+  if (!isSupabaseConfigured || isTestEnv) {
+    return () => {};
+  }
+
+  const poolKey = `${tableName}:${id}`;
+  let entry = entityChannelPool.get(poolKey);
+  if (!entry) {
+    const listeners = new Set<(payload: any) => void>();
+    const channelName = `realtime:entity:${tableName}:${id}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: tableName, filter: `id=eq.${id}` },
+        (payload: any) => {
+          listeners.forEach((cb) => {
+            try {
+              cb(payload);
+            } catch (err) {
+              logger.error(`Error in entity channel listener for ${poolKey}:`, err);
+            }
+          });
+        }
+      )
+      .subscribe();
+
+    entry = { channel, refCount: 0, listeners, cleanupTimer: null };
+    entityChannelPool.set(poolKey, entry);
+  }
+
+  if (entry.cleanupTimer) {
+    clearTimeout(entry.cleanupTimer);
+    entry.cleanupTimer = null;
+  }
+
+  entry.refCount++;
+  entry.listeners.add(onPayload);
+
+  return () => {
+    const current = entityChannelPool.get(poolKey);
+    if (!current) return;
+    current.listeners.delete(onPayload);
+    current.refCount--;
+    if (current.refCount <= 0) {
+      if (current.cleanupTimer) {
+        clearTimeout(current.cleanupTimer);
+      }
+      // Hold entity channel open for 30s to allow quick transitions/re-renders without thrashing
+      current.cleanupTimer = setTimeout(() => {
+        if (current.refCount <= 0) {
+          try {
+            supabase.removeChannel(current.channel);
+          } catch (err) {
+            logger.debug(`Error removing entity channel for ${poolKey}:`, err);
+          }
+          entityChannelPool.delete(poolKey);
+        }
+      }, 30000);
+    }
+  };
+}
+
 /**
  * Enterprise Hybrid Repository: Implements Clean Architecture Repository Port on top of Supabase PostgreSQL
  */
@@ -575,31 +640,23 @@ export class BaseRepository<T> {
       return () => { isSubscribed = false; };
     }
 
-    const channelName = `realtime:${this.tableName}:${id}:${Math.random().toString(36).substring(7)}`;
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: this.tableName, filter: `id=eq.${id}` },
-        payload => {
-          if (!isSubscribed) return;
-          if (payload.eventType === 'DELETE') {
-            entityCachePool.setNotFound(this.collectionName, id);
-            cb(null);
-          } else {
-            const mapped = mapDocument<T>(payload.new);
-            if (mapped) {
-              entityCachePool.set(this.collectionName, mapped as any);
-              cb(mapped);
-            }
-          }
+    const unsubscribeChannel = getOrCreateEntityChannel(this.tableName, id, (payload: any) => {
+      if (!isSubscribed) return;
+      if (payload.eventType === 'DELETE') {
+        entityCachePool.setNotFound(this.collectionName, id);
+        cb(null);
+      } else {
+        const mapped = mapDocument<T>(payload.new);
+        if (mapped) {
+          entityCachePool.set(this.collectionName, mapped as any);
+          cb(mapped);
         }
-      )
-      .subscribe();
+      }
+    });
 
     return () => {
       isSubscribed = false;
-      supabase.removeChannel(channel);
+      unsubscribeChannel();
     };
   }
 
