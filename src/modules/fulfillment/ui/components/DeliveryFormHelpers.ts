@@ -10,6 +10,15 @@ export function normalizeDeliveryFormValues(data: any) {
   data.deliveryId = sanitizeCode(data.deliveryId);
   data.soPhieuXuat = sanitizeCode(data.soPhieuXuat);
   data.donViVanChuyen = sanitizeText(data.donViVanChuyen);
+  if (data.contractId) {
+    const isValidUuid = typeof data.contractId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.contractId);
+    if (!isValidUuid) {
+      if (!data.soHopDong) {
+        data.soHopDong = data.contractId;
+      }
+      data.contractId = null;
+    }
+  }
   if (data.diaChiGiaoHang) {
     data.diaChiGiaoHang = sanitizeText(data.diaChiGiaoHang);
   }

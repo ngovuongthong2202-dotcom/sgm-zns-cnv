@@ -51,7 +51,7 @@ export default function ProductListInput({
   const {
     bulkVat, setBulkVat, bulkDiscPct, setBulkDiscPct,
     bulkDiscAmount, setBulkDiscAmount, applyBulkVat, applyBulkDiscPct,
-    applyBulkDiscAmount, addProduct, addFromCatalog, removeProduct, updateProduct
+    applyBulkDiscAmount, addProduct, addFromCatalog, addMultipleFromCatalog, removeProduct, updateProduct
   } = useProductListInput({
     products, onChange, maxQuantities, showBaoHanh, baseDateForBaoHanh, defaultUnit, defaultItemType, showFinance
   });
@@ -78,6 +78,7 @@ export default function ProductListInput({
         applyBulkDiscAmount={applyBulkDiscAmount}
         defaultUnit={defaultUnit}
         addFromCatalog={addFromCatalog}
+        addMultipleFromCatalog={addMultipleFromCatalog}
         addProduct={addProduct}
       />
 

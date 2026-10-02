@@ -109,6 +109,23 @@ export function useProductListInput({
     onChange([...products, newItem]);
   }, [products, onChange, defaultItemType]);
 
+  const addMultipleFromCatalog = useCallback((incomingItems: ProductItem[]) => {
+    if (!incomingItems || incomingItems.length === 0) return;
+    const defaultVat = products.length > 0 && products[0].vatPct !== undefined ? products[0].vatPct : 8;
+    const newItems = incomingItems.map((p, idx) => {
+      const itemVat = p.vatPct !== undefined ? p.vatPct : defaultVat;
+      const resolvedType = p.itemType || detectItemType(p.productName, p.unit, defaultItemType);
+      return computeLineItem({
+        ...p,
+        itemType: resolvedType,
+        stt: products.length + idx + 1,
+        vatPct: itemVat,
+        id: p.id || crypto.randomUUID()
+      });
+    });
+    onChange([...products, ...newItems]);
+  }, [products, onChange, defaultItemType]);
+
   const removeProduct = useCallback((index: number) => {
     const remaining = products.filter((_, i) => i !== index);
     const reindexed = remaining.map((p, i) => ({ ...p, stt: i + 1 }));
@@ -220,6 +237,7 @@ export function useProductListInput({
     applyBulkDiscAmount,
     addProduct,
     addFromCatalog,
+    addMultipleFromCatalog,
     removeProduct,
     updateProduct
   };

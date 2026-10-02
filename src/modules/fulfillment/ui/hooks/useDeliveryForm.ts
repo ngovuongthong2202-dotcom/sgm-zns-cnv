@@ -175,12 +175,13 @@ export function useDeliveryForm(
     const finalSoPhieuBaoGia = (p as any).soPhieuBaoGia || source?.soPhieuBaoGia || (source as any)?.soBaoGia || resolvedQuot?.soPhieuBaoGia || (resolvedQuot as any)?.soBaoGia || '';
     const finalNgayBaoGia = (p as any).ngayBaoGia || (source as any)?.ngayBaoGia || resolvedQuot?.ngayBaoGia || '';
 
-    const isContract = Boolean(
-      p.contractId ||
-      (p.soHopDong && String(p.soHopDong).trim()) ||
-      (source && 'soHopDong' in source && Boolean(source.soHopDong))
+    const matchingContract = contracts?.find((c: any) => 
+      (p.contractId && c.id === p.contractId) || 
+      (p.soHopDong && c.soHopDong === p.soHopDong) ||
+      (source && c.id === source.id && 'soHopDong' in source)
     );
-    const resolvedContractId = isContract ? (p.contractId || (source && 'soHopDong' in source ? source.id : '')) : '';
+    const isContract = Boolean(matchingContract);
+    const resolvedContractId = matchingContract ? matchingContract.id : '';
     const resolvedQuotationId = finalQuotationId || (!isContract && source ? source.id : '') || '';
 
     const targetCustId = p.customerId || source?.customerId;

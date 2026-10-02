@@ -160,6 +160,20 @@ router.post('/create/:entityType', async (req, res) => {
         }
       }
 
+      if (data.contractId) {
+        const isValidUuid = typeof data.contractId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.contractId);
+        if (!isValidUuid) {
+          if (!data.soHopDong) data.soHopDong = data.contractId;
+          data.contractId = null;
+        } else {
+          const cCheck = await adminDb.collection('contracts').doc(data.contractId).get();
+          if (!cCheck.exists) {
+            if (!data.soHopDong) data.soHopDong = data.contractId;
+            data.contractId = null;
+          }
+        }
+      }
+
       const newRef = data.id ? adminDb.collection('payments').doc(data.id) : adminDb.collection('payments').doc();
       const batch = adminDb.batch();
       batch.set(newRef, { ...data, id: newRef.id, createdAt: new Date().toISOString(), deletedAt: null });
@@ -251,6 +265,20 @@ router.post('/create/:entityType', async (req, res) => {
           data.deliveryId = await sequenceGeneratorService.getNextCode('delivery', { year: isNaN(year) ? new Date().getFullYear() : year });
         } catch (e) {
           console.error('[WorkflowRoutes] Failed to generate deliveryId sequence:', e);
+        }
+      }
+
+      if (data.contractId) {
+        const isValidUuid = typeof data.contractId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.contractId);
+        if (!isValidUuid) {
+          if (!data.soHopDong) data.soHopDong = data.contractId;
+          data.contractId = null;
+        } else {
+          const cCheck = await adminDb.collection('contracts').doc(data.contractId).get();
+          if (!cCheck.exists) {
+            if (!data.soHopDong) data.soHopDong = data.contractId;
+            data.contractId = null;
+          }
         }
       }
 

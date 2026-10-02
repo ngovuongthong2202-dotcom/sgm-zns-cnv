@@ -28,6 +28,7 @@ export const ProductItemSchema = z.object({
   subtotalBeforeTax: z.number().optional(),
   vatPct: z.number().optional(),
   taxAmount: z.number().optional(),
+  vatAmount: z.number().optional(),
   subtotalAfterTax: z.number().optional()
 });
 

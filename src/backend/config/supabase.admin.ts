@@ -543,15 +543,61 @@ class DocRef {
       if ('deletedBy' in recordData) payload.deleted_by = recordData.deletedBy;
     }
 
-    // Double check foreign keys are not empty strings
+    // Double check foreign keys are not empty strings or invalid non-UUID strings
     const fkCols = ['contract_id', 'customer_id', 'quotation_id', 'payment_id'];
     for (const fk of fkCols) {
-      if (fk in payload && typeof payload[fk] === 'string' && payload[fk].trim() === '') {
-        payload[fk] = null;
+      if (fk in payload) {
+        const val = payload[fk];
+        if (val === null || val === undefined) {
+          payload[fk] = null;
+        } else if (typeof val === 'string') {
+          const trimmed = val.trim();
+          if (trimmed === '' || trimmed === '---' || trimmed === 'N/A') {
+            payload[fk] = null;
+          }
+        }
       }
     }
 
-    const { error } = await supabaseAdmin.from(tableName).upsert(payload);
+    // Omnidirectional Foreign Key Shield for deliveries & payments
+    if (tableName === 'deliveries' || tableName === 'payments') {
+      if (payload.contract_id && typeof payload.contract_id === 'string') {
+        const cid = payload.contract_id.trim();
+        // If contract_id does not look like a UUID (e.g. it has slashes like "217/VT-SGM/2026")
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cid);
+        if (!isUuid) {
+          // If payload does not have so_hop_dong yet, save the string to so_hop_dong
+          if (!payload.so_hop_dong && (desc?.physicalColumns?.has('so_hop_dong') || desc?.physicalColumns?.has('ma_hop_dong'))) {
+            payload.so_hop_dong = cid;
+            if (payload.data && typeof payload.data === 'object') payload.data.soHopDong = cid;
+          }
+          payload.contract_id = null;
+        } else {
+          // Check if this UUID actually exists in contracts table
+          try {
+            const { data: cExists } = await supabaseAdmin.from('contracts').select('id').eq('id', cid).maybeSingle();
+            if (!cExists) {
+              payload.contract_id = null;
+            }
+          } catch {
+            // Ignore DB check error, fallback to retry handler
+          }
+        }
+      }
+    }
+
+    let { error } = await supabaseAdmin.from(tableName).upsert(payload);
+
+    // Auto-healing fallback if PostgreSQL still encounters a foreign key violation
+    if (error && error.message && error.message.includes('violates foreign key constraint')) {
+      logger.warn({ err: error, tableName, id: this.id }, `Foreign key constraint detected on ${tableName}, attempting safe FK nullification`);
+      if (error.message.includes('contract_id')) payload.contract_id = null;
+      if (error.message.includes('payment_id')) payload.payment_id = null;
+      if (error.message.includes('quotation_id')) payload.quotation_id = null;
+      const retry = await supabaseAdmin.from(tableName).upsert(payload);
+      error = retry.error;
+    }
+
     if (error) {
       logger.error({ err: error, tableName, id: this.id }, `DocRef.set failed on table ${tableName}`);
       throw new Error(`Database write failed on ${tableName}: ${error.message}`);

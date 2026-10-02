@@ -21,6 +21,15 @@ export const DEFAULT_ERP_CONFIG: ErpConfig = {
   timeoutSeconds: 20,
 };
 
+export function sanitizeErpUrl(url: string | undefined, defaultUrl: string): string {
+  if (!url || typeof url !== 'string' || !url.trim()) return defaultUrl;
+  let cleaned = url.trim();
+  // Self-heal typos in domain (sgn -> sgm) and path (itens -> items)
+  cleaned = cleaned.replace(/sgn\.vnaisoft\.com/gi, 'sgm.vnaisoft.com');
+  cleaned = cleaned.replace(/\/itens(\/|$|\?)/gi, '/items$1');
+  return cleaned;
+}
+
 let cachedConfig: { config: ErpConfig; expireAt: number } | null = null;
 
 export async function getErpConfig(): Promise<ErpConfig> {
@@ -34,11 +43,11 @@ export async function getErpConfig(): Promise<ErpConfig> {
     if (doc.exists && doc.data()) {
       const data = doc.data() as Partial<ErpConfig>;
       const config: ErpConfig = {
-        baseUrl: data.baseUrl?.trim() || DEFAULT_ERP_CONFIG.baseUrl,
-        itemsUrl: data.itemsUrl?.trim() || DEFAULT_ERP_CONFIG.itemsUrl,
-        exportSaleUrl: data.exportSaleUrl?.trim() || DEFAULT_ERP_CONFIG.exportSaleUrl,
-        quotationUrl: data.quotationUrl?.trim() || DEFAULT_ERP_CONFIG.quotationUrl,
-        salesOrdersUrl: data.salesOrdersUrl?.trim() || DEFAULT_ERP_CONFIG.salesOrdersUrl,
+        baseUrl: sanitizeErpUrl(data.baseUrl, DEFAULT_ERP_CONFIG.baseUrl),
+        itemsUrl: sanitizeErpUrl(data.itemsUrl, DEFAULT_ERP_CONFIG.itemsUrl),
+        exportSaleUrl: sanitizeErpUrl(data.exportSaleUrl, DEFAULT_ERP_CONFIG.exportSaleUrl),
+        quotationUrl: sanitizeErpUrl(data.quotationUrl, DEFAULT_ERP_CONFIG.quotationUrl),
+        salesOrdersUrl: sanitizeErpUrl(data.salesOrdersUrl, DEFAULT_ERP_CONFIG.salesOrdersUrl),
         timeoutSeconds: Number(data.timeoutSeconds) || DEFAULT_ERP_CONFIG.timeoutSeconds,
         apiKey: data.apiKey?.trim() || '',
         updatedAt: data.updatedAt,

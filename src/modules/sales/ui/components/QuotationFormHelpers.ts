@@ -43,9 +43,9 @@ export function normalizeQuotationFormValues(data: Quotation): Quotation {
     normalized.discountAmount = aggs.totalDiscount;
     normalized.vatAmount = aggs.totalVat;
     normalized.totalAmount = aggs.totalAfterTax;
-    if (aggs.totalBeforeTax > 0) {
-      normalized.vatRate = Math.round((aggs.totalVat / aggs.totalBeforeTax) * 100);
-    }
+    normalized.vatRate = (aggs.totalBeforeTax > 0 && aggs.totalVat > 0)
+      ? Math.round((aggs.totalVat / aggs.totalBeforeTax) * 100)
+      : 0;
     if (aggs.totalGross > 0) {
       normalized.discountRate = Number(((aggs.totalDiscount / aggs.totalGross) * 100).toFixed(2));
     }

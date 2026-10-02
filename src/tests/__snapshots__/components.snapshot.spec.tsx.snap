@@ -801,42 +801,46 @@ exports[`Component Snapshots (Baseline) > renders ContractFormModal 1`] = `
                   <div
                     class="flex items-center gap-2"
                   >
-                    <div
-                      class="relative"
+                    <button
+                      class="justify-center duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] hover:text-slate-900 active:bg-slate-200/70 focus-visible:ring-slate-200 px-2.5 text-xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 flex items-center gap-1.5 h-8 border border-blue-200/80 shadow-xs rounded-lg transition-all hover:border-blue-300"
+                      title="Mở Thư viện Sản phẩm & Vật tư ERP (Phím tắt F2)"
+                      type="button"
                     >
-                      <button
-                        class="justify-center transition-all duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] hover:text-slate-900 active:bg-slate-200/70 focus-visible:ring-slate-200 px-2.5 rounded-md text-xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 flex items-center gap-1.5 h-8 border border-blue-200/60 shadow-xs"
-                        type="button"
+                      <svg
+                        aria-hidden="true"
+                        class="lucide lucide-package text-blue-600"
+                        fill="none"
+                        height="14"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        viewBox="0 0 24 24"
+                        width="14"
+                        xmlns="http://www.w3.org/2000/svg"
                       >
-                        <svg
-                          aria-hidden="true"
-                          class="lucide lucide-package text-blue-600"
-                          fill="none"
-                          height="14"
-                          stroke="currentColor"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          viewBox="0 0 24 24"
-                          width="14"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"
-                          />
-                          <path
-                            d="M12 22V12"
-                          />
-                          <polyline
-                            points="3.29 7 12 12 20.71 7"
-                          />
-                          <path
-                            d="m7.5 4.27 9 5.15"
-                          />
-                        </svg>
-                         Thư viện SP
-                      </button>
-                    </div>
+                        <path
+                          d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"
+                        />
+                        <path
+                          d="M12 22V12"
+                        />
+                        <polyline
+                          points="3.29 7 12 12 20.71 7"
+                        />
+                        <path
+                          d="m7.5 4.27 9 5.15"
+                        />
+                      </svg>
+                      <span>
+                        Thư viện SP
+                      </span>
+                      <span
+                        class="text-3xs font-mono font-bold bg-blue-200/60 text-blue-900 px-1 py-0.2 rounded hidden sm:inline"
+                      >
+                        F2
+                      </span>
+                    </button>
                     <button
                       aria-label="Nút bấm"
                       class="justify-center duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] border border-blue-700 active:bg-blue-800 focus-visible:ring-blue-600 h-7 text-xs font-bold text-white hover:text-white flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-all"
@@ -4580,6 +4584,39 @@ exports[`Component Snapshots (Baseline) > renders PaymentRecordDrawer 1`] = `
                             *
                           </span>
                         </label>
+                        <div
+                          class="flex items-center gap-1.5"
+                        >
+                          <button
+                            class="text-3xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-0.5 hover:underline cursor-pointer"
+                            title="Tra cứu số đơn hàng từ máy chủ ERP theo số hợp đồng"
+                            type="button"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="lucide lucide-search"
+                              fill="none"
+                              height="10"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              viewBox="0 0 24 24"
+                              width="10"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="m21 21-4.34-4.34"
+                              />
+                              <circle
+                                cx="11"
+                                cy="11"
+                                r="8"
+                              />
+                            </svg>
+                             Dò ERP
+                          </button>
+                        </div>
                       </div>
                       <input
                         aria-label="Số hợp đồng"
@@ -5860,42 +5897,46 @@ exports[`Component Snapshots (Baseline) > renders QuotationFormModal 1`] = `
                     <div
                       class="flex items-center gap-2"
                     >
-                      <div
-                        class="relative"
+                      <button
+                        class="justify-center duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] hover:text-slate-900 active:bg-slate-200/70 focus-visible:ring-slate-200 px-2.5 text-xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 flex items-center gap-1.5 h-8 border border-blue-200/80 shadow-xs rounded-lg transition-all hover:border-blue-300"
+                        title="Mở Thư viện Sản phẩm & Vật tư ERP (Phím tắt F2)"
+                        type="button"
                       >
-                        <button
-                          class="justify-center transition-all duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] hover:text-slate-900 active:bg-slate-200/70 focus-visible:ring-slate-200 px-2.5 rounded-md text-xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 flex items-center gap-1.5 h-8 border border-blue-200/60 shadow-xs"
-                          type="button"
+                        <svg
+                          aria-hidden="true"
+                          class="lucide lucide-package text-blue-600"
+                          fill="none"
+                          height="14"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          viewBox="0 0 24 24"
+                          width="14"
+                          xmlns="http://www.w3.org/2000/svg"
                         >
-                          <svg
-                            aria-hidden="true"
-                            class="lucide lucide-package text-blue-600"
-                            fill="none"
-                            height="14"
-                            stroke="currentColor"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            viewBox="0 0 24 24"
-                            width="14"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"
-                            />
-                            <path
-                              d="M12 22V12"
-                            />
-                            <polyline
-                              points="3.29 7 12 12 20.71 7"
-                            />
-                            <path
-                              d="m7.5 4.27 9 5.15"
-                            />
-                          </svg>
-                           Thư viện SP
-                        </button>
-                      </div>
+                          <path
+                            d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"
+                          />
+                          <path
+                            d="M12 22V12"
+                          />
+                          <polyline
+                            points="3.29 7 12 12 20.71 7"
+                          />
+                          <path
+                            d="m7.5 4.27 9 5.15"
+                          />
+                        </svg>
+                        <span>
+                          Thư viện SP
+                        </span>
+                        <span
+                          class="text-3xs font-mono font-bold bg-blue-200/60 text-blue-900 px-1 py-0.2 rounded hidden sm:inline"
+                        >
+                          F2
+                        </span>
+                      </button>
                       <button
                         aria-label="Nút bấm"
                         class="justify-center duration-150 ease-out outline-none select-none whitespace-nowrap flex-nowrap focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] border border-blue-700 active:bg-blue-800 focus-visible:ring-blue-600 h-7 text-xs font-bold text-white hover:text-white flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-all"

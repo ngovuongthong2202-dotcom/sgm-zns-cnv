@@ -113,6 +113,61 @@ export async function resolveSalesOrderByContractNumber(
     console.warn('[SalesOrderBridge] Remote lookup timeout or network failure:', err?.message);
   }
 
+  // TIER 4: Direct fallback to ERP public endpoint if proxy fails
+  try {
+    const currentYear = new Date().getFullYear();
+    const directUrl = `https://sgm.vnaisoft.com/api/public/sales-orders?from_date=01-01-${currentYear - 1}&to_date=31-12-${currentYear}`;
+    const directRes = await fetch(directUrl, { signal: AbortSignal.timeout(6000) });
+    if (directRes.ok) {
+      const list = await directRes.json();
+      const items = Array.isArray(list) ? list : (list.data || []);
+      const matched = items.find((it: any) => {
+        const c = String(it.code || '').trim().toLowerCase();
+        const oc = String(it.original_code || '').trim().toLowerCase();
+        return (
+          c === normTarget ||
+          oc === normTarget ||
+          (strippedTarget && (c.replace(/[^a-z0-9]/g, '') === strippedTarget || oc.replace(/[^a-z0-9]/g, '') === strippedTarget))
+        );
+      });
+
+      if (matched) {
+        const c = String(matched.code || '').trim();
+        const oc = String(matched.original_code || '').trim();
+        let resolvedOrder = oc;
+        let resolvedContract = c;
+        if (/11-KDDH/i.test(c) && !/11-KDDH/i.test(oc)) {
+          resolvedOrder = c;
+          resolvedContract = oc || cleanCode;
+        } else if (/11-KDDH/i.test(oc) && !/11-KDDH/i.test(c)) {
+          resolvedOrder = oc;
+          resolvedContract = c || cleanCode;
+        }
+
+        const result: SalesOrderBridgeResult = {
+          matched: true,
+          soHopDong: resolvedContract || cleanCode,
+          soDonHang: resolvedOrder || '',
+          customerName: matched.customer_name_display || '',
+          phone: matched.customer_id || '',
+          content: matched.content || '',
+          totalAfterTax: Number(matched.total_after_tax) || 0,
+          source: 'ERP_API',
+          raw: matched
+        };
+
+        clientMemoryCache.set(strippedTarget || normTarget, {
+          result,
+          expireAt: now + 60000
+        });
+
+        return result;
+      }
+    }
+  } catch (directErr: any) {
+    console.warn('[SalesOrderBridge] Direct ERP fallback lookup failed:', directErr?.message);
+  }
+
   return {
     matched: false,
     soHopDong: cleanCode,

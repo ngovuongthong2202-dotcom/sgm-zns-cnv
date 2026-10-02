@@ -1,6 +1,6 @@
 import React from 'react';
 import { Controller } from 'react-hook-form';
-import { FileText, Clock, DollarSign, Lock, Loader2, CheckCircle2 } from 'lucide-react';
+import { FileText, Clock, DollarSign, Lock, Loader2, CheckCircle2, Search } from 'lucide-react';
 import { resolveSalesOrderByContractNumber } from '@/src/modules/sales/domain/services/salesOrderErpBridgeService';
 import { useAuth } from '@/src/modules/iam';
 import { isAdministratorRole } from '@/src/shared/utils/userProfile';
@@ -111,6 +111,21 @@ export function PaymentRecordBasicFields({
       setIsLookingUpOrder(false);
     }
   }, [contracts, setValue, watchAll.tenKhachHang, watchAll.sdt]);
+
+  const currentSoHopDong = watchAll.soHopDong;
+  const currentSoDonHang = watchAll.soDonHang;
+  const lastLookedUpRef = React.useRef<string>('');
+
+  React.useEffect(() => {
+    const trimmed = (currentSoHopDong || '').trim();
+    if (trimmed && trimmed.length >= 3 && !currentSoDonHang && lastLookedUpRef.current !== trimmed) {
+      lastLookedUpRef.current = trimmed;
+      const timer = setTimeout(() => {
+        handleContractLookup(trimmed);
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [currentSoHopDong, currentSoDonHang, handleContractLookup]);
 
   React.useEffect(() => {
     if (totalAmountVal > 0 && !isNaN(totalAmountVal) && !isNaN(soTienVal)) {
@@ -480,16 +495,37 @@ export function PaymentRecordBasicFields({
                       <label className="text-2xs font-bold uppercase tracking-wide text-slate-700 block">
                         Số Hợp Đồng <span className="text-red-650 font-bold">*</span>
                       </label>
-                      {isLookingUpOrder && (
-                        <span className="text-3xs text-blue-600 flex items-center gap-1 font-semibold">
-                          <Loader2 className="animate-spin" size={10} /> Đang dò ERP...
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {isLookingUpOrder ? (
+                          <span className="text-3xs text-blue-600 flex items-center gap-1 font-semibold">
+                            <Loader2 className="animate-spin" size={10} /> Đang dò ERP...
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => currentSoHopDong && handleContractLookup(currentSoHopDong)}
+                            title="Tra cứu số đơn hàng từ máy chủ ERP theo số hợp đồng"
+                            className="text-3xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-0.5 hover:underline cursor-pointer"
+                          >
+                            <Search size={10} /> Dò ERP
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <input 
                       aria-label="Số hợp đồng" 
                       disabled={disabled} 
                       {...register('soHopDong', { required: 'Số hợp đồng là bắt buộc' })} 
+                      onChange={(e) => {
+                        register('soHopDong').onChange(e);
+                        const val = e.target.value;
+                        if (val && val.trim().length >= 4 && !currentSoDonHang) {
+                          const timer = setTimeout(() => {
+                            handleContractLookup(val.trim());
+                          }, 500);
+                          return () => clearTimeout(timer);
+                        }
+                      }}
                       onBlur={(e) => handleBlurUppercase(e, (val) => {
                         setValue('soHopDong', val, { shouldDirty: true, shouldValidate: true });
                         handleContractLookup(val);

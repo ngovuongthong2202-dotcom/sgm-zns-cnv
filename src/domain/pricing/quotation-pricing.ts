@@ -80,7 +80,8 @@ export function computeLineItem(item: ProductItem): ProductItem {
   let vatPct = rawVat !== undefined ? Math.max(0, Number(rawVat)) : 0;
   let taxAmount = Math.round(subtotalBeforeTax * (vatPct / 100));
 
-  if (taxAmount === 0 && vatPct === 0) {
+  // CHỈ suy luận từ taxAmount nếu rawVat hoàn toàn là undefined (dữ liệu cổ xưa chưa từng lưu vatPct)
+  if (rawVat === undefined && taxAmount === 0 && vatPct === 0) {
     const rawTaxAmount = item.taxAmount !== undefined && item.taxAmount !== null
       ? Number(item.taxAmount)
       : ((item as any).vatAmount !== undefined && (item as any).vatAmount !== null ? Number((item as any).vatAmount) : 0);
@@ -111,8 +112,9 @@ export function computeLineItem(item: ProductItem): ProductItem {
     subtotalAfterDiscount,
     unitPriceAfterDiscount,
     subtotalBeforeTax,
-    vatPct: rawVat !== undefined ? Number(rawVat) : (vatPct > 0 ? vatPct : item.vatPct),
+    vatPct: rawVat !== undefined ? Number(rawVat) : (vatPct > 0 ? vatPct : 0),
     taxAmount,
+    vatAmount: taxAmount,
     subtotalAfterTax,
     total: subtotalAfterTax,
     ...(isPromotional ? { isPromotionalItem: true } : {})

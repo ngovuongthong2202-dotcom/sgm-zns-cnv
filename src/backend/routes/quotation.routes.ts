@@ -241,26 +241,53 @@ const handleErpSalesOrdersListLookup: RequestHandler = async (req, res) => {
     if (!items) {
       const erpConfig = await getErpConfig();
       const currentYear = new Date().getFullYear();
-      const fromDate = `01-01-${currentYear}`;
+      const fromDate = `01-01-${currentYear - 1}`;
       const toDate = `31-12-${currentYear}`;
-      const url = `${erpConfig.salesOrdersUrl || 'https://sgm.vnaisoft.com/api/public/sales-orders'}?from_date=${fromDate}&to_date=${toDate}`;
+      const primaryUrl = `${erpConfig.salesOrdersUrl || 'https://sgm.vnaisoft.com/api/public/sales-orders'}?from_date=${fromDate}&to_date=${toDate}`;
 
-      const response = await axios.get(url, {
-        timeout: (erpConfig.timeoutSeconds || 20) * 1000,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'SGM-ZNS-Client/1.0'
-        },
-        validateStatus: () => true
-      });
+      try {
+        const response = await axios.get(primaryUrl, {
+          timeout: (erpConfig.timeoutSeconds || 20) * 1000,
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'SGM-ZNS-Client/1.0'
+          },
+          validateStatus: () => true
+        });
 
-      if (response.status === 200 && response.data) {
-        items = Array.isArray(response.data) ? response.data : (response.data.data || []);
-        cachedSalesOrdersList = {
-          items: items || [],
-          expireAt: now + 60000 // 60 seconds TTL
-        };
-      } else {
+        if (response.status === 200 && response.data) {
+          items = Array.isArray(response.data) ? response.data : (response.data.data || []);
+          cachedSalesOrdersList = {
+            items: items || [],
+            expireAt: now + 60000 // 60 seconds TTL
+          };
+        }
+      } catch (err: any) {
+        console.warn('[QuotationRoutes] Primary ERP sales orders fetch failed:', err?.message);
+      }
+
+      // Failover fallback to public SGM endpoint if primary failed
+      if (!items || items.length === 0) {
+        try {
+          const fallbackUrl = `https://sgm.vnaisoft.com/api/public/sales-orders?from_date=${fromDate}&to_date=${toDate}`;
+          const fbResponse = await axios.get(fallbackUrl, {
+            timeout: 15000,
+            headers: { 'Accept': 'application/json' },
+            validateStatus: () => true
+          });
+          if (fbResponse.status === 200 && fbResponse.data) {
+            items = Array.isArray(fbResponse.data) ? fbResponse.data : (fbResponse.data.data || []);
+            cachedSalesOrdersList = {
+              items: items || [],
+              expireAt: now + 60000
+            };
+          }
+        } catch (fbErr: any) {
+          console.warn('[QuotationRoutes] Fallback ERP sales orders fetch failed:', fbErr?.message);
+        }
+      }
+
+      if (!items) {
         items = cachedSalesOrdersList?.items || [];
       }
     }
