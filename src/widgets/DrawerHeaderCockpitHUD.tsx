@@ -4,6 +4,7 @@ import { useDrawerStack } from '@/src/contexts/DrawerStackContext';
 import { cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';
 import { resolveDeliveryDisplayCode, resolvePaymentDisplayCode } from '@/src/shared/utils/voucherResolver';
 import { resolveDocumentLifecycleBadge } from '@/src/domain/services/lifecycle-reconciler';
+import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
 
 export interface DrawerHeaderCockpitHUDProps {
   currentType: 'quotation' | 'contract' | 'payment' | 'delivery';
@@ -26,23 +27,55 @@ export function DrawerHeaderCockpitHUD({
 }: DrawerHeaderCockpitHUDProps) {
   const { openDrawer } = useDrawerStack();
 
-  // 1. Phân giải liên kết dòng chảy (Sovereign Lineage Match)
+  // Xác định Anchor Document của phiên Drawer hiện tại
+  const anchorDoc = useMemo(() => {
+    if (currentType === 'delivery' && deliveries[0]) return deliveries[0];
+    if (currentType === 'payment' && payments[0]) return payments[0];
+    if (currentType === 'contract' && contracts[0]) return contracts[0];
+    if (currentType === 'quotation' && quotation) return quotation;
+    return quotation || contracts[0] || deliveries[0] || payments[0] || null;
+  }, [currentType, quotation, contracts, deliveries, payments]);
+
+  // 1. Phân giải liên kết dòng chảy (Sovereign Lineage Match & Strict Customer Boundary)
   const qId = cleanDocCode(quotation?.id);
   const qSo = cleanDocCode(quotation?.soPhieuBaoGia);
 
   const matchedContract = useMemo(() => {
-    if (contracts.length === 1) return contracts[0];
-    return contracts.find(c => {
+    // Chỉ xét các hợp đồng cùng khách hàng với anchorDoc
+    const validContracts = anchorDoc ? contracts.filter(c => isSameCustomer(anchorDoc, c)) : contracts;
+    if (validContracts.length === 0) return null;
+
+    if (validContracts.length === 1 && !qId && !qSo) return validContracts[0];
+
+    const found = validContracts.find(c => {
       const cQId = cleanDocCode(c.quotationId);
       const cQSo = cleanDocCode(c.soPhieuBaoGia);
       return (qId && cQId && qId === cQId) || (qSo && cQSo && qSo === cQSo);
-    }) || contracts[0] || null;
-  }, [contracts, qId, qSo]);
+    });
+
+    if (found) return found;
+
+    // Nếu currentType là delivery và delivery có contractId / soHopDong
+    if (currentType === 'delivery' && anchorDoc) {
+      const dCId = cleanDocCode(anchorDoc.contractId);
+      const dCSo = cleanDocCode(anchorDoc.soHopDong);
+      const matchDelivery = validContracts.find(c => {
+        const cId = cleanDocCode(c.id);
+        const cSo = cleanDocCode(c.soHopDong);
+        return (dCId && cId && dCId === cId) || (dCSo && cSo && dCSo === cSo);
+      });
+      if (matchDelivery) return matchDelivery;
+    }
+
+    return validContracts.length === 1 ? validContracts[0] : null;
+  }, [contracts, qId, qSo, anchorDoc, currentType]);
 
   const matchedPayments = useMemo(() => {
     const cId = cleanDocCode(matchedContract?.id);
     const cSo = cleanDocCode(matchedContract?.soHopDong);
-    return payments.filter(p => {
+    const validPayments = anchorDoc ? payments.filter(p => isSameCustomer(anchorDoc, p)) : payments;
+
+    return validPayments.filter(p => {
       const pCId = cleanDocCode(p.contractId);
       const pCSo = cleanDocCode(p.soHopDong);
       const pQId = cleanDocCode(p.quotationId);
@@ -51,14 +84,22 @@ export function DrawerHeaderCockpitHUD({
       if (cSo && pCSo && cSo === pCSo) return true;
       if (qId && pQId && qId === pQId) return true;
       if (qSo && pQSo && qSo === pQSo) return true;
+      // Nếu anchor là delivery và có paymentId trùng
+      if (currentType === 'delivery' && anchorDoc?.paymentId) {
+        const pId = cleanDocCode(p.id);
+        const dPId = cleanDocCode(anchorDoc.paymentId);
+        if (pId && dPId && pId === dPId) return true;
+      }
       return false;
     });
-  }, [payments, matchedContract, qId, qSo]);
+  }, [payments, matchedContract, qId, qSo, anchorDoc, currentType]);
 
   const matchedDeliveries = useMemo(() => {
     const cId = cleanDocCode(matchedContract?.id);
     const cSo = cleanDocCode(matchedContract?.soHopDong);
-    return deliveries.filter(d => {
+    const validDeliveries = anchorDoc ? deliveries.filter(d => isSameCustomer(anchorDoc, d)) : deliveries;
+
+    return validDeliveries.filter(d => {
       const dCId = cleanDocCode(d.contractId);
       const dCSo = cleanDocCode(d.soHopDong);
       const dQId = cleanDocCode(d.quotationId);
@@ -67,9 +108,10 @@ export function DrawerHeaderCockpitHUD({
       if (cSo && dCSo && cSo === dCSo) return true;
       if (qId && dQId && qId === dQId) return true;
       if (qSo && dQSo && qSo === dQSo) return true;
+      if (currentType === 'delivery' && anchorDoc?.id && d.id === anchorDoc.id) return true;
       return false;
     });
-  }, [deliveries, matchedContract, qId, qSo]);
+  }, [deliveries, matchedContract, qId, qSo, anchorDoc, currentType]);
 
   // 2. Tính toán phân cấp vòng đời đơn hàng chuẩn mực (Sovereign Lifecycle Reconciler)
   const lifecycleBadge = useMemo(() => {

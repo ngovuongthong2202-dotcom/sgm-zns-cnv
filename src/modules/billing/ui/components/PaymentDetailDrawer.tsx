@@ -22,6 +22,7 @@ import { notify } from '@/src/shared/utils/notify';
 import { checkProductionTriggerThreshold, ProductionTriggerResult } from '@/src/shared/utils/vietnamBusinessDays';
 import { calculateMachineAllocation } from '@/src/shared/utils/voucherResolver';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
+import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
 import { DeliveryFormModal } from '@/src/modules/fulfillment/ui/components/DeliveryFormModal';
 import { useSharedFields } from '@/src/hooks/useSharedFields';
 import { Truck } from 'lucide-react';
@@ -103,7 +104,9 @@ export function PaymentDetailDrawer({
   const deliveries = useMemo(() => {
     const map = new Map<string, any>();
     (rawDeliveries || []).forEach((d) => {
-      if (d && d.id) map.set(d.id, d);
+      if (d && d.id && (!payment || isSameCustomer(payment, d))) {
+        map.set(d.id, d);
+      }
     });
 
     try {
@@ -111,6 +114,8 @@ export function PaymentDetailDrawer({
       if (cached && Array.isArray(cached)) {
         cached.forEach((d) => {
           if (!d || !d.id) return;
+          if (payment && !isSameCustomer(payment, d)) return;
+
           const matchPaymentId = d.paymentId && d.paymentId === payment?.id;
           const matchContractId = (contractId && d.contractId === contractId) || (contractDoc?.id && d.contractId === contractDoc.id);
           const matchSoHopDong = (payment?.soHopDong && (d.soHopDong === payment.soHopDong || d.contractSoHopDong === payment.soHopDong)) ||
@@ -142,7 +147,9 @@ export function PaymentDetailDrawer({
     const map = new Map<string, any>();
     if (payment?.id) map.set(payment.id, payment);
     (siblingPayments || []).forEach((p) => {
-      if (p.id) map.set(p.id, p);
+      if (p.id && (!payment || isSameCustomer(payment, p))) {
+        map.set(p.id, p);
+      }
     });
     return Array.from(map.values());
   }, [payment, siblingPayments]);

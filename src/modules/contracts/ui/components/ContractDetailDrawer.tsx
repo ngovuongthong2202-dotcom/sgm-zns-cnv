@@ -20,6 +20,7 @@ import { DrawerHeaderCockpitHUD } from '@/src/widgets/DrawerHeaderCockpitHUD';
 import { reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
 import { computeContractCompletionTimeline, cleanDocCode } from '@/src/shared/utils/vietnamBusinessDays';
 import { calculateMachineAllocation } from '@/src/shared/utils/voucherResolver';
+import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
 
 import { sendZnsAndToast, nextAttempt } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
@@ -108,6 +109,7 @@ export function ContractDetailDrawer({
     const cQuotationId = cleanDocCode(drawerContract.quotationId);
 
     return (allPays || []).filter((p: any) => {
+      if (!isSameCustomer(drawerContract, p)) return false;
       const pContractId = cleanDocCode(p.contractId);
       const pSoHopDong = cleanDocCode(p.soHopDong || p.contractCode);
       const pSoDonHang = cleanDocCode(p.soDonHang);
@@ -130,6 +132,7 @@ export function ContractDetailDrawer({
     const cQuotationId = cleanDocCode(drawerContract.quotationId);
 
     return (allDels || []).filter((d: any) => {
+      if (!isSameCustomer(drawerContract, d)) return false;
       const dContractId = cleanDocCode(d.contractId);
       const dSoHopDong = cleanDocCode(d.soHopDong || d.contractCode);
       const dSoDonHang = cleanDocCode(d.soDonHang);

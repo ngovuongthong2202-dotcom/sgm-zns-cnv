@@ -26,6 +26,7 @@ import { computeMaxCustomerSequence } from '@/src/modules/customers/ui/hooks/use
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { notify } from '@/src/shared/utils/notify';
 import { generateEnterpriseNameSuggestions } from '@/src/modules/customers/ui/components/CustomerFormHelpers';
+import { useAuth } from '@/src/modules/iam';
 
 export interface ErpCustomerCandidate {
   tenKhachHang: string;
@@ -35,6 +36,7 @@ export interface ErpCustomerCandidate {
   diaChi?: string;
   erpOrderCode?: string;
   erpCustomerCode?: string;
+  nguoiPhuTrach?: string;
 }
 
 interface ErpCustomerIngestionModalProps {
@@ -56,6 +58,8 @@ export function ErpCustomerIngestionModal({
   onLinkExistingCustomer,
   onEditManually
 }: ErpCustomerIngestionModalProps) {
+  const { userData, user } = useAuth();
+  const currentOfficer = userData?.displayName || user?.displayName || userData?.userName || 'Ngô Vương Thông (Admin)';
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Chuẩn hóa dữ liệu ban đầu
@@ -144,6 +148,7 @@ export function ErpCustomerIngestionModal({
         maSoThue: cleanTax,
         sdt: cleanPhone,
         nguoiDaiDien: cleanRepresentative || cleanName,
+        nguoiPhuTrach: erpCustomerData.nguoiPhuTrach || currentOfficer,
         diaChi: cleanAddress,
         tinhThanh: detectedProvince,
         loaiKh: cleanTax ? 'Doanh nghiệp' : 'Cá nhân',

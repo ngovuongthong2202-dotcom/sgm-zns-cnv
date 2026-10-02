@@ -6,7 +6,7 @@ import React, { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { swrDocFetcher, swrColFetcher } from '@/src/data/swr-fetchers';
 import { PaymentHoverCard } from '@/src/modules/billing/ui/components/PaymentHoverCard';
-import { Delivery } from '@/src/domain/schema/delivery.schema';
+import { Delivery, DeliveryShipment } from '@/src/domain/schema/delivery.schema';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
 import { Truck, MapPin, Package, Phone, FileText, CheckCircle2, AlertTriangle, Send, User, Clock, RotateCcw, ChevronDown, ChevronUp, Wrench, Info } from 'lucide-react';
 import { StatusPill } from '@/src/widgets/StatusPill';
@@ -19,6 +19,12 @@ import { ExportDeliveryPdf } from './ExportDeliveryPdf';
 import { ExportHandoverPdf } from './ExportHandoverPdf';
 import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
 import { TabLichSuGiaoHang } from '@/src/widgets/TabLichSuGiaoHang';
+import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
+import { repositoryFactory } from '@/src/data/repositories/factory';
+import { notify } from '@/src/shared/utils/notify';
+import { mutate } from 'swr';
+import { CompleteDeliveryModal } from './CompleteDeliveryModal';
+import { DeliveryConfirmationModal } from './DeliveryConfirmationModal';
 
 import { Button } from '@/src/design-system/Button';
 
@@ -59,8 +65,13 @@ export function DeliveryDetailDrawer({
   setCompletingDelivery,
   onCompleteDeliverySubmit,
 }: DeliveryDetailDrawerProps) {
-  const singlePaymentId = drawerDelivery?.paymentId || drawerContract?.paymentId;
-  const contractIdForPayment = drawerContract?.id;
+  const safeContract = useMemo(() => {
+    if (!drawerDelivery || !drawerContract) return null;
+    return isSameCustomer(drawerDelivery, drawerContract) ? drawerContract : null;
+  }, [drawerDelivery, drawerContract]);
+
+  const singlePaymentId = drawerDelivery?.paymentId || safeContract?.paymentId;
+  const contractIdForPayment = safeContract?.id;
 
   const { data: singlePaymentDoc } = useSWR<any>(
     singlePaymentId ? `payments:${singlePaymentId}` : null,
@@ -74,20 +85,117 @@ export function DeliveryDetailDrawer({
 
   const allPayments = useMemo(() => {
     const map = new Map<string, any>();
-    if (singlePaymentDoc?.id) map.set(singlePaymentDoc.id, singlePaymentDoc);
+    if (singlePaymentDoc?.id && (!drawerDelivery || isSameCustomer(drawerDelivery, singlePaymentDoc))) {
+      map.set(singlePaymentDoc.id, singlePaymentDoc);
+    }
     (contractPayments || []).forEach((p) => {
-      if (p.id) map.set(p.id, p);
+      if (p.id && (!drawerDelivery || isSameCustomer(drawerDelivery, p))) {
+        map.set(p.id, p);
+      }
     });
     return Array.from(map.values());
-  }, [singlePaymentDoc, contractPayments]);
+  }, [singlePaymentDoc, contractPayments, drawerDelivery]);
 
-  const customerId = drawerDelivery?.customerId || drawerContract?.customerId || drawerQuotation?.customerId;
+  const customerId = drawerDelivery?.customerId || safeContract?.customerId || drawerQuotation?.customerId;
   const { data: customerDoc } = useSWR<any>(
     customerId ? `customers:${customerId}` : null,
     swrDocFetcher
   );
 
   const paymentDoc = allPayments[0] || null;
+
+  // Quản lý xác nhận bàn giao từng Đợt (Omni-Milestone Lifecycle)
+  const [confirmingShipment, setConfirmingShipment] = useState<DeliveryShipment | null>(null);
+  const [viewingShipmentConfirmation, setViewingShipmentConfirmation] = useState<DeliveryShipment | null>(null);
+
+  const handleConfirmShipment = (shipment: DeliveryShipment) => {
+    setConfirmingShipment(shipment);
+  };
+
+  const handleConfirmShipmentSubmit = async (data: Partial<Delivery>) => {
+    if (!drawerDelivery?.id || !confirmingShipment) return;
+    const existingShipments = Array.isArray(drawerDelivery.cacDotGiao) ? [...drawerDelivery.cacDotGiao] : [];
+    
+    const targetIdx = existingShipments.findIndex(s => s.id === confirmingShipment.id || s.dotGiaoHang === confirmingShipment.dotGiaoHang);
+    if (targetIdx === -1) return;
+
+    const currentShipment = existingShipments[targetIdx];
+    const updatedShipment: DeliveryShipment = {
+      ...currentShipment,
+      tinhTrangGiaoHang: 'HOAN_TAT',
+      tinhTrangNghiemThu: 'DONG_Y',
+      ngayGiaoThucTe: data.ngayGiaoThucTe || new Date().toISOString().split('T')[0],
+      kyNhan: data.kyNhan || currentShipment.kyNhan,
+      soPhieuXuat: data.soPhieuXuat || currentShipment.soPhieuXuat,
+      keToanKho: data.keToanKho || currentShipment.keToanKho,
+      khoXuat: data.khoXuat || currentShipment.khoXuat,
+      donViVanChuyen: data.donViVanChuyen || currentShipment.donViVanChuyen,
+      thoGiaoMay: data.thoGiaoMay || currentShipment.thoGiaoMay,
+      sdtThoGiaoMay: data.sdtThoGiaoMay || currentShipment.sdtThoGiaoMay,
+      products: data.products || currentShipment.products,
+      danhSachMaMay: data.danhSachMaMay || currentShipment.danhSachMaMay,
+      ghiChu: data.ghiChu || currentShipment.ghiChu,
+    };
+
+    existingShipments[targetIdx] = updatedShipment;
+
+    const totalBaseline = (drawerDelivery.products || []).reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+    const totalShipped = existingShipments.reduce((sum, s) => {
+      return sum + (s.products || []).reduce((ssum, sp) => ssum + (Number(sp.quantity) || 0), 0);
+    }, 0);
+    const pct = totalBaseline > 0 ? Math.min(100, Math.round((totalShipped / totalBaseline) * 100)) : 100;
+    const allCompleted = existingShipments.every(s => s.tinhTrangGiaoHang === 'HOAN_TAT' || s.tinhTrangGiaoHang === 'Hoàn tất');
+
+    const updatedDelivery: Delivery = {
+      ...drawerDelivery,
+      cacDotGiao: existingShipments,
+      slMay: totalShipped,
+      tienDoLuyKe: pct,
+      tinhTrangGiaoHang: (pct >= 100 || allCompleted) ? 'Hoàn tất' : (drawerDelivery.tinhTrangGiaoHang || 'Chưa giao'),
+      ngayGiaoThucTe: (pct >= 100 || allCompleted) ? (data.ngayGiaoThucTe || new Date().toISOString().split('T')[0]) : drawerDelivery.ngayGiaoThucTe,
+      kyNhan: (pct >= 100 || allCompleted) ? (data.kyNhan || drawerDelivery.kyNhan) : drawerDelivery.kyNhan
+    };
+
+    await repositoryFactory.get<any>('deliveries').update(drawerDelivery.id, updatedDelivery);
+    mutate(`deliveries:${drawerDelivery.id}`, updatedDelivery, false);
+    notify.success(`Đã xác nhận hoàn tất bàn giao Đợt ${confirmingShipment.dotGiaoHang} thành công!`);
+    setConfirmingShipment(null);
+  };
+
+  const handleRevertShipment = async (shipment: DeliveryShipment) => {
+    if (!drawerDelivery?.id) return;
+    const existingShipments = Array.isArray(drawerDelivery.cacDotGiao) ? [...drawerDelivery.cacDotGiao] : [];
+    const targetIdx = existingShipments.findIndex(s => s.id === shipment.id || s.dotGiaoHang === shipment.dotGiaoHang);
+    if (targetIdx === -1) return;
+
+    const currentShipment = existingShipments[targetIdx];
+    const revertedShipment: DeliveryShipment = {
+      ...currentShipment,
+      tinhTrangGiaoHang: 'CHO_GIAO',
+      ngayGiaoThucTe: undefined,
+      kyNhan: undefined,
+    };
+
+    existingShipments[targetIdx] = revertedShipment;
+
+    const totalBaseline = (drawerDelivery.products || []).reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+    const totalShipped = existingShipments.filter(s => s.tinhTrangGiaoHang === 'HOAN_TAT').reduce((sum, s) => {
+      return sum + (s.products || []).reduce((ssum, sp) => ssum + (Number(sp.quantity) || 0), 0);
+    }, 0);
+    const pct = totalBaseline > 0 ? Math.min(100, Math.round((totalShipped / totalBaseline) * 100)) : 0;
+
+    const updatedDelivery: Delivery = {
+      ...drawerDelivery,
+      cacDotGiao: existingShipments,
+      tienDoLuyKe: pct,
+      tinhTrangGiaoHang: 'Chưa giao',
+      ngayGiaoThucTe: undefined
+    };
+
+    await repositoryFactory.get<any>('deliveries').update(drawerDelivery.id, updatedDelivery);
+    mutate(`deliveries:${drawerDelivery.id}`, updatedDelivery, false);
+    notify.success(`Đã hoàn tác xác nhận bàn giao Đợt ${shipment.dotGiaoHang}!`);
+  };
   const [activeTab, setActiveTab] = useState<'overview' | 'flow' | 'nexus'>('overview');
   const [flowFocusTarget, setFlowFocusTarget] = useState<'quotation' | 'contract' | 'delivery' | 'payment'>('delivery');
   const [showMismatchDetails, setShowMismatchDetails] = useState(false);
@@ -150,8 +258,8 @@ export function DeliveryDetailDrawer({
     }
     
     let rawAddr = (drawerDelivery as any).diaChiGiaoHang || (drawerDelivery as any).diaChi || '';
-    if (!rawAddr && drawerContract) {
-      rawAddr = drawerContract.diaChiGiaoHang || drawerContract.diaChi || '';
+    if (!rawAddr && safeContract) {
+      rawAddr = safeContract.diaChiGiaoHang || safeContract.diaChi || '';
     }
     if (!rawAddr && drawerDelivery.ghiChu) {
       const addressKeywords = [/địa chỉ:\s*([^\n;.]+)/i, /giao tại:\s*([^\n;.]+)/i, /nơi giao:\s*([^\n;.]+)/i, /giao đến:\s*([^\n;.]+)/i, /ship to:\s*([^\n;.]+)/i];
@@ -170,7 +278,7 @@ export function DeliveryDetailDrawer({
       rawAddr = drawerDelivery.tenKhachHang || 'Chưa cập nhật địa chỉ';
     }
 
-    const custProv = customerDoc?.tinhThanh || (drawerDelivery as any).tinhThanh || drawerContract?.tinhThanh;
+    const custProv = customerDoc?.tinhThanh || (drawerDelivery as any).tinhThanh || safeContract?.tinhThanh;
     if (custProv && !rawAddr.toLowerCase().includes(custProv.toLowerCase())) {
       rawAddr = `${rawAddr}, ${custProv}`;
     }
@@ -184,7 +292,7 @@ export function DeliveryDetailDrawer({
       logisticsRegion: parsed.logisticsRegion,
       suggestedCarriers: parsed.suggestedCarriers
     };
-  }, [drawerDelivery, drawerContract, customerDoc]);
+  }, [drawerDelivery, safeContract, customerDoc]);
 
   const smartAddress = smartAddressInfo.fullAddress;
 
@@ -195,8 +303,8 @@ export function DeliveryDetailDrawer({
   };
 
   const mismatchDiffList = useMemo(() => {
-    if (!drawerDelivery || !drawerContract) return [];
-    const contractProducts = drawerContract.products || [];
+    if (!drawerDelivery || !safeContract) return [];
+    const contractProducts = safeContract.products || [];
     const deliveryProducts = drawerDelivery.products || [];
 
     const diffMap = new Map<string, { name: string; model?: string; contractQty: number; deliveryQty: number }>();
@@ -227,14 +335,14 @@ export function DeliveryDetailDrawer({
     });
 
     return Array.from(diffMap.values());
-  }, [drawerDelivery, drawerContract]);
+  }, [drawerDelivery, safeContract]);
 
   const { isRealMismatch, isPartialDelivery, totalDeliveredQty, totalContractQty } = useMemo(() => {
-    if (!drawerDelivery || !drawerContract) {
+    if (!drawerDelivery || !safeContract) {
       return { isRealMismatch: false, isPartialDelivery: false, totalDeliveredQty: 0, totalContractQty: 0 };
     }
 
-    const cProducts = drawerContract.products || [];
+    const cProducts = safeContract.products || [];
     const dProducts = drawerDelivery.products || [];
     const totalC = cProducts.reduce((acc: number, p: any) => acc + (Number(p.quantity) || 0), 0);
     const totalD = dProducts.reduce((acc: number, p: any) => acc + (Number(p.quantity) || 0), 0);
@@ -253,17 +361,17 @@ export function DeliveryDetailDrawer({
 
     // If delivery is less than contract (Partial Delivery / Giao đợt)
     return { isRealMismatch: false, isPartialDelivery: true, totalDeliveredQty: totalD, totalContractQty: totalC };
-  }, [mismatchDiffList, drawerDelivery, drawerContract]);
+  }, [mismatchDiffList, drawerDelivery, safeContract]);
 
   const contractTimeline = useMemo(() => {
-    if (!drawerContract) return null;
+    if (!safeContract) return null;
     return computeContractCompletionTimeline(
-      drawerContract, 
+      safeContract, 
       paymentDoc ? [paymentDoc] : [],
       undefined,
       { deliveries: drawerDelivery ? [drawerDelivery] : [] }
     );
-  }, [drawerContract, paymentDoc, drawerDelivery]);
+  }, [safeContract, paymentDoc, drawerDelivery]);
 
   const deliverySla = useMemo(() => {
     if (!contractTimeline?.completionDate) {
@@ -354,7 +462,7 @@ export function DeliveryDetailDrawer({
                     Tiến độ giao hàng đợt ({totalDeliveredQty}/{totalContractQty} máy - {totalContractQty > 0 ? Math.round((totalDeliveredQty / totalContractQty) * 100) : 0}%)
                   </h4>
                   <p className="text-blue-700 text-3xs mt-0.5">
-                    Phiếu này bàn giao một phần sản phẩm theo hợp đồng ({drawerContract?.soHopDong || 'liên kết'}). Phần còn lại sẽ được giao ở các đợt tiếp theo.
+                    Phiếu này bàn giao một phần sản phẩm theo hợp đồng ({safeContract?.soHopDong || 'liên kết'}). Phần còn lại sẽ được giao ở các đợt tiếp theo.
                   </p>
                 </div>
               </div>
@@ -387,7 +495,7 @@ export function DeliveryDetailDrawer({
                   <div>
                     <h4 className="font-bold text-amber-900 text-xs">Cảnh báo</h4>
                     <p className="text-amber-800 text-3xs mt-0.5">
-                      Phát hiện sản phẩm ngoài hợp đồng hoặc số lượng xuất vượt hợp đồng ({drawerContract?.soHopDong || 'liên kết'})
+                      Phát hiện sản phẩm ngoài hợp đồng hoặc số lượng xuất vượt hợp đồng ({safeContract?.soHopDong || 'liên kết'})
                     </p>
                   </div>
                 </div>
@@ -691,6 +799,8 @@ export function DeliveryDetailDrawer({
                 };
                 onSendZns(shipmentContext as any, 'GIAOHANG_ZNS');
               }}
+              onConfirmShipment={handleConfirmShipment}
+              onRevertShipment={handleRevertShipment}
               canEdit={Boolean(onOpenRecordShipment)}
             />
           </section>
@@ -864,11 +974,11 @@ export function DeliveryDetailDrawer({
               </div>
             </div>
 
-            {drawerDelivery.paymentId && (
+            {paymentDoc && (
               <div className="pt-2 border-t border-slate-100">
                 <PaymentHoverCard
-                  payment={paymentDoc || { id: drawerDelivery.paymentId, customerId: drawerDelivery.customerId, tenKhachHang: drawerDelivery.tenKhachHang } as any}
-                  contracts={drawerContract ? [drawerContract] : []}
+                  payment={paymentDoc}
+                  contracts={safeContract ? [safeContract] : []}
                   quotations={drawerQuotation ? [drawerQuotation] : []}
                   deliveries={[drawerDelivery]}
                 >
@@ -1050,7 +1160,7 @@ export function DeliveryDetailDrawer({
       currentType="delivery"
       currentDoc={drawerDelivery}
       relatedQuotations={drawerQuotation ? [drawerQuotation] : []}
-      relatedContracts={drawerContract ? [drawerContract] : []}
+      relatedContracts={safeContract ? [safeContract] : []}
       relatedDeliveries={[drawerDelivery]}
       relatedPayments={allPayments}
       focusTarget={flowFocusTarget}
@@ -1078,15 +1188,16 @@ export function DeliveryDetailDrawer({
     <DrawerHeaderCockpitHUD
       currentType="delivery"
       quotation={drawerQuotation}
-      contracts={drawerContract ? [drawerContract] : []}
+      contracts={safeContract ? [safeContract] : []}
       deliveries={[drawerDelivery]}
       payments={allPayments}
     />
   );
 
   return (
-    <DetailDrawer
-      isOpen={!!drawerDelivery}
+    <>
+      <DetailDrawer
+        isOpen={!!drawerDelivery}
       onClose={onClose}
       modal={modal}
       className={className}
@@ -1189,5 +1300,31 @@ export function DeliveryDetailDrawer({
         {activeTab === 'nexus' && nexusPanel}
       </div>
     </DetailDrawer>
+
+    {confirmingShipment && (
+      <CompleteDeliveryModal
+        delivery={drawerDelivery}
+        targetShipment={confirmingShipment}
+        onClose={() => setConfirmingShipment(null)}
+        onSave={handleConfirmShipmentSubmit}
+      />
+    )}
+
+    {viewingShipmentConfirmation && (
+      <DeliveryConfirmationModal
+        delivery={{
+          ...drawerDelivery,
+          soPhieuXuat: viewingShipmentConfirmation.soPhieuXuat || drawerDelivery.soPhieuXuat,
+          ngayGiaoThucTe: viewingShipmentConfirmation.ngayGiaoThucTe || drawerDelivery.ngayGiaoThucTe,
+          kyNhan: viewingShipmentConfirmation.kyNhan || drawerDelivery.kyNhan,
+          thoGiaoMay: viewingShipmentConfirmation.thoGiaoMay || drawerDelivery.thoGiaoMay,
+          sdtThoGiaoMay: viewingShipmentConfirmation.sdtThoGiaoMay || drawerDelivery.sdtThoGiaoMay,
+          products: viewingShipmentConfirmation.products || drawerDelivery.products,
+          danhSachMaMay: viewingShipmentConfirmation.danhSachMaMay || drawerDelivery.danhSachMaMay,
+        }}
+        onClose={() => setViewingShipmentConfirmation(null)}
+      />
+    )}
+    </>
   );
 }

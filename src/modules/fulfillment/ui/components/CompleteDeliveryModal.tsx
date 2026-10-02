@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Delivery } from '@/src/domain/schema/delivery.schema';
+import { Delivery, DeliveryShipment } from '@/src/domain/schema/delivery.schema';
 import { motion } from 'motion/react';
 import { 
   CheckCircle2, 
@@ -15,9 +15,9 @@ import {
   Phone, 
   ShieldCheck, 
   Boxes, 
-  Warehouse,
-  ShoppingBag,
-  Wrench
+  Warehouse, 
+  ShoppingBag, 
+  Wrench 
 } from 'lucide-react';
 import { cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
 import { sanitizeText } from '@/src/shared/utils/inputSanitizer';
@@ -49,25 +49,34 @@ interface CompleteDeliveryModalProps {
   delivery: Delivery;
   onClose: () => void;
   onSave: (data: Partial<Delivery>) => Promise<void>;
+  targetShipment?: DeliveryShipment | null;
 }
 
-export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDeliveryModalProps) {
+export function CompleteDeliveryModal({ delivery, onClose, onSave, targetShipment }: CompleteDeliveryModalProps) {
   const [mounted, setMounted] = useState(false);
+
+  const activeProducts = useMemo(() => {
+    if (targetShipment && Array.isArray(targetShipment.products) && targetShipment.products.length > 0) {
+      return targetShipment.products;
+    }
+    return delivery.products || [];
+  }, [targetShipment, delivery.products]);
 
   // Gán Serial theo từng dòng sản phẩm tương ứng
   const [productSerials, setProductSerials] = useState<Record<string, string[]>>(() => {
     const init: Record<string, string[]> = {};
-    (delivery.products || []).forEach((p, idx) => {
+    activeProducts.forEach((p: any, idx: number) => {
       const key = p.productId || p.productName || `p_${idx}`;
       init[key] = Array.isArray(p.danhSachMaMay) && p.danhSachMaMay.length > 0 
         ? [...p.danhSachMaMay] 
         : [];
     });
-    // Nếu có danh sách mã máy tổng của phiếu giao nhưng các dòng chưa có, gán vào sản phẩm đầu tiên nếu chỉ có 1 dòng
-    if (delivery.danhSachMaMay?.length && delivery.products?.length === 1) {
-      const key = delivery.products[0].productId || delivery.products[0].productName || 'p_0';
+    // Nếu có danh sách mã máy tổng của phiếu giao hoặc đợt giao nhưng các dòng chưa có, gán vào sản phẩm đầu tiên nếu chỉ có 1 dòng
+    const serialList = targetShipment?.danhSachMaMay?.length ? targetShipment.danhSachMaMay : delivery.danhSachMaMay;
+    if (serialList?.length && activeProducts.length === 1) {
+      const key = activeProducts[0].productId || activeProducts[0].productName || 'p_0';
       if (!init[key]?.length) {
-        init[key] = [...delivery.danhSachMaMay];
+        init[key] = [...serialList];
       }
     }
     return init;
@@ -86,15 +95,15 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
   const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<CompleteFormValues>({
     resolver: zodResolver(CompleteSchema),
     defaultValues: {
-      ngayGiaoThucTe: delivery.ngayGiaoThucTe || delivery.ngayGiaoMay || new Date().toISOString().split('T')[0],
-      kyNhan: delivery.kyNhan || delivery.nguoiLienHe || '',
-      soPhieuXuat: delivery.soPhieuXuat || '',
-      keToanKho: delivery.keToanKho || '',
-      khoXuat: delivery.khoXuat || '',
-      donViVanChuyen: delivery.donViVanChuyen || '',
-      thoGiaoMay: delivery.thoGiaoMay || '',
-      sdtThoGiaoMay: delivery.sdtThoGiaoMay || '',
-      ghiChu: delivery.ghiChu || '',
+      ngayGiaoThucTe: targetShipment?.ngayGiaoThucTe || targetShipment?.ngayGiaoMay || delivery.ngayGiaoThucTe || delivery.ngayGiaoMay || new Date().toISOString().split('T')[0],
+      kyNhan: targetShipment?.kyNhan || delivery.kyNhan || delivery.nguoiLienHe || '',
+      soPhieuXuat: targetShipment?.soPhieuXuat || delivery.soPhieuXuat || '',
+      keToanKho: targetShipment?.keToanKho || delivery.keToanKho || '',
+      khoXuat: targetShipment?.khoXuat || delivery.khoXuat || '',
+      donViVanChuyen: targetShipment?.donViVanChuyen || delivery.donViVanChuyen || '',
+      thoGiaoMay: targetShipment?.thoGiaoMay || delivery.thoGiaoMay || '',
+      sdtThoGiaoMay: targetShipment?.sdtThoGiaoMay || delivery.sdtThoGiaoMay || '',
+      ghiChu: targetShipment?.ghiChu || delivery.ghiChu || '',
     }
   });
 
@@ -107,7 +116,7 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
     }
 
     const allAggregatedSerials: string[] = [];
-    const updatedProducts = (delivery.products || []).map((prod, idx) => {
+    const updatedProducts = activeProducts.map((prod: any, idx: number) => {
       const key = prod.productId || prod.productName || `p_${idx}`;
       const pSerials = productSerials[key] || [];
       allAggregatedSerials.push(...pSerials);
@@ -120,14 +129,14 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
     await onSave({
       ngayGiaoThucTe: data.ngayGiaoThucTe,
       kyNhan: cleanKyNhan,
-      soPhieuXuat: data.soPhieuXuat || delivery.soPhieuXuat,
-      keToanKho: data.keToanKho || delivery.keToanKho,
-      khoXuat: data.khoXuat || delivery.khoXuat,
-      donViVanChuyen: data.donViVanChuyen || delivery.donViVanChuyen,
-      thoGiaoMay: data.thoGiaoMay || delivery.thoGiaoMay,
-      sdtThoGiaoMay: data.sdtThoGiaoMay || delivery.sdtThoGiaoMay,
+      soPhieuXuat: data.soPhieuXuat || targetShipment?.soPhieuXuat || delivery.soPhieuXuat,
+      keToanKho: data.keToanKho || targetShipment?.keToanKho || delivery.keToanKho,
+      khoXuat: data.khoXuat || targetShipment?.khoXuat || delivery.khoXuat,
+      donViVanChuyen: data.donViVanChuyen || targetShipment?.donViVanChuyen || delivery.donViVanChuyen,
+      thoGiaoMay: data.thoGiaoMay || targetShipment?.thoGiaoMay || delivery.thoGiaoMay,
+      sdtThoGiaoMay: data.sdtThoGiaoMay || targetShipment?.sdtThoGiaoMay || delivery.sdtThoGiaoMay,
       products: updatedProducts,
-      danhSachMaMay: allAggregatedSerials.length > 0 ? Array.from(new Set(allAggregatedSerials)) : (delivery.danhSachMaMay || []),
+      danhSachMaMay: allAggregatedSerials.length > 0 ? Array.from(new Set(allAggregatedSerials)) : (targetShipment?.danhSachMaMay || delivery.danhSachMaMay || []),
       ghiChu: finalNote || undefined,
     });
     
@@ -160,18 +169,33 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave }: CompleteDel
                     </div>
                     <div>
                       <Dialog.Title className="text-lg font-black tracking-tight text-white flex items-center gap-2">
-                        Xác nhận hoàn tất giao hàng & Bàn giao thiết bị
+                        {targetShipment ? (
+                          <>
+                            <span>Xác nhận bàn giao Đợt {targetShipment.dotGiaoHang}</span>
+                            <span className="px-2 py-0.5 rounded text-xs bg-white/20 font-mono font-bold">
+                              {targetShipment.soPhieuXuat}
+                            </span>
+                          </>
+                        ) : (
+                          'Xác nhận hoàn tất giao hàng & Bàn giao thiết bị'
+                        )}
                       </Dialog.Title>
                       <Dialog.Description className="text-2xs text-blue-100/90 mt-0.5 font-medium">
                         Phiếu giao: <strong className="font-mono text-white underline">{resolveDeliveryDisplayCode(delivery)}</strong>
-                        {delivery.soPhieuXuat && delivery.soPhieuXuat !== resolveDeliveryDisplayCode(delivery) && (
-                          <> | ERP: <strong className="font-mono text-amber-200">{delivery.soPhieuXuat}</strong></>
-                        )}
-                        {delivery.soDonHang && (
-                          <> | Đơn hàng: <strong className="font-mono text-white">{delivery.soDonHang}</strong></>
-                        )}
-                        {delivery.soHopDong && (
-                          <> | Căn cứ HĐ: <strong className="font-mono text-white">{delivery.soHopDong}</strong></>
+                        {targetShipment ? (
+                          <> | Xác nhận giao hàng riêng cho Đợt {targetShipment.dotGiaoHang} ({targetShipment.soPhieuXuat})</>
+                        ) : (
+                          <>
+                            {delivery.soPhieuXuat && delivery.soPhieuXuat !== resolveDeliveryDisplayCode(delivery) && (
+                              <> | ERP: <strong className="font-mono text-amber-200">{delivery.soPhieuXuat}</strong></>
+                            )}
+                            {delivery.soDonHang && (
+                              <> | Đơn hàng: <strong className="font-mono text-white">{delivery.soDonHang}</strong></>
+                            )}
+                            {delivery.soHopDong && (
+                              <> | Căn cứ HĐ: <strong className="font-mono text-white">{delivery.soHopDong}</strong></>
+                            )}
+                          </>
                         )}
                       </Dialog.Description>
                     </div>

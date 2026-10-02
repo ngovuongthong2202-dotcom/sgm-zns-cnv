@@ -11,7 +11,8 @@ import {
   Send,
   Plus,
   Package,
-  Layers
+  Layers,
+  RotateCcw
 } from 'lucide-react';
 import { Delivery, DeliveryShipment } from '@/src/domain/schema/delivery.schema';
 import { formatDate } from '@/src/shared/utils/formatDate';
@@ -24,6 +25,8 @@ interface TabLichSuGiaoHangProps {
   delivery: Delivery;
   onOpenRecordShipment?: () => void;
   onSendShipmentZns?: (shipment: DeliveryShipment) => void;
+  onConfirmShipment?: (shipment: DeliveryShipment) => void;
+  onRevertShipment?: (shipment: DeliveryShipment) => void;
   canEdit?: boolean;
 }
 
@@ -31,6 +34,8 @@ export function TabLichSuGiaoHang({
   delivery,
   onOpenRecordShipment,
   onSendShipmentZns,
+  onConfirmShipment,
+  onRevertShipment,
   canEdit = true
 }: TabLichSuGiaoHangProps) {
   const recon = reconcileDeliveryShipments(delivery);
@@ -61,11 +66,12 @@ export function TabLichSuGiaoHang({
               <span className="text-3xs uppercase font-bold text-slate-400 tracking-wider block">Tiến độ thực xuất</span>
               <span className="text-lg font-black font-mono text-emerald-400">{recon.tienDoLuyKe}%</span>
             </div>
-            {canEdit && !recon.isFullyDelivered && onOpenRecordShipment && (
+            {canEdit && onOpenRecordShipment && (
               <Button
                 type="button"
                 onClick={onOpenRecordShipment}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm border-none"
+                className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm border-none transition-transform active:scale-95 cursor-pointer"
+                title="Ghi nhận thêm đợt xuất kho mới"
               >
                 <Plus size={14} />
                 <span>+ Đợt {recon.nextDotGiaoHang}</span>
@@ -161,7 +167,42 @@ export function TabLichSuGiaoHang({
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Confirm Shipment Milestone Button */}
+                      {!isCompleted ? (
+                        onConfirmShipment && canEdit && (
+                          <Button
+                            type="button"
+                            onClick={() => onConfirmShipment(shipment)}
+                            className="text-xs h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 rounded-lg shadow-2xs border-none cursor-pointer transition-transform active:scale-95"
+                            title={`Xác nhận hoàn tất giao hàng Đợt ${shipment.dotGiaoHang}`}
+                          >
+                            <CheckCircle2 size={13} />
+                            <span>Xác nhận giao Đợt {shipment.dotGiaoHang}</span>
+                          </Button>
+                        )
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-3xs font-extrabold">
+                            <CheckCircle2 size={12} className="text-emerald-600" />
+                            <span>Đã giao: {formatDate(shipment.ngayGiaoThucTe)}</span>
+                            {shipment.kyNhan && <span className="text-emerald-700 font-semibold">• {shipment.kyNhan}</span>}
+                          </span>
+                          {onRevertShipment && canEdit && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={() => onRevertShipment(shipment)}
+                              className="text-3xs h-8 px-2 text-slate-500 hover:text-red-700 hover:bg-red-50 flex items-center gap-1 rounded-lg cursor-pointer"
+                              title="Sửa / Hủy xác nhận đợt này"
+                            >
+                              <RotateCcw size={12} />
+                              <span>Sửa</span>
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
                       {/* Print Handover Protocol for this Shipment */}
                       <ExportHandoverPdf 
                         delivery={projectedDelivery}

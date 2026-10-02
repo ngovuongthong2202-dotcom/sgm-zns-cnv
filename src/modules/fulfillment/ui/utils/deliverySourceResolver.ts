@@ -1,6 +1,7 @@
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
+import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
 
 export interface ResolvedDeliverySource {
   source: any;
@@ -147,19 +148,26 @@ export async function resolveDeliverySourceDocument(
   }
 
   // ═══ TẦNG 4: Tra cứu theo Mã Nghiệp Vụ (Code Matching Fallback) ═══
+  const matchesCustomerContext = (candidate: any) => {
+    const hasContext = Boolean(data.customerId || data.customer_id || data.maKh || data.tenKhachHang || data.sdt);
+    if (!hasContext) return true;
+    return isSameCustomer(data, candidate);
+  };
+
   if (soHopDong) {
-    const cMatch = entityCachePool.find('contracts', (c: any) => c.soHopDong === soHopDong || c.contractCode === soHopDong);
+    const cMatch = (options?.contracts || []).find((c: any) => c && (c.soHopDong === soHopDong || c.contractCode === soHopDong) && matchesCustomerContext(c)) ||
+                   entityCachePool.find('contracts', (c: any) => (c.soHopDong === soHopDong || c.contractCode === soHopDong) && matchesCustomerContext(c));
     if (cMatch) return { source: cMatch, sourceType: 'contracts', sourceId: cMatch.id };
   }
   if (soPhieuBaoGia) {
-    const qMatch = (options?.quotations || []).find((q: any) => q && (q.soPhieuBaoGia === soPhieuBaoGia || q.soBaoGia === soPhieuBaoGia)) ||
-                   entityCachePool.find('quotations', (q: any) => q.soPhieuBaoGia === soPhieuBaoGia || q.soBaoGia === soPhieuBaoGia);
+    const qMatch = (options?.quotations || []).find((q: any) => q && (q.soPhieuBaoGia === soPhieuBaoGia || q.soBaoGia === soPhieuBaoGia) && matchesCustomerContext(q)) ||
+                   entityCachePool.find('quotations', (q: any) => (q.soPhieuBaoGia === soPhieuBaoGia || q.soBaoGia === soPhieuBaoGia) && matchesCustomerContext(q));
     if (qMatch) return { source: qMatch, sourceType: 'quotations', sourceId: qMatch.id };
   }
   const soDonHangErp = typeof data.soDonHangErp === 'string' ? data.soDonHangErp.trim() : '';
   if (soDonHangErp) {
-    const qMatch = (options?.quotations || []).find((q: any) => q && (q.soDonHangErp === soDonHangErp || q.sourceRef?.code === soDonHangErp)) ||
-                   entityCachePool.find('quotations', (q: any) => q.soDonHangErp === soDonHangErp || q.sourceRef?.code === soDonHangErp);
+    const qMatch = (options?.quotations || []).find((q: any) => q && (q.soDonHangErp === soDonHangErp || q.sourceRef?.code === soDonHangErp) && matchesCustomerContext(q)) ||
+                   entityCachePool.find('quotations', (q: any) => (q.soDonHangErp === soDonHangErp || q.sourceRef?.code === soDonHangErp) && matchesCustomerContext(q));
     if (qMatch) return { source: qMatch, sourceType: 'quotations', sourceId: qMatch.id };
   }
 

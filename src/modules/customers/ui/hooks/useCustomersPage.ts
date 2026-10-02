@@ -8,6 +8,8 @@ import { Customer } from '@/src/domain/schema/customer.schema';
 import { cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
 import { filterCustomersList } from '../utils/customer-filter';
 import { useCustomerActions } from './useCustomerActions';
+import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
+import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
 
 
 export type DrawerState = { mode: 'closed' } | { mode: 'new' } | { mode: 'view'; customer: Customer; initialTab?: 'overview' | 'flow' | 'nexus' } | { mode: 'edit'; customer: Customer };
@@ -130,13 +132,41 @@ export function useCustomersPage() {
 
   useEffect(() => {
     const active = customers.filter(c => !c.isArchived && !c.mergedInto && !(c as any).is_archived && !(c as any).merged_into && !c.tenKhachHang?.startsWith('[ĐÃ GỘP VÀO'));
-    const cleaned = active.map(c => ({
-      ...c,
-      tenKhachHang: c.tenKhachHang ? cleanProperVietnameseText(c.tenKhachHang) : '',
-      loaiHinhDoanhNghiep: c.loaiHinhDoanhNghiep ? c.loaiHinhDoanhNghiep.trim().toUpperCase() : '',
-      diaChi: c.diaChi ? cleanProperVietnameseText(c.diaChi) : '',
-      nguoiDaiDien: c.nguoiDaiDien ? cleanProperVietnameseText(c.nguoiDaiDien) : '',
-    }));
+    const cleaned = active.map(c => {
+      let pic = c.nguoiPhuTrach?.trim();
+      if (!pic || pic === 'Chưa phân công') {
+        try {
+          const quotations = entityCachePool.getAll<any>('quotations') || [];
+          const linkedQ = quotations.find((q: any) => isSameCustomer(c, q) && q.nguoiPhuTrach?.trim() && q.nguoiPhuTrach !== 'Chưa phân công');
+          if (linkedQ) {
+            pic = linkedQ.nguoiPhuTrach.trim();
+          } else {
+            const contracts = entityCachePool.getAll<any>('contracts') || [];
+            const linkedC = contracts.find((ct: any) => isSameCustomer(c, ct) && ct.nguoiPhuTrach?.trim() && ct.nguoiPhuTrach !== 'Chưa phân công');
+            if (linkedC) {
+              pic = linkedC.nguoiPhuTrach.trim();
+            } else {
+              const deliveries = entityCachePool.getAll<any>('deliveries') || [];
+              const linkedD = deliveries.find((d: any) => isSameCustomer(c, d) && (d.nguoiPhuTrach?.trim() || d.nguoiTao?.trim()));
+              if (linkedD) {
+                pic = (linkedD.nguoiPhuTrach || linkedD.nguoiTao).trim();
+              }
+            }
+          }
+        } catch {
+          // ignore cache error
+        }
+      }
+
+      return {
+        ...c,
+        nguoiPhuTrach: pic || c.nguoiPhuTrach,
+        tenKhachHang: c.tenKhachHang ? cleanProperVietnameseText(c.tenKhachHang) : '',
+        loaiHinhDoanhNghiep: c.loaiHinhDoanhNghiep ? c.loaiHinhDoanhNghiep.trim().toUpperCase() : '',
+        diaChi: c.diaChi ? cleanProperVietnameseText(c.diaChi) : '',
+        nguoiDaiDien: c.nguoiDaiDien ? cleanProperVietnameseText(c.nguoiDaiDien) : '',
+      };
+    });
     setLocalCustomers(cleaned);
   }, [customers]);
 

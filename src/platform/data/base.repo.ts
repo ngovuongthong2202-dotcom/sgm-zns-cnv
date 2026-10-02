@@ -5,6 +5,7 @@ import { ListOptions } from '../domain/ports/repository.port';
 import { v4 as uuidv4 } from 'uuid';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { logger } from '@/src/shared/lib/logger';
+import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
 
 export type { ListOptions };
 
@@ -239,6 +240,39 @@ export class BaseRepository<T> {
 
     // Extract core physical indexed columns for fast PostgreSQL queries & CDC filtering
     const rec = data as Record<string, any>;
+
+    // Sovereign Boundary Guard: Prevent cross-customer foreign key pollution
+    if (rec.customerId && (rec.contractId || rec.quotationId || rec.paymentId)) {
+      try {
+        if (rec.contractId) {
+          const ct = entityCachePool.get<any>('contracts', rec.contractId);
+          if (ct && ct.customerId && ct.customerId !== rec.customerId && !isSameCustomer(rec, ct)) {
+            logger.warn(`[RepoBoundaryGuard] Blocked cross-customer contractId ${rec.contractId} on entity for customer ${rec.customerId}`);
+            delete rec.contractId;
+            if (payload.data) delete (payload.data as any).contractId;
+          }
+        }
+        if (rec.quotationId) {
+          const q = entityCachePool.get<any>('quotations', rec.quotationId);
+          if (q && q.customerId && q.customerId !== rec.customerId && !isSameCustomer(rec, q)) {
+            logger.warn(`[RepoBoundaryGuard] Blocked cross-customer quotationId ${rec.quotationId} on entity for customer ${rec.customerId}`);
+            delete rec.quotationId;
+            if (payload.data) delete (payload.data as any).quotationId;
+          }
+        }
+        if (rec.paymentId) {
+          const p = entityCachePool.get<any>('payments', rec.paymentId);
+          if (p && p.customerId && p.customerId !== rec.customerId && !isSameCustomer(rec, p)) {
+            logger.warn(`[RepoBoundaryGuard] Blocked cross-customer paymentId ${rec.paymentId} on entity for customer ${rec.customerId}`);
+            delete rec.paymentId;
+            if (payload.data) delete (payload.data as any).paymentId;
+          }
+        }
+      } catch {
+        // ignore guard error
+      }
+    }
+
     const sanitizeFk = (v: any) => (v && typeof v === 'string' && v.trim() !== '') ? v.trim() : null;
     if ('customerId' in rec && rec.customerId) setCol('customer_id', sanitizeFk(rec.customerId));
     if ('quotationId' in rec && rec.quotationId) setCol('quotation_id', sanitizeFk(rec.quotationId));

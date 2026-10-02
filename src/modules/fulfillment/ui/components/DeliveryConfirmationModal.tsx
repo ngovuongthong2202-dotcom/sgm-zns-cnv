@@ -14,7 +14,7 @@ import { ExportHandoverPdf } from './ExportHandoverPdf';
 interface DeliveryConfirmationModalProps {
   delivery: Delivery;
   onClose: () => void;
-  onRevertConfirmation: (delivery: Delivery) => Promise<void>;
+  onRevertConfirmation?: (delivery: Delivery) => Promise<void>;
   canRevert?: boolean;
 }
 
@@ -22,7 +22,7 @@ export function DeliveryConfirmationModal({
   delivery,
   onClose,
   onRevertConfirmation,
-  canRevert = true,
+  canRevert = false,
 }: DeliveryConfirmationModalProps) {
   const [mounted, setMounted] = useState(false);
   const [isReverting, setIsReverting] = useState(false);
@@ -42,6 +42,7 @@ export function DeliveryConfirmationModal({
   }, []);
 
   const handleRevert = async () => {
+    if (!onRevertConfirmation) return;
     setIsReverting(true);
     try {
       await onRevertConfirmation(delivery);
@@ -315,7 +316,7 @@ export function DeliveryConfirmationModal({
 
                 {/* Footer Actions */}
                 <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 shrink-0 flex items-center justify-between gap-3">
-                  {canRevert ? (
+                  {canRevert && onRevertConfirmation ? (
                     <Button
                       type="button"
                       variant="secondary"
