@@ -7,6 +7,7 @@ import {
   formatVietnamLegalDate, 
   formatVietnamLegalTime, 
   resolveMachineSerials,
+  resolveItemWarranty,
   resolveAcceptanceProtocolCode,
   SGM_OFFICIAL_TECHNICAL_CHECKLIST,
   SGM_COMPANY_INFO 
@@ -70,8 +71,15 @@ export function ExportHandoverPdf({
   }) || (Boolean(delivery.slMay) && Number(delivery.slMay) > 0);
 
   const documentTitle = hasMachines ? 'BIÊN BẢN NGHIỆM THU BÀN GIAO THIẾT BỊ' : 'BIÊN BẢN BÀN GIAO & NGHIỆM THU VẬT TƯ - THIẾT BỊ';
-  const nameColumnLabel = hasMachines ? 'TÊN MÁY' : 'TÊN VẬT TƯ / LINH KIỆN';
-  const serialColumnLabel = hasMachines ? 'SỐ KH' : 'MÃ SỐ / SERIAL / SỐ LÔ';
+
+  const rep1Name = (delivery.nguoiDaiDien || '').trim();
+  const rep2Name = (delivery.kyNhan || delivery.nguoiLienHe || '').trim();
+  const isDuplicateBRep = Boolean(
+    rep1Name && 
+    rep2Name && 
+    rep1Name.toLowerCase() === rep2Name.toLowerCase()
+  );
+  const showSecondBRep = Boolean(rep2Name) && !isDuplicateBRep;
 
   // Nội dung trang in chuẩn A4 (Dùng chung cho cả bản in ẩn lẫn Live Preview)
   const renderA4Sheet = () => (
@@ -138,36 +146,45 @@ export function ExportHandoverPdf({
         </p>
       </div>
 
-      {/* 3. BẢNG MÁY / VẬT TƯ & SỐ KH (SERIAL) */}
+      {/* 3. BẢNG MÁY / VẬT TƯ BÀN GIAO (6 CỘT CHUẨN MỰC DOANH NGHIỆP) */}
       <div className="my-3 border border-slate-950">
-        <table className="w-full text-left border-collapse text-[10.5px]">
+        <table className="w-full text-left border-collapse text-[10px]">
           <thead className="bg-slate-100/80 border-b border-slate-950 font-black uppercase text-slate-950 text-center">
             <tr>
-              <th className="p-1.5 w-10 border-r border-slate-950">STT</th>
-              <th className="p-1.5 border-r border-slate-950 text-center">{nameColumnLabel}</th>
-              <th className="p-1.5 w-36 border-r border-slate-950 text-center">{serialColumnLabel}</th>
-              <th className="p-1.5 w-20 text-center">SỐ LƯỢNG</th>
+              <th className="p-1.5 w-9 border-r border-slate-950">STT</th>
+              <th className="p-1.5 border-r border-slate-950 text-left">TÊN SẢN PHẨM / THIẾT BỊ</th>
+              <th className="p-1.5 w-12 border-r border-slate-950 text-center">SL</th>
+              <th className="p-1.5 w-12 border-r border-slate-950 text-center">ĐVT</th>
+              <th className="p-1.5 w-28 border-r border-slate-950 text-center">SỐ KH (NẾU CÓ)</th>
+              <th className="p-1.5 w-36 text-center">THÔNG TIN BẢO HÀNH (NẾU CÓ)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-950">
             {products.map((item, idx) => {
               const serials = resolveMachineSerials(item, delivery, idx);
+              const warranty = resolveItemWarranty(item, delivery);
               return (
                 <tr key={idx} className="align-middle">
-                  <td className="p-2 text-center font-bold border-r border-slate-950">{idx + 1}</td>
-                  <td className="p-2 font-bold text-slate-950 border-r border-slate-950 leading-snug">
+                  <td className="p-1.5 text-center font-bold border-r border-slate-950">{idx + 1}</td>
+                  <td className="p-1.5 font-bold text-slate-950 border-r border-slate-950 leading-snug">
                     {item.productName}
                     {item.quyCach && (
-                      <span className="block text-[9.5px] font-normal text-slate-700 italic mt-0.5">
+                      <span className="block text-[9px] font-normal text-slate-700 italic mt-0.5">
                         Quy cách: {item.quyCach}
                       </span>
                     )}
                   </td>
-                  <td className="p-2 text-center font-mono font-bold text-slate-950 border-r border-slate-950 bg-slate-50/50">
-                    {serials}
+                  <td className="p-1.5 text-center font-bold font-mono text-slate-950 border-r border-slate-950">
+                    {item.quantity}
                   </td>
-                  <td className="p-2 text-center font-bold font-mono text-slate-950">
-                    {item.quantity} {item.unit ? `(${item.unit})` : ''}
+                  <td className="p-1.5 text-center text-slate-800 border-r border-slate-950">
+                    {item.unit || 'Cái'}
+                  </td>
+                  <td className="p-1.5 text-center font-mono font-bold text-slate-950 border-r border-slate-950 bg-slate-50/50">
+                    {serials || '---'}
+                  </td>
+                  <td className="p-1.5 text-center text-slate-800 font-medium">
+                    {warranty || '---'}
                   </td>
                 </tr>
               );
@@ -193,10 +210,10 @@ export function ExportHandoverPdf({
         )}
       </div>
 
-      {/* 5. MỤC I: THÀNH PHẦN HỘI ĐỒNG */}
+      {/* 5. MỤC I: THÀNH PHẦN THAM GIA BÀN GIAO & NGHIỆM THU */}
       <div className="my-2.5 space-y-1.5 text-[10.5px]">
         <h3 className="font-black text-slate-950 uppercase tracking-wide underline underline-offset-2">
-          I./ THÀNH PHẦN HỘI ĐỒNG
+          I./ THÀNH PHẦN THAM GIA BÀN GIAO & NGHIỆM THU
         </h3>
 
         {/* Khối Đại diện Bên A (Bên Bán) */}
@@ -233,28 +250,30 @@ export function ExportHandoverPdf({
           </p>
           <div className="grid grid-cols-2 gap-2 pl-3">
             <p>
-              - Ông/Bà : <strong className="uppercase">{delivery.nguoiDaiDien || 'NGUYỄN VĂN THANH'}</strong>
+              - Ông/Bà : <strong className="uppercase">{rep1Name || rep2Name || 'NGUYỄN VĂN THANH'}</strong>
             </p>
             <p>
-              Chức Vụ : <strong>Giám Đốc</strong> làm đại diện.
+              Chức Vụ : <strong>{isDuplicateBRep ? 'Giám Đốc / Đại diện tiếp nhận' : 'Giám Đốc'}</strong> làm đại diện.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 pl-3">
-            <p>
-              - Ông/Bà : {isFieldBlank ? (
-                <span className="inline-block w-40 border-b border-dotted border-slate-900"></span>
-              ) : (
-                <strong className="uppercase">{delivery.kyNhan || delivery.nguoiLienHe || 'Người nhận máy tại xưởng'}</strong>
-              )}
-            </p>
-            <p>
-              Chức Vụ : {isFieldBlank ? (
-                <span className="inline-block w-28 border-b border-dotted border-slate-900"></span>
-              ) : (
-                <strong>Phụ trách tiếp nhận xưởng</strong>
-              )} làm đại diện.
-            </p>
-          </div>
+          {showSecondBRep && (
+            <div className="grid grid-cols-2 gap-2 pl-3">
+              <p>
+                - Ông/Bà : {isFieldBlank ? (
+                  <span className="inline-block w-40 border-b border-dotted border-slate-900"></span>
+                ) : (
+                  <strong className="uppercase">{rep2Name}</strong>
+                )}
+              </p>
+              <p>
+                Chức Vụ : {isFieldBlank ? (
+                  <span className="inline-block w-28 border-b border-dotted border-slate-900"></span>
+                ) : (
+                  <strong>Phụ trách tiếp nhận xưởng</strong>
+                )} làm đại diện.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -297,17 +316,15 @@ export function ExportHandoverPdf({
         </div>
       </div>
 
-      {/* 7. MỤC III: NHẬN XÉT CỦA HỘI ĐỒNG */}
+      {/* 7. MỤC III: Ý KIẾN & KẾT LUẬN NGHIỆM THU */}
       <div className="my-2.5 space-y-1.5 text-[10.5px]">
         <h3 className="font-black text-slate-950 uppercase tracking-wide underline underline-offset-2">
-          III./ NHẬN XÉT CỦA HỘI ĐỒNG:
+          III./ Ý KIẾN & KẾT LUẬN NGHIỆM THU:
         </h3>
         
         <div className="pl-3 space-y-1">
           <div className="flex items-center gap-2">
-            <span className="inline-block w-3.5 h-3.5 border border-slate-950 text-center font-bold leading-none">
-              {!isFieldBlank ? '✓' : ''}
-            </span>
+            <span className="inline-block w-3.5 h-3.5 border border-slate-950 text-center font-bold leading-none"></span>
             <span className="font-bold text-slate-950">
               1. Đồng ý nghiệm thu và đưa vào sử dụng.
             </span>
@@ -363,11 +380,13 @@ export function ExportHandoverPdf({
                   (Ký, ghi rõ họ tên & đóng dấu)
                 </p>
                 <p className="font-black uppercase text-[11px] text-slate-950">
-                  {delivery.nguoiDaiDien || 'NGUYỄN VĂN THANH'}
+                  {rep1Name || rep2Name || 'NGUYỄN VĂN THANH'}
                 </p>
-                <p className="text-[9px] text-slate-600 italic">
-                  Người nhận xưởng: {delivery.kyNhan || delivery.nguoiLienHe || '...........................'}
-                </p>
+                {showSecondBRep ? (
+                  <p className="text-[9px] text-slate-600 italic">
+                    Người nhận xưởng: {rep2Name}
+                  </p>
+                ) : null}
               </td>
 
               {/* Bên Bán */}

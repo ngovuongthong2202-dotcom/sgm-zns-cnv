@@ -98,6 +98,7 @@ export function formatVietnamLegalTime(dateInput?: string | Date | null): { hour
 
 /**
  * Trích xuất Serial / Số KH cho từng dòng sản phẩm
+ * TUYỆT ĐỐI KHÔNG SINH MÃ GIẢ (Zero Hallucination)
  */
 export function resolveMachineSerials(item: ProductItem, delivery: Delivery, index: number = 0): string {
   // 1. Ưu tiên danh sách mã máy gán riêng cho từng dòng sản phẩm
@@ -105,7 +106,12 @@ export function resolveMachineSerials(item: ProductItem, delivery: Delivery, ind
     return item.danhSachMaMay.join(', ');
   }
 
-  // 2. Nếu phiếu giao có danh sách mã máy tổng
+  // 2. Mã máy trực tiếp trên item (machineCode)
+  if (item.machineCode) {
+    return item.machineCode;
+  }
+
+  // 3. Nếu phiếu giao có danh sách mã máy tổng
   if (Array.isArray(delivery.danhSachMaMay) && delivery.danhSachMaMay.length > 0) {
     if (delivery.products && delivery.products.length === 1) {
       return delivery.danhSachMaMay.join(', ');
@@ -113,11 +119,57 @@ export function resolveMachineSerials(item: ProductItem, delivery: Delivery, ind
     if (delivery.danhSachMaMay[index]) {
       return delivery.danhSachMaMay[index];
     }
-    return delivery.danhSachMaMay.join(', ');
+    const isMachine = item.itemType === 'MACHINE' || ['Máy', 'Bộ'].includes(item.unit || '');
+    if (isMachine && delivery.danhSachMaMay[0]) {
+      return delivery.danhSachMaMay[0];
+    }
   }
 
-  // 3. Fallback mặc định theo định danh máy SGM
-  return `SGM${String(index + 36).padStart(3, '0')}-26`;
+  // 4. Tuyệt đối không sinh mã giả: trả về chuỗi rỗng
+  return '';
+}
+
+/**
+ * Trích xuất thời hạn bảo hành thông minh cho từng dòng sản phẩm
+ */
+export function resolveItemWarranty(item: ProductItem, _delivery?: Delivery): string {
+  if ((item as any).thoiGianBaoHanh) {
+    return String((item as any).thoiGianBaoHanh);
+  }
+  if ((item as any).warrantyMonths) {
+    return `${(item as any).warrantyMonths} tháng`;
+  }
+
+  const pName = (item.productName || '').toLowerCase();
+  const unit = (item.unit || '').toLowerCase();
+  const itemType = item.itemType || '';
+
+  // Máy móc công nghiệp chính (dập vòm, cán sóng, xả cuộn, chấn, chặt...)
+  if (
+    itemType === 'MACHINE' || 
+    unit.includes('máy') || 
+    pName.includes('máy') || 
+    pName.includes('bộ cán') || 
+    item.machineCode || 
+    (item.danhSachMaMay && item.danhSachMaMay.length > 0)
+  ) {
+    return '12 tháng';
+  }
+
+  // Chi phí, nhân công, dịch vụ, vận chuyển
+  if (
+    itemType === 'SERVICE' || 
+    pName.includes('chi phí') || 
+    pName.includes('nhân công') || 
+    pName.includes('ăn uống') || 
+    pName.includes('đi lại') || 
+    pName.includes('vận chuyển')
+  ) {
+    return '---';
+  }
+
+  // Linh kiện, phụ kiện, vật tư tiêu hao
+  return 'Theo NSX';
 }
 
 export { resolveAcceptanceProtocolCode, SGM_COMPANY_INFO };

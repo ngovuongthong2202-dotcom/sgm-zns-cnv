@@ -364,11 +364,23 @@ export const getContractColumns = (
       const cProdList = Array.isArray(c.products) ? c.products : [];
       const totalContractQty = cProdList.reduce((sum, p) => sum + (p.quantity || 0), 0) || c.slMay || 0;
       const totalDeliveredQty = dels
-        .filter((d: Delivery) => d.ngayGiaoThucTe != null)
-        .reduce((sum, d) => {
-          const dProdList = Array.isArray(d.products) ? d.products : [];
-          const qtyInShipment = dProdList.reduce((s: number, p: any) => s + (p.quantity || 0), 0) || d.slMay || d.danhSachMaMay?.length || 0;
-          return sum + qtyInShipment;
+        .reduce((sum, d: Delivery) => {
+          const shipments = Array.isArray(d.cacDotGiao) ? d.cacDotGiao : [];
+          if (shipments.length > 0) {
+            const sQty = shipments
+              .filter(s => Boolean(s.ngayGiaoThucTe) || Boolean(d.ngayGiaoThucTe))
+              .reduce((sSum, s) => {
+                const sProdList = Array.isArray(s.products) ? s.products : [];
+                return sSum + (sProdList.reduce((spSum, sp) => spSum + (sp.quantity || 0), 0) || s.slMay || 0);
+              }, 0);
+            return sum + sQty;
+          }
+          if (d.ngayGiaoThucTe != null) {
+            const dProdList = Array.isArray(d.products) ? d.products : [];
+            const qtyInShipment = dProdList.reduce((s: number, p: any) => s + (p.quantity || 0), 0) || d.slMay || d.danhSachMaMay?.length || 0;
+            return sum + qtyInShipment;
+          }
+          return sum;
         }, 0);
       const pct = totalContractQty > 0 ? Math.min(100, Math.round((totalDeliveredQty / totalContractQty) * 100)) : 0;
       const remainingQty = Math.max(0, totalContractQty - totalDeliveredQty);

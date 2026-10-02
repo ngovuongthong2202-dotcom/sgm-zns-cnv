@@ -11,6 +11,7 @@ import { createSttColumn } from '@/src/shared/utils/enrichWithStt';
 import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
 import { isPaymentFullyPaid, isPaymentPartial } from '@/src/domain/enums/payment-status';
 import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
+import { reconcileDeliveryShipments } from './utils/delivery-reconciler';
 
 export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: any }>[] => [
   createSttColumn() as any,
@@ -25,7 +26,14 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
       const shipments = Array.isArray(p.cacDotGiao) ? p.cacDotGiao : [];
       const hasMulti = shipments.length > 1;
       const latestShipment = shipments.length > 0 ? shipments[shipments.length - 1] : null;
-      const isSinglePartial = shipments.length === 1 && shipments[0]?.isDotCuoiCung === false;
+      
+      const recon = reconcileDeliveryShipments(p);
+      const isRemainingZero = recon.isFullyDelivered ||
+        (recon.remainingProducts.length > 0 && recon.remainingProducts.every(item => (Number(item.remainingQuantity) || 0) <= 0)) ||
+        (recon.totalBaselineQuantity > 0 && recon.totalShippedQuantity >= recon.totalBaselineQuantity);
+      
+      // Chỉ gắn nhãn Đợt 1 khi thực tế đơn đang phân kỳ dở dang (vẫn còn hàng chưa xuất)
+      const isPartialPending = !isRemainingZero && shipments.length === 1;
       
       return (
         <DeliveryHoverCard delivery={p}>
@@ -38,11 +46,11 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
                 <span className="text-3xs font-extrabold text-blue-800 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200 shrink-0" title={`Tổng cộng ${shipments.length} đợt giao`}>
                   {shipments.length} đợt
                 </span>
-              ) : isSinglePartial ? (
+              ) : isPartialPending ? (
                 <span className="text-3xs font-extrabold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200 shrink-0" title="Đợt giao phân kỳ">
                   Đợt 1
                 </span>
-              ) : p.dotGiaoHang && p.dotGiaoHang > 1 ? (
+              ) : p.dotGiaoHang && p.dotGiaoHang > 1 && !isRemainingZero ? (
                 <span className="text-3xs font-extrabold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200 shrink-0">
                   Đợt {p.dotGiaoHang}{p.isDotCuoiCung ? ' (Cuối)' : ''}
                 </span>
@@ -355,23 +363,23 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
         const isDone = pct >= 100 && isPhysicalConfirmed;
         const isAwaitingConfirm = pct >= 100 && !isPhysicalConfirmed;
 
-        let statusText = `${pct}%`;
+        let statusText = 'Đang giao hàng';
         let statusTitle = `Tiến độ: ${pct}%`;
         let barColor = 'bg-blue-600';
         let textColor = 'text-blue-700';
 
         if (isDone) {
-          statusText = 'Hoàn tất 100%';
+          statusText = 'Hoàn tất';
           statusTitle = 'Đã bàn giao và xác nhận nhận hàng 100%';
           barColor = 'bg-emerald-500';
           textColor = 'text-emerald-700 font-extrabold';
         } else if (isAwaitingConfirm) {
-          statusText = 'Chờ xác nhận (100%)';
+          statusText = 'Chờ xác nhận';
           statusTitle = 'Đã xuất đủ 100% hàng nhưng chưa có ngày giao thực tế / xác nhận ký nhận';
           barColor = 'bg-blue-500';
           textColor = 'text-blue-700 font-bold';
         } else {
-          statusText = shipments.length > 1 ? `Giao ${shipments.length} đợt (${pct}%)` : `Đã xuất ${pct}%`;
+          statusText = shipments.length > 1 ? `Giao ${shipments.length} đợt` : 'Đang giao hàng';
           statusTitle = `Đã giao ${totalShipped}/${totalBaseline} sản phẩm (${pct}%)`;
           barColor = 'bg-blue-600';
           textColor = 'text-blue-700 font-semibold';
@@ -411,7 +419,7 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
         statusLabel = 'Chờ gửi ZNS';
         statusColor = 'bg-slate-50 text-slate-500 border-slate-200';
       } else {
-        statusLabel = 'Hoàn tất 100%';
+        statusLabel = 'Hoàn tất';
         statusColor = 'bg-emerald-50 text-emerald-700 border-emerald-200 font-bold';
       }
       

@@ -152,7 +152,8 @@ export default function DeliveriesFeature() {
       return sum + (s.products || []).reduce((ssum, sp) => ssum + (Number(sp.quantity) || 0), 0);
     }, 0);
     const pct = totalBaseline > 0 ? Math.min(100, Math.round((totalShipped / totalBaseline) * 100)) : 100;
-    const isDone = pct >= 100 || newShipment.isDotCuoiCung;
+    const isPhysicalConfirmed = Boolean(newShipment.ngayGiaoThucTe) || Boolean(masterDelivery.ngayGiaoThucTe);
+    const isDone = (pct >= 100 || newShipment.isDotCuoiCung) && isPhysicalConfirmed;
 
     const updatedMaster: Delivery = {
       ...masterDelivery,
@@ -165,7 +166,7 @@ export default function DeliveriesFeature() {
       donViVanChuyen: newShipment.donViVanChuyen || masterDelivery.donViVanChuyen,
       khoXuat: newShipment.khoXuat || masterDelivery.khoXuat,
       tienDoLuyKe: pct,
-      tinhTrangGiaoHang: isDone ? 'HOAN_TAT' : 'CHO_GIAO',
+      tinhTrangGiaoHang: isDone ? 'HOAN_TAT' : (pct > 0 ? 'DANG_GIAO' : 'CHO_GIAO'),
     };
 
     await updateDelivery(updatedMaster.id || updatedMaster.deliveryId, updatedMaster);

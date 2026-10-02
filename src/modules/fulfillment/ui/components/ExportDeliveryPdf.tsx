@@ -142,7 +142,7 @@ export function ExportDeliveryPdf({
                     const isMachine = itemType === 'MACHINE';
                     const serials = Array.isArray(item.danhSachMaMay) && item.danhSachMaMay.length > 0 
                       ? item.danhSachMaMay.join(', ') 
-                      : (delivery.danhSachMaMay?.length ? delivery.danhSachMaMay.join(', ') : 'Tem kiểm định SGM');
+                      : (item.machineCode || (isMachine && delivery.danhSachMaMay?.length ? delivery.danhSachMaMay.join(', ') : (isMachine ? 'Tem kiểm định SGM' : '---')));
 
                     return (
                       <tr key={idx} className="hover:bg-slate-50">
@@ -152,17 +152,23 @@ export function ExportDeliveryPdf({
                           {item.productId && <span className="font-mono text-3xs text-slate-600 block">Mã SP: {item.productId}</span>}
                           {item.ghiChu && <span className="text-3xs italic text-slate-500 block">{item.ghiChu}</span>}
                         </td>
-                        <td className="p-2 border border-slate-300 font-mono text-3xs font-bold text-slate-800">
+                        <td className="p-2 border border-slate-300 font-mono text-3xs font-bold text-slate-800 text-center">
                           {serials}
                         </td>
                         <td className="p-2 border border-slate-300 text-center">{item.unit || (isMachine ? 'Bộ' : 'Cái')}</td>
                         <td className="p-2 border border-slate-300 text-center font-bold font-mono text-sm">{item.quantity}</td>
                         <td className="p-2 border border-slate-300 text-2xs text-slate-700">
-                          <span className="font-semibold text-emerald-800 block">✓ Mới 100%, nguyên kiện KCS</span>
-                          <span className="text-3xs text-slate-500 block">Đủ phụ kiện, cáp nguồn, HDSD</span>
+                          {isMachine ? (
+                            <>
+                              <span className="font-semibold text-emerald-800 block">✓ Mới 100%, nguyên kiện KCS</span>
+                              <span className="text-3xs text-slate-500 block">Đủ phụ kiện, cáp nguồn, HDSD</span>
+                            </>
+                          ) : (
+                            <span className="font-semibold text-slate-800 block">✓ Đạt tiêu chuẩn nghiệm thu</span>
+                          )}
                         </td>
                         <td className="p-2 border border-slate-300 text-3xs text-slate-600">
-                          {item.ghiChu || 'Theo tiêu chuẩn SGM'}
+                          {item.ghiChu || (isMachine ? 'Theo tiêu chuẩn SGM' : 'Theo quy cách xuất kho')}
                         </td>
                       </tr>
                     );

@@ -54,7 +54,7 @@ export function TabLichSuGiaoHang({
             <div className="flex items-center gap-2">
               <Layers size={18} className="text-blue-400" />
               <h3 className="font-bold text-sm text-white uppercase tracking-wider">
-                Sổ Cái Phân Kỳ Giao Hàng (Omni-Milestone Nexus)
+                Sổ Giao Hàng
               </h3>
             </div>
             <p className="text-xs text-slate-300">
@@ -273,41 +273,55 @@ export function TabLichSuGiaoHang({
                     </div>
                   </div>
 
-                  {/* Dispatched Products in this Shipment */}
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-3xs font-bold uppercase tracking-wider text-slate-500">
-                        Hàng hóa xuất trong đợt ({shipmentItems.length} mục • {shipmentTotalQty} SP)
+                  {/* Dispatched Products in this Shipment - 5-Column High-End Data Table */}
+                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                    <div className="bg-slate-50 px-3.5 py-2 flex items-center justify-between border-b border-slate-200">
+                      <span className="text-2xs font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                        <Package size={13} className="text-blue-600" />
+                        Danh sách sản phẩm xuất trong đợt ({shipmentItems.length} mục • {shipmentTotalQty} SP)
                       </span>
                       {shipment.giaTriXuatKhoDotNay && shipment.giaTriXuatKhoDotNay > 0 ? (
-                        <span className="text-3xs font-bold text-slate-600 font-mono">
-                          Giá trị: {formatCurrency(shipment.giaTriXuatKhoDotNay)}
+                        <span className="text-2xs font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 font-mono">
+                          Giá trị xuất: {formatCurrency(shipment.giaTriXuatKhoDotNay)}
                         </span>
                       ) : null}
                     </div>
 
-                    <div className="divide-y divide-slate-200/60 text-xs">
-                      {shipmentItems.map((item, iIdx) => (
-                        <div key={iIdx} className="py-1.5 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="w-4 text-center font-mono text-3xs text-slate-400">{iIdx + 1}.</span>
-                            <span className="font-semibold text-slate-800">{item.productName}</span>
-                            {item.productId && (
-                              <span className="font-mono text-3xs text-blue-600 bg-blue-50 px-1 rounded">
-                                {item.productId}
-                              </span>
-                            )}
-                            {item.machineCode && (
-                              <span className="font-mono text-3xs text-slate-600 bg-slate-200 px-1 rounded">
-                                Serial: {item.machineCode}
-                              </span>
-                            )}
-                          </div>
-                          <span className="font-mono font-bold text-slate-900">
-                            {item.quantity} {item.unit || 'Cái'}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100/70 border-b border-slate-200 text-3xs font-black uppercase text-slate-600 tracking-wider">
+                            <th className="py-2 px-3 w-12 text-center">STT</th>
+                            <th className="py-2 px-3 w-36">Mã SP</th>
+                            <th className="py-2 px-3">Tên sản phẩm / Quy cách</th>
+                            <th className="py-2 px-3 w-24 text-right">Số lượng</th>
+                            <th className="py-2 px-3 w-20 text-center">ĐVT</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {shipmentItems.map((item, iIdx) => (
+                            <tr key={iIdx} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="py-2 px-3 text-center font-mono text-slate-400 font-bold">{iIdx + 1}</td>
+                              <td className="py-2 px-3 font-mono text-blue-700 font-semibold text-2xs">
+                                {item.productId || '---'}
+                                {item.machineCode && (
+                                  <span className="block font-mono text-3xs text-slate-500 font-normal">
+                                    Serial: {item.machineCode}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2 px-3 font-medium text-slate-900">
+                                <div>{item.productName}</div>
+                                {item.quyCach && (
+                                  <div className="text-3xs text-slate-500 italic mt-0.5">{item.quyCach}</div>
+                                )}
+                              </td>
+                              <td className="py-2 px-3 text-right font-mono font-bold text-slate-950">{item.quantity}</td>
+                              <td className="py-2 px-3 text-center text-slate-600 font-medium text-2xs">{item.unit || 'Cái'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
 
