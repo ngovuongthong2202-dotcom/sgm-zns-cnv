@@ -668,7 +668,12 @@ export class BaseRepository<T> {
 
   async update(id: string, data: Partial<T>): Promise<any> {
     const existing = await this.getById(id);
-    const merged = { ...(existing || {}), ...data };
+    const rawProps = (existing && (existing as any).props && typeof (existing as any).props === 'object' && !Array.isArray((existing as any).props))
+      ? { ...(existing as any).props, ...existing }
+      : (existing || {});
+    const merged = { ...rawProps, ...data };
+    if ((merged as any).props) delete (merged as any).props;
+    if ((merged as any)._domainEvents) delete (merged as any)._domainEvents;
     await this.set(id, merged as Partial<T>);
   }
 

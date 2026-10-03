@@ -6,9 +6,16 @@ export const mapDocument = <T>(row: Record<string, unknown> | null | undefined):
   if (!row || typeof row !== 'object') return {} as T;
 
   const rawData = row.data;
-  const jsonb = (rawData && typeof rawData === 'object' && !Array.isArray(rawData))
+  let jsonb = (rawData && typeof rawData === 'object' && !Array.isArray(rawData))
     ? (rawData as Record<string, unknown>)
     : {};
+
+  // Sovereign Aggregation Unwrapper:
+  // If jsonb contains nested props (e.g. from Domain Aggregate serialization), unwrap it to top level
+  if (jsonb.props && typeof jsonb.props === 'object' && !Array.isArray(jsonb.props)) {
+    const { props, _domainEvents, ...rest } = jsonb;
+    jsonb = { ...(props as Record<string, unknown>), ...rest };
+  }
   
   // Exclude raw JSONB column from leaked entity fields
   const { data: _ignored, ...cleanRow } = row;

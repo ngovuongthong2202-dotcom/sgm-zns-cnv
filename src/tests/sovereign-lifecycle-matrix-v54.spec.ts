@@ -196,8 +196,53 @@ describe('V54 Sovereign Autonomous Lifecycle Matrix & Dual-Flight Omni-Mesh Fabr
       const resolvedCustomerId = clientEntity.customerId || dbEntity.customerId || (body.entityType === 'CUSTOMER' ? body.entityId : undefined);
 
       expect(resolvedCustomerId).toBe('KH-00123');
-      expect(resolvedCustomerId).not.toBe('BGVT-2026-0764');
+    });
+  });
+
+  describe('5. Sovereign Product & Quotation Integrity Shield', () => {
+    it('unwraps nested props in mapDocument so products, items, and totalAmount are never lost', async () => {
+      const { mapDocument } = await import('@/src/platform/data/mapper');
+
+      const corruptedRow = {
+        id: 'quote-test-shield',
+        ma_bao_gia: '11-BG2607-012',
+        tong_tien: 3186000,
+        data: {
+          id: 'quote-test-shield',
+          props: {
+            id: 'quote-test-shield',
+            maBaoGia: '11-BG2607-012',
+            tenKhachHang: 'Công Ty TNHH Phương Yến',
+            totalAmount: 3186000,
+            products: [
+              { productName: 'Con đếm AUTONICS', price: 2950000, quantity: 1 }
+            ],
+            items: [
+              { productName: 'Con đếm AUTONICS', price: 2950000, quantity: 1 }
+            ],
+            ngayBaoGia: '2026-07-09',
+            hieuLuc: 7,
+            nguoiPhuTrach: 'Trần Thị Hoài Ngân'
+          },
+          trangThaiGuiTinBaoGia: 'THANH_CONG',
+          lifecycleStatus: 'SENT'
+        }
+      };
+
+      const mapped: any = mapDocument(corruptedRow);
+
+      expect(mapped.id).toBe('quote-test-shield');
+      expect(mapped.totalAmount).toBe(3186000);
+      expect(mapped.products).toHaveLength(1);
+      expect(mapped.products[0].productName).toBe('Con đếm AUTONICS');
+      expect(mapped.items).toHaveLength(1);
+      expect(mapped.ngayBaoGia).toBe('2026-07-09');
+      expect(mapped.hieuLuc).toBe(7);
+      expect(mapped.nguoiPhuTrach).toBe('Trần Thị Hoài Ngân');
+      expect(mapped.trangThaiGuiTinBaoGia).toBe('THANH_CONG');
+      expect(mapped.props).toBeUndefined(); // successfully unwrapped
     });
   });
 
 });
+

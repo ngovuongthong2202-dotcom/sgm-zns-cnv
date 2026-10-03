@@ -34,7 +34,18 @@ export class QuotationRepoSupabase extends BaseRepository<any> implements Quotat
 
   public async update(idOrQuotation: string | Quotation, data?: any): Promise<void> {
     if (typeof idOrQuotation === 'string') {
-      await super.update(idOrQuotation, data || {});
+      const id = idOrQuotation;
+      const existing = await this.getById(id);
+      const rawProps = (existing && (existing as any).props) ? (existing as any).props : (existing || {});
+      const merged = {
+        ...rawProps,
+        ...(data || {}),
+        id,
+        updatedAt: new Date().toISOString()
+      };
+      if (merged.props) delete merged.props;
+      if (merged._domainEvents) delete merged._domainEvents;
+      await this.set(id, merged);
       return;
     }
     await this.save(idOrQuotation);
