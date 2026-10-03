@@ -15,14 +15,19 @@ export class SendZnsMessageUseCase {
     messageType: string;
     phone: string;
     payload: Record<string, unknown>;
+    attemptBucket?: number | string;
+    forceResend?: boolean;
   }): Promise<{ messageId: string; status: string; error?: string }> {
-    
+    const attempt = params.attemptBucket !== undefined 
+      ? Number(params.attemptBucket) 
+      : (params.forceResend ? Date.now() : 0);
+
     const idempotencyKey = this.repository.generateIdempotencyKey(
       params.entityType,
       params.entityId,
       params.messageType,
       new Date().toISOString().slice(0, 10), // businessVersion (daily)
-      0
+      attempt
     );
 
     let message = await this.repository.findById(idempotencyKey);
@@ -40,7 +45,7 @@ export class SendZnsMessageUseCase {
       }
       message = result.getValue();
     } else {
-      if (['SUCCESS', 'SENT_WAITING'].includes(message.props.status)) {
+      if (!params.forceResend && ['SUCCESS', 'SENT_WAITING'].includes(message.props.status)) {
         return { messageId: message.id, status: message.props.status };
       }
     }

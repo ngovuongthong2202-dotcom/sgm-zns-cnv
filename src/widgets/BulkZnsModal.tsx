@@ -77,7 +77,8 @@ export interface DispatchLogItem {
   code: string;
   name: string;
   phone: string;
-  status: 'PENDING' | 'SENDING' | 'SUCCESS' | 'FAILED' | 'SKIPPED';
+  status: 'PENDING' | 'SENDING' | 'QUEUED' | 'SUCCESS' | 'FAILED' | 'SKIPPED';
+  messageId?: string;
   errorMsg?: string;
   timestamp: string;
 }
@@ -115,6 +116,7 @@ export function BulkZnsModal({
   const [logs, setLogs] = useState<DispatchLogItem[]>([]);
   const [successCount, setSuccessCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
+  const [queuedCount, setQueuedCount] = useState(0);
 
   const pauseRef = useRef(false);
   pauseRef.current = isPaused;
@@ -538,10 +540,61 @@ export function BulkZnsModal({
       setLogs([]);
       setSuccessCount(0);
       setFailedCount(0);
+      setQueuedCount(0);
       setFilterTab('ALL');
       setSearchQuery('');
     }
   }, [isOpen]);
+
+  // Realtime reconciliation for queued messages (Two-Phase Verification Landing)
+  useEffect(() => {
+    if (!realtimeZnsMessages || realtimeZnsMessages.length === 0) return;
+    if (stage !== 'DISPATCHING' && stage !== 'COMPLETED') return;
+
+    setLogs(prevLogs => {
+      let hasChanges = false;
+      const updated = prevLogs.map(log => {
+        if (log.status !== 'QUEUED') return log;
+        
+        // Find matching message in realtime collection
+        const cleanLogPhone = log.phone ? log.phone.replace(/\D/g, '') : '';
+        const match = realtimeZnsMessages.find((m: any) => {
+          if (log.messageId && (m.id === log.messageId || m.trackingId === log.messageId)) return true;
+          const mPhone = (m.phone || '').replace(/\D/g, '');
+          if (cleanLogPhone && mPhone === cleanLogPhone) {
+            if (m.entityId === log.id || m.entityId === log.code) return true;
+          }
+          return false;
+        });
+
+        if (!match) return log;
+
+        if (match.status === 'SUCCESS') {
+          hasChanges = true;
+          setSuccessCount(s => s + 1);
+          setQueuedCount(q => Math.max(0, q - 1));
+          return { ...log, status: 'SUCCESS' as const };
+        } else if (match.status === 'FAILED' || match.status === 'LIMIT_EXCEEDED' || match.status === 'DLQ') {
+          hasChanges = true;
+          setFailedCount(f => f + 1);
+          setQueuedCount(q => Math.max(0, q - 1));
+          let errMsg = match.errorLog || match.status;
+          if (errMsg.includes('-118') || errMsg.includes('not existed')) {
+            errMsg = 'Chưa có Zalo (-118)';
+          } else if (errMsg.includes('-124')) {
+            errMsg = 'SĐT không hợp lệ (-124)';
+          } else if (errMsg.includes('-136')) {
+            errMsg = 'Quá 30 ký tự (-136)';
+          } else if (errMsg.includes('-1472') || errMsg.includes('limit')) {
+            errMsg = 'Vượt hạn mức (-1472)';
+          }
+          return { ...log, status: 'FAILED' as const, errorMsg: errMsg };
+        }
+        return log;
+      });
+      return hasChanges ? updated : prevLogs;
+    });
+  }, [realtimeZnsMessages, stage]);
 
   // Hàm chờ nhịp độ (cooldown) kèm đếm ngược
   const waitWithCountdown = async (seconds: number): Promise<boolean> => {
@@ -573,9 +626,11 @@ export function BulkZnsModal({
     setLogs([]);
     setSuccessCount(0);
     setFailedCount(0);
+    setQueuedCount(0);
 
     let success = 0;
     let failed = 0;
+    let queued = 0;
 
     // Bộ đệm tích lũy cập nhật nguyên tử chống ghi đè khi 1 khách hàng có nhiều đầu mối
     const customerAccumulators = new Map<string, {
@@ -616,7 +671,7 @@ export function BulkZnsModal({
 
         const attempt = nextAttempt(target.rawStatus);
 
-        await sendZnsMessage({
+        const res = await sendZnsMessage({
           entityId: target.entityId,
           entityType,
           messageType: msgType,
@@ -626,14 +681,20 @@ export function BulkZnsModal({
           forceResend: allowResend || target.isAlreadySent
         });
 
-        success++;
-        setSuccessCount(success);
+        const nowIso = new Date().toISOString();
+        const isSynchronousSuccess = res?.status === 'SUCCESS' || (!res?.status && res?.success);
 
-        // Update log thành công
-        setLogs(prev => prev.map(l => l.id === target.id ? { ...l, status: 'SUCCESS' } : l));
+        if (isSynchronousSuccess) {
+          success++;
+          setSuccessCount(success);
+          setLogs(prev => prev.map(l => l.id === target.id ? { ...l, status: 'SUCCESS' } : l));
+        } else {
+          queued++;
+          setQueuedCount(queued);
+          setLogs(prev => prev.map(l => l.id === target.id ? { ...l, status: 'QUEUED', messageId: res?.messageId } : l));
+        }
 
         // Lưu trữ nguyên tử tức thời vào Supabase PostgreSQL (In-Flight Atomic Persistence)
-        const nowIso = new Date().toISOString();
         if (entityType === 'CUSTOMER') {
           let accum = customerAccumulators.get(target.entityId);
           if (!accum) {
@@ -641,14 +702,14 @@ export function BulkZnsModal({
             accum = {
               contacts: Array.isArray(orig.contacts) ? JSON.parse(JSON.stringify(orig.contacts)) : [],
               contactsZnsHistory: { ...(orig.contactsZnsHistory || {}) },
-              trangThaiGuiTinQuangCao: 'THANH_CONG'
+              trangThaiGuiTinQuangCao: isSynchronousSuccess ? 'THANH_CONG' : 'DA_DAY_CHO_KQ'
             };
             customerAccumulators.set(target.entityId, accum);
           }
 
           // 1. Cập nhật contactsZnsHistory cho đúng số điện thoại này
           accum.contactsZnsHistory[target.phone] = {
-            status: 'SUCCESS',
+            status: isSynchronousSuccess ? 'SUCCESS' : 'SENT_WAITING',
             sentAt: nowIso,
             nguoiDaiDien: target.contactName,
             roleOrBranch: target.roleOrBranch
@@ -666,33 +727,33 @@ export function BulkZnsModal({
           if (foundIdx >= 0) {
             accum.contacts[foundIdx] = {
               ...accum.contacts[foundIdx],
-              trangThaiZns: 'THANH_CONG',
+              trangThaiZns: isSynchronousSuccess ? 'THANH_CONG' : 'DA_DAY_CHO_KQ',
               ngayGuiZns: nowIso
             };
           } else if (target.contactName && target.phone) {
             accum.contacts.push({
               nguoiDaiDien: target.contactName,
               sdt: target.phone,
-              trangThaiZns: 'THANH_CONG',
+              trangThaiZns: isSynchronousSuccess ? 'THANH_CONG' : 'DA_DAY_CHO_KQ',
               ngayGuiZns: nowIso,
               chucVu: target.roleOrBranch || ''
             });
           }
 
-          accum.trangThaiGuiTinQuangCao = 'THANH_CONG';
+          accum.trangThaiGuiTinQuangCao = isSynchronousSuccess ? 'THANH_CONG' : 'DA_DAY_CHO_KQ';
 
           try {
             if (onUpdateCustomer) {
               await onUpdateCustomer(target.entityId, {
                 contacts: accum.contacts,
                 contactsZnsHistory: accum.contactsZnsHistory,
-                trangThaiGuiTinQuangCao: 'THANH_CONG'
+                trangThaiGuiTinQuangCao: accum.trangThaiGuiTinQuangCao
               } as any);
             } else {
               await UpdateCustomer.execute(target.entityId, {
                 contacts: accum.contacts,
                 contactsZnsHistory: accum.contactsZnsHistory,
-                trangThaiGuiTinQuangCao: 'THANH_CONG'
+                trangThaiGuiTinQuangCao: accum.trangThaiGuiTinQuangCao
               } as any);
             }
           } catch (persistErr) {
@@ -701,8 +762,8 @@ export function BulkZnsModal({
         } else if (entityType === 'QUOTATION') {
           try {
             await quotationRepo.update(target.entityId, {
-              trangThaiGuiTinBaoGia: 'THANH_CONG',
-              trangThaiZns: 'THANH_CONG',
+              trangThaiGuiTinBaoGia: isSynchronousSuccess ? 'THANH_CONG' : 'DA_DAY_CHO_KQ',
+              trangThaiZns: isSynchronousSuccess ? 'THANH_CONG' : 'DA_DAY_CHO_KQ',
               lifecycleStatus: 'SENT',
               sentAt: nowIso
             });
@@ -713,7 +774,16 @@ export function BulkZnsModal({
       } catch (err: any) {
         failed++;
         setFailedCount(failed);
-        const errMsg = err?.message || 'Lỗi gửi tin ZNS';
+        let errMsg = err?.message || 'Lỗi gửi tin ZNS';
+        if (errMsg.includes('-118') || errMsg.includes('not existed')) {
+          errMsg = 'Chưa có Zalo (-118)';
+        } else if (errMsg.includes('-124')) {
+          errMsg = 'SĐT không hợp lệ (-124)';
+        } else if (errMsg.includes('-136')) {
+          errMsg = 'Quá 30 ký tự (-136)';
+        } else if (errMsg.includes('-1472') || errMsg.includes('limit')) {
+          errMsg = 'Vượt hạn mức (-1472)';
+        }
 
         // Update log thất bại
         setLogs(prev => prev.map(l => l.id === target.id ? { ...l, status: 'FAILED', errorMsg: errMsg } : l));
@@ -734,8 +804,10 @@ export function BulkZnsModal({
     });
     onSuccess?.();
 
-    if (failed === 0) {
+    if (failed === 0 && queued === 0) {
       notify.success(`Đã gửi thành công toàn bộ ${success} tin ZNS!`);
+    } else if (queued > 0) {
+      notify.info(`Đã điều phối ${queued} tin sang Webhook CNV (chờ Zalo phản hồi), ${failed} tin lỗi.`);
     } else {
       notify.warning(`Đã gửi ${success} tin thành công, ${failed} tin thất bại.`);
     }
@@ -1165,10 +1237,14 @@ export function BulkZnsModal({
                 )}
 
                 {/* Flight Stats Counter */}
-                <div className="grid grid-cols-3 gap-2 text-center pt-1 border-t border-slate-800 text-2xs">
+                <div className="grid grid-cols-4 gap-2 text-center pt-1 border-t border-slate-800 text-2xs">
                   <div>
                     <span className="text-slate-400 block">Thành công</span>
                     <strong className="text-emerald-400 text-sm font-mono">{successCount}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">Chờ Zalo</span>
+                    <strong className="text-amber-400 text-sm font-mono">{queuedCount}</strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block">Thất bại</span>
@@ -1223,6 +1299,11 @@ export function BulkZnsModal({
                           Đang gửi...
                         </span>
                       )}
+                      {log.status === 'QUEUED' && (
+                        <span className="text-3xs font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                          <Clock size={11} className="text-amber-600 animate-spin" /> Chờ Zalo
+                        </span>
+                      )}
                       {log.status === 'SUCCESS' && (
                         <span className="text-3xs font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
                           <CheckCircle2 size={11} /> Thành công
@@ -1230,7 +1311,7 @@ export function BulkZnsModal({
                       )}
                       {log.status === 'FAILED' && (
                         <span className="text-3xs font-bold px-2 py-0.5 rounded bg-red-50 text-red-800 border border-red-200" title={log.errorMsg}>
-                          Lỗi: {log.errorMsg?.slice(0, 25) || 'Thất bại'}
+                          {log.errorMsg?.includes('(-118)') ? 'Chưa có Zalo (-118)' : `Lỗi: ${log.errorMsg?.slice(0, 25) || 'Thất bại'}`}
                         </span>
                       )}
                     </div>
@@ -1255,17 +1336,21 @@ export function BulkZnsModal({
               </div>
 
               {/* Summary Scoreboard */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-lg mx-auto text-center">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-xl mx-auto text-center">
                 <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
                   <span className="text-3xs uppercase font-bold text-emerald-700 block mb-0.5">Thành công</span>
                   <span className="text-lg font-black font-mono text-emerald-800">{successCount}</span>
+                </div>
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
+                  <span className="text-3xs uppercase font-bold text-amber-700 block mb-0.5">Chờ Zalo xác nhận</span>
+                  <span className="text-lg font-black font-mono text-amber-800">{queuedCount}</span>
                 </div>
                 <div className="p-3 bg-red-50 rounded-xl border border-red-200">
                   <span className="text-3xs uppercase font-bold text-red-700 block mb-0.5">Thất bại</span>
                   <span className="text-lg font-black font-mono text-red-800">{failedCount}</span>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 col-span-2 sm:col-span-1">
-                  <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Đã bỏ qua (Số bàn/thiếu)</span>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-3xs uppercase font-bold text-slate-500 block mb-0.5">Đã bỏ qua (Số bàn)</span>
                   <span className="text-lg font-black font-mono text-slate-700">{skippedLandlineCount + skippedNoPhoneCount}</span>
                 </div>
               </div>

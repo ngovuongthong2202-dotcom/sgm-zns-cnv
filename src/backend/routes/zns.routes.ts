@@ -218,7 +218,7 @@ router.post('/send', async (req, res) => {
       phone: normalizedPhone,
       sdt: normalizedPhone,
       tenKhachHang: clientEntity.tenKhachHang || dbEntity.tenKhachHang || clientEntity.customer_name || dbEntity.customer_name || '',
-      customerId: body.entityId || clientEntity.customerId || dbEntity.customerId,
+      customerId: clientEntity.customerId || dbEntity.customerId || (body.entityType === 'CUSTOMER' ? body.entityId : undefined),
       entityId: body.entityId,
       entityType: body.entityType,
       messageType: body.messageType,
@@ -230,7 +230,9 @@ router.post('/send', async (req, res) => {
       entityType: body.entityType,
       messageType: body.messageType,
       phone: normalizedPhone,
-      payload: mergedPayload
+      payload: mergedPayload,
+      attemptBucket: body.attemptBucket,
+      forceResend: Boolean(body.forceResend)
     });
     
     res.status(200).json({ success: true, messageId: result.messageId, status: result.status });

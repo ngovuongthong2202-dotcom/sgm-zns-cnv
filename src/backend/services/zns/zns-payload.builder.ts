@@ -69,9 +69,12 @@ export function sanitizeZnsCustomerName(rawName: string): string {
   const trimmed = (rawName || 'Quý Khách Hàng').toString().trim();
   if (trimmed.length <= 30) return trimmed;
   const condensed = trimmed
+    .replace(/\bCông Ty TNHH MTV\b/gi, 'TNHH MTV')
     .replace(/\bCông Ty TNHH\b/gi, 'TNHH')
-    .replace(/\bCông Ty CP\b/gi, 'CP')
     .replace(/\bCông Ty Cổ Phần\b/gi, 'CP')
+    .replace(/\bCông Ty CP\b/gi, 'CP')
+    .replace(/\bCông Ty\b/gi, 'Cty')
+    .replace(/\bDoanh Nghiệp Tư Nhân\b/gi, 'DNTN')
     .replace(/\bThương Mại Dịch Vụ\b/gi, 'TMDV')
     .replace(/\bThương Mại & Dịch Vụ\b/gi, 'TM&DV')
     .replace(/\bThương Mại Và Dịch Vụ\b/gi, 'TM&DV')
@@ -82,9 +85,35 @@ export function sanitizeZnsCustomerName(rawName: string): string {
     .trim();
     
   if (condensed.length <= 30) return condensed;
-  const sub = condensed.substring(0, 30).trim();
+
+  // Phase 2: If still > 30 chars, try stripping the legal prefix completely to preserve commercial trade name
+  const strippedLegal = condensed
+    .replace(/^(TNHH MTV|TNHH|CP|Cty|DNTN)\s+/i, '')
+    .trim();
+  if (strippedLegal.length > 0 && strippedLegal.length <= 30) {
+    return strippedLegal;
+  }
+
+  // Phase 3: Fallback boundary word truncation
+  const target = strippedLegal.length > 0 ? strippedLegal : condensed;
+  if (target.length <= 30) return target;
+  const sub = target.substring(0, 30).trim();
   const lastSpace = sub.lastIndexOf(' ');
   if (lastSpace > 10) {
+    return sub.substring(0, lastSpace).trim();
+  }
+  return sub;
+}
+
+export function sanitizeZnsPersonName(rawName: string, fallback = 'Ngô Vương Thông'): string {
+  const str = (rawName || fallback).toString().trim();
+  // Strip anything in parenthesis e.g. "Ngô Vương Thông (IT - Administrator)" -> "Ngô Vương Thông"
+  let clean = str.replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  if (!clean) clean = fallback;
+  if (clean.length <= 30) return clean;
+  const sub = clean.substring(0, 30).trim();
+  const lastSpace = sub.lastIndexOf(' ');
+  if (lastSpace > 5) {
     return sub.substring(0, lastSpace).trim();
   }
   return sub;
@@ -244,12 +273,16 @@ export class ZnsPayloadBuilder {
     if (requiredVarsSet.has('nguoi_phu_trach') && isEmp(rendered.nguoi_phu_trach)) {
       let pic = (p.nguoiPhuTrach as string) || 'Ngô Vương Thông';
       if (pic.toLowerCase().includes('mạnh hùng')) pic = 'Ngô Vương Thông';
-      rendered.nguoi_phu_trach = pic;
+      rendered.nguoi_phu_trach = sanitizeZnsPersonName(pic);
+    } else if (rendered.nguoi_phu_trach) {
+      rendered.nguoi_phu_trach = sanitizeZnsPersonName(String(rendered.nguoi_phu_trach));
     }
     if (requiredVarsSet.has('nhan_vien') && isEmp(rendered.nhan_vien)) {
       let pic = (p.nguoiPhuTrach as string) || (p.nhanVien as string) || 'Ngô Vương Thông';
       if (pic.toLowerCase().includes('mạnh hùng')) pic = 'Ngô Vương Thông';
-      rendered.nhan_vien = pic;
+      rendered.nhan_vien = sanitizeZnsPersonName(pic);
+    } else if (rendered.nhan_vien) {
+      rendered.nhan_vien = sanitizeZnsPersonName(String(rendered.nhan_vien));
     }
     if (requiredVarsSet.has('ngay_ky') && isEmp(rendered.ngay_ky)) {
       const raw = (p.ngayKy as string) || (p.createdAt as string) || new Date().toISOString();
@@ -364,6 +397,12 @@ export class ZnsPayloadBuilder {
     
     const cleanCustomerName = sanitizeZnsCustomerName(rawCustomerName);
     variables.customer_name = cleanCustomerName;
+    if (variables.nguoi_phu_trach) {
+      variables.nguoi_phu_trach = sanitizeZnsPersonName(variables.nguoi_phu_trach);
+    }
+    if (variables.nhan_vien) {
+      variables.nhan_vien = sanitizeZnsPersonName(variables.nhan_vien);
+    }
     const rawPhone = (variables.phone || p.sdt || p.phone || phoneObj || '').toString().trim();
     const extPhone = rawPhone ? extractVietnamesePhones(rawPhone) : null;
     const cleanPhone = (extPhone && extPhone.primaryPhone) ? extPhone.primaryPhone : rawPhone;
@@ -437,8 +476,9 @@ export class ZnsPayloadBuilder {
       ...variables,
       
       // === Action trigger (CNV check field này để fire workflow) ===
+      ...(map.disp ? { [map.disp]: 'Đang gửi' } : {}),
+      ...(map.col ? { [map.col]: 'Gửi tin' } : {}),
       [map.act]: 'Gửi tin',
-      [map.disp]: 'Đang gửi',
     };
     
     // Xoá các field fallback rỗng vô nghĩa để qua unit test KHÔNG spray bừa
