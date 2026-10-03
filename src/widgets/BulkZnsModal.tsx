@@ -15,7 +15,9 @@ import {
   ShieldCheck, 
   AlertCircle,
   CheckSquare,
-  Square
+  Square,
+  Search,
+  Calendar
 } from 'lucide-react';
 import { Customer } from '@/src/domain/schema/customer.schema';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
@@ -28,6 +30,7 @@ import { crossTabSync } from '@/src/shared/utils/crossTabSync';
 import { clearSwrColCache } from '@/src/data/swr-fetchers';
 import { notify } from '@/src/shared/utils/notify';
 import { Button } from '@/src/design-system';
+import { formatCurrency } from '@/src/shared/utils/formatCurrency';
 import { UpdateCustomer } from '@/src/modules/customers/application/use-cases/UpdateCustomer';
 import { quotationRepo } from '@/src/modules/sales/infrastructure/QuotationRepoFirestore';
 
@@ -36,6 +39,7 @@ export interface BulkZnsModalProps {
   onClose: () => void;
   entityType: 'CUSTOMER' | 'QUOTATION';
   items: (Customer | Quotation)[];
+  customers?: Customer[];
   userRole?: string;
   onSuccess?: () => void;
   onUpdateCustomer?: (id: string, data: Partial<Customer>) => Promise<any>;
@@ -59,6 +63,13 @@ export interface TargetRecipient {
   skipReason?: string;
   originalEntity: any;
   contactObj?: any;
+  // V50 Sovereign Omni-Mesh Enhancements
+  amount?: number;
+  amountFormatted?: string;
+  dateStr?: string;
+  isHydratedFromCustomer?: boolean;
+  hydratedNote?: string;
+  availablePhones?: Array<{ cleaned: string; formatted: string; carrier?: string }>;
 }
 
 export interface DispatchLogItem {
@@ -76,6 +87,7 @@ export function BulkZnsModal({
   onClose,
   entityType,
   items = [],
+  customers = [],
   userRole,
   onSuccess,
   onUpdateCustomer
@@ -84,6 +96,10 @@ export function BulkZnsModal({
   const [allowResend, setAllowResend] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState(5); // 5s, 7s, 10s
   const [manualToggles, setManualToggles] = useState<Record<string, boolean>>({});
+
+  // Cockpit filters (v50)
+  const [filterTab, setFilterTab] = useState<'ALL' | 'READY' | 'SENT' | 'EXCLUDED'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Real-time message subscription for 100% accurate dispatch history resolution
   const { data: realtimeZnsMessages = [] } = useRealtimeCollection<any>('zns_messages');
@@ -299,13 +315,57 @@ export function BulkZnsModal({
         });
       });
     } else {
-      // QUOTATION
+      // QUOTATION (V50: 1-to-1 Strict Cardinality with Smart Customer Mesh Hydration)
       const quotes = items as Quotation[];
+      const customersMap = new Map<string, Customer>();
+      if (Array.isArray(customers) && customers.length > 0) {
+        customers.forEach(c => {
+          if (c && c.id) customersMap.set(c.id, c);
+          if (c && c.maKh) customersMap.set(c.maKh, c);
+        });
+      }
+
       quotes.forEach((q) => {
         if (!q || !q.id) return;
-        
+
+        const parentCust = (q.customerId && customersMap.get(q.customerId)) || 
+                           (q.maKh && customersMap.get(q.maKh)) || 
+                           null;
+
         const rawPhone = (q.sdt || '').trim();
-        const ext = extractVietnamesePhones(rawPhone, q.diaChi);
+        let ext = extractVietnamesePhones(rawPhone, q.diaChi);
+
+        // Smart Customer Mesh Hydration: nếu báo giá thiếu số di động hoặc chỉ có số bàn, tra cứu hồ sơ KH
+        let isHydrated = false;
+        let hydratedNote: string | undefined;
+        let hydratedContactName: string | undefined;
+
+        if (ext.mobilePhones.length === 0 && parentCust) {
+          const custRawPhones = [
+            (parentCust as any).soZaloMacDinh,
+            parentCust.sdt,
+            (parentCust as any).sdtPhu,
+            ...(Array.isArray((parentCust as any).danhSachSdt) ? (parentCust as any).danhSachSdt : []),
+            ...(Array.isArray(parentCust.contacts) ? parentCust.contacts.map(ct => ct?.sdt) : [])
+          ].filter(Boolean).join(' ');
+
+          const custExt = extractVietnamesePhones(custRawPhones, parentCust.diaChi);
+          if (custExt.mobilePhones.length > 0) {
+            ext = custExt;
+            isHydrated = true;
+            hydratedNote = '📱 Từ hồ sơ KH';
+            if (Array.isArray(parentCust.contacts) && parentCust.contacts.length > 0) {
+              const primaryCt = parentCust.contacts.find(ct => ct?.sdt && custExt.mobilePhones.some(m => m.cleaned === ct.sdt?.replace(/\D/g, ''))) || parentCust.contacts[0];
+              if (primaryCt?.nguoiDaiDien) {
+                hydratedContactName = primaryCt.nguoiDaiDien;
+              }
+            }
+          } else if (ext.landlinePhones.length === 0 && custExt.landlinePhones.length > 0) {
+            ext = custExt;
+            isHydrated = true;
+            hydratedNote = '☎️ Số bàn từ hồ sơ KH';
+          }
+        }
 
         // Deduplicate mobile phones by cleaned number
         const uniqueMobilePhones: any[] = [];
@@ -317,51 +377,68 @@ export function BulkZnsModal({
           }
         }
 
+        // Distinct representative check: KHÔNG lặp lại tên công ty
+        const hasDistinctRep = Boolean(
+          q.nguoiDaiDien && 
+          q.nguoiDaiDien.trim().toLowerCase() !== (q.tenKhachHang || '').trim().toLowerCase()
+        );
+        const resolvedContactName = hasDistinctRep 
+          ? q.nguoiDaiDien! 
+          : (hydratedContactName || '');
+
+        const amount = q.totalAmount || q.subTotal || 0;
+        const amountFormatted = amount > 0 ? formatCurrency(amount) : undefined;
+        const dateStr = q.ngayBaoGia || '';
+
+        // BẢO TOÀN TỶ LỆ 1-1: Mỗi báo giá tạo chính xác 1 dòng TargetRecipient
         if (uniqueMobilePhones.length > 0) {
-          uniqueMobilePhones.forEach((mob, mIdx) => {
-            const isPrimaryPhone = mIdx === 0;
-            const recId = `quote-${q.id}-${mob.cleaned}`;
+          const primaryMob = uniqueMobilePhones[0];
+          const recId = `quote-${q.id}`;
 
-            const isAlreadySent = isRecipientZnsAlreadySent({
-              entity: q,
-              entityType: 'QUOTATION',
-              phone: mob.cleaned,
-              znsMessages: realtimeZnsMessages
-            });
+          const isAlreadySent = isRecipientZnsAlreadySent({
+            entity: q,
+            entityType: 'QUOTATION',
+            phone: primaryMob.cleaned,
+            znsMessages: realtimeZnsMessages
+          });
 
-            const defaultWillSend = isPrimaryPhone ? (!isAlreadySent || allowResend) : false;
-            const willSend = manualToggles[recId] !== undefined ? manualToggles[recId] : defaultWillSend;
+          const defaultWillSend = !isAlreadySent || allowResend;
+          const willSend = manualToggles[recId] !== undefined ? manualToggles[recId] : defaultWillSend;
 
-            let skipReason: string | undefined;
-            if (isAlreadySent && !allowResend && manualToggles[recId] !== true) {
-              skipReason = 'Đã gửi thành công trước đó (Tự động bỏ qua)';
-            } else if (!isPrimaryPhone && !manualToggles[recId]) {
-              skipReason = '📱 Bỏ qua số phụ (Tránh gửi trùng 2 tin cho cùng 1 người)';
-            } else if (manualToggles[recId] === false) {
-              skipReason = 'Bỏ chọn thủ công';
-            }
+          let skipReason: string | undefined;
+          if (isAlreadySent && !allowResend && manualToggles[recId] !== true) {
+            skipReason = 'Đã gửi thành công trước đó (Tự động bỏ qua)';
+          } else if (manualToggles[recId] === false) {
+            skipReason = 'Bỏ chọn thủ công';
+          }
 
-            list.push({
-              id: recId,
-              entityId: q.id || '',
-              code: q.soPhieuBaoGia || 'BG',
-              customerName: q.tenKhachHang || 'Khách hàng',
-              contactName: q.nguoiDaiDien || q.tenKhachHang || 'Đại diện',
-              roleOrBranch: isPrimaryPhone ? 'Số chính' : 'Số phụ',
-              phone: mob.cleaned,
-              phoneFormatted: mob.formatted,
-              carrier: mob.carrier,
-              phoneType: 'MOBILE',
-              isLandline: false,
-              isAlreadySent,
-              rawStatus: q.trangThaiGuiTinBaoGia || undefined,
-              willSend,
-              skipReason,
-              originalEntity: { ...q, sdt: mob.cleaned, phone: mob.cleaned }
-            });
+          list.push({
+            id: recId,
+            entityId: q.id || '',
+            code: q.soPhieuBaoGia || 'BG',
+            customerName: q.tenKhachHang || 'Khách hàng',
+            contactName: resolvedContactName,
+            roleOrBranch: isHydrated ? 'Hồ sơ KH' : undefined,
+            phone: primaryMob.cleaned,
+            phoneFormatted: primaryMob.formatted,
+            carrier: primaryMob.carrier,
+            phoneType: 'MOBILE',
+            isLandline: false,
+            isAlreadySent,
+            rawStatus: q.trangThaiGuiTinBaoGia || undefined,
+            willSend,
+            skipReason,
+            originalEntity: { ...q, sdt: primaryMob.cleaned, phone: primaryMob.cleaned },
+            amount,
+            amountFormatted,
+            dateStr,
+            isHydratedFromCustomer: isHydrated,
+            hydratedNote,
+            availablePhones: uniqueMobilePhones
           });
         } else if (ext.landlinePhones.length > 0) {
           const land = ext.landlinePhones[0];
+          const recId = `quote-land-${q.id}`;
           const isAlreadySent = isRecipientZnsAlreadySent({
             entity: q,
             entityType: 'QUOTATION',
@@ -370,11 +447,12 @@ export function BulkZnsModal({
           });
 
           list.push({
-            id: `quote-land-${q.id}`,
+            id: recId,
             entityId: q.id || '',
             code: q.soPhieuBaoGia || 'BG',
             customerName: q.tenKhachHang || 'Khách hàng',
-            contactName: q.nguoiDaiDien || q.tenKhachHang || 'Đại diện',
+            contactName: resolvedContactName,
+            roleOrBranch: isHydrated ? 'Hồ sơ KH' : undefined,
             phone: land.cleaned,
             phoneFormatted: land.formatted,
             phoneType: 'LANDLINE',
@@ -382,15 +460,21 @@ export function BulkZnsModal({
             isAlreadySent,
             willSend: false,
             skipReason: `Bỏ qua (Số bàn cố định ${land.cleaned.slice(0, 3)})`,
-            originalEntity: q
+            originalEntity: q,
+            amount,
+            amountFormatted,
+            dateStr,
+            isHydratedFromCustomer: isHydrated,
+            hydratedNote
           });
         } else {
+          const recId = `quote-nophone-${q.id}`;
           list.push({
-            id: `quote-nophone-${q.id}`,
+            id: recId,
             entityId: q.id || '',
             code: q.soPhieuBaoGia || 'BG',
             customerName: q.tenKhachHang || 'Khách hàng',
-            contactName: q.nguoiDaiDien || q.tenKhachHang || 'Đại diện',
+            contactName: resolvedContactName,
             phone: rawPhone,
             phoneFormatted: rawPhone || '—',
             phoneType: 'UNKNOWN',
@@ -398,20 +482,50 @@ export function BulkZnsModal({
             isAlreadySent: false,
             willSend: false,
             skipReason: rawPhone ? 'Số không hợp lệ' : 'Thiếu số điện thoại',
-            originalEntity: q
+            originalEntity: q,
+            amount,
+            amountFormatted,
+            dateStr
           });
         }
       });
     }
 
     return list;
-  }, [items, entityType, allowResend, manualToggles, realtimeZnsMessages]);
+  }, [items, customers, entityType, allowResend, manualToggles, realtimeZnsMessages]);
 
   // Các danh sách con phục vụ thống kê & hàng đợi
   const eligibleRecipients = useMemo(() => recipients.filter(r => r.willSend), [recipients]);
   const skippedLandlineCount = useMemo(() => recipients.filter(r => r.isLandline).length, [recipients]);
   const skippedNoPhoneCount = useMemo(() => recipients.filter(r => !r.isLandline && !r.phone).length, [recipients]);
   const alreadySentCount = useMemo(() => recipients.filter(r => r.isAlreadySent).length, [recipients]);
+
+  // Tổng tiền các bản ghi sẵn sàng gửi (áp dụng cho Báo giá)
+  const totalDispatchedAmount = useMemo(() => {
+    return eligibleRecipients.reduce((sum, r) => sum + (r.amount || 0), 0);
+  }, [eligibleRecipients]);
+
+  // Bộ lọc danh sách hiển thị trên bảng (Cockpit Filter Matrix)
+  const displayedRecipients = useMemo(() => {
+    return recipients.filter(r => {
+      // 1. Tab filter
+      if (filterTab === 'READY' && !r.willSend) return false;
+      if (filterTab === 'SENT' && !r.isAlreadySent) return false;
+      if (filterTab === 'EXCLUDED' && (!r.isLandline && r.phone)) return false;
+
+      // 2. Search query filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchCode = (r.code || '').toLowerCase().includes(q);
+        const matchName = (r.customerName || '').toLowerCase().includes(q);
+        const matchContact = (r.contactName || '').toLowerCase().includes(q);
+        const matchPhone = (r.phone || '').includes(q) || (r.phoneFormatted || '').includes(q);
+        if (!matchCode && !matchName && !matchContact && !matchPhone) return false;
+      }
+
+      return true;
+    });
+  }, [recipients, filterTab, searchQuery]);
 
   // Reset state khi mở modal
   useEffect(() => {
@@ -424,6 +538,8 @@ export function BulkZnsModal({
       setLogs([]);
       setSuccessCount(0);
       setFailedCount(0);
+      setFilterTab('ALL');
+      setSearchQuery('');
     }
   }, [isOpen]);
 
@@ -587,6 +703,7 @@ export function BulkZnsModal({
             await quotationRepo.update(target.entityId, {
               trangThaiGuiTinBaoGia: 'THANH_CONG',
               trangThaiZns: 'THANH_CONG',
+              lifecycleStatus: 'SENT',
               sentAt: nowIso
             });
           } catch (qErr) {
@@ -646,11 +763,13 @@ export function BulkZnsModal({
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 Hệ Thống Gửi ZNS Hàng Loạt ({entityType === 'CUSTOMER' ? 'Khách Hàng' : 'Báo Giá'})
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200 font-mono">
-                  {eligibleRecipients.length} lượt gửi sẵn sàng
+                  {eligibleRecipients.length} {entityType === 'CUSTOMER' ? 'lượt gửi sẵn sàng' : 'báo giá sẵn sàng'}
                 </span>
               </h2>
               <p className="text-xs text-slate-500">
-                Tự động bóc tách đa đầu mối • Loại trừ 100% số bàn • Hàng đợi an toàn Webhook CNV
+                {entityType === 'CUSTOMER' 
+                  ? 'Tự động bóc tách đa đầu mối • Loại trừ 100% số bàn • Hàng đợi an toàn Webhook CNV' 
+                  : 'Bảo toàn tỷ lệ 1-1 • Tự động liên kết khách hàng • Loại trừ số bàn • Đồng bộ vòng đời SENT'}
               </p>
             </div>
           </div>
@@ -671,11 +790,15 @@ export function BulkZnsModal({
             <div className="space-y-5">
               
               {/* Audience Metric Bento Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+              <div className={`grid gap-3 text-center ${entityType === 'QUOTATION' ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'}`}>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">Tổng bản ghi nguồn</span>
+                  <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">
+                    {entityType === 'QUOTATION' ? 'Tổng báo giá nguồn' : 'Tổng bản ghi nguồn'}
+                  </span>
                   <span className="text-base font-black font-mono text-slate-900">{items.length}</span>
-                  <span className="text-3xs text-slate-500 block mt-0.5">Danh sách hiện tại</span>
+                  <span className="text-3xs text-slate-500 block mt-0.5">
+                    {entityType === 'QUOTATION' ? 'Khớp tỷ lệ 1-1' : 'Danh sách hiện tại'}
+                  </span>
                 </div>
 
                 <div className={`p-3 rounded-xl border transition-all ${
@@ -694,9 +817,11 @@ export function BulkZnsModal({
 
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                   <span className="text-3xs uppercase font-bold text-slate-500 block mb-1 flex items-center justify-center gap-1">
-                    <PhoneOff size={11} /> Số bàn cố định
+                    <PhoneOff size={11} /> {entityType === 'QUOTATION' ? 'Số bàn / Thiếu SĐT' : 'Số bàn cố định'}
                   </span>
-                  <span className="text-base font-black font-mono text-slate-700">{skippedLandlineCount}</span>
+                  <span className="text-base font-black font-mono text-slate-700">
+                    {entityType === 'QUOTATION' ? skippedLandlineCount + skippedNoPhoneCount : skippedLandlineCount}
+                  </span>
                   <span className="text-3xs text-slate-400 block mt-0.5">Tự động loại trừ</span>
                 </div>
 
@@ -717,6 +842,20 @@ export function BulkZnsModal({
                     {allowResend ? `Đã mở khóa gửi lại (${alreadySentCount} lượt)` : 'Tự động bỏ qua (Chặn trùng)'}
                   </span>
                 </div>
+
+                {entityType === 'QUOTATION' && (
+                  <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-200 col-span-2 sm:col-span-1">
+                    <span className="text-3xs uppercase font-bold text-blue-700 block mb-1">
+                      Tổng tiền đợt gửi
+                    </span>
+                    <span className="text-xs font-black font-mono text-blue-900 truncate block" title={formatCurrency(totalDispatchedAmount)}>
+                      {formatCurrency(totalDispatchedAmount)}
+                    </span>
+                    <span className="text-3xs text-blue-600 block mt-0.5">
+                      {eligibleRecipients.length} phiếu sẵn sàng
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Security & Cooldown Configuration Panel */}
@@ -776,12 +915,14 @@ export function BulkZnsModal({
                 </div>
               </div>
 
-              {/* Recipient Audience Preview Table */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
+              {/* Recipient Audience Preview Table (Cockpit Matrix) */}
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-2xs font-extrabold uppercase tracking-wider text-slate-500">
-                      Danh Sách Đầu Mối Tiếp Nhận ({recipients.length} mục)
+                    <span className="text-2xs font-extrabold uppercase tracking-wider text-slate-700">
+                      {entityType === 'QUOTATION' 
+                        ? `Danh Sách Báo Giá Tiếp Nhận (${recipients.length} Báo Giá)` 
+                        : `Danh Sách Đầu Mối Tiếp Nhận (${recipients.length} mục)`}
                     </span>
                     <button
                       type="button"
@@ -799,92 +940,189 @@ export function BulkZnsModal({
                       {eligibleRecipients.length === 0 ? 'Chọn tất cả di động' : 'Đảo chọn'}
                     </button>
                   </div>
-                  <span className="text-3xs text-slate-400">
-                    Tick chọn để điều chỉnh danh sách người nhận
-                  </span>
+
+                  {/* Search Input */}
+                  <div className="relative w-full sm:w-64">
+                    <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder={entityType === 'QUOTATION' ? 'Tìm mã BG, khách hàng, SĐT...' : 'Tìm khách hàng, người liên hệ, SĐT...'}
+                      className="w-full pl-7 pr-7 py-1 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-800 placeholder-slate-400"
+                    />
+                    {searchQuery && (
+                      <button 
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
+                {/* Smart Filter Tabs */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-3xs border-b border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setFilterTab('ALL')}
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                      filterTab === 'ALL'
+                        ? 'bg-slate-900 text-white shadow-2xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Tất cả ({recipients.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterTab('READY')}
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                      filterTab === 'READY'
+                        ? 'bg-emerald-600 text-white shadow-2xs'
+                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                    }`}
+                  >
+                    <CheckCircle2 size={11} />
+                    Sẵn sàng gửi ({eligibleRecipients.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterTab('SENT')}
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                      filterTab === 'SENT'
+                        ? 'bg-blue-600 text-white shadow-2xs'
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                    }`}
+                  >
+                    <RotateCcw size={11} />
+                    Đã gửi trước đó ({alreadySentCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterTab('EXCLUDED')}
+                    className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                      filterTab === 'EXCLUDED'
+                        ? 'bg-slate-600 text-white shadow-2xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <PhoneOff size={11} />
+                    Loại trừ ({skippedLandlineCount + skippedNoPhoneCount})
+                  </button>
+                </div>
+
+                {/* Recipient Table Rows */}
                 <div className="max-h-[260px] overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs">
-                  {recipients.map((r, idx) => {
-                    const isCheckboxDisabled = r.isLandline || !r.phone;
-                    return (
-                      <div 
-                        key={r.id || idx} 
-                        onClick={() => {
-                          if (!isCheckboxDisabled) {
-                            setManualToggles(prev => ({ ...prev, [r.id]: !r.willSend }));
-                          }
-                        }}
-                        className={`p-2.5 flex items-center justify-between gap-3 transition-colors cursor-pointer select-none ${
-                          r.willSend ? 'bg-white hover:bg-blue-50/30' : 'bg-slate-50/70 opacity-60'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <input
-                            type="checkbox"
-                            checked={r.willSend}
-                            disabled={isCheckboxDisabled}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              setManualToggles(prev => ({ ...prev, [r.id]: e.target.checked }));
-                            }}
-                            className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                          />
-                          <span className="font-mono text-3xs text-slate-400 w-5 text-right shrink-0">{idx + 1}</span>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-mono font-bold text-slate-800 text-2xs">{r.code}</span>
-                              <span className="font-semibold text-slate-900 truncate max-w-[200px]">{r.customerName}</span>
-                              <span className="text-3xs text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
-                                👤 {r.contactName} {r.roleOrBranch ? `• ${r.roleOrBranch}` : ''}
+                  {displayedRecipients.length === 0 ? (
+                    <div className="p-8 text-center text-slate-400">
+                      Không tìm thấy bản ghi nào phù hợp với bộ lọc.
+                    </div>
+                  ) : (
+                    displayedRecipients.map((r, idx) => {
+                      const isCheckboxDisabled = r.isLandline || !r.phone;
+                      return (
+                        <div 
+                          key={r.id || idx} 
+                          onClick={() => {
+                            if (!isCheckboxDisabled) {
+                              setManualToggles(prev => ({ ...prev, [r.id]: !r.willSend }));
+                            }
+                          }}
+                          className={`p-2.5 flex items-center justify-between gap-3 transition-colors cursor-pointer select-none ${
+                            r.willSend ? 'bg-white hover:bg-blue-50/30' : 'bg-slate-50/70 opacity-60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={r.willSend}
+                              disabled={isCheckboxDisabled}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                setManualToggles(prev => ({ ...prev, [r.id]: e.target.checked }));
+                              }}
+                              className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            />
+                            <span className="font-mono text-3xs text-slate-400 w-5 text-right shrink-0">{idx + 1}</span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-mono font-bold text-slate-800 text-2xs">{r.code}</span>
+                                <span className="font-semibold text-slate-900 truncate max-w-[200px]" title={r.customerName}>{r.customerName}</span>
+                                
+                                {r.contactName && (
+                                  <span className="text-3xs text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                                    👤 {r.contactName} {r.roleOrBranch ? `• ${r.roleOrBranch}` : ''}
+                                  </span>
+                                )}
+
+                                {r.amountFormatted && (
+                                  <span className="text-3xs font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                    💰 {r.amountFormatted}
+                                  </span>
+                                )}
+
+                                {r.dateStr && (
+                                  <span className="text-3xs font-mono text-slate-500 bg-slate-50 px-1.5 py-0.2 rounded border border-slate-200">
+                                    📅 {r.dateStr}
+                                  </span>
+                                )}
+
+                                {r.isHydratedFromCustomer && (
+                                  <span className="text-3xs font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
+                                    {r.hydratedNote || '📱 Từ hồ sơ KH'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-right">
+                              <span className={`font-mono text-xs font-bold ${r.isLandline ? 'text-slate-400 line-through' : 'text-blue-900'}`}>
+                                {r.phoneFormatted}
                               </span>
+                              {r.carrier && (
+                                <span className="text-3xs text-blue-700 bg-blue-50 px-1 py-0.1 rounded border border-blue-200 ml-1.5 font-bold">
+                                  {r.carrier}
+                                </span>
+                              )}
+                            </div>
+
+                            <div>
+                              {r.isLandline ? (
+                                <span className="text-3xs font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                                  ☎️ {r.skipReason || 'Bỏ qua (Số bàn)'}
+                                </span>
+                              ) : !r.phone ? (
+                                <span className="text-3xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+                                  Thiếu SĐT
+                                </span>
+                              ) : r.willSend && !r.isAlreadySent ? (
+                                <span className="text-3xs font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                  <CheckCircle2 size={11} /> Sẵn sàng gửi mới
+                                </span>
+                              ) : r.willSend && r.isAlreadySent ? (
+                                <span className="text-3xs font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-300 flex items-center gap-1">
+                                  <RotateCcw size={11} /> Sẵn sàng gửi lại
+                                </span>
+                              ) : !r.willSend && r.isAlreadySent ? (
+                                <span className="text-3xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1">
+                                  <CheckCircle2 size={11} /> Đã gửi (Bỏ qua)
+                                </span>
+                              ) : (
+                                <span className="text-3xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+                                  {r.skipReason || 'Bỏ qua'}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-3 shrink-0">
-                          <div className="text-right">
-                            <span className={`font-mono text-xs font-bold ${r.isLandline ? 'text-slate-400 line-through' : 'text-blue-900'}`}>
-                              {r.phoneFormatted}
-                            </span>
-                            {r.carrier && (
-                              <span className="text-3xs text-blue-700 bg-blue-50 px-1 py-0.1 rounded border border-blue-200 ml-1.5 font-bold">
-                                {r.carrier}
-                              </span>
-                            )}
-                          </div>
-
-                          <div>
-                            {r.isLandline ? (
-                              <span className="text-3xs font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                                ☎️ {r.skipReason || 'Bỏ qua (Số bàn)'}
-                              </span>
-                            ) : !r.phone ? (
-                              <span className="text-3xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
-                                Thiếu SĐT
-                              </span>
-                            ) : r.willSend && !r.isAlreadySent ? (
-                              <span className="text-3xs font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                                <CheckCircle2 size={11} /> Sẵn sàng gửi mới
-                              </span>
-                            ) : r.willSend && r.isAlreadySent ? (
-                              <span className="text-3xs font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-300 flex items-center gap-1">
-                                <RotateCcw size={11} /> Sẵn sàng gửi lại
-                              </span>
-                            ) : !r.willSend && r.isAlreadySent ? (
-                              <span className="text-3xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1">
-                                <CheckCircle2 size={11} /> Đã gửi (Bỏ qua)
-                              </span>
-                            ) : (
-                              <span className="text-3xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
-                                {r.skipReason || 'Bỏ qua'}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
 

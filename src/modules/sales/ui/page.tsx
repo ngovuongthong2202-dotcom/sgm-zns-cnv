@@ -54,7 +54,7 @@ const QuotationDrawerRouteListener = React.memo(function QuotationDrawerRouteLis
 
 export default function QuotationsFeature() {
   const { userData } = useAuth();
-  const { quotations, loading, loadMore, createQuotation, updateQuotation, deleteQuotation } = useQuotations();
+  const { quotations, loading, loadMore, createQuotation, updateQuotation, deleteQuotation, refresh } = useQuotations();
   
   const { nguoiPhuTrachList, loaiBaoGiaList, loaiKhachHangList } = useSharedFields();
   const { confirm } = useConfirm();
@@ -411,10 +411,15 @@ export default function QuotationsFeature() {
       {isBulkZnsOpen && (
         <BulkZnsModal
           isOpen={isBulkZnsOpen}
-          onClose={() => setIsBulkZnsOpen(false)}
+          onClose={() => {
+            setIsBulkZnsOpen(false);
+            refresh?.();
+          }}
           entityType="QUOTATION"
           items={currentData}
+          customers={allCustomers}
           userRole={userData?.role}
+          onSuccess={refresh}
         />
       )}
     </div>

@@ -91,11 +91,12 @@ export interface RecipientZnsCheckParams {
 }
 
 /**
- * Động cơ đối soát ZNS 4 cấp độ (4-Tier Recipient ZNS Resolution Engine):
- * 1. Contact Phone in `contactsZnsHistory` hoặc `znsMessages`
- * 2. Contact Object (`contact.trangThaiZns`, `contact.ngayGuiZns`)
- * 3. Entity Level (`trangThaiGuiTinQuangCao`, `trangThaiGuiTinBaoGia`, `trangThaiZns`, `thongTinGuiZnsTruocBaoGia`, `thongTinGuiZnsBaoGia`)
- * 4. Lineage Transitive Codes (`mergedCustomerCodes`)
+ * Universal 5-Tier Scoped ZNS Resolution Engine (v50):
+ * 1. Entity Scoped History (`contactsZnsHistory` cho Customer, `thongTinGuiZnsBaoGia` cho Quotation)
+ * 2. Scoped Realtime Messages (`znsMessages` lọc chính xác theo `entityType`, `entityId`, hoặc mã chứng từ)
+ * 3. Contact Object Level (`contact.trangThaiZns`, `contact.ngayGuiZns`)
+ * 4. Entity Level Status Flags (`trangThaiGuiTinQuangCao`, `trangThaiGuiTinBaoGia`, `trangThaiGuiTinHopDong`...)
+ * 5. Transitive Lineage & Merged History (`mergedCustomerCodes`)
  */
 export function isRecipientZnsAlreadySent({
   entity,
@@ -108,58 +109,168 @@ export function isRecipientZnsAlreadySent({
 
   const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
 
-  // 1. Tầng 1: Tra cứu theo số điện thoại trong contactsZnsHistory của entity
-  if (cleanPhone && entity.contactsZnsHistory && typeof entity.contactsZnsHistory === 'object') {
-    const historyEntry = entity.contactsZnsHistory[cleanPhone] || entity.contactsZnsHistory[phone || ''];
-    if (historyEntry) {
-      if (typeof historyEntry === 'string' && isZnsSuccessStatus(historyEntry)) return true;
-      if (typeof historyEntry === 'object' && isZnsSuccessStatus((historyEntry as any).status || (historyEntry as any).trangThai)) {
+  // 1. Phân nhánh QUOTATION: Kiểm tra chính xác theo chứng từ Báo giá
+  if (entityType === 'QUOTATION') {
+    // 1a. Cờ trạng thái trực tiếp trên Báo giá
+    if (isZnsSuccessStatus(entity.trangThaiGuiTinBaoGia)) return true;
+    if (isZnsSuccessStatus(entity.trangThaiZns) && (entity.sentAt || entity.thongTinGuiZnsBaoGia)) return true;
+    if (entity.sentAt && isZnsSuccessStatus(entity.trangThaiGuiTinBaoGia)) return true;
+    if (entity.thongTinGuiZnsBaoGia && typeof entity.thongTinGuiZnsBaoGia === 'object') {
+      if (isZnsSuccessStatus((entity.thongTinGuiZnsBaoGia as any).status)) return true;
+    }
+
+    // 1b. Tra cứu trong collection znsMessages BẮT BUỘC PHẢI KHỚP ID HOẶC MÃ BÁO GIÁ
+    if (Array.isArray(znsMessages) && znsMessages.length > 0) {
+      const qId = entity.id;
+      const qCode = entity.soPhieuBaoGia;
+      const hasQuotationSuccess = znsMessages.some(m => {
+        if (!m) return false;
+        if (cleanPhone) {
+          const mPhone = (m.phone || m.sdt || '').replace(/\D/g, '');
+          if (mPhone !== cleanPhone) return false;
+        }
+        const matchesType = m.entityType === 'QUOTATION' || m.messageType === 'BAOGIA';
+        const matchesEntityId = qId && (m.entityId === qId || m.data?.entityId === qId || m.data?.id === qId);
+        const matchesCode = qCode && (m.data?.soPhieuBaoGia === qCode || m.soPhieuBaoGia === qCode);
+        return matchesType && (matchesEntityId || matchesCode) && isZnsSuccessStatus(m.status);
+      });
+      if (hasQuotationSuccess) return true;
+    }
+    return false;
+  }
+
+  // 2. Phân nhánh CUSTOMER: Kiểm tra contactsZnsHistory và tin nhắn tiếp thị khách hàng
+  if (entityType === 'CUSTOMER') {
+    // 2a. Tra cứu theo số điện thoại trong contactsZnsHistory của khách hàng
+    if (cleanPhone && entity.contactsZnsHistory && typeof entity.contactsZnsHistory === 'object') {
+      const historyEntry = entity.contactsZnsHistory[cleanPhone] || entity.contactsZnsHistory[phone || ''];
+      if (historyEntry) {
+        if (typeof historyEntry === 'string' && isZnsSuccessStatus(historyEntry)) return true;
+        if (typeof historyEntry === 'object' && isZnsSuccessStatus((historyEntry as any).status || (historyEntry as any).trangThai)) {
+          return true;
+        }
+      }
+    }
+
+    // 2b. Tra cứu trong collection znsMessages (chỉ khớp tin tiếp thị / khách hàng này)
+    if (cleanPhone && Array.isArray(znsMessages) && znsMessages.length > 0) {
+      const custId = entity.id || entity.maKh;
+      const custCode = entity.maKh;
+      const mergedCodes = Array.isArray(entity.mergedCustomerCodes) ? entity.mergedCustomerCodes : [];
+
+      const hasCustomerSuccess = znsMessages.some(m => {
+        if (!m) return false;
+        const mPhone = (m.phone || m.sdt || '').replace(/\D/g, '');
+        if (mPhone !== cleanPhone) return false;
+
+        const isCustomerScope = m.entityType === 'CUSTOMER' || m.messageType === 'CUSTOMER_PRE_QUOTE';
+        const matchesCustId = custId && (m.entityId === custId || m.data?.entityId === custId);
+        const matchesCustCode = custCode && (m.data?.maKh === custCode || m.maKh === custCode);
+        const matchesMerged = mergedCodes.some((code: string) => m.data?.maKh === code || m.maKh === code);
+
+        return (isCustomerScope || matchesCustId || matchesCustCode || matchesMerged) && isZnsSuccessStatus(m.status);
+      });
+      if (hasCustomerSuccess) return true;
+    }
+
+    // 2c. Tra cứu trên Contact Object (đầu mối cụ thể)
+    if (contact) {
+      if (isZnsSuccessStatus(contact.trangThaiZns)) return true;
+      if (contact.ngayGuiZns && !String(contact.trangThaiZns || '').toUpperCase().includes('FAIL')) {
         return true;
       }
     }
-  }
 
-  // 1b. Tầng 1b: Tra cứu trong collection znsMessages nếu có
-  if (cleanPhone && Array.isArray(znsMessages) && znsMessages.length > 0) {
-    const hasSuccessMessage = znsMessages.some(m => {
-      if (!m) return false;
-      const mPhone = (m.phone || m.sdt || '').replace(/\D/g, '');
-      if (mPhone !== cleanPhone) return false;
-      return isZnsSuccessStatus(m.status);
-    });
-    if (hasSuccessMessage) return true;
-  }
-
-  // 2. Tầng 2: Tra cứu trên Contact Object (nếu có đầu mối cụ thể)
-  if (contact) {
-    if (isZnsSuccessStatus(contact.trangThaiZns)) return true;
-    if (contact.ngayGuiZns && !String(contact.trangThaiZns || '').toUpperCase().includes('FAIL')) {
-      return true;
-    }
-  }
-
-  // 3. Tầng 3: Tra cứu trên Entity Level
-  if (entityType === 'CUSTOMER') {
+    // 2d. Tra cứu trên Entity Level
     if (isZnsSuccessStatus(entity.trangThaiGuiTinQuangCao)) return true;
     if (isZnsSuccessStatus(entity.trangThaiZns)) return true;
     if (entity.thongTinGuiZnsTruocBaoGia && typeof entity.thongTinGuiZnsTruocBaoGia === 'object') {
       if (isZnsSuccessStatus((entity.thongTinGuiZnsTruocBaoGia as any).status)) return true;
     }
-  } else if (entityType === 'QUOTATION') {
-    if (isZnsSuccessStatus(entity.trangThaiGuiTinBaoGia)) return true;
-    if (isZnsSuccessStatus(entity.trangThaiZns)) return true;
-    if (entity.thongTinGuiZnsBaoGia && typeof entity.thongTinGuiZnsBaoGia === 'object') {
-      if (isZnsSuccessStatus((entity.thongTinGuiZnsBaoGia as any).status)) return true;
-    }
-  } else {
-    if (isZnsAlreadySent(entity)) return true;
+    return false;
   }
 
-  return false;
+  // 3. Phân nhánh CONTRACT: Kiểm tra chứng từ Hợp đồng
+  if (entityType === 'CONTRACT') {
+    if (isZnsSuccessStatus(entity.trangThaiGuiTinHopDong)) return true;
+    if (isZnsSuccessStatus(entity.trangThaiZns) && entity.sentAt) return true;
+    if (cleanPhone && Array.isArray(znsMessages) && znsMessages.length > 0) {
+      const cId = entity.id;
+      const cCode = entity.soHopDong;
+      return znsMessages.some(m => {
+        if (!m) return false;
+        const mPhone = (m.phone || m.sdt || '').replace(/\D/g, '');
+        if (mPhone !== cleanPhone) return false;
+        const matchesType = m.entityType === 'CONTRACT' || m.messageType === 'HOPDONG';
+        const matchesId = cId && (m.entityId === cId || m.data?.entityId === cId);
+        const matchesCode = cCode && (m.data?.soHopDong === cCode || m.soHopDong === cCode);
+        return matchesType && (matchesId || matchesCode) && isZnsSuccessStatus(m.status);
+      });
+    }
+    return false;
+  }
+
+  // 4. Phân nhánh PAYMENT: Kiểm tra chứng từ Thanh toán
+  if (entityType === 'PAYMENT') {
+    if (isZnsSuccessStatus(entity.trangThaiGuiTinThanhToan)) return true;
+    if (isZnsSuccessStatus(entity.trangThaiZns) && entity.sentAt) return true;
+    if (cleanPhone && Array.isArray(znsMessages) && znsMessages.length > 0) {
+      const pId = entity.id;
+      const pCode = entity.soPhieuThu;
+      return znsMessages.some(m => {
+        if (!m) return false;
+        const mPhone = (m.phone || m.sdt || '').replace(/\D/g, '');
+        if (mPhone !== cleanPhone) return false;
+        const matchesType = m.entityType === 'PAYMENT' || m.messageType === 'THANHTOAN';
+        const matchesId = pId && (m.entityId === pId || m.data?.entityId === pId);
+        const matchesCode = pCode && (m.data?.soPhieuThu === pCode || m.soPhieuThu === pCode);
+        return matchesType && (matchesId || matchesCode) && isZnsSuccessStatus(m.status);
+      });
+    }
+    return false;
+  }
+
+  // 5. Phân nhánh DELIVERY: Kiểm tra chứng từ Giao hàng
+  if (entityType === 'DELIVERY') {
+    if (isZnsSuccessStatus(entity.trangThaiGuiTinGiaoHang)) return true;
+    if (isZnsSuccessStatus(entity.trangThaiZns) && entity.sentAt) return true;
+    if (cleanPhone && Array.isArray(znsMessages) && znsMessages.length > 0) {
+      const dId = entity.id || entity.deliveryId;
+      const dCode = entity.soPhieuXuat || entity.deliveryId;
+      return znsMessages.some(m => {
+        if (!m) return false;
+        const mPhone = (m.phone || m.sdt || '').replace(/\D/g, '');
+        if (mPhone !== cleanPhone) return false;
+        const matchesType = m.entityType === 'DELIVERY' || m.messageType === 'GIAOHANG';
+        const matchesId = dId && (m.entityId === dId || m.data?.entityId === dId);
+        const matchesCode = dCode && (m.data?.soPhieuXuat === dCode || m.soPhieuXuat === dCode);
+        return matchesType && (matchesId || matchesCode) && isZnsSuccessStatus(m.status);
+      });
+    }
+    return false;
+  }
+
+  return isZnsAlreadySent(entity);
 }
 
-export function isZnsAlreadySent(entity: Record<string, unknown>): boolean {
+export function isZnsAlreadySent(entity: Record<string, unknown>, entityType?: string): boolean {
   if (!entity) return false;
+  if (entityType === 'QUOTATION') {
+    return isZnsSuccessStatus(entity.trangThaiGuiTinBaoGia as string) || (isZnsSuccessStatus(entity.trangThaiZns as string) && Boolean(entity.sentAt));
+  }
+  if (entityType === 'CUSTOMER') {
+    return isZnsSuccessStatus(entity.trangThaiGuiTinQuangCao as string);
+  }
+  if (entityType === 'CONTRACT') {
+    return isZnsSuccessStatus(entity.trangThaiGuiTinHopDong as string);
+  }
+  if (entityType === 'PAYMENT') {
+    return isZnsSuccessStatus(entity.trangThaiGuiTinThanhToan as string);
+  }
+  if (entityType === 'DELIVERY') {
+    return isZnsSuccessStatus(entity.trangThaiGuiTinGiaoHang as string);
+  }
+
   const rawStatus = (
     entity.trangThaiGuiTinQuangCao ||
     entity.trangThaiGuiTinBaoGia ||

@@ -456,4 +456,193 @@ describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator (Paradigm 10)', (
       });
     });
   });
+
+  describe('7. V50 Sovereign Omni-Mesh Orchestrator & Universal 5-Tier Dispatch Fabric', () => {
+    it('does NOT mark a new quotation as sent when customer previously received marketing ZNS', () => {
+      const newQuote: any = {
+        id: 'q-new-2026',
+        soPhieuBaoGia: 'BG-2026-0099',
+        customerId: 'cust-123',
+        tenKhachHang: 'Công Ty Thép Sài Gòn',
+        sdt: '0988 777 666',
+        trangThaiGuiTinBaoGia: null
+      };
+
+      const pastMarketingMessages = [
+        {
+          id: 'msg-marketing-1',
+          entityId: 'cust-123',
+          entityType: 'CUSTOMER',
+          messageType: 'CUSTOMER_PRE_QUOTE',
+          phone: '0988777666',
+          status: 'SUCCESS'
+        }
+      ];
+
+      const isSent = isRecipientZnsAlreadySent({
+        entity: newQuote,
+        entityType: 'QUOTATION',
+        phone: '0988777666',
+        znsMessages: pastMarketingMessages
+      });
+
+      // Crucial: Must be false! Marketing message to this phone must NOT block the quotation!
+      expect(isSent).toBe(false);
+    });
+
+    it('marks quotation as sent only when the message matches this quotation ID or quote code', () => {
+      const quote: any = {
+        id: 'q-target-88',
+        soPhieuBaoGia: 'BG-2026-0088',
+        sdt: '0988 777 666'
+      };
+
+      const quoteMessages = [
+        {
+          id: 'msg-bg-1',
+          entityId: 'q-target-88',
+          entityType: 'QUOTATION',
+          messageType: 'BAOGIA',
+          phone: '0988777666',
+          status: 'SUCCESS'
+        }
+      ];
+
+      const isSent = isRecipientZnsAlreadySent({
+        entity: quote,
+        entityType: 'QUOTATION',
+        phone: '0988777666',
+        znsMessages: quoteMessages
+      });
+
+      expect(isSent).toBe(true);
+    });
+
+    it('preserves exact 1-to-1 cardinality for quotations even when quotation has multiple phones', () => {
+      const quoteWithTwoPhones: any = {
+        id: 'q-dual-phone-1',
+        soPhieuBaoGia: 'BG-2026-0555',
+        tenKhachHang: 'Công Ty Cơ Khí Miền Nam',
+        sdt: '0912 345 678, 0987 654 321',
+        totalAmount: 250000000,
+        ngayBaoGia: '2026-10-02'
+      };
+
+      render(
+        <BulkZnsModal
+          isOpen={true}
+          onClose={vi.fn()}
+          entityType="QUOTATION"
+          items={[quoteWithTwoPhones]}
+        />
+      );
+
+      // Verify exactly 1 row is rendered on table (1-to-1 cardinality)
+      expect(screen.getByText('BG-2026-0555')).toBeTruthy();
+      expect(screen.getAllByText(/250\.000\.000/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText(/2026-10-02/)).toBeTruthy();
+      // Primary mobile is displayed
+      expect(screen.getByText('0912 345 678')).toBeTruthy();
+      // Modal header shows 1 quotation ready
+      expect(screen.getByText(/1 báo giá sẵn sàng/i)).toBeTruthy();
+    });
+
+    it('hydrates missing phone from parent customer master profile', () => {
+      const quoteMissingPhone: any = {
+        id: 'q-missing-phone-1',
+        soPhieuBaoGia: 'BG-2026-0777',
+        customerId: 'cust-hydrated-99',
+        tenKhachHang: 'Công Ty Xây Dựng Hòa Bình',
+        sdt: '', // Empty in quotation
+        totalAmount: 85000000
+      };
+
+      const parentCustomer: any = {
+        id: 'cust-hydrated-99',
+        maKh: 'KH099',
+        tenKhachHang: 'Công Ty Xây Dựng Hòa Bình',
+        sdt: '0903 888 999',
+        contacts: [
+          {
+            nguoiDaiDien: 'Kỹ sư Tuấn',
+            sdt: '0903 888 999',
+            chucVu: 'Chỉ huy trưởng'
+          }
+        ]
+      };
+
+      render(
+        <BulkZnsModal
+          isOpen={true}
+          onClose={vi.fn()}
+          entityType="QUOTATION"
+          items={[quoteMissingPhone]}
+          customers={[parentCustomer]}
+        />
+      );
+
+      // Successfully hydrated phone from customer profile
+      expect(screen.getByText('0903 888 999')).toBeTruthy();
+      expect(screen.getByText(/Từ hồ sơ KH/i)).toBeTruthy();
+      expect(screen.getByText(/Kỹ sư Tuấn/i)).toBeTruthy();
+    });
+
+    it('does NOT duplicate corporate customer name when nguoiDaiDien matches tenKhachHang', () => {
+      const quoteWithSameName: any = {
+        id: 'q-same-name-1',
+        soPhieuBaoGia: 'BG-2026-0888',
+        tenKhachHang: 'Công Ty Cổ Phần Tập Đoàn Hoa Sen',
+        nguoiDaiDien: 'Công Ty Cổ Phần Tập Đoàn Hoa Sen',
+        sdt: '0918 222 333'
+      };
+
+      const { container } = render(
+        <BulkZnsModal
+          isOpen={true}
+          onClose={vi.fn()}
+          entityType="QUOTATION"
+          items={[quoteWithSameName]}
+        />
+      );
+
+      // Verify the company name is rendered, but not duplicated with 👤 prefix
+      expect(screen.getByText('Công Ty Cổ Phần Tập Đoàn Hoa Sen')).toBeTruthy();
+      expect(container.textContent).not.toContain('👤 Công Ty Cổ Phần Tập Đoàn Hoa Sen');
+    });
+
+    it('updates quotation with lifecycleStatus SENT upon successful dispatch', async () => {
+      const { quotationRepo } = await import('@/src/modules/sales/infrastructure/QuotationRepoFirestore');
+      const mockQuoteToDispatch: any = {
+        id: 'q-dispatch-lifecycle',
+        soPhieuBaoGia: 'BG-2026-0999',
+        tenKhachHang: 'Công Ty Cơ Khí Tự Động',
+        sdt: '0908 123 456',
+        totalAmount: 500000000
+      };
+
+      render(
+        <BulkZnsModal
+          isOpen={true}
+          onClose={vi.fn()}
+          entityType="QUOTATION"
+          items={[mockQuoteToDispatch]}
+        />
+      );
+
+      const startBtn = screen.getByRole('button', { name: /bắt đầu gửi/i });
+      fireEvent.click(startBtn);
+
+      await vi.waitFor(() => {
+        expect(quotationRepo.update).toHaveBeenCalledWith(
+          'q-dispatch-lifecycle',
+          expect.objectContaining({
+            trangThaiGuiTinBaoGia: 'THANH_CONG',
+            trangThaiZns: 'THANH_CONG',
+            lifecycleStatus: 'SENT'
+          })
+        );
+      });
+    });
+  });
 });
+
