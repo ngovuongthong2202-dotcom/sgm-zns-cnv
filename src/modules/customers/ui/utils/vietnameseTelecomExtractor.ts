@@ -10,6 +10,7 @@ export interface ExtractedPhoneItem {
   formatted: string;
   type: 'MOBILE' | 'LANDLINE' | 'UNKNOWN';
   carrier?: string;
+  province?: string;
   isZaloEligible: boolean;
   label: string;
 }
@@ -62,6 +63,41 @@ const PROVINCE_AREA_CODES: Record<string, string> = {
   'thái bình': '0227',
   'nam định': '0228',
 };
+
+const AREA_CODE_TO_PROVINCE: Record<string, string> = {
+  '028': 'TP. Hồ Chí Minh',
+  '024': 'Hà Nội',
+  '0236': 'Đà Nẵng',
+  '0225': 'Hải Phòng',
+  '0292': 'Cần Thơ',
+  '0274': 'Bình Dương',
+  '0251': 'Đồng Nai',
+  '0272': 'Long An',
+  '0273': 'Tiền Giang',
+  '0254': 'Bà Rịa - Vũng Tàu',
+  '0276': 'Tây Ninh',
+  '0263': 'Lâm Đồng',
+  '0262': 'Đắk Lắk',
+  '0270': 'Vĩnh Long',
+  '0252': 'Bình Thuận',
+  '0258': 'Khánh Hòa',
+  '0259': 'Ninh Thuận',
+  '0235': 'Quảng Nam',
+  '0255': 'Quảng Ngãi',
+  '0237': 'Thanh Hóa',
+  '0238': 'Nghệ An',
+  '0220': 'Hải Dương',
+  '0222': 'Bắc Ninh',
+  '0227': 'Thái Bình',
+  '0228': 'Nam Định',
+};
+
+function detectLandlineProvince(phone: string): string | undefined {
+  if (phone.startsWith('028')) return 'TP. Hồ Chí Minh';
+  if (phone.startsWith('024')) return 'Hà Nội';
+  const p4 = phone.slice(0, 4);
+  return AREA_CODE_TO_PROVINCE[p4] || undefined;
+}
 
 // Nhận diện nhà mạng di động Việt Nam
 function detectMobileCarrier(phone: string): string {
@@ -136,43 +172,37 @@ export function extractVietnamesePhones(rawInput?: string, addressContext?: stri
     }
   }
 
-  // 2. Tách chuỗi thô bằng các dấu phân cách phổ biến
+  // 2. Tách chuỗi thô bằng các dấu phân cách chính quy
   const preNormalized = rawInput
     .replace(/[+]/g, '')
     .replace(/^(?:84)(0?[35789]\d{8})/g, '$1') // Bỏ +84 ở đầu
-    .replace(/[\\/,;\-_|&]|\bhoặc\b|\bđt\b|\bsđt\b|\btel\b/gi, ' ');
+    .replace(/[\\/,;\-_|&]|\bhoặc\b|\bđt\b|\bsđt\b|\btel\b/gi, ',');
 
-  const tokens = preNormalized.split(/\s+/).map(t => t.trim()).filter(Boolean);
+  const rawChunks = preNormalized.split(',').map(t => t.trim()).filter(Boolean);
   const foundNumbers: string[] = [];
 
-  for (const token of tokens) {
-    const digitsOnly = token.replace(/\D/g, '');
-    if (!digitsOnly) continue;
+  const processDigits = (digitsOnly: string): boolean => {
+    if (!digitsOnly) return false;
 
     // A. Nếu là số đơn chuẩn 10 số (di động)
     if (/^0[35789]\d{8}$/.test(digitsOnly)) {
       foundNumbers.push(digitsOnly);
-      continue;
+      return true;
     }
 
     // B. Nếu là số đơn chuẩn 11 số (cố định bàn quy hoạch 2017: 02x)
     if (/^02\d{9}$/.test(digitsOnly)) {
       foundNumbers.push(digitsOnly);
-      continue;
+      return true;
     }
 
     // B2. Nếu là số đơn chuẩn cố định lịch sử pre-2017 (đầu 06x: 068 Ninh Thuận, 061 Đồng Nai,...)
     if (/^06[0-8]\d{7}$/.test(digitsOnly)) {
       foundNumbers.push(digitsOnly);
-      continue;
+      return true;
     }
 
     // C. Nếu là chuỗi số dài dính chùm (>= 18 số) từ ERP
-    // Ví dụ:
-    // "0683823249091393881902593823242" (31 số: 0683823249 [Bàn Ninh Thuận cũ] + 0913938819 [Di động] + 02593823242 [Bàn Ninh Thuận mới])
-    // "0838643583376071730903814168"
-    // "09478896300925017071"
-    // "09839080070283989698302866569696"
     if (digitsOnly.length >= 18) {
       let cursor = 0;
       while (cursor < digitsOnly.length) {
@@ -192,41 +222,38 @@ export function extractVietnamesePhones(rawInput?: string, addressContext?: stri
           continue;
         }
 
-        // C3. Kiểm tra số bàn cố định lịch sử pre-2017 (đầu 060..068: Ninh Thuận, Đồng Nai, Vũng Tàu,...)
+        // C3. Kiểm tra số bàn cố định lịch sử pre-2017
         if (/^06[0-8]\d{7}/.test(remaining)) {
           foundNumbers.push(remaining.slice(0, 10));
           cursor += 10;
           continue;
         }
 
-        // C4. Kiểm tra các mã vùng cố định lịch sử 4 chữ số (0650, 0510, 0511, 0710, 0780, 0781, 0711)
+        // C4. Kiểm tra các mã vùng cố định lịch sử 4 chữ số
         if (/^0(?:650|510|511|710|780|781|711)\d{7}/.test(remaining)) {
           foundNumbers.push(remaining.slice(0, 11));
           cursor += 11;
           continue;
         }
 
-        // C5. Kiểm tra số máy bàn 8 số cục bộ không có mã vùng (ví dụ: 37607173 hoặc 39896983)
-        // Khi theo sau bởi một số mới bắt đầu bằng 0...
+        // C5. Kiểm tra số máy bàn 8 số cục bộ
         const localMatch = remaining.match(/^([2-9]\d{6,7})(?=0[2356789]|$)/);
         if (localMatch) {
           const localNum = localMatch[1];
-          // Ghép mã vùng suy luận địa lý
           foundNumbers.push(`${inferredAreaCode}${localNum}`);
           cursor += localNum.length;
           continue;
         }
 
-        // Nếu không khớp pattern nào, nhảy 1 ký tự
         cursor++;
       }
-      continue;
+      return true;
     }
 
     // D. Nếu là số 8 chữ số độc lập (máy bàn không mã vùng)
     if (/^[2-9]\d{7}$/.test(digitsOnly)) {
       foundNumbers.push(`${inferredAreaCode}${digitsOnly}`);
-      continue;
+      return true;
     }
 
     // E. Nếu còn sót các trường hợp khác >= 9 số
@@ -234,6 +261,22 @@ export function extractVietnamesePhones(rawInput?: string, addressContext?: stri
       const normalizedLeading = digitsOnly.startsWith('0') ? digitsOnly : `0${digitsOnly}`;
       if (normalizedLeading.length === 10 || normalizedLeading.length === 11) {
         foundNumbers.push(normalizedLeading);
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  for (const chunk of rawChunks) {
+    const chunkDigits = chunk.replace(/\D/g, '');
+    // Thử xử lý cả chunk (loại bỏ khoảng trắng định dạng ví dụ: '028 3822 5678' hoặc '0903 123 456')
+    const handled = processDigits(chunkDigits);
+    if (!handled && chunk.includes(' ')) {
+      // Nếu không khớp cả cụm, tách tiếp theo khoảng trắng
+      const subTokens = chunk.split(/\s+/).map(t => t.trim()).filter(Boolean);
+      for (const sub of subTokens) {
+        processDigits(sub.replace(/\D/g, ''));
       }
     }
   }
@@ -246,9 +289,10 @@ export function extractVietnamesePhones(rawInput?: string, addressContext?: stri
     const isMobile = /^0[35789]\d{8}$/.test(num);
     const isLandline = /^02\d{9}$/.test(num) || /^06[0-8]\d{7}$/.test(num) || /^0(?:650|510|511|710|780|781|711)\d{7}$/.test(num);
     const carrier = isMobile ? detectMobileCarrier(num) : (isLandline ? 'Cố định VNPT/Viettel' : undefined);
+    const province = isLandline ? detectLandlineProvince(num) : undefined;
     const type: ExtractedPhoneItem['type'] = isMobile ? 'MOBILE' : (isLandline ? 'LANDLINE' : 'UNKNOWN');
     const formatted = formatPhoneDisplay(num, type);
-    const label = isMobile ? `📱 Di động (${carrier || 'Zalo'})` : (isLandline ? '☎️ Bàn cố định' : 'Số liên hệ');
+    const label = isMobile ? `📱 Di động (${carrier || 'Zalo'})` : (isLandline ? `☎️ Bàn cố định${province ? ` (${province})` : ''}` : 'Số liên hệ');
 
     return {
       raw: num,
@@ -256,6 +300,7 @@ export function extractVietnamesePhones(rawInput?: string, addressContext?: stri
       formatted,
       type,
       carrier,
+      province,
       isZaloEligible: isMobile,
       label
     };

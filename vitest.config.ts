@@ -10,7 +10,8 @@ export default defineConfig({
       'src/tests/components.snapshot.spec.tsx', 
       'src/modules/customers/ui/components/CustomerCascadeImpactModal.spec.tsx', 
       'src/tests/payment-quotation-integration.spec.tsx',
-      'src/tests/customer-consolidation-modal.spec.tsx'
+      'src/tests/customer-consolidation-modal.spec.tsx',
+      'src/tests/bulk-zns-orchestrator.spec.tsx'
     ],
     exclude: ['src/tests/e2e/**', 'node_modules/**', 'e2e/**'],
     coverage: {

@@ -16,7 +16,7 @@ import { useDataView } from '@/src/design-system/dataview/useDataView';
 import { DataViewEngine } from '@/src/design-system/dataview/DataViewEngine';
 import { Customer, CustomerSchema } from '@/src/domain/schema/customer.schema';
 import { DataImportModal, Button } from '@/src/design-system';
-import { Upload, Printer, GitMerge } from 'lucide-react';
+import { Upload, Printer, GitMerge, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
@@ -24,6 +24,7 @@ import { can } from '@/src/modules/iam';
 import { useAuth } from '@/src/modules/iam';
 import { CustomerZnsContactModal } from './components/CustomerZnsContactModal';
 import { CustomerConsolidationModal } from './components/CustomerConsolidationModal';
+import { BulkZnsModal } from '@/src/widgets/BulkZnsModal';
 import { detectDuplicateCustomerGroups } from './utils/customerConsolidationEngine';
 import { extractVietnamesePhones } from './utils/vietnameseTelecomExtractor';
 
@@ -74,6 +75,7 @@ export default function CustomersFeature() {
   const { data: deliveries = [] } = useRealtimeCollection<any>('deliveries');
   const [printingCustomer, setPrintingCustomer] = useState<Customer | null>(null);
   const [isConsolidationOpen, setIsConsolidationOpen] = useState(false);
+  const [isBulkZnsOpen, setIsBulkZnsOpen] = useState(false);
 
   const activeCustomers = useMemo(() => {
     return customers.filter(c => !c.isArchived && !c.mergedInto && !(c as any).is_archived && !(c as any).merged_into && !c.tenKhachHang?.startsWith('[ĐÃ GỘP VÀO'));
@@ -287,16 +289,30 @@ export default function CustomersFeature() {
             hasActiveDomainFilters={hasActiveDomainFilters}
             extraActions={
               <div className="flex items-center gap-2">
-                {duplicateGroups.length > 0 && (
-                  <Button 
-                    variant="secondary" 
-                    size="sm" 
-                    leftIcon={<GitMerge size={14} className="shrink-0 text-amber-600" />}
-                    className="h-8 px-2.5 font-medium whitespace-nowrap shrink-0 inline-flex items-center shadow-xs border-amber-300 bg-amber-50/70 text-amber-900 hover:bg-amber-100"
-                    onClick={() => setIsConsolidationOpen(true)}
-                    title="Kiểm tra và gộp khách hàng trùng mã số thuế"
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  leftIcon={<GitMerge size={14} className={`shrink-0 ${duplicateGroups.length > 0 ? 'text-amber-600' : 'text-slate-500'}`} />}
+                  className={`h-8 px-2.5 font-medium whitespace-nowrap shrink-0 inline-flex items-center shadow-xs ${
+                    duplicateGroups.length > 0 
+                      ? 'border-amber-300 bg-amber-50/70 text-amber-900 hover:bg-amber-100' 
+                      : 'text-slate-700 hover:text-slate-900 border-slate-200 bg-white hover:bg-slate-50'
+                  }`}
+                  onClick={() => setIsConsolidationOpen(true)}
+                  title="Kiểm tra và gộp khách hàng trùng mã số thuế hoặc quản lý nhật ký hoàn tác"
+                >
+                  Gộp trùng MST {duplicateGroups.length > 0 ? `(${duplicateGroups.length})` : ''}
+                </Button>
+                {can('send_zns', 'customer', userData?.role) && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<Send size={14} className="shrink-0 text-blue-600" />}
+                    className="h-8 px-2.5 font-medium whitespace-nowrap shrink-0 inline-flex items-center shadow-xs border-blue-200 bg-blue-50/60 text-blue-800 hover:bg-blue-100"
+                    onClick={() => setIsBulkZnsOpen(true)}
+                    title="Gửi ZNS hàng loạt cho danh sách khách hàng đang lọc"
                   >
-                    Gộp trùng MST ({duplicateGroups.length})
+                    Gửi ZNS Hàng Loạt
                   </Button>
                 )}
                 <Button 
@@ -411,6 +427,20 @@ export default function CustomersFeature() {
           onConsolidationSuccess={() => {
             refresh();
           }}
+        />
+      )}
+
+      {isBulkZnsOpen && (
+        <BulkZnsModal
+          isOpen={isBulkZnsOpen}
+          onClose={() => {
+            setIsBulkZnsOpen(false);
+            refresh();
+          }}
+          entityType="CUSTOMER"
+          items={filteredCustomers}
+          userRole={userData?.role}
+          onSuccess={refresh}
         />
       )}
     </div>

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { formatDate } from '@/src/shared/utils/formatDate';
+import { resolveQuotationChronoMeta } from '@/src/shared/utils/quotationDateResolver';
 import { useDrawerStack } from '@/src/contexts/DrawerStackContext';
 import { 
   FileText, 
@@ -501,26 +502,33 @@ export function CustomerOmniFlowStream({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {filteredFlows.map((f, idx) => (
-                  <tr key={f.quote.id || idx} className="hover:bg-blue-50/40 transition-colors">
-                    <td className="py-2.5 px-3 font-mono font-bold text-slate-500">{idx + 1}</td>
-                    <td className="py-2.5 px-3">
-                      <span className={`text-3xs font-extrabold px-2 py-0.5 rounded border ${f.typeMeta.color}`}>
-                        {f.typeMeta.label}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <button
-                        type="button"
-                        onClick={() => f.quote.id && openDrawer('quotation', f.quote.id)}
-                        className="font-mono font-bold text-xs text-blue-700 hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0"
-                      >
-                        {f.quote.soPhieuBaoGia} <ExternalLink size={10} />
-                      </button>
-                      <span className="text-3xs text-slate-600 block">
-                        {formatDate(f.quote.createdAt || f.quote.ngayBaoGia)}
-                      </span>
-                    </td>
+                {filteredFlows.map((f, idx) => {
+                  const chrono = resolveQuotationChronoMeta(f.quote);
+                  return (
+                    <tr key={f.quote.id || idx} className="hover:bg-blue-50/40 transition-colors">
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-500">{idx + 1}</td>
+                      <td className="py-2.5 px-3">
+                        <span className={`text-3xs font-extrabold px-2 py-0.5 rounded border ${f.typeMeta.color}`}>
+                          {f.typeMeta.label}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <button
+                          type="button"
+                          onClick={() => f.quote.id && openDrawer('quotation', f.quote.id)}
+                          className="font-mono font-bold text-xs text-blue-700 hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0"
+                        >
+                          {f.quote.soPhieuBaoGia} <ExternalLink size={10} />
+                        </button>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-3xs text-slate-600 font-mono">
+                            {chrono.issueDateFormatted}
+                          </span>
+                          <span className={`text-3xs font-bold px-1.5 py-0.1 rounded border ${chrono.statusBadge.colorClass}`}>
+                            {chrono.statusBadge.label}
+                          </span>
+                        </div>
+                      </td>
                     <td className="py-2.5 px-3">
                       {f.firstContract ? (
                         <button
@@ -585,7 +593,8 @@ export function CustomerOmniFlowStream({
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -593,7 +602,9 @@ export function CustomerOmniFlowStream({
       ) : (
         /* 4. HIỂN THỊ DỮ LIỆU: VIEW MODE DETAILED CARDS */
         <div className="space-y-4">
-          {filteredFlows.map((f) => (
+          {filteredFlows.map((f) => {
+            const chrono = resolveQuotationChronoMeta(f.quote);
+            return (
             <div
               key={f.quote.id || f.quote.soPhieuBaoGia}
               className={`bg-white rounded-xl border border-slate-300 border-l-4 ${f.typeMeta.accentBorder} shadow-xs hover:shadow-sm transition-all overflow-hidden`}
@@ -613,7 +624,10 @@ export function CustomerOmniFlowStream({
                     <ExternalLink size={12} className="text-blue-700" />
                   </button>
                   <span className="text-xs font-semibold text-slate-700 font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                    Ngày lập: {formatDate(f.quote.createdAt || f.quote.ngayCapNhat || f.quote.ngayBaoGia)}
+                    Ngày lập: {chrono.issueDateFormatted}
+                  </span>
+                  <span className={`text-3xs font-bold px-2 py-0.5 rounded border font-mono ${chrono.statusBadge.colorClass}`}>
+                    {chrono.statusBadge.label}
                   </span>
                 </div>
 
@@ -639,8 +653,14 @@ export function CustomerOmniFlowStream({
                       <span className="text-2xs font-bold uppercase text-slate-700 flex items-center gap-1">
                         <FileText size={13} className="text-blue-700" /> 1. Báo Giá
                       </span>
-                      <span className="text-3xs font-extrabold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                        {f.quote.tinhTrangBaoGia || f.quote.trangThai || 'Hoàn tất'}
+                      <span className={`text-3xs font-extrabold px-2 py-0.5 rounded border ${
+                        chrono.statusBadge.isExpired && (!f.quote.tinhTrangBaoGia || f.quote.tinhTrangBaoGia === 'MỚI' || f.quote.tinhTrangBaoGia === 'Mới')
+                          ? 'bg-red-50 text-red-700 border-red-200'
+                          : 'text-blue-900 bg-blue-50 border-blue-200'
+                      }`}>
+                        {chrono.statusBadge.isExpired && (!f.quote.tinhTrangBaoGia || f.quote.tinhTrangBaoGia === 'MỚI' || f.quote.tinhTrangBaoGia === 'Mới')
+                          ? 'Đã hết hạn'
+                          : (f.quote.tinhTrangBaoGia || f.quote.trangThai || 'Mới')}
                       </span>
                     </div>
                     <div>
@@ -849,7 +869,8 @@ export function CustomerOmniFlowStream({
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

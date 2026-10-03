@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDate } from '@/src/shared/utils/formatDate';
+import { resolveQuotationChronoMeta } from '@/src/shared/utils/quotationDateResolver';
 import { computeContractCompletionTimeline } from '@/src/shared/utils/vietnamBusinessDays';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { Customer } from '@/src/domain/schema/customer.schema';
@@ -124,8 +125,9 @@ export function QuotationDetailOverview({
   const paymentPct = totalValue > 0 ? Math.min(100, Math.round((totalPaid / totalValue) * 100)) : 0;
   const remainingDebt = Math.max(0, totalValue - totalPaid);
 
-  // Deal Health calculation
-  const creationDate = (quotation as any).createdAt ? new Date((quotation as any).createdAt) : (quotation.ngayBaoGia ? new Date(quotation.ngayBaoGia) : new Date());
+  // Chrono Resolution & Deal Health calculation
+  const chrono = resolveQuotationChronoMeta(currentQuotation);
+  const creationDate = new Date(chrono.issueDate);
   const now = new Date();
   const daysSinceCreation = Math.max(0, differenceInDays(now, creationDate));
 
@@ -140,6 +142,9 @@ export function QuotationDetailOverview({
         dealHealthClass: timeline.isDelayed ? 'bg-red-50 text-red-700 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200', 
         dealHealthLabel: timeline.executionStageLabel ? `HĐ: ${timeline.executionStageLabel} (${timeline.completionDateFormatted})` : 'Đã ký kết hợp đồng' 
       };
+    }
+    if (chrono.statusBadge.isExpired) {
+      return { dealHealthClass: 'bg-red-50 text-red-700 border-red-200', dealHealthLabel: chrono.statusBadge.label };
     }
     if (daysSinceCreation <= 3) {
       return { dealHealthClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', dealHealthLabel: 'Khách hàng mới (Nóng)' };
@@ -217,12 +222,17 @@ export function QuotationDetailOverview({
               </div>
 
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-150">
-                <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">Thời hạn hiệu lực</span>
-                <span className="font-bold font-mono text-slate-800 text-xs">
-                  {quotation.ngayHetHan ? formatDate(quotation.ngayHetHan) : 'Không giới hạn'}
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-3xs uppercase font-bold text-slate-400">Thời hạn hiệu lực</span>
+                  <span className={`text-3xs font-bold px-1.5 py-0.2 rounded border font-mono ${chrono.statusBadge.colorClass}`}>
+                    {chrono.statusBadge.label}
+                  </span>
+                </div>
+                <span className="font-bold font-mono text-slate-800 text-xs block">
+                  {chrono.expireDateFormatted} ({chrono.validityDays} ngày)
                 </span>
-                <span className="text-3xs text-amber-700 font-medium block mt-0.5">
-                  Lập ngày: {formatDate(quotation.ngayBaoGia)}
+                <span className="text-3xs text-slate-500 font-medium block mt-1">
+                  Lập ngày: <strong className="font-mono text-slate-700">{chrono.issueDateFormatted}</strong>
                 </span>
               </div>
 

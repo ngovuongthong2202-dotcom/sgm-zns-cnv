@@ -18,9 +18,10 @@ import { CollapsibleStatsBanner } from '@/src/platform/ui/design-system/stats/Co
 import { extractCustomerTinhThanhMap, extractTinhThanhList, enhanceQuotationsWithProvince } from './utils/extractors';
 import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { QuotationFilterBar } from './components/QuotationFilterBar';
-import { Zap } from 'lucide-react';
+import { Zap, Send } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { CreateQuotationFromSalesOrderModal } from './components/CreateQuotationFromSalesOrderModal';
+import { BulkZnsModal } from '@/src/widgets/BulkZnsModal';
 
 
 const QuotationFormModal = lazy(() => import('./components/QuotationFormModal').then(m => ({ default: m.QuotationFormModal })));
@@ -62,6 +63,7 @@ export default function QuotationsFeature() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [drawerQuotation, setDrawerQuotation] = useState<Quotation | null>(null);
   const [isSalesOrderModalOpen, setIsSalesOrderModalOpen] = useState(false);
+  const [isBulkZnsOpen, setIsBulkZnsOpen] = useState(false);
 
   useQuotationMigration(quotations, updateQuotation);
 
@@ -282,17 +284,32 @@ export default function QuotationsFeature() {
             createNewLabel="Báo giá mới"
             canCreate={can('create', 'quotation', userData?.role)}
             extraActions={
-              can('create', 'quotation', userData?.role) ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => setIsSalesOrderModalOpen(true)}
-                  className="h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-2xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
-                >
-                  <Zap size={13} className="text-amber-300 animate-pulse" />
-                  <span>Dựng từ ĐH ERP</span>
-                </Button>
-              ) : undefined
+              <div className="flex items-center gap-2">
+                {can('send_zns', 'quotation', userData?.role) && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<Send size={14} className="shrink-0 text-blue-600" />}
+                    onClick={() => setIsBulkZnsOpen(true)}
+                    className="h-8 px-2.5 font-medium whitespace-nowrap shrink-0 inline-flex items-center shadow-xs border-blue-200 bg-blue-50/60 text-blue-800 hover:bg-blue-100"
+                    title="Gửi ZNS hàng loạt cho danh sách báo giá đang lọc"
+                  >
+                    Gửi ZNS Hàng Loạt
+                  </Button>
+                )}
+                {can('create', 'quotation', userData?.role) && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setIsSalesOrderModalOpen(true)}
+                    className="h-8 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-2xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                  >
+                    <Zap size={13} className="text-amber-300 animate-pulse" />
+                    <span>Dựng từ ĐH ERP</span>
+                  </Button>
+                )}
+              </div>
             }
             dataView={dataView}
             columns={columns}
@@ -389,6 +406,15 @@ export default function QuotationsFeature() {
             setEditingQuotation(draft as Quotation);
             setIsFormOpen(true);
           }}
+        />
+      )}
+      {isBulkZnsOpen && (
+        <BulkZnsModal
+          isOpen={isBulkZnsOpen}
+          onClose={() => setIsBulkZnsOpen(false)}
+          entityType="QUOTATION"
+          items={currentData}
+          userRole={userData?.role}
         />
       )}
     </div>
