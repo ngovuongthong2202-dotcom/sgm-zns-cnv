@@ -14,6 +14,7 @@ import { notify } from '@/src/shared/utils/notify';
 import { Button } from '@/src/design-system/Button';
 import { MergeCustomer } from '../../application/use-cases/MergeCustomer';
 import { useAuth } from '@/src/modules/iam';
+import { formatCurrency } from '@/src/shared/utils/formatCurrency';
 import { 
   Users, 
   GitMerge, 
@@ -27,7 +28,8 @@ import {
   History,
   RotateCcw,
   AlertTriangle,
-  Lock
+  Lock,
+  Crown
 } from 'lucide-react';
 
 interface Props {
@@ -59,10 +61,11 @@ export function CustomerConsolidationModal({
   const [mergeHistory, setMergeHistory] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [rollingBackId, setRollingBackId] = useState<string | null>(null);
+  const [customMasterId, setCustomMasterId] = useState<string | null>(null);
 
   const duplicateGroups = React.useMemo(() => {
-    return detectDuplicateCustomerGroups(customers, quotations);
-  }, [customers, quotations]);
+    return detectDuplicateCustomerGroups(customers, quotations, contracts, payments, deliveries);
+  }, [customers, quotations, contracts, payments, deliveries]);
 
   // Load history when tab is activated
   const loadHistory = React.useCallback(async () => {
@@ -83,6 +86,10 @@ export function CustomerConsolidationModal({
     }
   }, [activeTab, isOpen, loadHistory]);
 
+  useEffect(() => {
+    setCustomMasterId(null);
+  }, [selectedGroupIndex]);
+
   const filteredGroups = React.useMemo(() => {
     if (!searchQuery.trim()) return duplicateGroups;
     const q = searchQuery.toLowerCase().trim();
@@ -95,12 +102,21 @@ export function CustomerConsolidationModal({
     );
   }, [duplicateGroups, searchQuery]);
 
-  if (!isOpen) return null;
+  const rawGroup: DuplicateCustomerGroup | undefined = filteredGroups[selectedGroupIndex] || filteredGroups[0];
 
-  const currentGroup: DuplicateCustomerGroup | undefined = filteredGroups[selectedGroupIndex] || filteredGroups[0];
+  const currentGroup: DuplicateCustomerGroup | undefined = React.useMemo(() => {
+    if (!rawGroup || !customMasterId) return rawGroup;
+    const chosenMaster = rawGroup.allCustomersInGroup.find(c => c.id === customMasterId || c.maKh === customMasterId);
+    if (!chosenMaster) return rawGroup;
+    return {
+      ...rawGroup,
+      masterCustomer: chosenMaster,
+      secondaryCustomers: rawGroup.allCustomersInGroup.filter(c => (c.id || c.maKh) !== (chosenMaster.id || chosenMaster.maKh))
+    };
+  }, [rawGroup, customMasterId]);
 
   const currentPlan = React.useMemo(() => {
-    if (!currentGroup) return null;
+    if (!isOpen || !currentGroup) return null;
     return buildConsolidationMigrationPlan(
       currentGroup,
       quotations,
@@ -108,7 +124,9 @@ export function CustomerConsolidationModal({
       payments,
       deliveries
     );
-  }, [currentGroup, quotations, contracts, payments, deliveries]);
+  }, [isOpen, currentGroup, quotations, contracts, payments, deliveries]);
+
+  if (!isOpen) return null;
 
   const handleMergeGroup = async (group: DuplicateCustomerGroup) => {
     setIsProcessing(true);
@@ -533,9 +551,20 @@ export function CustomerConsolidationModal({
                               <div key={sec.id || idx} className="p-2.5 bg-white rounded-lg border border-slate-200 text-xs space-y-1">
                                 <div className="flex items-center justify-between">
                                   <span className="font-mono font-bold text-slate-700 text-2xs">{sec.maKh}</span>
-                                  <span className="text-3xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                                    {sec.loaiKh || 'Doanh nghiệp'}
-                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-3xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                      {sec.loaiKh || 'Doanh nghiệp'}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setCustomMasterId(sec.id || sec.maKh)}
+                                      className="text-3xs px-2 py-0.5 rounded font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300 transition-colors flex items-center gap-1 cursor-pointer"
+                                      title="Chỉ định bản ghi này làm Master thay thế"
+                                    >
+                                      <Crown size={11} className="text-amber-500" />
+                                      <span>Đặt làm Master</span>
+                                    </button>
+                                  </div>
                                 </div>
                                 <p className="font-medium text-slate-800 line-clamp-1">{sec.tenKhachHang}</p>
                                 
@@ -557,6 +586,65 @@ export function CustomerConsolidationModal({
                         </div>
                       </div>
                     </div>
+
+                    {/* Forensic Impact Summary Metrics Banner */}
+                    {currentPlan?.impactSummary && (
+                      <div className="p-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white rounded-xl shadow-xs border border-slate-700 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-2xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                            <ShieldCheck size={14} className="text-emerald-400" />
+                            Ma Trận Tác Động Dữ Liệu Chuyển Giao (Omni-Impact Matrix)
+                          </span>
+                          <span className="text-3xs text-blue-300 font-mono">
+                            Bảo toàn 100% chứng từ lịch sử
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                          <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
+                            <span className="text-3xs uppercase font-medium text-slate-400 block">Báo giá di chuyển</span>
+                            <span className="text-sm font-black font-mono text-blue-300">
+                              {currentPlan.impactSummary.quotationsCount}
+                            </span>
+                            {currentPlan.impactSummary.totalQuotationValue > 0 && (
+                              <span className="text-3xs text-slate-400 font-mono block truncate">
+                                {formatCurrency(currentPlan.impactSummary.totalQuotationValue)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
+                            <span className="text-3xs uppercase font-medium text-slate-400 block">Hợp đồng pháp lý</span>
+                            <span className="text-sm font-black font-mono text-emerald-400">
+                              {currentPlan.impactSummary.contractsCount}
+                            </span>
+                            {currentPlan.impactSummary.totalContractValue > 0 && (
+                              <span className="text-3xs text-slate-400 font-mono block truncate">
+                                {formatCurrency(currentPlan.impactSummary.totalContractValue)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
+                            <span className="text-3xs uppercase font-medium text-slate-400 block">Phiếu thu & Công nợ</span>
+                            <span className="text-sm font-black font-mono text-amber-300">
+                              {currentPlan.impactSummary.billingsCount}
+                            </span>
+                            {currentPlan.impactSummary.totalBillingAmount > 0 && (
+                              <span className="text-3xs text-slate-400 font-mono block truncate">
+                                {formatCurrency(currentPlan.impactSummary.totalBillingAmount)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
+                            <span className="text-3xs uppercase font-medium text-slate-400 block">Đợt giao hàng tiếp quản</span>
+                            <span className="text-sm font-black font-mono text-purple-300">
+                              {currentPlan.impactSummary.deliveriesCount}
+                            </span>
+                            <span className="text-3xs text-slate-400 font-mono block">
+                              {currentPlan.impactSummary.contactsMergedCount} đầu mối/xưởng
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Preview Merged Result */}
                     <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">

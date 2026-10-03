@@ -30,12 +30,14 @@ router.post('/check-duplicate', async (req, res) => {
     const customersRef = adminDb.collection('customers');
     const duplicateCandidates: any[] = [];
     
+    const isCandidateActive = (d: any) => !d.isArchived && !d.deletedAt && !d.mergedInto && !(d.tenKhachHang && String(d.tenKhachHang).startsWith('[ĐÃ GỘP VÀO'));
+
     // Check by Phone
     if (normalizedPhone) {
       const phoneSnap = await customersRef.where('sdt', '==', normalizedPhone).get();
       phoneSnap.docs.forEach(doc => {
         const d = doc.data();
-        if (!d.isArchived && !d.deletedAt) {
+        if (isCandidateActive(d)) {
           duplicateCandidates.push({ id: doc.id, ...d });
         }
       });
@@ -43,7 +45,7 @@ router.post('/check-duplicate', async (req, res) => {
         const rawPhoneSnap = await customersRef.where('sdt', '==', phone).get();
         rawPhoneSnap.docs.forEach(doc => {
           const d = doc.data();
-          if (!d.isArchived && !d.deletedAt && !duplicateCandidates.find(c => c.id === doc.id)) {
+          if (isCandidateActive(d) && !duplicateCandidates.find(c => c.id === doc.id)) {
             duplicateCandidates.push({ id: doc.id, ...d });
           }
         });
@@ -54,7 +56,7 @@ router.post('/check-duplicate', async (req, res) => {
       const taxSnap = await customersRef.where('maSoThue', '==', normalizedTaxId).get();
       taxSnap.docs.forEach(doc => {
         const d = doc.data();
-        if (!d.isArchived && !d.deletedAt && !duplicateCandidates.find(c => c.id === doc.id)) {
+        if (isCandidateActive(d) && !duplicateCandidates.find(c => c.id === doc.id)) {
           duplicateCandidates.push({ id: doc.id, ...d });
         }
       });
@@ -115,48 +117,75 @@ router.post('/merge', async (req, res) => {
       const srcData = sourceCustomersSnapshotsData[srcId] || {};
       const srcMaKh = srcData.maKh || '';
 
-      const [quotesSnap, contractsSnap, paymentsSnap, deliveriesSnap] = await Promise.all([
+      const [
+        quotesSnap, 
+        contractsSnap, 
+        paymentsSnap, 
+        deliveriesSnap,
+        quotesByMaKhSnap,
+        contractsByMaKhSnap,
+        paymentsByMaKhSnap,
+        deliveriesByMaKhSnap
+      ] = await Promise.all([
         adminDb.collection('quotations').where('customerId', '==', srcId).get(),
         adminDb.collection('contracts').where('customerId', '==', srcId).get(),
         adminDb.collection('payments').where('customerId', '==', srcId).get(),
-        adminDb.collection('deliveries').where('customerId', '==', srcId).get()
+        adminDb.collection('deliveries').where('customerId', '==', srcId).get(),
+        srcMaKh && srcMaKh !== srcId ? adminDb.collection('quotations').where('maKh', '==', srcMaKh).get() : Promise.resolve({ docs: [] }),
+        srcMaKh && srcMaKh !== srcId ? adminDb.collection('contracts').where('maKh', '==', srcMaKh).get() : Promise.resolve({ docs: [] }),
+        srcMaKh && srcMaKh !== srcId ? adminDb.collection('payments').where('maKh', '==', srcMaKh).get() : Promise.resolve({ docs: [] }),
+        srcMaKh && srcMaKh !== srcId ? adminDb.collection('deliveries').where('maKh', '==', srcMaKh).get() : Promise.resolve({ docs: [] }),
       ]);
 
-      quotesSnap.docs.filter(d => !d.data()?.deletedAt).forEach(d => {
+      const seenDocIds = new Set<string>();
+
+      [...quotesSnap.docs, ...quotesByMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
+        if (seenDocIds.has(d.id)) return;
+        seenDocIds.add(d.id);
         affectedQuotations.push({ id: d.id, previousCustomerId: srcId, previousMaKh: d.data()?.maKh || srcMaKh });
         batch.update(d.ref, {
           customerId: targetCustomerId,
           maKh: targetMaKh,
+          legacyCustomerCode: d.data()?.maKh || srcMaKh,
           // BẢO TOÀN 100% SNAPSHOT LỊCH SỬ: Giữ nguyên sdt, tenKhachHang, nguoiDaiDien, danhSachSdt
           updatedAt: new Date().toISOString()
         });
       });
 
-      contractsSnap.docs.filter(d => !d.data()?.deletedAt).forEach(d => {
+      [...contractsSnap.docs, ...contractsByMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
+        if (seenDocIds.has(d.id)) return;
+        seenDocIds.add(d.id);
         affectedContracts.push({ id: d.id, previousCustomerId: srcId, previousMaKh: d.data()?.maKh || srcMaKh });
         batch.update(d.ref, {
           customerId: targetCustomerId,
           maKh: targetMaKh,
+          legacyCustomerCode: d.data()?.maKh || srcMaKh,
           // BẢO TOÀN 100% SNAPSHOT LỊCH SỬ
           updatedAt: new Date().toISOString()
         });
       });
 
-      paymentsSnap.docs.filter(d => !d.data()?.deletedAt).forEach(d => {
+      [...paymentsSnap.docs, ...paymentsByMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
+        if (seenDocIds.has(d.id)) return;
+        seenDocIds.add(d.id);
         affectedPayments.push({ id: d.id, previousCustomerId: srcId, previousMaKh: d.data()?.maKh || srcMaKh });
         batch.update(d.ref, {
           customerId: targetCustomerId,
           maKh: targetMaKh,
+          legacyCustomerCode: d.data()?.maKh || srcMaKh,
           // BẢO TOÀN 100% SNAPSHOT LỊCH SỬ
           updatedAt: new Date().toISOString()
         });
       });
 
-      deliveriesSnap.docs.filter(d => !d.data()?.deletedAt).forEach(d => {
+      [...deliveriesSnap.docs, ...deliveriesByMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
+        if (seenDocIds.has(d.id)) return;
+        seenDocIds.add(d.id);
         affectedDeliveries.push({ id: d.id, previousCustomerId: srcId, previousMaKh: d.data()?.maKh || srcMaKh });
         batch.update(d.ref, {
           customerId: targetCustomerId,
           maKh: targetMaKh,
+          legacyCustomerCode: d.data()?.maKh || srcMaKh,
           // BẢO TOÀN 100% SNAPSHOT LỊCH SỬ
           updatedAt: new Date().toISOString()
         });
@@ -164,10 +193,15 @@ router.post('/merge', async (req, res) => {
     }
 
     const currentTags = tgtData?.tags || [];
-    const finalTags = Array.from(new Set([...currentTags, ...updatedTags, 'MERGED']));
+    const finalTags = Array.from(new Set([...currentTags, ...updatedTags, 'MERGED', 'CONSOLIDATED_MASTER']));
     const existingMergedCodes = tgtData?.mergedCustomerCodes || tgtData?.merged_customer_codes || [];
     const secondaryMaKhs = Object.values(sourceCustomersSnapshotsData).map((s: any) => s.maKh).filter(Boolean);
-    const finalMergedCodes = Array.from(new Set([...existingMergedCodes, ...(mergedCustomerCodes || []), ...secondaryMaKhs]));
+    const secondaryTransitiveCodes: string[] = [];
+    Object.values(sourceCustomersSnapshotsData).forEach((s: any) => {
+      if (Array.isArray(s.mergedCustomerCodes)) secondaryTransitiveCodes.push(...s.mergedCustomerCodes);
+      if (Array.isArray(s.merged_customer_codes)) secondaryTransitiveCodes.push(...s.merged_customer_codes);
+    });
+    const finalMergedCodes = Array.from(new Set([...existingMergedCodes, ...(mergedCustomerCodes || []), ...secondaryMaKhs, ...secondaryTransitiveCodes]));
 
     const targetCustomerUpdate: Record<string, any> = {
       tags: finalTags,

@@ -69,6 +69,9 @@ export default function CustomersFeature() {
   } = useCustomersPage();
 
   const { data: quotations = [] } = useRealtimeCollection<Quotation>('quotations');
+  const { data: contracts = [] } = useRealtimeCollection<any>('contracts');
+  const { data: payments = [] } = useRealtimeCollection<any>('payments');
+  const { data: deliveries = [] } = useRealtimeCollection<any>('deliveries');
   const [printingCustomer, setPrintingCustomer] = useState<Customer | null>(null);
   const [isConsolidationOpen, setIsConsolidationOpen] = useState(false);
 
@@ -77,8 +80,8 @@ export default function CustomersFeature() {
   }, [customers]);
 
   const duplicateGroups = useMemo(() => {
-    return detectDuplicateCustomerGroups(activeCustomers, quotations);
-  }, [activeCustomers, quotations]);
+    return detectDuplicateCustomerGroups(activeCustomers, quotations, contracts, payments, deliveries);
+  }, [activeCustomers, quotations, contracts, payments, deliveries]);
 
   // Sequential drawer navigation logic
   const currentIndex = useMemo(() => {
@@ -396,15 +399,20 @@ export default function CustomersFeature() {
         onRefresh={refresh}
       />
 
-      <CustomerConsolidationModal
-        isOpen={isConsolidationOpen}
-        onClose={() => setIsConsolidationOpen(false)}
-        customers={customers}
-        quotations={quotations}
-        onConsolidationSuccess={() => {
-          refresh();
-        }}
-      />
+      {isConsolidationOpen && (
+        <CustomerConsolidationModal
+          isOpen={isConsolidationOpen}
+          onClose={() => setIsConsolidationOpen(false)}
+          customers={customers}
+          quotations={quotations}
+          contracts={contracts}
+          payments={payments}
+          deliveries={deliveries}
+          onConsolidationSuccess={() => {
+            refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

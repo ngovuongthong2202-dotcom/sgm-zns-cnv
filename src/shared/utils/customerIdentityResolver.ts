@@ -101,6 +101,19 @@ export function isSameCustomer(docA: any, docB: any): boolean {
     return true;
   }
 
+  // 2b. Kiểm tra kế thừa mã đã gộp (Merged Customer Codes Heritage & Transitive Link)
+  const mergedA = Array.isArray(docA.mergedCustomerCodes) ? docA.mergedCustomerCodes.map((c: string) => cleanCode(c).toUpperCase()) : [];
+  const mergedB = Array.isArray(docB.mergedCustomerCodes) ? docB.mergedCustomerCodes.map((c: string) => cleanCode(c).toUpperCase()) : [];
+  if ((maKhB && mergedA.includes(maKhB)) || (maKhA && mergedB.includes(maKhA))) {
+    return true;
+  }
+  const mergedIntoA = cleanCode(docA.mergedInto || docA.merged_into || '').toUpperCase();
+  const mergedIntoB = cleanCode(docB.mergedInto || docB.merged_into || '').toUpperCase();
+  if ((mergedIntoA && (mergedIntoA === idB.toUpperCase() || mergedIntoA === maKhB)) ||
+      (mergedIntoB && (mergedIntoB === idA.toUpperCase() || mergedIntoB === maKhA))) {
+    return true;
+  }
+
   // CONFLICT CHECK: If both have explicit IDs or maKh and they DIFFER, they CANNOT be the same customer!
   if (idA && idB && idA !== idB) {
     return false;

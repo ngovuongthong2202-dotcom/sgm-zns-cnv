@@ -21,6 +21,16 @@ export interface ConsolidationMigrationPlan {
   affectedContractIds: string[];
   affectedBillingIds: string[];
   affectedDeliveryIds: string[];
+  impactSummary: {
+    quotationsCount: number;
+    totalQuotationValue: number;
+    contractsCount: number;
+    totalContractValue: number;
+    billingsCount: number;
+    totalBillingAmount: number;
+    deliveriesCount: number;
+    contactsMergedCount: number;
+  };
   auditSnapshot: {
     mergedAt: string;
     masterId: string;
@@ -98,7 +108,10 @@ export function calculateBusinessNameSimilarity(nameA?: string, nameB?: string):
  */
 export function detectDuplicateCustomerGroups(
   customers: Customer[],
-  quotations: Quotation[] = []
+  quotations: Quotation[] = [],
+  contracts: any[] = [],
+  payments: any[] = [],
+  deliveries: any[] = []
 ): DuplicateCustomerGroup[] {
   if (!Array.isArray(customers) || customers.length === 0) return [];
 
@@ -108,6 +121,33 @@ export function detectDuplicateCustomerGroups(
     const id = q.customerId || q.maKh;
     if (id) {
       quoteCountByCustId.set(id, (quoteCountByCustId.get(id) || 0) + 1);
+    }
+  });
+
+  // Bản đồ đếm số lượng Hợp đồng
+  const contractCountByCustId = new Map<string, number>();
+  contracts.forEach(c => {
+    const id = c.customerId || c.maKh;
+    if (id) {
+      contractCountByCustId.set(id, (contractCountByCustId.get(id) || 0) + 1);
+    }
+  });
+
+  // Bản đồ đếm số lượng Phiếu giao hàng
+  const deliveryCountByCustId = new Map<string, number>();
+  deliveries.forEach(d => {
+    const id = d.customerId || d.maKh;
+    if (id) {
+      deliveryCountByCustId.set(id, (deliveryCountByCustId.get(id) || 0) + 1);
+    }
+  });
+
+  // Bản đồ đếm số lượng Phiếu thu
+  const paymentCountByCustId = new Map<string, number>();
+  payments.forEach(p => {
+    const id = p.customerId || p.maKh;
+    if (id) {
+      paymentCountByCustId.set(id, (paymentCountByCustId.get(id) || 0) + 1);
     }
   });
 
@@ -132,12 +172,30 @@ export function detectDuplicateCustomerGroups(
 
   groupsByTax.forEach((groupCustomers, taxCode) => {
     if (groupCustomers.length > 1) {
-      // Chọn Master Customer: Khách hàng có mã tạo sớm hơn hoặc có nhiều báo giá hơn
+
+      // Sovereign Multi-Dimensional Composite Scoring (MDSCS):
+      // Giai tầng 1: Điểm nghiệp vụ giao dịch trọng yếu
+      // Score = (Contracts * 10) + (Deliveries * 8) + (Payments * 6) + (Quotes * 2)
+      // Giai tầng 2: Nếu điểm giao dịch bằng nhau (hoặc = 0) -> Giữ nguyên hồ sơ nền tảng tạo trước (mã KH nhỏ hơn: KH-001 < KH-002)
+      const calculateCustomerScore = (cust: Customer): number => {
+        const idKey = cust.id || '';
+        const maKey = cust.maKh || '';
+        const contractsCount = (contractCountByCustId.get(idKey) || 0) + (contractCountByCustId.get(maKey) || 0);
+        const deliveriesCount = (deliveryCountByCustId.get(idKey) || 0) + (deliveryCountByCustId.get(maKey) || 0);
+        const paymentsCount = (paymentCountByCustId.get(idKey) || 0) + (paymentCountByCustId.get(maKey) || 0);
+        const quotesCount = (quoteCountByCustId.get(idKey) || 0) + (quoteCountByCustId.get(maKey) || 0);
+
+        return (contractsCount * 10) +
+               (deliveriesCount * 8) +
+               (paymentsCount * 6) +
+               (quotesCount * 2);
+      };
+
       const sorted = [...groupCustomers].sort((a, b) => {
-        const countA = (quoteCountByCustId.get(a.id || '') || 0) + (quoteCountByCustId.get(a.maKh || '') || 0);
-        const countB = (quoteCountByCustId.get(b.id || '') || 0) + (quoteCountByCustId.get(b.maKh || '') || 0);
-        if (countB !== countA) return countB - countA; // Ưu tiên bên nhiều báo giá hơn
-        return (a.maKh || '').localeCompare(b.maKh || ''); // Ưu tiên mã nhỏ hơn
+        const scoreA = calculateCustomerScore(a);
+        const scoreB = calculateCustomerScore(b);
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        return (a.maKh || '').localeCompare(b.maKh || '');
       });
 
       const master = sorted[0];
@@ -274,7 +332,7 @@ export function buildConsolidationMigrationPlan(
     }
   };
 
-  // Duyệt qua từng khách hàng phụ để trích xuất đầu mối
+  // Duyệt qua từng khách hàng phụ để trích xuất đầu mối và bảo toàn địa chỉ nhà xưởng/cơ sở
   secondaries.forEach(sec => {
     // Đầu mối từ primary fields của secondary
     if (sec.nguoiDaiDien || sec.sdt) {
@@ -291,12 +349,38 @@ export function buildConsolidationMigrationPlan(
     (sec.contacts || []).forEach(secContact => {
       fuseOrAddContact(secContact, sec.maKh);
     });
+
+    // BẢO TOÀN ĐỊA CHỈ NHÀ XƯỞNG / CƠ SỞ CỦA SECONDARY THÀNH ĐIỂM GIAO HÀNG
+    const trimmedSecAddress = sec.diaChi?.trim();
+    if (trimmedSecAddress && trimmedSecAddress !== (master.diaChi || '').trim()) {
+      const alreadyHasAddress = mergedContacts.some(ct => (ct.chiNhanh || '').includes(trimmedSecAddress));
+      if (!alreadyHasAddress) {
+        mergedContacts.push({
+          danhXung: 'Xưởng / Cơ sở',
+          nguoiDaiDien: sec.nguoiDaiDien || 'Bộ phận tiếp nhận xưởng',
+          sdt: sec.sdt || '',
+          chucVu: 'Địa điểm giao nhận xưởng',
+          chiNhanh: `${trimmedSecAddress} [Nguồn: ${sec.maKh}]`
+        });
+      }
+    }
   });
 
-  // 2. Cập nhật Master Customer kèm danh sách mã gộp phục vụ Omni-Search Forwarding
+  // 2. Cập nhật Master Customer kèm danh sách mã gộp phục vụ Omni-Search Forwarding & Transitive Flattener
+  const transitiveCodes: string[] = [];
+  secondaries.forEach(s => {
+    if (Array.isArray(s.mergedCustomerCodes)) {
+      transitiveCodes.push(...s.mergedCustomerCodes);
+    }
+    if (Array.isArray((s as any).merged_customer_codes)) {
+      transitiveCodes.push(...(s as any).merged_customer_codes);
+    }
+  });
+
   const mergedCustomerCodes = Array.from(new Set([
     ...(master.mergedCustomerCodes || (master as any).merged_customer_codes || []),
-    ...secondaries.map(s => s.maKh).filter(Boolean)
+    ...secondaries.map(s => s.maKh).filter(Boolean),
+    ...transitiveCodes
   ])) as string[];
 
   const updatedMasterCustomer: Customer = {
@@ -316,37 +400,45 @@ export function buildConsolidationMigrationPlan(
     tags: Array.from(new Set([...(sec.tags || []), 'MERGED_SECONDARY'])),
   }));
 
-  // 4. Tìm các Báo giá liên quan cần chuyển giao
+  // 4. Tìm các Báo giá liên quan cần chuyển giao & Tính tổng giá trị
   const affectedQuotationIds: string[] = [];
+  let totalQuotationValue = 0;
   quotations.forEach(q => {
-    if (q.customerId && secondaryIds.includes(q.customerId)) {
-      if (q.id) affectedQuotationIds.push(q.id);
-    } else if (q.maKh && secondaryIds.includes(q.maKh)) {
-      if (q.id) affectedQuotationIds.push(q.id);
+    const isAff = (q.customerId && secondaryIds.includes(q.customerId)) || (q.maKh && secondaryIds.includes(q.maKh));
+    if (isAff && q.id) {
+      affectedQuotationIds.push(q.id);
+      totalQuotationValue += (Number(q.totalAmount || (q as any).tongTien || (q as any).giaTriBaoGia) || 0);
     }
   });
 
-  // 5. Tìm Hợp đồng liên quan
+  // 5. Tìm Hợp đồng liên quan & Tính tổng giá trị hợp đồng
   const affectedContractIds: string[] = [];
+  let totalContractValue = 0;
   contracts.forEach(c => {
-    if ((c.customerId && secondaryIds.includes(c.customerId)) || (c.maKh && secondaryIds.includes(c.maKh))) {
-      if (c.id) affectedContractIds.push(c.id);
+    const isAff = (c.customerId && secondaryIds.includes(c.customerId)) || (c.maKh && secondaryIds.includes(c.maKh));
+    if (isAff && c.id) {
+      affectedContractIds.push(c.id);
+      totalContractValue += (Number(c.giaTriHopDong || (c as any).totalAmount || (c as any).tongGiaTri) || 0);
     }
   });
 
-  // 6. Tìm Phiếu thu / Billing
+  // 6. Tìm Phiếu thu / Billing & Tính tổng tiền đã thu
   const affectedBillingIds: string[] = [];
+  let totalBillingAmount = 0;
   billings.forEach(b => {
-    if ((b.customerId && secondaryIds.includes(b.customerId)) || (b.maKh && secondaryIds.includes(b.maKh))) {
-      if (b.id) affectedBillingIds.push(b.id);
+    const isAff = (b.customerId && secondaryIds.includes(b.customerId)) || (b.maKh && secondaryIds.includes(b.maKh));
+    if (isAff && b.id) {
+      affectedBillingIds.push(b.id);
+      totalBillingAmount += (Number(b.soTien || (b as any).amount || (b as any).soTienThu) || 0);
     }
   });
 
   // 7. Tìm Phiếu giao hàng
   const affectedDeliveryIds: string[] = [];
   deliveries.forEach(d => {
-    if ((d.customerId && secondaryIds.includes(d.customerId)) || (d.maKh && secondaryIds.includes(d.maKh))) {
-      if (d.id) affectedDeliveryIds.push(d.id);
+    const isAff = (d.customerId && secondaryIds.includes(d.customerId)) || (d.maKh && secondaryIds.includes(d.maKh));
+    if (isAff && d.id) {
+      affectedDeliveryIds.push(d.id);
     }
   });
 
@@ -358,6 +450,16 @@ export function buildConsolidationMigrationPlan(
     affectedContractIds,
     affectedBillingIds,
     affectedDeliveryIds,
+    impactSummary: {
+      quotationsCount: affectedQuotationIds.length,
+      totalQuotationValue,
+      contractsCount: affectedContractIds.length,
+      totalContractValue,
+      billingsCount: affectedBillingIds.length,
+      totalBillingAmount,
+      deliveriesCount: affectedDeliveryIds.length,
+      contactsMergedCount: mergedContacts.length
+    },
     auditSnapshot: {
       mergedAt: new Date().toISOString(),
       masterId: master.id || master.maKh,
