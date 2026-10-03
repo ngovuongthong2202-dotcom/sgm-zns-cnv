@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Users, MapPin, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { Customer } from '@/src/domain/schema/customer.schema';
 import { normalizeLegacyStatus, EntityZnsStatus } from '@/src/domain/enums/zns-status';
+import { isZnsSuccessStatus } from '@/src/domain/zns-client';
 import { MicroChart } from '@/src/design-system/MicroChart';
 import { t } from '@/src/i18n/vi';
 
@@ -34,11 +35,15 @@ export function CustomerStats({
     const totalProvinces = new Set(customers.map((c) => c.tinhThanh).filter(Boolean)).size;
 
     const znsSuccess = customers.filter(
-      (c) => normalizeLegacyStatus(c.trangThaiGuiTinQuangCao) === EntityZnsStatus.THANH_CONG
+      (c) => isZnsSuccessStatus(c.trangThaiGuiTinQuangCao) || isZnsSuccessStatus((c as any).trangThaiZns) || 
+        Boolean((c as any).contactsZnsHistory && Object.values((c as any).contactsZnsHistory).some((h: any) => isZnsSuccessStatus(typeof h === 'object' ? h?.status : h)))
     ).length;
 
     const znsUnsent = customers.filter(
       (c) => {
+        const hasSuccess = isZnsSuccessStatus(c.trangThaiGuiTinQuangCao) || isZnsSuccessStatus((c as any).trangThaiZns) || 
+          Boolean((c as any).contactsZnsHistory && Object.values((c as any).contactsZnsHistory).some((h: any) => isZnsSuccessStatus(typeof h === 'object' ? h?.status : h)));
+        if (hasSuccess) return false;
         const norm = normalizeLegacyStatus(c.trangThaiGuiTinQuangCao);
         return norm === EntityZnsStatus.CHUA_GUI || !c.trangThaiGuiTinQuangCao;
       }

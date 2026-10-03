@@ -1,5 +1,6 @@
 import { Customer } from '@/src/domain/schema/customer.schema';
 import { normalizeLegacyStatus, EntityZnsStatus } from '@/src/domain/enums/zns-status';
+import { isZnsSuccessStatus } from '@/src/domain/zns-client';
 import { matchesEnterpriseSearch } from '@/src/shared/utils/vietnameseSearchEngine';
 
 export interface FilterParams {
@@ -38,16 +39,29 @@ export function filterCustomersList({
 
   // 3. Filter by Trạng thái ZNS
   if (selectedZnsStatus) {
-    let target = selectedZnsStatus;
-    if (selectedZnsStatus === 'THANH_CONG') target = EntityZnsStatus.THANH_CONG;
-    else if (selectedZnsStatus === 'THAT_BAI') target = EntityZnsStatus.THAT_BAI;
-    else if (selectedZnsStatus === 'CHUA_GUI') target = EntityZnsStatus.CHUA_GUI;
-    else if (selectedZnsStatus === 'DANG_GUI') target = EntityZnsStatus.DANG_DAY;
-
-    result = result.filter(c => {
-      const norm = normalizeLegacyStatus(c.trangThaiGuiTinQuangCao);
-      return norm === target || norm === selectedZnsStatus;
-    });
+    if (selectedZnsStatus === 'THANH_CONG' || selectedZnsStatus === EntityZnsStatus.THANH_CONG) {
+      result = result.filter(c => 
+        isZnsSuccessStatus(c.trangThaiGuiTinQuangCao) || 
+        isZnsSuccessStatus((c as any).trangThaiZns) || 
+        Boolean((c as any).contactsZnsHistory && Object.values((c as any).contactsZnsHistory).some((h: any) => isZnsSuccessStatus(typeof h === 'object' ? h?.status : h)))
+      );
+    } else if (selectedZnsStatus === 'THAT_BAI' || selectedZnsStatus === EntityZnsStatus.THAT_BAI) {
+      result = result.filter(c => {
+        const norm = normalizeLegacyStatus(c.trangThaiGuiTinQuangCao);
+        return norm === EntityZnsStatus.THAT_BAI || norm === EntityZnsStatus.VUOT_HAN_MUC;
+      });
+    } else if (selectedZnsStatus === 'CHUA_GUI' || selectedZnsStatus === EntityZnsStatus.CHUA_GUI) {
+      result = result.filter(c => {
+        const hasSuccess = isZnsSuccessStatus(c.trangThaiGuiTinQuangCao) || isZnsSuccessStatus((c as any).trangThaiZns) || 
+          Boolean((c as any).contactsZnsHistory && Object.values((c as any).contactsZnsHistory).some((h: any) => isZnsSuccessStatus(typeof h === 'object' ? h?.status : h)));
+        return !hasSuccess && (normalizeLegacyStatus(c.trangThaiGuiTinQuangCao) === EntityZnsStatus.CHUA_GUI || !c.trangThaiGuiTinQuangCao);
+      });
+    } else {
+      result = result.filter(c => {
+        const norm = normalizeLegacyStatus(c.trangThaiGuiTinQuangCao);
+        return norm === selectedZnsStatus;
+      });
+    }
   }
 
   // 4. Filter by Tỉnh/Thành

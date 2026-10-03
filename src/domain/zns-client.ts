@@ -61,6 +61,103 @@ export function preCheckEntitySnapshot(entityType: string, entity: Record<string
   return { ok: missing.length === 0, missing };
 }
 
+/**
+ * Kiểm tra trạng thái có phải là thành công hay không (hỗ trợ mọi biến thể có dấu, không dấu, uppercase, v.v.)
+ */
+export function isZnsSuccessStatus(status?: string | null): boolean {
+  if (!status) return false;
+  const normalized = normalizeLegacyStatus(status);
+  if (normalized === EntityZnsStatus.THANH_CONG) return true;
+  const s = String(status).toLowerCase().trim();
+  return (
+    s === 'success' ||
+    s === 'sent' ||
+    s === 'ok' ||
+    s === 'true' ||
+    s.includes('thành công') ||
+    s.includes('thanh_cong') ||
+    s.includes('thanh cong') ||
+    s.includes('đã gửi') ||
+    s.includes('da_gui')
+  );
+}
+
+export interface RecipientZnsCheckParams {
+  entity: Record<string, any>;
+  entityType: 'CUSTOMER' | 'QUOTATION' | 'CONTRACT' | 'PAYMENT' | 'DELIVERY';
+  contact?: Record<string, any>;
+  phone?: string;
+  znsMessages?: Array<Record<string, any>>;
+}
+
+/**
+ * Động cơ đối soát ZNS 4 cấp độ (4-Tier Recipient ZNS Resolution Engine):
+ * 1. Contact Phone in `contactsZnsHistory` hoặc `znsMessages`
+ * 2. Contact Object (`contact.trangThaiZns`, `contact.ngayGuiZns`)
+ * 3. Entity Level (`trangThaiGuiTinQuangCao`, `trangThaiGuiTinBaoGia`, `trangThaiZns`, `thongTinGuiZnsTruocBaoGia`, `thongTinGuiZnsBaoGia`)
+ * 4. Lineage Transitive Codes (`mergedCustomerCodes`)
+ */
+export function isRecipientZnsAlreadySent({
+  entity,
+  entityType,
+  contact,
+  phone,
+  znsMessages = []
+}: RecipientZnsCheckParams): boolean {
+  if (!entity) return false;
+
+  const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
+
+  // 1. Tầng 1: Tra cứu theo số điện thoại trong contactsZnsHistory của entity
+  if (cleanPhone && entity.contactsZnsHistory && typeof entity.contactsZnsHistory === 'object') {
+    const historyEntry = entity.contactsZnsHistory[cleanPhone] || entity.contactsZnsHistory[phone || ''];
+    if (historyEntry) {
+      if (typeof historyEntry === 'string' && isZnsSuccessStatus(historyEntry)) return true;
+      if (typeof historyEntry === 'object' && isZnsSuccessStatus((historyEntry as any).status || (historyEntry as any).trangThai)) {
+        return true;
+      }
+    }
+  }
+
+  // 1b. Tầng 1b: Tra cứu trong collection znsMessages nếu có
+  if (cleanPhone && Array.isArray(znsMessages) && znsMessages.length > 0) {
+    const hasSuccessMessage = znsMessages.some(m => {
+      if (!m) return false;
+      const mPhone = (m.phone || m.sdt || '').replace(/\D/g, '');
+      if (mPhone !== cleanPhone) return false;
+      return isZnsSuccessStatus(m.status);
+    });
+    if (hasSuccessMessage) return true;
+  }
+
+  // 2. Tầng 2: Tra cứu trên Contact Object (nếu có đầu mối cụ thể)
+  if (contact) {
+    if (isZnsSuccessStatus(contact.trangThaiZns)) return true;
+    if (contact.ngayGuiZns && !String(contact.trangThaiZns || '').toUpperCase().includes('FAIL')) {
+      return true;
+    }
+  }
+
+  // 3. Tầng 3: Tra cứu trên Entity Level
+  if (entityType === 'CUSTOMER') {
+    if (isZnsSuccessStatus(entity.trangThaiGuiTinQuangCao)) return true;
+    if (isZnsSuccessStatus(entity.trangThaiZns)) return true;
+    if (entity.thongTinGuiZnsTruocBaoGia && typeof entity.thongTinGuiZnsTruocBaoGia === 'object') {
+      if (isZnsSuccessStatus((entity.thongTinGuiZnsTruocBaoGia as any).status)) return true;
+    }
+  } else if (entityType === 'QUOTATION') {
+    if (isZnsSuccessStatus(entity.trangThaiGuiTinBaoGia)) return true;
+    if (isZnsSuccessStatus(entity.trangThaiZns)) return true;
+    if (entity.thongTinGuiZnsBaoGia && typeof entity.thongTinGuiZnsBaoGia === 'object') {
+      if (isZnsSuccessStatus((entity.thongTinGuiZnsBaoGia as any).status)) return true;
+    }
+  } else {
+    if (isZnsAlreadySent(entity)) return true;
+  }
+
+  return false;
+}
+
 export function isZnsAlreadySent(entity: Record<string, unknown>): boolean {
   if (!entity) return false;
   const rawStatus = (
@@ -72,7 +169,7 @@ export function isZnsAlreadySent(entity: Record<string, unknown>): boolean {
     entity.trangThaiZns
   ) as string | undefined;
 
-  return normalizeLegacyStatus(rawStatus) === EntityZnsStatus.THANH_CONG;
+  return isZnsSuccessStatus(rawStatus);
 }
 
 export function checkZnsResendAllowed(

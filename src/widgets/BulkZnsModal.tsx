@@ -13,14 +13,17 @@ import {
   StopCircle, 
   RotateCcw, 
   ShieldCheck, 
-  AlertCircle 
+  AlertCircle,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { Customer } from '@/src/domain/schema/customer.schema';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 import { sendZnsMessage } from '@/src/domain/zns';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
-import { nextAttempt } from '@/src/domain/zns-client';
+import { nextAttempt, isRecipientZnsAlreadySent, isZnsSuccessStatus } from '@/src/domain/zns-client';
+import { useRealtimeCollection } from '@/src/data/realtime-store';
 import { crossTabSync } from '@/src/shared/utils/crossTabSync';
 import { clearSwrColCache } from '@/src/data/swr-fetchers';
 import { notify } from '@/src/shared/utils/notify';
@@ -52,6 +55,7 @@ export interface TargetRecipient {
   willSend: boolean;
   skipReason?: string;
   originalEntity: any;
+  contactObj?: any;
 }
 
 export interface DispatchLogItem {
@@ -75,6 +79,10 @@ export function BulkZnsModal({
   // Pre-flight settings
   const [allowResend, setAllowResend] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState(5); // 5s, 7s, 10s
+  const [manualToggles, setManualToggles] = useState<Record<string, boolean>>({});
+
+  // Real-time message subscription for 100% accurate dispatch history resolution
+  const { data: realtimeZnsMessages = [] } = useRealtimeCollection<any>('zns_messages');
 
   // State machine: PRE_FLIGHT -> DISPATCHING -> COMPLETED
   const [stage, setStage] = useState<'PRE_FLIGHT' | 'DISPATCHING' | 'COMPLETED'>('PRE_FLIGHT');
@@ -104,7 +112,7 @@ export function BulkZnsModal({
         if (!c || c.isArchived || (c as any).is_archived) return;
 
         // Trích xuất các đầu mối từ contacts array và primary fields
-        const contactPool: Array<{ name: string; phone: string; role?: string; branch?: string }> = [];
+        const contactPool: Array<{ name: string; phone: string; role?: string; branch?: string; rawContact?: any }> = [];
 
         if (Array.isArray(c.contacts) && c.contacts.length > 0) {
           c.contacts.forEach((ct) => {
@@ -113,7 +121,8 @@ export function BulkZnsModal({
                 name: ct.nguoiDaiDien || c.tenKhachHang || 'Đại diện',
                 phone: (ct.sdt || '').trim(),
                 role: ct.chucVu,
-                branch: ct.chiNhanh
+                branch: ct.chiNhanh,
+                rawContact: ct
               });
             }
           });
@@ -124,7 +133,8 @@ export function BulkZnsModal({
           contactPool.unshift({
             name: c.nguoiDaiDien || c.tenKhachHang || 'Đại diện',
             phone: c.sdt.trim(),
-            role: 'Chính'
+            role: 'Chính',
+            rawContact: undefined
           });
         }
 
@@ -147,10 +157,6 @@ export function BulkZnsModal({
           return;
         }
 
-        const isCustAlreadySent = c.trangThaiGuiTinQuangCao === 'THANH_CONG' || 
-                                 c.trangThaiGuiTinQuangCao === 'ĐÃ GỬI' ||
-                                 (c as any).thongTinGuiZnsBaoGia?.status === 'SUCCESS';
-
         contactPool.forEach((ct, ctIdx) => {
           const ext = extractVietnamesePhones(ct.phone, c.diaChi);
           const hasMobile = ext.mobilePhones.length > 0;
@@ -158,8 +164,29 @@ export function BulkZnsModal({
 
           if (hasMobile) {
             ext.mobilePhones.forEach((mob, mIdx) => {
+              const recId = `cust-${c.id || c.maKh}-${ctIdx}-${mIdx}`;
+              
+              // Động cơ đối soát ZNS 4 cấp độ (Contact Phone, Contact Obj, Entity Status, Realtime Messages)
+              const isAlreadySent = isRecipientZnsAlreadySent({
+                entity: c,
+                entityType: 'CUSTOMER',
+                contact: ct.rawContact,
+                phone: mob.cleaned,
+                znsMessages: realtimeZnsMessages
+              });
+
+              const defaultWillSend = !isAlreadySent || allowResend;
+              const willSend = manualToggles[recId] !== undefined ? manualToggles[recId] : defaultWillSend;
+
+              let skipReason: string | undefined;
+              if (isAlreadySent && !allowResend && manualToggles[recId] !== true) {
+                skipReason = 'Đã gửi thành công trước đó (Tự động bỏ qua)';
+              } else if (manualToggles[recId] === false) {
+                skipReason = 'Bỏ chọn thủ công';
+              }
+
               list.push({
-                id: `cust-${c.id || c.maKh}-${ctIdx}-${mIdx}`,
+                id: recId,
                 entityId: c.id || c.maKh || '',
                 code: c.maKh || 'KH',
                 customerName: c.tenKhachHang || 'Khách hàng',
@@ -170,15 +197,24 @@ export function BulkZnsModal({
                 carrier: mob.carrier,
                 phoneType: 'MOBILE',
                 isLandline: false,
-                isAlreadySent: isCustAlreadySent,
+                isAlreadySent,
                 rawStatus: c.trangThaiGuiTinQuangCao || undefined,
-                willSend: !isCustAlreadySent || allowResend,
-                skipReason: (isCustAlreadySent && !allowResend) ? 'Đã gửi thành công trước đó' : undefined,
-                originalEntity: { ...c, sdt: mob.cleaned, phone: mob.cleaned, nguoiDaiDien: ct.name }
+                willSend,
+                skipReason,
+                originalEntity: { ...c, sdt: mob.cleaned, phone: mob.cleaned, nguoiDaiDien: ct.name },
+                contactObj: ct.rawContact
               });
             });
           } else if (hasLandline) {
             const land = ext.landlinePhones[0];
+            const isAlreadySent = isRecipientZnsAlreadySent({
+              entity: c,
+              entityType: 'CUSTOMER',
+              contact: ct.rawContact,
+              phone: land.cleaned,
+              znsMessages: realtimeZnsMessages
+            });
+
             list.push({
               id: `cust-land-${c.id || c.maKh}-${ctIdx}`,
               entityId: c.id || c.maKh || '',
@@ -190,7 +226,7 @@ export function BulkZnsModal({
               phoneFormatted: land.formatted,
               phoneType: 'LANDLINE',
               isLandline: true,
-              isAlreadySent: isCustAlreadySent,
+              isAlreadySent,
               willSend: false,
               skipReason: `Bỏ qua (Số bàn cố định ${land.cleaned.slice(0, 3)})`,
               originalEntity: c
@@ -206,7 +242,7 @@ export function BulkZnsModal({
               phoneFormatted: ct.phone,
               phoneType: 'UNKNOWN',
               isLandline: false,
-              isAlreadySent: isCustAlreadySent,
+              isAlreadySent: false,
               willSend: false,
               skipReason: 'Số điện thoại không hợp lệ',
               originalEntity: c
@@ -219,17 +255,33 @@ export function BulkZnsModal({
       const quotes = items as Quotation[];
       quotes.forEach((q) => {
         if (!q || !q.id) return;
-        const isQuoteAlreadySent = q.trangThaiGuiTinBaoGia === 'THANH_CONG' || 
-                                  q.trangThaiGuiTinBaoGia === 'ĐÃ GỬI' ||
-                                  (q as any).thongTinGuiZnsBaoGia?.status === 'SUCCESS';
-
+        
         const rawPhone = (q.sdt || '').trim();
         const ext = extractVietnamesePhones(rawPhone, q.diaChi);
 
         if (ext.mobilePhones.length > 0) {
           const mob = ext.mobilePhones[0];
+          const recId = `quote-${q.id}`;
+
+          const isAlreadySent = isRecipientZnsAlreadySent({
+            entity: q,
+            entityType: 'QUOTATION',
+            phone: mob.cleaned,
+            znsMessages: realtimeZnsMessages
+          });
+
+          const defaultWillSend = !isAlreadySent || allowResend;
+          const willSend = manualToggles[recId] !== undefined ? manualToggles[recId] : defaultWillSend;
+
+          let skipReason: string | undefined;
+          if (isAlreadySent && !allowResend && manualToggles[recId] !== true) {
+            skipReason = 'Đã gửi thành công trước đó (Tự động bỏ qua)';
+          } else if (manualToggles[recId] === false) {
+            skipReason = 'Bỏ chọn thủ công';
+          }
+
           list.push({
-            id: `quote-${q.id}`,
+            id: recId,
             entityId: q.id,
             code: q.soPhieuBaoGia || 'BG',
             customerName: q.tenKhachHang || 'Khách hàng',
@@ -239,14 +291,21 @@ export function BulkZnsModal({
             carrier: mob.carrier,
             phoneType: 'MOBILE',
             isLandline: false,
-            isAlreadySent: isQuoteAlreadySent,
+            isAlreadySent,
             rawStatus: q.trangThaiGuiTinBaoGia || undefined,
-            willSend: !isQuoteAlreadySent || allowResend,
-            skipReason: (isQuoteAlreadySent && !allowResend) ? 'Đã gửi thành công trước đó' : undefined,
+            willSend,
+            skipReason,
             originalEntity: { ...q, sdt: mob.cleaned, phone: mob.cleaned }
           });
         } else if (ext.landlinePhones.length > 0) {
           const land = ext.landlinePhones[0];
+          const isAlreadySent = isRecipientZnsAlreadySent({
+            entity: q,
+            entityType: 'QUOTATION',
+            phone: land.cleaned,
+            znsMessages: realtimeZnsMessages
+          });
+
           list.push({
             id: `quote-land-${q.id}`,
             entityId: q.id,
@@ -257,7 +316,7 @@ export function BulkZnsModal({
             phoneFormatted: land.formatted,
             phoneType: 'LANDLINE',
             isLandline: true,
-            isAlreadySent: isQuoteAlreadySent,
+            isAlreadySent,
             willSend: false,
             skipReason: `Bỏ qua (Số bàn cố định ${land.cleaned.slice(0, 3)})`,
             originalEntity: q
@@ -273,7 +332,7 @@ export function BulkZnsModal({
             phoneFormatted: rawPhone || '—',
             phoneType: 'UNKNOWN',
             isLandline: false,
-            isAlreadySent: isQuoteAlreadySent,
+            isAlreadySent: false,
             willSend: false,
             skipReason: rawPhone ? 'Số không hợp lệ' : 'Thiếu số điện thoại',
             originalEntity: q
@@ -283,7 +342,7 @@ export function BulkZnsModal({
     }
 
     return list;
-  }, [items, entityType, allowResend]);
+  }, [items, entityType, allowResend, manualToggles, realtimeZnsMessages]);
 
   // Các danh sách con phục vụ thống kê & hàng đợi
   const eligibleRecipients = useMemo(() => recipients.filter(r => r.willSend), [recipients]);
@@ -471,12 +530,18 @@ export function BulkZnsModal({
                   <span className="text-3xs text-slate-500 block mt-0.5">Danh sách hiện tại</span>
                 </div>
 
-                <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-200">
+                <div className={`p-3 rounded-xl border transition-all ${
+                  allowResend 
+                    ? 'bg-gradient-to-br from-emerald-50 via-teal-50/60 to-emerald-100/50 border-emerald-300 shadow-2xs' 
+                    : 'bg-emerald-50/50 border-emerald-200'
+                }`}>
                   <span className="text-3xs uppercase font-bold text-emerald-700 block mb-1 flex items-center justify-center gap-1">
                     <Smartphone size={11} /> SĐT Di động (ZNS OK)
                   </span>
                   <span className="text-base font-black font-mono text-emerald-800">{eligibleRecipients.length}</span>
-                  <span className="text-3xs text-emerald-600 block mt-0.5">Sẵn sàng xếp hàng gửi</span>
+                  <span className="text-3xs text-emerald-600 block mt-0.5 font-medium">
+                    {allowResend ? 'Bao gồm gửi mới + gửi lại' : 'Sẵn sàng gửi mới (Đã chặn trùng)'}
+                  </span>
                 </div>
 
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
@@ -487,12 +552,22 @@ export function BulkZnsModal({
                   <span className="text-3xs text-slate-400 block mt-0.5">Tự động loại trừ</span>
                 </div>
 
-                <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-200">
-                  <span className="text-3xs uppercase font-bold text-blue-700 block mb-1 flex items-center justify-center gap-1">
+                <div className={`p-3 rounded-xl border transition-all ${
+                  allowResend 
+                    ? 'bg-blue-50/90 border-blue-400 ring-2 ring-blue-400/40 text-blue-900 shadow-xs' 
+                    : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`}>
+                  <span className={`text-3xs uppercase font-bold block mb-1 flex items-center justify-center gap-1 ${
+                    allowResend ? 'text-blue-800' : 'text-slate-500'
+                  }`}>
                     <CheckCircle2 size={11} /> Đã gửi thành công
                   </span>
-                  <span className="text-base font-black font-mono text-blue-800">{alreadySentCount}</span>
-                  <span className="text-3xs text-blue-600 block mt-0.5">{allowResend ? 'Sẽ gửi lại' : 'Tự động bỏ qua'}</span>
+                  <span className={`text-base font-black font-mono ${allowResend ? 'text-blue-900' : 'text-slate-800'}`}>
+                    {alreadySentCount}
+                  </span>
+                  <span className={`text-3xs block mt-0.5 font-medium ${allowResend ? 'text-blue-700 font-semibold' : 'text-slate-400'}`}>
+                    {allowResend ? `Đã mở khóa gửi lại (${alreadySentCount} lượt)` : 'Tự động bỏ qua (Chặn trùng)'}
+                  </span>
                 </div>
               </div>
 
@@ -509,7 +584,10 @@ export function BulkZnsModal({
                     <input 
                       type="checkbox" 
                       checked={allowResend} 
-                      onChange={(e) => setAllowResend(e.target.checked)} 
+                      onChange={(e) => {
+                        setAllowResend(e.target.checked);
+                        setManualToggles({});
+                      }} 
                       className="sr-only peer"
                     />
                     <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600" />
@@ -553,61 +631,112 @@ export function BulkZnsModal({
               {/* Recipient Audience Preview Table */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-2xs font-extrabold uppercase tracking-wider text-slate-500">
-                    Danh Sách Đầu Mối Tiếp Nhận ({recipients.length} mục)
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xs font-extrabold uppercase tracking-wider text-slate-500">
+                      Danh Sách Đầu Mối Tiếp Nhận ({recipients.length} mục)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const validMobiles = recipients.filter(r => !r.isLandline && r.phone);
+                        const allSelected = validMobiles.every(r => r.willSend);
+                        const next: Record<string, boolean> = {};
+                        validMobiles.forEach(r => {
+                          next[r.id] = !allSelected;
+                        });
+                        setManualToggles(next);
+                      }}
+                      className="text-3xs font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                    >
+                      {eligibleRecipients.length === 0 ? 'Chọn tất cả di động' : 'Đảo chọn'}
+                    </button>
+                  </div>
                   <span className="text-3xs text-slate-400">
-                    Chỉ gửi các mục được đánh dấu xanh
+                    Tick chọn để điều chỉnh danh sách người nhận
                   </span>
                 </div>
 
                 <div className="max-h-[260px] overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs">
-                  {recipients.map((r, idx) => (
-                    <div 
-                      key={r.id || idx} 
-                      className={`p-2.5 flex items-center justify-between gap-3 transition-colors ${
-                        r.willSend ? 'bg-white hover:bg-blue-50/30' : 'bg-slate-50/70 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="font-mono text-3xs text-slate-400 w-5 text-right shrink-0">{idx + 1}</span>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-mono font-bold text-slate-800 text-2xs">{r.code}</span>
-                            <span className="font-semibold text-slate-900 truncate max-w-[200px]">{r.customerName}</span>
-                            <span className="text-3xs text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
-                              👤 {r.contactName} {r.roleOrBranch ? `• ${r.roleOrBranch}` : ''}
+                  {recipients.map((r, idx) => {
+                    const isCheckboxDisabled = r.isLandline || !r.phone;
+                    return (
+                      <div 
+                        key={r.id || idx} 
+                        onClick={() => {
+                          if (!isCheckboxDisabled) {
+                            setManualToggles(prev => ({ ...prev, [r.id]: !r.willSend }));
+                          }
+                        }}
+                        className={`p-2.5 flex items-center justify-between gap-3 transition-colors cursor-pointer select-none ${
+                          r.willSend ? 'bg-white hover:bg-blue-50/30' : 'bg-slate-50/70 opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={r.willSend}
+                            disabled={isCheckboxDisabled}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              setManualToggles(prev => ({ ...prev, [r.id]: e.target.checked }));
+                            }}
+                            className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          />
+                          <span className="font-mono text-3xs text-slate-400 w-5 text-right shrink-0">{idx + 1}</span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono font-bold text-slate-800 text-2xs">{r.code}</span>
+                              <span className="font-semibold text-slate-900 truncate max-w-[200px]">{r.customerName}</span>
+                              <span className="text-3xs text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                                👤 {r.contactName} {r.roleOrBranch ? `• ${r.roleOrBranch}` : ''}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="text-right">
+                            <span className={`font-mono text-xs font-bold ${r.isLandline ? 'text-slate-400 line-through' : 'text-blue-900'}`}>
+                              {r.phoneFormatted}
                             </span>
+                            {r.carrier && (
+                              <span className="text-3xs text-blue-700 bg-blue-50 px-1 py-0.1 rounded border border-blue-200 ml-1.5 font-bold">
+                                {r.carrier}
+                              </span>
+                            )}
+                          </div>
+
+                          <div>
+                            {r.isLandline ? (
+                              <span className="text-3xs font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                                ☎️ {r.skipReason || 'Bỏ qua (Số bàn)'}
+                              </span>
+                            ) : !r.phone ? (
+                              <span className="text-3xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+                                Thiếu SĐT
+                              </span>
+                            ) : r.willSend && !r.isAlreadySent ? (
+                              <span className="text-3xs font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                <CheckCircle2 size={11} /> Sẵn sàng gửi mới
+                              </span>
+                            ) : r.willSend && r.isAlreadySent ? (
+                              <span className="text-3xs font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-300 flex items-center gap-1">
+                                <RotateCcw size={11} /> Sẵn sàng gửi lại
+                              </span>
+                            ) : !r.willSend && r.isAlreadySent ? (
+                              <span className="text-3xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1">
+                                <CheckCircle2 size={11} /> Đã gửi (Bỏ qua)
+                              </span>
+                            ) : (
+                              <span className="text-3xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+                                {r.skipReason || 'Bỏ qua'}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-3 shrink-0">
-                        <div className="text-right">
-                          <span className={`font-mono text-xs font-bold ${r.isLandline ? 'text-slate-400 line-through' : 'text-blue-900'}`}>
-                            {r.phoneFormatted}
-                          </span>
-                          {r.carrier && (
-                            <span className="text-3xs text-blue-700 bg-blue-50 px-1 py-0.1 rounded border border-blue-200 ml-1.5 font-bold">
-                              {r.carrier}
-                            </span>
-                          )}
-                        </div>
-
-                        <div>
-                          {r.willSend ? (
-                            <span className="text-3xs font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                              <CheckCircle2 size={11} /> Sẵn sàng gửi
-                            </span>
-                          ) : (
-                            <span className="text-3xs font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-600">
-                              {r.skipReason || 'Bỏ qua'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -779,9 +908,14 @@ export function BulkZnsModal({
                   leftIcon={<Send size={13} />}
                   onClick={handleStartDispatch}
                   disabled={eligibleRecipients.length === 0}
-                  className="font-bold"
+                  className="font-bold cursor-pointer"
                 >
                   Bắt đầu gửi ({eligibleRecipients.length} lượt)
+                  {eligibleRecipients.some(r => r.isAlreadySent) && (
+                    <span className="text-2xs font-normal opacity-90 ml-1">
+                      ({eligibleRecipients.filter(r => !r.isAlreadySent).length} mới + {eligibleRecipients.filter(r => r.isAlreadySent).length} gửi lại)
+                    </span>
+                  )}
                 </Button>
               </>
             )}

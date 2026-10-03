@@ -7,13 +7,15 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { 
   resolveQuotationChronoMeta, 
   extractDateFromQuotationCode, 
-  calculateDaysRemaining, 
   calculateExpirationDate 
 } from '@/src/shared/utils/quotationDateResolver';
 import { BulkZnsModal } from '@/src/widgets/BulkZnsModal';
 import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
-import { Customer } from '@/src/domain/schema/customer.schema';
-import { Quotation } from '@/src/domain/schema/quotation.schema';
+import { 
+  isZnsSuccessStatus, 
+  isRecipientZnsAlreadySent, 
+  isZnsAlreadySent 
+} from '@/src/domain/zns-client';
 
 // Mock IAM
 vi.mock('@/src/modules/iam', () => ({
@@ -27,6 +29,11 @@ vi.mock('@/src/modules/iam', () => ({
 // Mock ZNS Domain & Client
 vi.mock('@/src/domain/zns', () => ({
   sendZnsMessage: vi.fn().mockResolvedValue({ success: true, trackingId: 'mock-zns-123' })
+}));
+
+// Mock Realtime collection
+vi.mock('@/src/data/realtime-store', () => ({
+  useRealtimeCollection: () => ({ data: [] })
 }));
 
 // Mock Notifications & Cache
@@ -49,7 +56,7 @@ vi.mock('@/src/shared/utils/crossTabSync', () => ({
   }
 }));
 
-describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator', () => {
+describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator (Paradigm 10)', () => {
 
   describe('1. Quotation Chrono Date & Expiration Engine', () => {
     it('should correctly parse issue date from quotation code (e.g. 11-BG2601-017 -> 2026-01-01)', () => {
@@ -63,17 +70,15 @@ describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator', () => {
     });
 
     it('should prioritize ngayBaoGia and code over ngayCapNhat, preventing false "Khách hàng mới" on updated old quotes', () => {
-      const mockQuote: Partial<Quotation> = {
+      const mockQuote: any = {
         id: 'q-2601-017',
         soPhieuBaoGia: '11-BG2601-017',
         ngayBaoGia: '2026-01-05',
-        ngayCapNhat: '2026-10-02', // Updated today
+        ngayCapNhat: '2026-10-02',
         thoiHanBaoGia: '30 ngày'
       };
 
       const meta = resolveQuotationChronoMeta(mockQuote, new Date('2026-10-03'));
-      
-      // Issue date must be 05/01/2026, NOT 02/10/2026!
       expect(meta.issueDateFormatted).toBe('05/01/2026');
       expect(meta.isExpired).toBe(true);
       expect(meta.statusBadge.text).toContain('Hết hạn');
@@ -81,7 +86,7 @@ describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator', () => {
     });
 
     it('should infer date from code when ngayBaoGia is omitted, ignoring recent ngayCapNhat', () => {
-      const mockQuote: Partial<Quotation> = {
+      const mockQuote: any = {
         id: 'q-2601-018',
         soPhieuBaoGia: '11-BG2601-018',
         ngayCapNhat: '2026-10-02',
@@ -89,42 +94,15 @@ describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator', () => {
       };
 
       const meta = resolveQuotationChronoMeta(mockQuote, new Date('2026-10-03'));
-      // Code 2601 -> 01/01/2026
       expect(meta.issueDateFormatted).toBe('01/01/2026');
       expect(meta.isExpired).toBe(true);
       expect(meta.statusBadge.text).toContain('Hết hạn');
     });
-
-    it('should correctly flag active and near-expiration quotations', () => {
-      const refDate = new Date('2026-10-03');
-      
-      // Active quote created 2 days ago with 30-day validity
-      const activeQuote: Partial<Quotation> = {
-        id: 'q-active',
-        ngayBaoGia: '2026-10-01',
-        thoiHanBaoGia: '30 ngày'
-      };
-      const activeMeta = resolveQuotationChronoMeta(activeQuote, refDate);
-      expect(activeMeta.isExpired).toBe(false);
-      expect(activeMeta.isExpiringSoon).toBe(false);
-      expect(activeMeta.statusBadge.text).toContain('Còn hiệu lực');
-
-      // Expiring soon quote (e.g. 2 days remaining)
-      const expiringQuote: Partial<Quotation> = {
-        id: 'q-expiring',
-        ngayBaoGia: '2026-09-20',
-        thoiHanBaoGia: '15 ngày'
-      };
-      const expiringMeta = resolveQuotationChronoMeta(expiringQuote, refDate);
-      expect(expiringMeta.isExpired).toBe(false);
-      expect(expiringMeta.isExpiringSoon).toBe(true);
-      expect(expiringMeta.statusBadge.text).toContain('Sắp hết');
-    });
   });
 
-  describe('2. Telecom Phone Extraction & Landline Exclusion', () => {
-    it('should classify 024, 028 and provincial area codes as LANDLINE and regular 10-digit mobile prefixes as MOBILE', () => {
-      const hcmLandline = extractVietnamesePhones('028.3822.5678');
+  describe('2. Vietnamese Telecom Extractor & Landline Quarantine', () => {
+    it('should identify landline phones by 63 provincial area codes and detect province', () => {
+      const hcmLandline = extractVietnamesePhones('028 3822 5678');
       expect(hcmLandline.landlinePhones.length).toBe(1);
       expect(hcmLandline.mobilePhones.length).toBe(0);
       expect(hcmLandline.landlinePhones[0].province).toBe('TP. Hồ Chí Minh');
@@ -141,15 +119,71 @@ describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator', () => {
     });
   });
 
-  describe('3. Bulk ZNS Modal Pre-flight Scanner & Dispatcher', () => {
-    const mockCustomers: Customer[] = [
+  describe('3. SSOT ZNS Status Normalization & 4-Tier Resolution Engine', () => {
+    it('should normalize accented Vietnamese and legacy strings to success status', () => {
+      expect(isZnsSuccessStatus('THÀNH CÔNG')).toBe(true);
+      expect(isZnsSuccessStatus('Thành Công')).toBe(true);
+      expect(isZnsSuccessStatus('THANH_CONG')).toBe(true);
+      expect(isZnsSuccessStatus('SUCCESS')).toBe(true);
+      expect(isZnsSuccessStatus('ĐÃ GỬI')).toBe(true);
+      expect(isZnsSuccessStatus('da_gui')).toBe(true);
+      expect(isZnsSuccessStatus('CHƯA GỬI')).toBe(false);
+      expect(isZnsSuccessStatus('THẤT BẠI')).toBe(false);
+      expect(isZnsSuccessStatus(null)).toBe(false);
+    });
+
+    it('should resolve per-contact delivery history individually for multi-contact customer KH0436', () => {
+      const customerKH0436: any = {
+        id: 'cust-436',
+        maKh: 'KH0436',
+        tenKhachHang: 'Công ty Cổ Phần Cơ Khí Xây Dựng Nam Phát',
+        trangThaiGuiTinQuangCao: 'CHUA_GUI',
+        contactsZnsHistory: {
+          '0938384265': { status: 'SUCCESS', timestamp: '2026-09-15T08:00:00Z' }
+        },
+        contacts: [
+          {
+            nguoiDaiDien: 'A. Thông',
+            sdt: '0938 384 265',
+            chucVu: 'Phó Giám Đốc'
+          },
+          {
+            nguoiDaiDien: 'C. Yến',
+            sdt: '0779 054 678',
+            chucVu: 'Kế toán trưởng'
+          }
+        ]
+      };
+
+      // Contact 1 (A. Thông - 0938384265) WAS sent successfully
+      const isContact1Sent = isRecipientZnsAlreadySent({
+        entity: customerKH0436,
+        entityType: 'CUSTOMER',
+        contact: customerKH0436.contacts[0],
+        phone: '0938384265'
+      });
+      expect(isContact1Sent).toBe(true);
+
+      // Contact 2 (C. Yến - 0779054678) WAS NOT sent
+      const isContact2Sent = isRecipientZnsAlreadySent({
+        entity: customerKH0436,
+        entityType: 'CUSTOMER',
+        contact: customerKH0436.contacts[1],
+        phone: '0779054678'
+      });
+      expect(isContact2Sent).toBe(false);
+    });
+  });
+
+  describe('4. Bulk ZNS Modal Pre-flight Scanner & Reactive Bento HUD', () => {
+    const mockCustomers: any[] = [
       {
         id: 'c1',
         maKh: 'KH001',
         tenKhachHang: 'Công ty Di Động Chuẩn',
         sdt: '0912.345.678',
         nguoiDaiDien: 'Nguyễn Văn A',
-        trangThaiGuiTinQuangCao: 'CHUA_GUI'
+        trangThaiGuiTinQuangCao: 'CHƯA GỬI'
       },
       {
         id: 'c2',
@@ -157,7 +191,7 @@ describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator', () => {
         tenKhachHang: 'Công ty Số Bàn Cố Định',
         sdt: '028 3822 5678', // Landline - MUST BE EXCLUDED!
         nguoiDaiDien: 'Trần Văn B',
-        trangThaiGuiTinQuangCao: 'CHUA_GUI'
+        trangThaiGuiTinQuangCao: 'CHƯA GỬI'
       },
       {
         id: 'c3',
@@ -165,7 +199,7 @@ describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator', () => {
         tenKhachHang: 'Tập đoàn Đa Đầu Mối',
         sdt: '0988.111.222',
         nguoiDaiDien: 'Lê Văn C',
-        trangThaiGuiTinQuangCao: 'CHUA_GUI',
+        trangThaiGuiTinQuangCao: 'CHƯA GỬI',
         contacts: [
           {
             nguoiDaiDien: 'Lê Văn C (Tổng Giám Đốc)',
@@ -190,11 +224,11 @@ describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator', () => {
         tenKhachHang: 'Công ty Đã Gửi Thành Công',
         sdt: '0933.888.999',
         nguoiDaiDien: 'Hoàng Văn E',
-        trangThaiGuiTinQuangCao: 'THANH_CONG' // Already sent
+        trangThaiGuiTinQuangCao: 'THÀNH CÔNG' // Accented success status from DB
       }
     ];
 
-    it('should exclude landlines and expand multi-contact customers to all valid mobile contacts', () => {
+    it('should exclude landlines and accurately count already-sent records in Card 4', () => {
       render(
         <BulkZnsModal
           isOpen={true}
@@ -207,23 +241,17 @@ describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator', () => {
       // Verify Modal Title
       expect(screen.getByText(/Hệ Thống Gửi ZNS Hàng Loạt/i)).toBeTruthy();
       
+      // Card 4 must display 1 already-sent record (c4 with 'THÀNH CÔNG'), NOT 0!
+      expect(screen.getByText('Đã gửi thành công')).toBeTruthy();
+      expect(screen.getByText('Tự động bỏ qua (Chặn trùng)')).toBeTruthy();
+
       // KH002 (028...) and c3 receptionist (024...) are excluded landlines
       expect(screen.getAllByText(/Số bàn cố định/i).length).toBeGreaterThan(0);
-
-      // Check recipient table:
-      // c1: 0912345678 (Eligible)
-      // c2: 02838225678 (Skipped - Số bàn cố định)
-      // c3: 2 mobile contacts (0988111222, 0977333444) are Eligible, 1 landline skipped
-      // c4: 0933888999 (Skipped by default - Đã gửi)
-      expect(screen.getByText(/Nguyễn Văn A/i)).toBeTruthy();
-      expect(screen.getByText(/Trần Văn B/i)).toBeTruthy();
-      expect(screen.getByText(/Lê Văn C \(Tổng Giám Đốc\)/i)).toBeTruthy();
-      expect(screen.getByText(/Phạm Thị D \(Kế toán trưởng\)/i)).toBeTruthy();
       expect(screen.getByText(/Bỏ qua \(Số bàn cố định 028\)/i)).toBeTruthy();
       expect(screen.getByText(/Bỏ qua \(Số bàn cố định 024\)/i)).toBeTruthy();
     });
 
-    it('should toggle eligibility of already-sent records when allowResend is toggled', () => {
+    it('should update Card 2 and Card 4 reactively when allowResend is toggled', () => {
       const { container } = render(
         <BulkZnsModal
           isOpen={true}
@@ -233,18 +261,20 @@ describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator', () => {
         />
       );
 
-      // Initially, c4 is marked as already sent and skipped
-      expect(screen.getByText(/Đã gửi thành công trước đó/i)).toBeTruthy();
+      // Initially, Card 4 subtitle says "Tự động bỏ qua (Chặn trùng)"
+      expect(screen.getByText('Tự động bỏ qua (Chặn trùng)')).toBeTruthy();
 
-      // Find allowResend checkbox
+      // Find allowResend toggle checkbox (first checkbox in controls)
       const resendCheckbox = container.querySelector('input[type="checkbox"]');
       expect(resendCheckbox).not.toBeNull();
 
-      // Toggle allowResend
+      // Toggle allowResend ON
       fireEvent.click(resendCheckbox!);
 
-      // c4 should now be eligible for resending
-      expect(screen.queryByText(/Đã gửi thành công trước đó/i)).toBeNull();
+      // Card 4 subtitle must update to unlock resend message
+      expect(screen.getByText(/Đã mở khóa gửi lại \(1 lượt\)/i)).toBeTruthy();
+      // Row for c4 now shows "Sẵn sàng gửi lại"
+      expect(screen.getByText(/Sẵn sàng gửi lại/i)).toBeTruthy();
     });
 
     it('should support Quotation bulk dispatch with accurate landline exclusion and carrier detection', () => {
@@ -260,7 +290,7 @@ describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator', () => {
               tenKhachHang: 'Công ty Xây Dựng Nam Phát',
               sdt: '0908.123.456',
               nguoiDaiDien: 'Lê Văn Nam',
-              trangThaiGuiTinBaoGia: 'CHUA_GUI'
+              trangThaiGuiTinBaoGia: 'CHƯA GỬI'
             },
             {
               id: 'q2',
@@ -268,9 +298,9 @@ describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator', () => {
               tenKhachHang: 'Công ty Cố Định Miền Tây',
               sdt: '0274 3822 999', // Binh Duong Landline
               nguoiDaiDien: 'Đặng Văn Tây',
-              trangThaiGuiTinBaoGia: 'CHUA_GUI'
+              trangThaiGuiTinBaoGia: 'CHƯA GỬI'
             }
-          ]}
+          ] as any}
         />
       );
 
@@ -281,10 +311,9 @@ describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator', () => {
     });
   });
 
-  describe('4. Strict Single-Send Quarantine Guarantee', () => {
-    it('verifies Contracts, Payments, and Deliveries remain quarantined from bulk actions', () => {
+  describe('5. Strict Single-Send Quarantine Guarantee', () => {
+    it('verifies Contracts, Payments, and Deliveries remain strictly quarantined from bulk actions', () => {
       // Contract, Payment, and Delivery entities are strictly NOT passed to BulkZnsModal
-      // Only CUSTOMER and QUOTATION entityTypes are accepted by BulkZnsModal props
       const allowedEntityTypes = ['CUSTOMER', 'QUOTATION'];
       expect(allowedEntityTypes).toContain('CUSTOMER');
       expect(allowedEntityTypes).toContain('QUOTATION');

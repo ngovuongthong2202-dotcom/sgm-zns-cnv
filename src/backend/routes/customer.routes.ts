@@ -223,9 +223,27 @@ router.post('/merge', async (req, res) => {
     });
     const finalMergedCodes = Array.from(new Set([...existingMergedCodes, ...(mergedCustomerCodes || []), ...secondaryMaKhs, ...secondaryTransitiveCodes]));
 
+    // Deep-merge contactsZnsHistory to preserve 100% ZNS delivery lineage across merged customers
+    const mergedContactsZnsHistory: Record<string, any> = {
+      ...(tgtData?.contactsZnsHistory || {})
+    };
+    Object.values(sourceCustomersSnapshotsData).forEach((s: any) => {
+      if (s?.contactsZnsHistory && typeof s.contactsZnsHistory === 'object') {
+        Object.entries(s.contactsZnsHistory).forEach(([phoneKey, histData]) => {
+          if (!mergedContactsZnsHistory[phoneKey]) {
+            mergedContactsZnsHistory[phoneKey] = histData;
+          } else if (typeof histData === 'object' && (histData as any)?.status === 'SUCCESS') {
+            // Ưu tiên bản ghi SUCCESS khi trùng số điện thoại
+            mergedContactsZnsHistory[phoneKey] = histData;
+          }
+        });
+      }
+    });
+
     const targetCustomerUpdate: Record<string, any> = {
       tags: finalTags,
       mergedCustomerCodes: finalMergedCodes,
+      contactsZnsHistory: mergedContactsZnsHistory,
       ngayCapNhat: new Date().toISOString()
     };
     if (Array.isArray(mergedContacts) && mergedContacts.length > 0) {

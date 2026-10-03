@@ -3,6 +3,7 @@ import { Customer } from '@/src/domain/schema/customer.schema';
 import React from 'react';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
+import { isZnsSuccessStatus } from '@/src/domain/zns-client';
 import { CustomerHoverCard } from './components/CustomerHoverCard';
 import { Button } from '@/src/design-system/Button';
 import { normalizeBusinessName, normalizeCode } from '@/src/shared/utils/textFormatter';
@@ -127,8 +128,11 @@ export const getCustomerColumns = (
           {displayContacts.map((ct: any, idx: number) => {
             const telecom = ct.sdt ? extractVietnamesePhones(ct.sdt, c.diaChi) : null;
             const hasMobile = telecom && telecom.mobilePhones.length > 0;
-            const hasSentZns = ct.trangThaiZns === 'THANH_CONG' || Boolean(ct.ngayGuiZns) || 
-              (telecom?.mobilePhones.some(p => Boolean((c as any)?.contactsZnsHistory?.[p.cleaned])) ?? Boolean((c as any)?.contactsZnsHistory?.[ct.sdt || '']));
+            const hasSentZns = isZnsSuccessStatus(ct.trangThaiZns) || Boolean(ct.ngayGuiZns) || 
+              (telecom?.mobilePhones.some(p => {
+                const entry = (c as any)?.contactsZnsHistory?.[p.cleaned];
+                return isZnsSuccessStatus(typeof entry === 'object' ? entry?.status : entry);
+              }) ?? Boolean((c as any)?.contactsZnsHistory?.[ct.sdt || '']));
 
             return (
               <div key={idx} className="flex items-center gap-1.5 flex-wrap text-xs leading-tight">

@@ -3,6 +3,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { Contract } from '@/src/domain/schema/contract.schema';
 import { EntityZnsStatus, normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
+import { isZnsSuccessStatus } from '@/src/domain/zns-client';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { normalizeBusinessName, normalizePersonName } from '@/src/shared/utils/textFormatter';
 import { QuotationHoverCard } from './components/QuotationHoverCard';
@@ -213,12 +214,13 @@ export const getQuotationColumns = (
 
       let statusLabel: string;
       let statusColor: string;
+      const isZnsSent = isZnsSuccessStatus(q.trangThaiGuiTinBaoGia) || isZnsSuccessStatus((q as any).trangThaiZns);
 
       if (q.tinhTrangBaoGia !== 'ĐÃ CHỐT') {
         if (znsStatus === EntityZnsStatus.THAT_BAI) {
           statusLabel = 'ZNS Thất bại';
           statusColor = 'bg-red-50 text-red-700 border-red-200';
-        } else if (znsStatus !== EntityZnsStatus.THANH_CONG) {
+        } else if (!isZnsSent) {
           statusLabel = 'Chờ gửi ZNS';
           statusColor = 'bg-amber-50 text-amber-700 border-amber-200';
         } else {
