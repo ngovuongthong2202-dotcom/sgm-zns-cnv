@@ -126,13 +126,31 @@ export const getCustomerColumns = (
       return (
         <div className="w-full min-w-0 flex flex-col justify-center gap-1.5 py-1">
           {displayContacts.map((ct: any, idx: number) => {
-            const telecom = ct.sdt ? extractVietnamesePhones(ct.sdt, c.diaChi) : null;
-            const hasMobile = telecom && telecom.mobilePhones.length > 0;
-            const hasSentZns = isZnsSuccessStatus(ct.trangThaiZns) || Boolean(ct.ngayGuiZns) || 
-              (telecom?.mobilePhones.some(p => {
-                const entry = (c as any)?.contactsZnsHistory?.[p.cleaned];
-                return isZnsSuccessStatus(typeof entry === 'object' ? entry?.status : entry);
-              }) ?? Boolean((c as any)?.contactsZnsHistory?.[ct.sdt || '']));
+            const rawPhones: string[] = [];
+            if (ct.soZaloMacDinh) rawPhones.push(String(ct.soZaloMacDinh));
+            if (ct.sdt) rawPhones.push(String(ct.sdt));
+            if (ct.sdtPhu) rawPhones.push(String(ct.sdtPhu));
+            if (Array.isArray(ct.danhSachSdt)) {
+              ct.danhSachSdt.forEach((s: any) => { if (s) rawPhones.push(String(s)); });
+            }
+            const phoneStr = rawPhones.length > 0 ? rawPhones.join(' / ') : (ct.sdt || '');
+            const telecom = phoneStr ? extractVietnamesePhones(phoneStr, c.diaChi) : null;
+            
+            // Deduplicate mobile phones by cleaned number
+            const uniqueMobilePhones: any[] = [];
+            const seenCleaned = new Set<string>();
+            if (telecom?.mobilePhones) {
+              for (const mob of telecom.mobilePhones) {
+                if (!seenCleaned.has(mob.cleaned)) {
+                  seenCleaned.add(mob.cleaned);
+                  uniqueMobilePhones.push(mob);
+                }
+              }
+            }
+
+            const hasMobile = uniqueMobilePhones.length > 0;
+            const contactLevelSent = isZnsSuccessStatus(ct.trangThaiZns) || Boolean(ct.ngayGuiZns);
+            let anyPhoneHasBadge = false;
 
             return (
               <div key={idx} className="flex items-center gap-1.5 flex-wrap text-xs leading-tight">
@@ -145,16 +163,32 @@ export const getCustomerColumns = (
                   </span>
                 )}
                 {hasMobile ? (
-                  // Có số di động: Render từng Badge di động riêng biệt, tự động lược bỏ số máy bàn
-                  telecom.mobilePhones.map((p, pIdx) => (
-                    <span 
-                      key={pIdx} 
-                      className="font-mono text-2xs text-blue-700 bg-blue-50/90 hover:bg-blue-100 transition-colors px-1.5 py-0.5 rounded border border-blue-200 font-medium cursor-default shadow-2xs"
-                      title={`${p.formatted} • ${p.carrier || 'Di động'} (Zalo/ZNS OK)`}
-                    >
-                      {p.formatted}
-                    </span>
-                  ))
+                  // Có số di động: Render từng Badge di động riêng biệt, kèm huy hiệu ✓ ZNS cho số nào đã gửi
+                  uniqueMobilePhones.map((p, pIdx) => {
+                    const phoneHistEntry = (c as any)?.contactsZnsHistory?.[p.cleaned] || (c as any)?.contactsZnsHistory?.[p.raw];
+                    const isPhoneSent = Boolean(
+                      phoneHistEntry && 
+                      isZnsSuccessStatus(typeof phoneHistEntry === 'object' ? phoneHistEntry?.status : phoneHistEntry)
+                    );
+                    const showBadgeOnPhone = isPhoneSent || (contactLevelSent && uniqueMobilePhones.length === 1);
+                    if (showBadgeOnPhone) anyPhoneHasBadge = true;
+
+                    return (
+                      <span key={pIdx} className="inline-flex items-center gap-1">
+                        <span 
+                          className="font-mono text-2xs text-blue-700 bg-blue-50/90 hover:bg-blue-100 transition-colors px-1.5 py-0.5 rounded border border-blue-200 font-medium cursor-default shadow-2xs"
+                          title={`${p.formatted} • ${p.carrier || 'Di động'} (Zalo/ZNS OK)`}
+                        >
+                          {p.formatted}
+                        </span>
+                        {showBadgeOnPhone && (
+                          <span className="text-3xs text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 font-medium shrink-0" title="Đã gửi ZNS">
+                            ✓ ZNS
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })
                 ) : telecom && telecom.landlinePhones.length > 0 ? (
                   // Chỉ có số máy bàn: Render chip xám tinh tế cảnh báo không ZNS
                   telecom.landlinePhones.map((p, pIdx) => (
@@ -171,7 +205,8 @@ export const getCustomerColumns = (
                     {ct.sdt}
                   </span>
                 ) : null}
-                {hasSentZns && (
+                {/* Fallback hiển thị ✓ ZNS ở cấp đầu mối nếu không có mobile breakdown nhưng đã gửi thành công */}
+                {contactLevelSent && !anyPhoneHasBadge && (
                   <span className="text-3xs text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 font-medium" title="Đã gửi ZNS">
                     ✓ ZNS
                   </span>

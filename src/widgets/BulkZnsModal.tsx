@@ -28,6 +28,8 @@ import { crossTabSync } from '@/src/shared/utils/crossTabSync';
 import { clearSwrColCache } from '@/src/data/swr-fetchers';
 import { notify } from '@/src/shared/utils/notify';
 import { Button } from '@/src/design-system';
+import { UpdateCustomer } from '@/src/modules/customers/application/use-cases/UpdateCustomer';
+import { quotationRepo } from '@/src/modules/sales/infrastructure/QuotationRepoFirestore';
 
 export interface BulkZnsModalProps {
   isOpen: boolean;
@@ -36,6 +38,7 @@ export interface BulkZnsModalProps {
   items: (Customer | Quotation)[];
   userRole?: string;
   onSuccess?: () => void;
+  onUpdateCustomer?: (id: string, data: Partial<Customer>) => Promise<any>;
 }
 
 export interface TargetRecipient {
@@ -74,7 +77,8 @@ export function BulkZnsModal({
   entityType,
   items = [],
   userRole,
-  onSuccess
+  onSuccess,
+  onUpdateCustomer
 }: BulkZnsModalProps) {
   // Pre-flight settings
   const [allowResend, setAllowResend] = useState(false);
@@ -102,7 +106,7 @@ export function BulkZnsModal({
   const abortRef = useRef(false);
   abortRef.current = isAborted;
 
-  // 1. Phân tích đối tượng & Bóc tách danh sách người nhận (Pre-flight Audience Scanner)
+  // 1. Phân tích đối tượng & Bóc tách danh sách người nhận (Pre-flight Audience Scanner: Dual-Tier Disambiguation)
   const recipients: TargetRecipient[] = useMemo(() => {
     const list: TargetRecipient[] = [];
 
@@ -112,30 +116,54 @@ export function BulkZnsModal({
         if (!c || c.isArchived || (c as any).is_archived) return;
 
         // Trích xuất các đầu mối từ contacts array và primary fields
-        const contactPool: Array<{ name: string; phone: string; role?: string; branch?: string; rawContact?: any }> = [];
+        const contactPool: Array<{ 
+          name: string; 
+          phonesRaw: string[]; 
+          role?: string; 
+          branch?: string; 
+          isPrimaryContact: boolean;
+          rawContact?: any 
+        }> = [];
 
         if (Array.isArray(c.contacts) && c.contacts.length > 0) {
-          c.contacts.forEach((ct) => {
-            if (ct && (ct.sdt || ct.nguoiDaiDien)) {
+          c.contacts.forEach((ct, idx) => {
+            if (ct && (ct.sdt || ct.nguoiDaiDien || ct.sdtPhu || ct.soZaloMacDinh || (ct as any).danhSachSdt)) {
+              const rawPhones: string[] = [];
+              if (ct.soZaloMacDinh) rawPhones.push(String(ct.soZaloMacDinh));
+              if (ct.sdt) rawPhones.push(String(ct.sdt));
+              if (ct.sdtPhu) rawPhones.push(String(ct.sdtPhu));
+              if (Array.isArray((ct as any).danhSachSdt)) {
+                (ct as any).danhSachSdt.forEach((s: any) => { if (s) rawPhones.push(String(s)); });
+              }
+
+              const isPrimaryContact = idx === 0 || 
+                Boolean((ct as any).isPrimary) || 
+                /giám đốc|chủ tịch|lãnh đạo|đại diện pháp luật|tổng giám đốc|founder|ceo/i.test(ct.chucVu || '');
+
               contactPool.push({
-                name: ct.nguoiDaiDien || c.tenKhachHang || 'Đại diện',
-                phone: (ct.sdt || '').trim(),
+                name: ct.nguoiDaiDien || c.tenKhachHang || `Đầu mối ${idx + 1}`,
+                phonesRaw: rawPhones,
                 role: ct.chucVu,
                 branch: ct.chiNhanh,
+                isPrimaryContact,
                 rawContact: ct
               });
             }
           });
         }
 
-        // Bổ sung primary phone nếu chưa có
-        if (c.sdt && !contactPool.some(p => p.phone === c.sdt?.trim())) {
-          contactPool.unshift({
-            name: c.nguoiDaiDien || c.tenKhachHang || 'Đại diện',
-            phone: c.sdt.trim(),
-            role: 'Chính',
-            rawContact: undefined
-          });
+        // Bổ sung primary phone nếu chưa có trong pool
+        if (c.sdt) {
+          const hasInPool = contactPool.some(cp => cp.phonesRaw.some(r => r.includes(c.sdt!)));
+          if (!hasInPool) {
+            contactPool.unshift({
+              name: c.nguoiDaiDien || c.tenKhachHang || 'Đại diện chính',
+              phonesRaw: [c.sdt],
+              role: 'Chính',
+              isPrimaryContact: true,
+              rawContact: undefined
+            });
+          }
         }
 
         if (contactPool.length === 0) {
@@ -158,13 +186,23 @@ export function BulkZnsModal({
         }
 
         contactPool.forEach((ct, ctIdx) => {
-          const ext = extractVietnamesePhones(ct.phone, c.diaChi);
-          const hasMobile = ext.mobilePhones.length > 0;
-          const hasLandline = ext.landlinePhones.length > 0;
+          const combinedPhoneStr = ct.phonesRaw.join(' / ');
+          const ext = extractVietnamesePhones(combinedPhoneStr, c.diaChi);
 
-          if (hasMobile) {
-            ext.mobilePhones.forEach((mob, mIdx) => {
-              const recId = `cust-${c.id || c.maKh}-${ctIdx}-${mIdx}`;
+          // Deduplicate mobile phones by cleaned number
+          const uniqueMobilePhones: any[] = [];
+          const seenCleaned = new Set<string>();
+          for (const mob of ext.mobilePhones) {
+            if (!seenCleaned.has(mob.cleaned)) {
+              seenCleaned.add(mob.cleaned);
+              uniqueMobilePhones.push(mob);
+            }
+          }
+
+          if (uniqueMobilePhones.length > 0) {
+            uniqueMobilePhones.forEach((mob, mIdx) => {
+              const isPrimaryPhone = mIdx === 0;
+              const recId = `cust-${c.id || c.maKh}-${ctIdx}-${mob.cleaned}`;
               
               // Động cơ đối soát ZNS 4 cấp độ (Contact Phone, Contact Obj, Entity Status, Realtime Messages)
               const isAlreadySent = isRecipientZnsAlreadySent({
@@ -175,15 +213,25 @@ export function BulkZnsModal({
                 znsMessages: realtimeZnsMessages
               });
 
-              const defaultWillSend = !isAlreadySent || allowResend;
+              // Quyết định gửi mặc định:
+              // - Số chính: !isAlreadySent || allowResend
+              // - Số phụ: false (Tự động bỏ qua để tránh gửi trùng 2 tin cho cùng 1 người)
+              const defaultWillSend = isPrimaryPhone ? (!isAlreadySent || allowResend) : false;
               const willSend = manualToggles[recId] !== undefined ? manualToggles[recId] : defaultWillSend;
 
               let skipReason: string | undefined;
               if (isAlreadySent && !allowResend && manualToggles[recId] !== true) {
                 skipReason = 'Đã gửi thành công trước đó (Tự động bỏ qua)';
+              } else if (!isPrimaryPhone && !manualToggles[recId]) {
+                skipReason = '📱 Bỏ qua số phụ (Tránh gửi trùng 2 tin cho cùng 1 người)';
               } else if (manualToggles[recId] === false) {
                 skipReason = 'Bỏ chọn thủ công';
               }
+
+              const roleBase = ct.role 
+                ? `${ct.role}${ct.branch ? ` (${ct.branch})` : ''}` 
+                : (ct.branch || (ct.isPrimaryContact ? 'Đầu mối chính' : 'Đầu mối'));
+              const phoneLabel = isPrimaryPhone ? 'Số chính' : 'Số phụ';
 
               list.push({
                 id: recId,
@@ -191,7 +239,7 @@ export function BulkZnsModal({
                 code: c.maKh || 'KH',
                 customerName: c.tenKhachHang || 'Khách hàng',
                 contactName: ct.name,
-                roleOrBranch: ct.role ? `${ct.role}${ct.branch ? ` (${ct.branch})` : ''}` : ct.branch,
+                roleOrBranch: `${roleBase} • ${phoneLabel}`,
                 phone: mob.cleaned,
                 phoneFormatted: mob.formatted,
                 carrier: mob.carrier,
@@ -205,7 +253,7 @@ export function BulkZnsModal({
                 contactObj: ct.rawContact
               });
             });
-          } else if (hasLandline) {
+          } else if (ext.landlinePhones.length > 0) {
             const land = ext.landlinePhones[0];
             const isAlreadySent = isRecipientZnsAlreadySent({
               entity: c,
@@ -238,8 +286,8 @@ export function BulkZnsModal({
               code: c.maKh || 'KH',
               customerName: c.tenKhachHang || 'Khách hàng',
               contactName: ct.name,
-              phone: ct.phone,
-              phoneFormatted: ct.phone,
+              phone: combinedPhoneStr,
+              phoneFormatted: combinedPhoneStr || '—',
               phoneType: 'UNKNOWN',
               isLandline: false,
               isAlreadySent: false,
@@ -259,43 +307,58 @@ export function BulkZnsModal({
         const rawPhone = (q.sdt || '').trim();
         const ext = extractVietnamesePhones(rawPhone, q.diaChi);
 
-        if (ext.mobilePhones.length > 0) {
-          const mob = ext.mobilePhones[0];
-          const recId = `quote-${q.id}`;
-
-          const isAlreadySent = isRecipientZnsAlreadySent({
-            entity: q,
-            entityType: 'QUOTATION',
-            phone: mob.cleaned,
-            znsMessages: realtimeZnsMessages
-          });
-
-          const defaultWillSend = !isAlreadySent || allowResend;
-          const willSend = manualToggles[recId] !== undefined ? manualToggles[recId] : defaultWillSend;
-
-          let skipReason: string | undefined;
-          if (isAlreadySent && !allowResend && manualToggles[recId] !== true) {
-            skipReason = 'Đã gửi thành công trước đó (Tự động bỏ qua)';
-          } else if (manualToggles[recId] === false) {
-            skipReason = 'Bỏ chọn thủ công';
+        // Deduplicate mobile phones by cleaned number
+        const uniqueMobilePhones: any[] = [];
+        const seenCleaned = new Set<string>();
+        for (const mob of ext.mobilePhones) {
+          if (!seenCleaned.has(mob.cleaned)) {
+            seenCleaned.add(mob.cleaned);
+            uniqueMobilePhones.push(mob);
           }
+        }
 
-          list.push({
-            id: recId,
-            entityId: q.id,
-            code: q.soPhieuBaoGia || 'BG',
-            customerName: q.tenKhachHang || 'Khách hàng',
-            contactName: q.nguoiDaiDien || q.tenKhachHang || 'Đại diện',
-            phone: mob.cleaned,
-            phoneFormatted: mob.formatted,
-            carrier: mob.carrier,
-            phoneType: 'MOBILE',
-            isLandline: false,
-            isAlreadySent,
-            rawStatus: q.trangThaiGuiTinBaoGia || undefined,
-            willSend,
-            skipReason,
-            originalEntity: { ...q, sdt: mob.cleaned, phone: mob.cleaned }
+        if (uniqueMobilePhones.length > 0) {
+          uniqueMobilePhones.forEach((mob, mIdx) => {
+            const isPrimaryPhone = mIdx === 0;
+            const recId = `quote-${q.id}-${mob.cleaned}`;
+
+            const isAlreadySent = isRecipientZnsAlreadySent({
+              entity: q,
+              entityType: 'QUOTATION',
+              phone: mob.cleaned,
+              znsMessages: realtimeZnsMessages
+            });
+
+            const defaultWillSend = isPrimaryPhone ? (!isAlreadySent || allowResend) : false;
+            const willSend = manualToggles[recId] !== undefined ? manualToggles[recId] : defaultWillSend;
+
+            let skipReason: string | undefined;
+            if (isAlreadySent && !allowResend && manualToggles[recId] !== true) {
+              skipReason = 'Đã gửi thành công trước đó (Tự động bỏ qua)';
+            } else if (!isPrimaryPhone && !manualToggles[recId]) {
+              skipReason = '📱 Bỏ qua số phụ (Tránh gửi trùng 2 tin cho cùng 1 người)';
+            } else if (manualToggles[recId] === false) {
+              skipReason = 'Bỏ chọn thủ công';
+            }
+
+            list.push({
+              id: recId,
+              entityId: q.id || '',
+              code: q.soPhieuBaoGia || 'BG',
+              customerName: q.tenKhachHang || 'Khách hàng',
+              contactName: q.nguoiDaiDien || q.tenKhachHang || 'Đại diện',
+              roleOrBranch: isPrimaryPhone ? 'Số chính' : 'Số phụ',
+              phone: mob.cleaned,
+              phoneFormatted: mob.formatted,
+              carrier: mob.carrier,
+              phoneType: 'MOBILE',
+              isLandline: false,
+              isAlreadySent,
+              rawStatus: q.trangThaiGuiTinBaoGia || undefined,
+              willSend,
+              skipReason,
+              originalEntity: { ...q, sdt: mob.cleaned, phone: mob.cleaned }
+            });
           });
         } else if (ext.landlinePhones.length > 0) {
           const land = ext.landlinePhones[0];
@@ -308,7 +371,7 @@ export function BulkZnsModal({
 
           list.push({
             id: `quote-land-${q.id}`,
-            entityId: q.id,
+            entityId: q.id || '',
             code: q.soPhieuBaoGia || 'BG',
             customerName: q.tenKhachHang || 'Khách hàng',
             contactName: q.nguoiDaiDien || q.tenKhachHang || 'Đại diện',
@@ -324,7 +387,7 @@ export function BulkZnsModal({
         } else {
           list.push({
             id: `quote-nophone-${q.id}`,
-            entityId: q.id,
+            entityId: q.id || '',
             code: q.soPhieuBaoGia || 'BG',
             customerName: q.tenKhachHang || 'Khách hàng',
             contactName: q.nguoiDaiDien || q.tenKhachHang || 'Đại diện',
@@ -398,6 +461,13 @@ export function BulkZnsModal({
     let success = 0;
     let failed = 0;
 
+    // Bộ đệm tích lũy cập nhật nguyên tử chống ghi đè khi 1 khách hàng có nhiều đầu mối
+    const customerAccumulators = new Map<string, {
+      contacts: any[];
+      contactsZnsHistory: Record<string, any>;
+      trangThaiGuiTinQuangCao: string;
+    }>();
+
     for (let i = 0; i < eligibleRecipients.length; i++) {
       if (abortRef.current) break;
 
@@ -445,6 +515,84 @@ export function BulkZnsModal({
 
         // Update log thành công
         setLogs(prev => prev.map(l => l.id === target.id ? { ...l, status: 'SUCCESS' } : l));
+
+        // Lưu trữ nguyên tử tức thời vào Supabase PostgreSQL (In-Flight Atomic Persistence)
+        const nowIso = new Date().toISOString();
+        if (entityType === 'CUSTOMER') {
+          let accum = customerAccumulators.get(target.entityId);
+          if (!accum) {
+            const orig = target.originalEntity || {};
+            accum = {
+              contacts: Array.isArray(orig.contacts) ? JSON.parse(JSON.stringify(orig.contacts)) : [],
+              contactsZnsHistory: { ...(orig.contactsZnsHistory || {}) },
+              trangThaiGuiTinQuangCao: 'THANH_CONG'
+            };
+            customerAccumulators.set(target.entityId, accum);
+          }
+
+          // 1. Cập nhật contactsZnsHistory cho đúng số điện thoại này
+          accum.contactsZnsHistory[target.phone] = {
+            status: 'SUCCESS',
+            sentAt: nowIso,
+            nguoiDaiDien: target.contactName,
+            roleOrBranch: target.roleOrBranch
+          };
+
+          // 2. Cập nhật mảng contacts
+          const foundIdx = accum.contacts.findIndex((c: any) => {
+            const rawPhone = (c?.sdt || '').trim();
+            const ext = extractVietnamesePhones(rawPhone);
+            return ext.phones.some(p => p.cleaned === target.phone) || 
+                   rawPhone === target.phone ||
+                   (target.contactObj && c === target.contactObj);
+          });
+
+          if (foundIdx >= 0) {
+            accum.contacts[foundIdx] = {
+              ...accum.contacts[foundIdx],
+              trangThaiZns: 'THANH_CONG',
+              ngayGuiZns: nowIso
+            };
+          } else if (target.contactName && target.phone) {
+            accum.contacts.push({
+              nguoiDaiDien: target.contactName,
+              sdt: target.phone,
+              trangThaiZns: 'THANH_CONG',
+              ngayGuiZns: nowIso,
+              chucVu: target.roleOrBranch || ''
+            });
+          }
+
+          accum.trangThaiGuiTinQuangCao = 'THANH_CONG';
+
+          try {
+            if (onUpdateCustomer) {
+              await onUpdateCustomer(target.entityId, {
+                contacts: accum.contacts,
+                contactsZnsHistory: accum.contactsZnsHistory,
+                trangThaiGuiTinQuangCao: 'THANH_CONG'
+              } as any);
+            } else {
+              await UpdateCustomer.execute(target.entityId, {
+                contacts: accum.contacts,
+                contactsZnsHistory: accum.contactsZnsHistory,
+                trangThaiGuiTinQuangCao: 'THANH_CONG'
+              } as any);
+            }
+          } catch (persistErr) {
+            console.error(`[BulkZnsModal] Lỗi lưu trạng thái ZNS khách hàng ${target.entityId}:`, persistErr);
+          }
+        } else if (entityType === 'QUOTATION') {
+          try {
+            await quotationRepo.update(target.entityId, {
+              trangThaiGuiTinBaoGia: 'THANH_CONG',
+              trangThaiZns: 'THANH_CONG',
+              sentAt: nowIso
+            });
+          } catch (qErr) {
+            console.error(`[BulkZnsModal] Lỗi lưu trạng thái ZNS báo giá ${target.entityId}:`, qErr);
+          }
+        }
       } catch (err: any) {
         failed++;
         setFailedCount(failed);

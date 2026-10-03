@@ -238,6 +238,40 @@ export class VendorWebhookHandler {
               if (entType.includes('customer')) {
                 updates.trangThaiZns = norm;
                 updates.trangThaiGuiTinQuangCao = norm;
+                if (norm === EntityZnsStatus.THANH_CONG && znsData.phone) {
+                  try {
+                    const custSnap = await t.get(entityRef);
+                    if (custSnap.exists) {
+                      const custData = custSnap.data() || {};
+                      const cleanPhone = String(znsData.phone).trim();
+                      const existingHist = { ...(custData.contactsZnsHistory || {}) };
+                      const nowIso = new Date().toISOString();
+                      existingHist[cleanPhone] = {
+                        status: 'SUCCESS',
+                        sentAt: nowIso
+                      };
+                      updates.contactsZnsHistory = existingHist;
+
+                      if (Array.isArray(custData.contacts)) {
+                        const updatedContacts = [...custData.contacts];
+                        const cIdx = updatedContacts.findIndex((ct: any) => {
+                          const p = (ct?.sdt || '').trim();
+                          return p === cleanPhone || p.endsWith(cleanPhone.slice(-9)) || cleanPhone.endsWith(p.slice(-9));
+                        });
+                        if (cIdx >= 0) {
+                          updatedContacts[cIdx] = {
+                            ...updatedContacts[cIdx],
+                            trangThaiZns: 'THANH_CONG',
+                            ngayGuiZns: nowIso
+                          };
+                          updates.contacts = updatedContacts;
+                        }
+                      }
+                    }
+                  } catch (e) {
+                    logger.warn({ err: e }, 'Failed to deep-update customer contactsZnsHistory in webhook');
+                  }
+                }
               }
               t.update(entityRef, updates);
             }

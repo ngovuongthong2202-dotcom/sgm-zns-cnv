@@ -441,6 +441,7 @@ export default function CustomersFeature() {
           items={filteredCustomers}
           userRole={userData?.role}
           onSuccess={refresh}
+          onUpdateCustomer={handleUpdateCustomer}
         />
       )}
     </div>

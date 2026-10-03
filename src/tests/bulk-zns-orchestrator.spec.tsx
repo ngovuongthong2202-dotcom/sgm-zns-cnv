@@ -56,6 +56,18 @@ vi.mock('@/src/shared/utils/crossTabSync', () => ({
   }
 }));
 
+vi.mock('@/src/modules/customers/application/use-cases/UpdateCustomer', () => ({
+  UpdateCustomer: {
+    execute: vi.fn().mockResolvedValue(undefined)
+  }
+}));
+
+vi.mock('@/src/modules/sales/infrastructure/QuotationRepoFirestore', () => ({
+  quotationRepo: {
+    update: vi.fn().mockResolvedValue(undefined)
+  }
+}));
+
 describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator (Paradigm 10)', () => {
 
   describe('1. Quotation Chrono Date & Expiration Engine', () => {
@@ -320,6 +332,128 @@ describe('Sovereign Chrono Domain & Safe Bulk ZNS Orchestrator (Paradigm 10)', (
       expect(allowedEntityTypes).not.toContain('CONTRACT');
       expect(allowedEntityTypes).not.toContain('PAYMENT');
       expect(allowedEntityTypes).not.toContain('DELIVERY');
+    });
+  });
+
+  describe('6. Sovereign Dual-Tier Disambiguation & In-Flight Atomic Persistence', () => {
+    it('scans multi-contact customer KH0213 and lists both contacts individually', () => {
+      const customerKH0213: any = {
+        id: 'cust-213',
+        maKh: 'KH0213',
+        tenKhachHang: 'Công ty Cổ Phần Cơ Khí Xây Dựng Thương Mại Đại Dũng',
+        trangThaiGuiTinQuangCao: 'CHUA_GUI',
+        contacts: [
+          {
+            nguoiDaiDien: 'Phạm Vương',
+            sdt: '0908 482 305',
+            chucVu: 'Đại diện'
+          },
+          {
+            nguoiDaiDien: 'Thành Ngô',
+            sdt: '0357 988 317',
+            chucVu: 'Đầu mối từ KH0216'
+          }
+        ]
+      };
+
+      render(
+        <BulkZnsModal
+          isOpen={true}
+          onClose={vi.fn()}
+          entityType="CUSTOMER"
+          items={[customerKH0213]}
+        />
+      );
+
+      expect(screen.getByText(/Phạm Vương/i)).toBeTruthy();
+      expect(screen.getByText(/Thành Ngô/i)).toBeTruthy();
+      expect(screen.getByText('0908 482 305')).toBeTruthy();
+      expect(screen.getByText('0357 988 317')).toBeTruthy();
+    });
+
+    it('differentiates primary phone from secondary phone for 1 contact and skips secondary by default', () => {
+      const customerMultiPhone: any = {
+        id: 'cust-multi-phone',
+        maKh: 'KH0999',
+        tenKhachHang: 'Công ty Cơ Khí Đa Tuyến',
+        trangThaiGuiTinQuangCao: 'CHUA_GUI',
+        contacts: [
+          {
+            nguoiDaiDien: 'Nguyễn Văn Đạt',
+            sdt: '0938 111 222',
+            sdtPhu: '0909 333 444',
+            chucVu: 'Giám Đốc'
+          }
+        ]
+      };
+
+      render(
+        <BulkZnsModal
+          isOpen={true}
+          onClose={vi.fn()}
+          entityType="CUSTOMER"
+          items={[customerMultiPhone]}
+        />
+      );
+
+      // Primary phone is selected and ready to send
+      expect(screen.getByText('0938 111 222')).toBeTruthy();
+      // Secondary phone is identified and skipped to prevent duplicate sending to the same person
+      expect(screen.getByText('0909 333 444')).toBeTruthy();
+      expect(screen.getByText(/Bỏ qua số phụ \(Tránh gửi trùng 2 tin cho cùng 1 người\)/i)).toBeTruthy();
+    });
+
+    it('atomically persists customer contactsZnsHistory and contact status upon dispatch', async () => {
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      const customerToDispatch: any = {
+        id: 'cust-persist-1',
+        maKh: 'KH0888',
+        tenKhachHang: 'Công ty Cơ Khí Đồng Bộ',
+        trangThaiGuiTinQuangCao: 'CHUA_GUI',
+        contacts: [
+          {
+            nguoiDaiDien: 'Trần Văn Đồng',
+            sdt: '0912 345 678',
+            chucVu: 'Trưởng phòng'
+          }
+        ]
+      };
+
+      render(
+        <BulkZnsModal
+          isOpen={true}
+          onClose={vi.fn()}
+          entityType="CUSTOMER"
+          items={[customerToDispatch]}
+          onUpdateCustomer={mockUpdate}
+        />
+      );
+
+      // Find the start dispatch button
+      const startButton = screen.getByRole('button', { name: /bắt đầu gửi/i });
+      expect(startButton).toBeTruthy();
+
+      fireEvent.click(startButton);
+
+      // Verify onUpdateCustomer was called with updated contacts and contactsZnsHistory
+      await vi.waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalledWith(
+          'cust-persist-1',
+          expect.objectContaining({
+            trangThaiGuiTinQuangCao: 'THANH_CONG',
+            contacts: expect.arrayContaining([
+              expect.objectContaining({
+                trangThaiZns: 'THANH_CONG'
+              })
+            ]),
+            contactsZnsHistory: expect.objectContaining({
+              '0912345678': expect.objectContaining({
+                status: 'SUCCESS'
+              })
+            })
+          })
+        );
+      });
     });
   });
 });
