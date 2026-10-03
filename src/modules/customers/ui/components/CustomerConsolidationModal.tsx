@@ -155,7 +155,7 @@ export function CustomerConsolidationModal({
       }
 
       // 2. Thực hiện hợp nhất nguyên tử qua Backend ACID Batch kèm Audit Log
-      const secondaryIds = group.secondaryCustomers.map(s => s.id).filter((id): id is string => Boolean(id));
+      const secondaryIds = plan.archivedSecondaryCustomers.map(s => s.id).filter((id): id is string => Boolean(id));
       let backendSuccess = false;
       if (plan.masterCustomer.id) {
         try {
@@ -587,9 +587,9 @@ export function CustomerConsolidationModal({
                       </div>
                     </div>
 
-                    {/* Forensic Impact Summary Metrics Banner */}
+                    {/* Forensic Impact Summary Metrics Banner - Sovereign MDM Apex */}
                     {currentPlan?.impactSummary && (
-                      <div className="p-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white rounded-xl shadow-xs border border-slate-700 space-y-2">
+                      <div className="p-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white rounded-xl shadow-xs border border-slate-700 space-y-2.5">
                         <div className="flex items-center justify-between">
                           <span className="text-2xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                             <ShieldCheck size={14} className="text-emerald-400" />
@@ -599,50 +599,98 @@ export function CustomerConsolidationModal({
                             Bảo toàn 100% chứng từ lịch sử
                           </span>
                         </div>
+
+                        {/* TẦNG 1: TÀI SẢN MASTER SỞ HỮU SẴN */}
+                        {currentPlan.masterOwnedSummary && (
+                          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 bg-slate-800/90 rounded-lg border border-slate-700/80 text-2xs text-slate-300">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-bold text-emerald-400 flex items-center gap-1">
+                                <CheckCircle2 size={12} /> Master {currentGroup.masterCustomer.maKh} hiện có:
+                              </span>
+                              <span>
+                                <strong className="text-white font-mono">{currentPlan.masterOwnedSummary.quotationsCount}</strong> Báo giá {currentPlan.masterOwnedSummary.totalQuotationValue > 0 && `(${formatCurrency(currentPlan.masterOwnedSummary.totalQuotationValue)})`}
+                              </span>
+                              <span className="text-slate-500">•</span>
+                              <span>
+                                <strong className="text-white font-mono">{currentPlan.masterOwnedSummary.contractsCount}</strong> Hợp đồng {currentPlan.masterOwnedSummary.totalContractValue > 0 && `(${formatCurrency(currentPlan.masterOwnedSummary.totalContractValue)})`}
+                              </span>
+                              <span className="text-slate-500">•</span>
+                              <span>
+                                <strong className="text-white font-mono">{currentPlan.masterOwnedSummary.billingsCount}</strong> Phiếu thu ({currentPlan.masterOwnedSummary.paymentInstallmentsCount} đợt)
+                              </span>
+                              <span className="text-slate-500">•</span>
+                              <span>
+                                <strong className="text-white font-mono">{currentPlan.masterOwnedSummary.deliveriesCount}</strong> Đơn giao ({currentPlan.masterOwnedSummary.deliveryShipmentsCount} đợt PXK)
+                              </span>
+                            </div>
+                            <span className="text-3xs font-mono text-emerald-300 bg-emerald-950/70 px-2 py-0.5 rounded border border-emerald-800/80">
+                              Đang liên kết trực tiếp
+                            </span>
+                          </div>
+                        )}
+
+                        {/* TẦNG 2: TÀI SẢN CHUYỂN GIAO TỪ HỒ SƠ PHỤ */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                           <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
                             <span className="text-3xs uppercase font-medium text-slate-400 block">Báo giá di chuyển</span>
                             <span className="text-sm font-black font-mono text-blue-300">
-                              {currentPlan.impactSummary.quotationsCount}
+                              {currentPlan.transferringSummary.quotationsCount}
                             </span>
-                            {currentPlan.impactSummary.totalQuotationValue > 0 && (
+                            {currentPlan.transferringSummary.quotationsCount > 0 ? (
+                              <span className="text-3xs text-blue-200 font-mono block truncate font-semibold">
+                                {formatCurrency(currentPlan.transferringSummary.totalQuotationValue)}
+                              </span>
+                            ) : (
                               <span className="text-3xs text-slate-400 font-mono block truncate">
-                                {formatCurrency(currentPlan.impactSummary.totalQuotationValue)}
+                                {currentPlan.masterOwnedSummary.quotationsCount > 0 ? 'Đã quy tụ tại Master' : 'Chưa phát sinh'}
                               </span>
                             )}
                           </div>
                           <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
                             <span className="text-3xs uppercase font-medium text-slate-400 block">Hợp đồng pháp lý</span>
                             <span className="text-sm font-black font-mono text-emerald-400">
-                              {currentPlan.impactSummary.contractsCount}
+                              {currentPlan.transferringSummary.contractsCount}
                             </span>
-                            {currentPlan.impactSummary.totalContractValue > 0 && (
+                            {currentPlan.transferringSummary.contractsCount > 0 ? (
+                              <span className="text-3xs text-emerald-200 font-mono block truncate font-semibold">
+                                {formatCurrency(currentPlan.transferringSummary.totalContractValue)}
+                              </span>
+                            ) : (
                               <span className="text-3xs text-slate-400 font-mono block truncate">
-                                {formatCurrency(currentPlan.impactSummary.totalContractValue)}
+                                {currentPlan.masterOwnedSummary.contractsCount > 0 ? 'Đã quy tụ tại Master' : 'Chưa phát sinh'}
                               </span>
                             )}
                           </div>
                           <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
-                            <span className="text-3xs uppercase font-medium text-slate-400 block">Phiếu thu & Công nợ</span>
+                            <span className="text-3xs uppercase font-medium text-slate-400 block">Phiếu thu & Các đợt thu</span>
                             <span className="text-sm font-black font-mono text-amber-300">
-                              {currentPlan.impactSummary.billingsCount}
+                              {currentPlan.transferringSummary.billingsCount}
                             </span>
-                            {currentPlan.impactSummary.totalBillingAmount > 0 && (
-                              <span className="text-3xs text-slate-400 font-mono block truncate">
-                                {formatCurrency(currentPlan.impactSummary.totalBillingAmount)}
-                              </span>
-                            )}
+                            <span className="text-3xs text-amber-200 font-mono block truncate">
+                              {currentPlan.transferringSummary.billingsCount > 0 
+                                ? `${currentPlan.transferringSummary.paymentInstallmentsCount} đợt • ${formatCurrency(currentPlan.transferringSummary.totalBillingAmount)}`
+                                : (currentPlan.masterOwnedSummary.billingsCount > 0 ? 'Đã quy tụ tại Master' : 'Chưa phát sinh')}
+                            </span>
                           </div>
                           <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
-                            <span className="text-3xs uppercase font-medium text-slate-400 block">Đợt giao hàng tiếp quản</span>
+                            <span className="text-3xs uppercase font-medium text-slate-400 block">Đợt giao & Xuất kho PXK</span>
                             <span className="text-sm font-black font-mono text-purple-300">
-                              {currentPlan.impactSummary.deliveriesCount}
+                              {currentPlan.transferringSummary.deliveriesCount}
                             </span>
-                            <span className="text-3xs text-slate-400 font-mono block">
-                              {currentPlan.impactSummary.contactsMergedCount} đầu mối/xưởng
+                            <span className="text-3xs text-purple-200 font-mono block truncate">
+                              {currentPlan.transferringSummary.deliveriesCount > 0
+                                ? `${currentPlan.transferringSummary.deliveryShipmentsCount} đợt PXK • ${currentPlan.impactSummary.contactsMergedCount} xưởng`
+                                : (currentPlan.masterOwnedSummary.deliveriesCount > 0 ? `${currentPlan.impactSummary.contactsMergedCount} xưởng bảo toàn` : 'Chưa phát sinh')}
                             </span>
                           </div>
                         </div>
+
+                        {/* TẦNG 3: TỔNG HỢP NHẤT TOÀN DIỆN SAU GỘP */}
+                        {currentPlan.combinedSummary && (
+                          <div className="text-center pt-1 border-t border-slate-800 text-3xs text-slate-400 font-mono">
+                            Tổng hợp nhất sau gộp: <strong className="text-blue-300">{currentPlan.combinedSummary.quotationsCount} BG</strong> ({formatCurrency(currentPlan.combinedSummary.totalQuotationValue)}) • <strong className="text-emerald-300">{currentPlan.combinedSummary.contractsCount} HĐ</strong> • <strong className="text-amber-300">{currentPlan.combinedSummary.billingsCount} Phiếu thu</strong> ({currentPlan.combinedSummary.paymentInstallmentsCount} đợt) • <strong className="text-purple-300">{currentPlan.combinedSummary.deliveriesCount} Đơn giao</strong> ({currentPlan.combinedSummary.deliveryShipmentsCount} đợt PXK)
+                          </div>
+                        )}
                       </div>
                     )}
 

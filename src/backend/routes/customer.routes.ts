@@ -109,8 +109,8 @@ router.post('/merge', async (req, res) => {
     // Track all affected child documents for exact rollback capability
     const affectedQuotations: Array<{ id: string; previousCustomerId: string; previousMaKh: string }> = [];
     const affectedContracts: Array<{ id: string; previousCustomerId: string; previousMaKh: string }> = [];
-    const affectedPayments: Array<{ id: string; previousCustomerId: string; previousMaKh: string }> = [];
-    const affectedDeliveries: Array<{ id: string; previousCustomerId: string; previousMaKh: string }> = [];
+    const affectedPayments: Array<{ id: string; previousCustomerId: string; previousMaKh: string; installmentsCount?: number }> = [];
+    const affectedDeliveries: Array<{ id: string; previousCustomerId: string; previousMaKh: string; shipmentsCount?: number }> = [];
 
     // Deep Cascading Customer Merge: Reassign active child documents WITHOUT OVERWRITING historic contact/phone snapshots
     for (const srcId of sourceCustomerIds) {
@@ -125,7 +125,11 @@ router.post('/merge', async (req, res) => {
         quotesByMaKhSnap,
         contractsByMaKhSnap,
         paymentsByMaKhSnap,
-        deliveriesByMaKhSnap
+        deliveriesByMaKhSnap,
+        quotesByCustMaKhSnap,
+        contractsByCustMaKhSnap,
+        paymentsByCustMaKhSnap,
+        deliveriesByCustMaKhSnap
       ] = await Promise.all([
         adminDb.collection('quotations').where('customerId', '==', srcId).get(),
         adminDb.collection('contracts').where('customerId', '==', srcId).get(),
@@ -135,11 +139,15 @@ router.post('/merge', async (req, res) => {
         srcMaKh && srcMaKh !== srcId ? adminDb.collection('contracts').where('maKh', '==', srcMaKh).get() : Promise.resolve({ docs: [] }),
         srcMaKh && srcMaKh !== srcId ? adminDb.collection('payments').where('maKh', '==', srcMaKh).get() : Promise.resolve({ docs: [] }),
         srcMaKh && srcMaKh !== srcId ? adminDb.collection('deliveries').where('maKh', '==', srcMaKh).get() : Promise.resolve({ docs: [] }),
+        srcMaKh && srcMaKh !== srcId ? adminDb.collection('quotations').where('customerId', '==', srcMaKh).get() : Promise.resolve({ docs: [] }),
+        srcMaKh && srcMaKh !== srcId ? adminDb.collection('contracts').where('customerId', '==', srcMaKh).get() : Promise.resolve({ docs: [] }),
+        srcMaKh && srcMaKh !== srcId ? adminDb.collection('payments').where('customerId', '==', srcMaKh).get() : Promise.resolve({ docs: [] }),
+        srcMaKh && srcMaKh !== srcId ? adminDb.collection('deliveries').where('customerId', '==', srcMaKh).get() : Promise.resolve({ docs: [] }),
       ]);
 
       const seenDocIds = new Set<string>();
 
-      [...quotesSnap.docs, ...quotesByMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
+      [...quotesSnap.docs, ...quotesByMaKhSnap.docs, ...quotesByCustMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
         if (seenDocIds.has(d.id)) return;
         seenDocIds.add(d.id);
         affectedQuotations.push({ id: d.id, previousCustomerId: srcId, previousMaKh: d.data()?.maKh || srcMaKh });
@@ -152,7 +160,7 @@ router.post('/merge', async (req, res) => {
         });
       });
 
-      [...contractsSnap.docs, ...contractsByMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
+      [...contractsSnap.docs, ...contractsByMaKhSnap.docs, ...contractsByCustMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
         if (seenDocIds.has(d.id)) return;
         seenDocIds.add(d.id);
         affectedContracts.push({ id: d.id, previousCustomerId: srcId, previousMaKh: d.data()?.maKh || srcMaKh });
@@ -165,28 +173,40 @@ router.post('/merge', async (req, res) => {
         });
       });
 
-      [...paymentsSnap.docs, ...paymentsByMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
+      [...paymentsSnap.docs, ...paymentsByMaKhSnap.docs, ...paymentsByCustMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
         if (seenDocIds.has(d.id)) return;
         seenDocIds.add(d.id);
-        affectedPayments.push({ id: d.id, previousCustomerId: srcId, previousMaKh: d.data()?.maKh || srcMaKh });
+        const pInstallments = Array.isArray(d.data()?.cacDotThu) ? d.data().cacDotThu.length : 1;
+        affectedPayments.push({ 
+          id: d.id, 
+          previousCustomerId: srcId, 
+          previousMaKh: d.data()?.maKh || srcMaKh,
+          installmentsCount: pInstallments
+        });
         batch.update(d.ref, {
           customerId: targetCustomerId,
           maKh: targetMaKh,
           legacyCustomerCode: d.data()?.maKh || srcMaKh,
-          // BẢO TOÀN 100% SNAPSHOT LỊCH SỬ
+          // BẢO TOÀN 100% SNAPSHOT LỊCH SỬ & ĐỢT THU
           updatedAt: new Date().toISOString()
         });
       });
 
-      [...deliveriesSnap.docs, ...deliveriesByMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
+      [...deliveriesSnap.docs, ...deliveriesByMaKhSnap.docs, ...deliveriesByCustMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
         if (seenDocIds.has(d.id)) return;
         seenDocIds.add(d.id);
-        affectedDeliveries.push({ id: d.id, previousCustomerId: srcId, previousMaKh: d.data()?.maKh || srcMaKh });
+        const dShipments = Array.isArray(d.data()?.cacDotGiao) ? d.data().cacDotGiao.length : 1;
+        affectedDeliveries.push({ 
+          id: d.id, 
+          previousCustomerId: srcId, 
+          previousMaKh: d.data()?.maKh || srcMaKh,
+          shipmentsCount: dShipments
+        });
         batch.update(d.ref, {
           customerId: targetCustomerId,
           maKh: targetMaKh,
           legacyCustomerCode: d.data()?.maKh || srcMaKh,
-          // BẢO TOÀN 100% SNAPSHOT LỊCH SỬ
+          // BẢO TOÀN 100% SNAPSHOT LỊCH SỬ & ĐỢT XUẤT KHO PXK
           updatedAt: new Date().toISOString()
         });
       });

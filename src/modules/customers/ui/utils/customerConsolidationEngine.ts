@@ -13,6 +13,18 @@ export interface DuplicateCustomerGroup {
   distinctContactsCount: number;
 }
 
+export interface DocumentInstallmentMetrics {
+  quotationsCount: number;
+  totalQuotationValue: number;
+  contractsCount: number;
+  totalContractValue: number;
+  billingsCount: number;
+  paymentInstallmentsCount: number; // Tổng số đợt thu trong cacDotThu
+  totalBillingAmount: number;
+  deliveriesCount: number;
+  deliveryShipmentsCount: number;   // Tổng số đợt giao trong cacDotGiao / PXK
+}
+
 export interface ConsolidationMigrationPlan {
   masterCustomer: Customer;
   updatedMasterCustomer: Customer;
@@ -21,16 +33,13 @@ export interface ConsolidationMigrationPlan {
   affectedContractIds: string[];
   affectedBillingIds: string[];
   affectedDeliveryIds: string[];
-  impactSummary: {
-    quotationsCount: number;
-    totalQuotationValue: number;
-    contractsCount: number;
-    totalContractValue: number;
-    billingsCount: number;
-    totalBillingAmount: number;
-    deliveriesCount: number;
-    contactsMergedCount: number;
-  };
+  
+  // 3 Tầng Số Liệu Minh Bạch (Sovereign MDM Apex)
+  masterOwnedSummary: DocumentInstallmentMetrics;   // Tài sản Master đang sở hữu sẵn
+  transferringSummary: DocumentInstallmentMetrics;  // Tài sản chuyển giao từ hồ sơ phụ
+  combinedSummary: DocumentInstallmentMetrics;      // Tổng lũy kế sau khi gộp
+  
+  impactSummary: DocumentInstallmentMetrics & { contactsMergedCount: number };
   auditSnapshot: {
     mergedAt: string;
     masterId: string;
@@ -242,7 +251,44 @@ export function buildConsolidationMigrationPlan(
 ): ConsolidationMigrationPlan {
   const master = group.masterCustomer;
   const secondaries = group.secondaryCustomers;
-  const secondaryIds = secondaries.map(s => s.id || s.maKh).filter(Boolean) as string[];
+
+  // Trích xuất toàn bộ khóa định danh đa tầng của khách hàng (Omni-Key Extraction)
+  const extractCustomerKeys = (cust: Customer): Set<string> => {
+    const keys = new Set<string>();
+    if (cust.id) keys.add(String(cust.id).trim().toLowerCase());
+    if (cust.maKh) keys.add(String(cust.maKh).trim().toLowerCase());
+    if (Array.isArray(cust.mergedCustomerCodes)) {
+      cust.mergedCustomerCodes.forEach(code => {
+        if (code) keys.add(String(code).trim().toLowerCase());
+      });
+    }
+    if (Array.isArray((cust as any).merged_customer_codes)) {
+      (cust as any).merged_customer_codes.forEach((code: string) => {
+        if (code) keys.add(String(code).trim().toLowerCase());
+      });
+    }
+    return keys;
+  };
+
+  const masterKeys = extractCustomerKeys(master);
+  const secondaryKeys = new Set<string>();
+  secondaries.forEach(s => {
+    extractCustomerKeys(s).forEach(k => secondaryKeys.add(k));
+  });
+
+  const secondaryIds = Array.from(new Set(
+    secondaries.flatMap(s => [s.id, s.maKh]).filter(Boolean)
+  )) as string[];
+
+  const isDocMatching = (doc: any, keySet: Set<string>): boolean => {
+    if (!doc) return false;
+    const docCustId = doc.customerId ? String(doc.customerId).trim().toLowerCase() : '';
+    const docMaKh = doc.maKh ? String(doc.maKh).trim().toLowerCase() : '';
+    const docLegacy = doc.legacyCustomerCode ? String(doc.legacyCustomerCode).trim().toLowerCase() : '';
+    return (Boolean(docCustId) && keySet.has(docCustId)) ||
+           (Boolean(docMaKh) && keySet.has(docMaKh)) ||
+           (Boolean(docLegacy) && keySet.has(docLegacy));
+  };
 
   // 1. Gộp mảng Contacts: Giữ nguyên người đại diện chính của Master, bổ sung các đầu mối từ Secondary
   const mergedContacts: ContactItem[] = [...(master.contacts || [])];
@@ -400,47 +446,122 @@ export function buildConsolidationMigrationPlan(
     tags: Array.from(new Set([...(sec.tags || []), 'MERGED_SECONDARY'])),
   }));
 
-  // 4. Tìm các Báo giá liên quan cần chuyển giao & Tính tổng giá trị
+  // 4. Tìm các Báo giá liên quan cần chuyển giao & Phân loại Master vs Transferring
   const affectedQuotationIds: string[] = [];
-  let totalQuotationValue = 0;
+  let transferringQuotationValue = 0;
+  let masterQuotationsCount = 0;
+  let masterQuotationValue = 0;
+
   quotations.forEach(q => {
-    const isAff = (q.customerId && secondaryIds.includes(q.customerId)) || (q.maKh && secondaryIds.includes(q.maKh));
-    if (isAff && q.id) {
-      affectedQuotationIds.push(q.id);
-      totalQuotationValue += (Number(q.totalAmount || (q as any).tongTien || (q as any).giaTriBaoGia) || 0);
+    const qVal = Number(q.totalAmount || (q as any).tongTien || (q as any).giaTriBaoGia) || 0;
+    if (isDocMatching(q, secondaryKeys)) {
+      if (q.id) affectedQuotationIds.push(q.id);
+      transferringQuotationValue += qVal;
+    } else if (isDocMatching(q, masterKeys)) {
+      masterQuotationsCount++;
+      masterQuotationValue += qVal;
     }
   });
 
-  // 5. Tìm Hợp đồng liên quan & Tính tổng giá trị hợp đồng
+  // 5. Tìm Hợp đồng liên quan & Phân loại Master vs Transferring
   const affectedContractIds: string[] = [];
-  let totalContractValue = 0;
+  let transferringContractValue = 0;
+  let masterContractsCount = 0;
+  let masterContractValue = 0;
+
   contracts.forEach(c => {
-    const isAff = (c.customerId && secondaryIds.includes(c.customerId)) || (c.maKh && secondaryIds.includes(c.maKh));
-    if (isAff && c.id) {
-      affectedContractIds.push(c.id);
-      totalContractValue += (Number(c.giaTriHopDong || (c as any).totalAmount || (c as any).tongGiaTri) || 0);
+    const cVal = Number(c.giaTriHopDong || (c as any).totalAmount || (c as any).tongGiaTri) || 0;
+    if (isDocMatching(c, secondaryKeys)) {
+      if (c.id) affectedContractIds.push(c.id);
+      transferringContractValue += cVal;
+    } else if (isDocMatching(c, masterKeys)) {
+      masterContractsCount++;
+      masterContractValue += cVal;
     }
   });
 
-  // 6. Tìm Phiếu thu / Billing & Tính tổng tiền đã thu
+  // 6. Tìm Phiếu thu & Các đợt thu (cacDotThu) - Phân loại Master vs Transferring
   const affectedBillingIds: string[] = [];
-  let totalBillingAmount = 0;
+  let transferringBillingAmount = 0;
+  let transferringInstallmentsCount = 0;
+  let masterBillingsCount = 0;
+  let masterPaymentInstallmentsCount = 0;
+  let masterBillingAmount = 0;
+
   billings.forEach(b => {
-    const isAff = (b.customerId && secondaryIds.includes(b.customerId)) || (b.maKh && secondaryIds.includes(b.maKh));
-    if (isAff && b.id) {
-      affectedBillingIds.push(b.id);
-      totalBillingAmount += (Number(b.soTien || (b as any).amount || (b as any).soTienThu) || 0);
+    const rawInstallments = (b as any).cacDotThu;
+    const installments = Array.isArray(rawInstallments) ? rawInstallments : [];
+    const installmentsCount = installments.length > 0 ? installments.length : 1;
+    const bVal = Number(b.soTien || (b as any).amount || (b as any).soTienThu || 
+      (installments.length > 0 ? installments.reduce((s: number, d: any) => s + (Number(d.soTien) || 0), 0) : 0)) || 0;
+
+    if (isDocMatching(b, secondaryKeys)) {
+      if (b.id) affectedBillingIds.push(b.id);
+      transferringBillingAmount += bVal;
+      transferringInstallmentsCount += installmentsCount;
+    } else if (isDocMatching(b, masterKeys)) {
+      masterBillingsCount++;
+      masterBillingAmount += bVal;
+      masterPaymentInstallmentsCount += installmentsCount;
     }
   });
 
-  // 7. Tìm Phiếu giao hàng
+  // 7. Tìm Phiếu giao hàng & Các đợt xuất kho (cacDotGiao / PXK) - Phân loại Master vs Transferring
   const affectedDeliveryIds: string[] = [];
+  let transferringDeliveryShipmentsCount = 0;
+  let masterDeliveriesCount = 0;
+  let masterDeliveryShipmentsCount = 0;
+
   deliveries.forEach(d => {
-    const isAff = (d.customerId && secondaryIds.includes(d.customerId)) || (d.maKh && secondaryIds.includes(d.maKh));
-    if (isAff && d.id) {
-      affectedDeliveryIds.push(d.id);
+    const rawShipments = (d as any).cacDotGiao;
+    const shipments = Array.isArray(rawShipments) ? rawShipments : [];
+    const shipmentsCount = shipments.length > 0 ? shipments.length : 1;
+
+    if (isDocMatching(d, secondaryKeys)) {
+      if (d.id) affectedDeliveryIds.push(d.id);
+      transferringDeliveryShipmentsCount += shipmentsCount;
+    } else if (isDocMatching(d, masterKeys)) {
+      masterDeliveriesCount++;
+      masterDeliveryShipmentsCount += shipmentsCount;
     }
   });
+
+  // Xây dựng 3 Tầng số liệu minh bạch
+  const masterOwnedSummary: DocumentInstallmentMetrics = {
+    quotationsCount: masterQuotationsCount,
+    totalQuotationValue: masterQuotationValue,
+    contractsCount: masterContractsCount,
+    totalContractValue: masterContractValue,
+    billingsCount: masterBillingsCount,
+    paymentInstallmentsCount: masterPaymentInstallmentsCount,
+    totalBillingAmount: masterBillingAmount,
+    deliveriesCount: masterDeliveriesCount,
+    deliveryShipmentsCount: masterDeliveryShipmentsCount,
+  };
+
+  const transferringSummary: DocumentInstallmentMetrics = {
+    quotationsCount: affectedQuotationIds.length,
+    totalQuotationValue: transferringQuotationValue,
+    contractsCount: affectedContractIds.length,
+    totalContractValue: transferringContractValue,
+    billingsCount: affectedBillingIds.length,
+    paymentInstallmentsCount: transferringInstallmentsCount,
+    totalBillingAmount: transferringBillingAmount,
+    deliveriesCount: affectedDeliveryIds.length,
+    deliveryShipmentsCount: transferringDeliveryShipmentsCount,
+  };
+
+  const combinedSummary: DocumentInstallmentMetrics = {
+    quotationsCount: masterQuotationsCount + affectedQuotationIds.length,
+    totalQuotationValue: masterQuotationValue + transferringQuotationValue,
+    contractsCount: masterContractsCount + affectedContractIds.length,
+    totalContractValue: masterContractValue + transferringContractValue,
+    billingsCount: masterBillingsCount + affectedBillingIds.length,
+    paymentInstallmentsCount: masterPaymentInstallmentsCount + transferringInstallmentsCount,
+    totalBillingAmount: masterBillingAmount + transferringBillingAmount,
+    deliveriesCount: masterDeliveriesCount + affectedDeliveryIds.length,
+    deliveryShipmentsCount: masterDeliveryShipmentsCount + transferringDeliveryShipmentsCount,
+  };
 
   return {
     masterCustomer: master,
@@ -450,14 +571,11 @@ export function buildConsolidationMigrationPlan(
     affectedContractIds,
     affectedBillingIds,
     affectedDeliveryIds,
+    masterOwnedSummary,
+    transferringSummary,
+    combinedSummary,
     impactSummary: {
-      quotationsCount: affectedQuotationIds.length,
-      totalQuotationValue,
-      contractsCount: affectedContractIds.length,
-      totalContractValue,
-      billingsCount: affectedBillingIds.length,
-      totalBillingAmount,
-      deliveriesCount: affectedDeliveryIds.length,
+      ...transferringSummary,
       contactsMergedCount: mergedContacts.length
     },
     auditSnapshot: {

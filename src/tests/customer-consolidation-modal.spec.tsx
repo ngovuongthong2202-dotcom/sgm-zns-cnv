@@ -273,4 +273,184 @@ describe('Sovereign MDM Apex - Customer Consolidation Engine & Modal Lifecycle',
 
     expect(isSameCustomer(secondaryWithMergedInto, masterDoc)).toBe(true);
   });
+
+  it('6. Quét và bảo toàn đa tầng theo từng đợt (cacDotThu trong payments và cacDotGiao trong deliveries)', () => {
+    const multiInstallmentPayment = {
+      id: 'pay-multi-1',
+      paymentId: 'PT-2026-MULTI',
+      customerId: 'cust-213',
+      maKh: 'KH0213',
+      soTien: 250000000,
+      cacDotThu: [
+        { dotThu: 1, soTien: 100000000, ngayThu: '2026-03-01', hinhThuc: 'Chuyển khoản', soChungTuThamChieu: 'UNC-01' },
+        { dotThu: 2, soTien: 150000000, ngayThu: '2026-03-15', hinhThuc: 'Chuyển khoản', soChungTuThamChieu: 'UNC-02' }
+      ]
+    };
+
+    const multiShipmentDelivery = {
+      id: 'del-multi-1',
+      deliveryId: 'PGH-2026-MULTI',
+      customerId: 'cust-213',
+      maKh: 'KH0213',
+      cacDotGiao: [
+        { dotGiao: 1, soPhieuXuat: 'PXK-01', ngayGiaoMay: '2026-03-05', soBienBanNghiemThu: 'BBGN-01' },
+        { dotGiao: 2, soPhieuXuat: 'PXK-02', ngayGiaoMay: '2026-03-20', soBienBanNghiemThu: 'BBGN-02' }
+      ]
+    };
+
+    const group = {
+      taxCode: '0301728283',
+      normalizedName: 'đại dũng',
+      masterCustomer: mockCustomerA, // KH0216
+      secondaryCustomers: [mockCustomerB], // KH0213
+      allCustomersInGroup: [mockCustomerA, mockCustomerB],
+      totalQuotationsCount: 0,
+      distinctContactsCount: 2
+    };
+
+    const plan = buildConsolidationMigrationPlan(
+      group,
+      [],
+      [],
+      [multiInstallmentPayment],
+      [multiShipmentDelivery]
+    );
+
+    // Verify transferring metrics count both records AND internal milestones
+    expect(plan.transferringSummary.billingsCount).toBe(1);
+    expect(plan.transferringSummary.paymentInstallmentsCount).toBe(2);
+    expect(plan.transferringSummary.totalBillingAmount).toBe(250000000);
+
+    expect(plan.transferringSummary.deliveriesCount).toBe(1);
+    expect(plan.transferringSummary.deliveryShipmentsCount).toBe(2);
+
+    // Combined summary must also reflect these installment totals
+    expect(plan.combinedSummary.paymentInstallmentsCount).toBe(2);
+    expect(plan.combinedSummary.deliveryShipmentsCount).toBe(2);
+  });
+
+  it('7. Minh bạch hóa 3 Tầng tài sản: Phân tách Master sở hữu sẵn vs Chuyển giao từ hồ sơ phụ ("Ghost Zero" resolution)', () => {
+    // KH0506 (Master) already owns 1 quote
+    const masterQuote = {
+      id: 'quote-master',
+      soPhieuBaoGia: '11-BG2604-027',
+      customerId: 'cust-216',
+      maKh: 'KH0216',
+      totalAmount: 594000
+    } as unknown as Quotation;
+
+    const group = {
+      taxCode: '0301728283',
+      normalizedName: 'đại dũng',
+      masterCustomer: mockCustomerA, // KH0216
+      secondaryCustomers: [mockCustomerB], // KH0213
+      allCustomersInGroup: [mockCustomerA, mockCustomerB],
+      totalQuotationsCount: 1,
+      distinctContactsCount: 2
+    };
+
+    const plan = buildConsolidationMigrationPlan(
+      group,
+      [masterQuote],
+      [],
+      [],
+      []
+    );
+
+    // Master owns the quote: transferring count must be 0, but masterOwned must be 1!
+    expect(plan.masterOwnedSummary.quotationsCount).toBe(1);
+    expect(plan.masterOwnedSummary.totalQuotationValue).toBe(594000);
+    expect(plan.transferringSummary.quotationsCount).toBe(0);
+    expect(plan.transferringSummary.totalQuotationValue).toBe(0);
+    expect(plan.combinedSummary.quotationsCount).toBe(1);
+    expect(plan.combinedSummary.totalQuotationValue).toBe(594000);
+
+    // Render modal to ensure the UI clearly explains "Đã quy tụ tại Master"
+    render(
+      <CustomerConsolidationModal
+        isOpen={true}
+        onClose={vi.fn()}
+        customers={[mockCustomerA, mockCustomerB]}
+        quotations={[masterQuote]}
+        contracts={[]}
+        payments={[]}
+        deliveries={[]}
+      />
+    );
+
+    // Verify Master owned tier banner is visible
+    expect(screen.getByText(/Master KH0216 hiện có:/i)).toBeDefined();
+    // Verify transferring card shows "Đã quy tụ tại Master" instead of bare confusing 0
+    expect(screen.getAllByText(/Đã quy tụ tại Master/i).length).toBeGreaterThan(0);
+  });
+
+  it('8. Phản ứng tức thì khi hoán đổi Master (1-Click Reactive Reversal)', () => {
+    // Quote belongs to KH0216
+    const quoteForA = {
+      id: 'quote-cust-a',
+      soPhieuBaoGia: 'BG-A-01',
+      customerId: 'cust-216',
+      maKh: 'KH0216',
+      totalAmount: 594000
+    } as unknown as Quotation;
+
+    const { rerender } = render(
+      <CustomerConsolidationModal
+        isOpen={true}
+        onClose={vi.fn()}
+        customers={[mockCustomerA, mockCustomerB]}
+        quotations={[quoteForA]}
+        contracts={[]}
+        payments={[]}
+        deliveries={[]}
+      />
+    );
+
+    // Initially KH0216 is Master -> 0 quotations transferring, quote is at Master
+    expect(screen.getAllByText('0').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Đã quy tụ tại Master/i).length).toBeGreaterThan(0);
+
+    // User clicks "Đặt làm Master" on KH0213
+    const switchBtn = screen.getByRole('button', { name: /Đặt làm Master/i });
+    fireEvent.click(switchBtn);
+
+    // Now KH0213 is Master, KH0216 is Secondary -> The quote transfers from KH0216 to KH0213!
+    // Modal will dynamically re-evaluate plan and show transferring quotation = 1!
+    expect(screen.getAllByText('1').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/594.000\s*đ/i).length).toBeGreaterThan(0);
+  });
+
+  it('9. Omni-Key Scanner: Quét và nhận diện chính xác chứng từ lưu bằng maKh khi thiếu customerId', () => {
+    // A quotation that only has maKh: 'KH0213', without customerId
+    const quoteWithOnlyMaKh = {
+      id: 'quote-maKh-only',
+      soPhieuBaoGia: 'BG-MAKH-ONLY',
+      maKh: 'KH0213',
+      totalAmount: 120000000
+    } as unknown as Quotation;
+
+    const group = {
+      taxCode: '0301728283',
+      normalizedName: 'đại dũng',
+      masterCustomer: mockCustomerA, // KH0216
+      secondaryCustomers: [mockCustomerB], // id: 'cust-213', maKh: 'KH0213'
+      allCustomersInGroup: [mockCustomerA, mockCustomerB],
+      totalQuotationsCount: 1,
+      distinctContactsCount: 2
+    };
+
+    const plan = buildConsolidationMigrationPlan(
+      group,
+      [quoteWithOnlyMaKh],
+      [],
+      [],
+      []
+    );
+
+    // Omni-Key Scanner must match secondary's maKh and capture this quotation!
+    expect(plan.affectedQuotationIds).toContain('quote-maKh-only');
+    expect(plan.transferringSummary.quotationsCount).toBe(1);
+    expect(plan.transferringSummary.totalQuotationValue).toBe(120000000);
+  });
 });
+

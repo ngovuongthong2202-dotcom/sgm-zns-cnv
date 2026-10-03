@@ -58,7 +58,12 @@ export function CustomerDetailDrawer({
     if (!customer) return;
     setIsSyncing(true);
     try {
-      const targetKeys = [customer.id, customer.maKh].filter(Boolean) as string[];
+      const targetKeys = Array.from(new Set([
+        customer.id,
+        customer.maKh,
+        ...(customer.mergedCustomerCodes || []),
+        ...((customer as any).merged_customer_codes || [])
+      ].filter(Boolean))) as string[];
       let syncedCount = 0;
 
       const [matchedQuotes, matchedContracts, matchedPayments, matchedDeliveries] = await Promise.all([
@@ -218,7 +223,8 @@ export function CustomerDetailDrawer({
     return Array.from(new Set([
       customer.id,
       customer.maKh,
-      ...(customer.mergedCustomerCodes || [])
+      ...(customer.mergedCustomerCodes || []),
+      ...((customer as any).merged_customer_codes || [])
     ].filter(Boolean))) as string[];
   }, [customer]);
 
