@@ -212,13 +212,40 @@ router.post('/send', async (req, res) => {
     }
 
 
+    const targetCustId = (clientEntity.customerId as string) || 
+                         (dbEntity.customerId as string) || 
+                         (dbEntity.customer_id as string) || 
+                         (dbEntity.maKh as string);
+    let parentCustomer: Record<string, unknown> = {};
+    if (targetCustId && (!clientEntity.tenKhachHang && !dbEntity.tenKhachHang && !clientEntity.customer_name && !dbEntity.customer_name)) {
+      try {
+        const custSnap = await adminDb.collection('customers').doc(targetCustId).get();
+        if (custSnap.exists) {
+          parentCustomer = (custSnap.data() as Record<string, unknown>) || {};
+        }
+      } catch (err) {
+        // Fallback gracefully
+      }
+    }
+
+    const resolvedCustomerName = 
+      (clientEntity.tenKhachHang as string) || 
+      (dbEntity.tenKhachHang as string) || 
+      (clientEntity.customer_name as string) || 
+      (dbEntity.customer_name as string) || 
+      (parentCustomer.tenKhachHang as string) || 
+      (parentCustomer.ten_khach_hang as string) || 
+      '';
+
     const mergedPayload: Record<string, unknown> = {
+      ...parentCustomer,
       ...dbEntity,
       ...clientEntity,
       phone: normalizedPhone,
       sdt: normalizedPhone,
-      tenKhachHang: clientEntity.tenKhachHang || dbEntity.tenKhachHang || clientEntity.customer_name || dbEntity.customer_name || '',
-      customerId: clientEntity.customerId || dbEntity.customerId || (body.entityType === 'CUSTOMER' ? body.entityId : undefined),
+      tenKhachHang: resolvedCustomerName,
+      customer_name: resolvedCustomerName,
+      customerId: clientEntity.customerId || dbEntity.customerId || (body.entityType === 'CUSTOMER' ? body.entityId : targetCustId),
       entityId: body.entityId,
       entityType: body.entityType,
       messageType: body.messageType,

@@ -59,7 +59,17 @@ export function useQuotationActions(
     }
 
     await sendZnsAndToast({
-      entityId: q.id, entityType: 'QUOTATION', messageType: ZnsMessageType.BAOGIA, phone: phone, payload: { ...q },
+      entityId: q.id,
+      entityType: 'QUOTATION',
+      messageType: ZnsMessageType.BAOGIA,
+      phone: phone,
+      payload: {
+        ...q,
+        tenKhachHang: customerName || q.tenKhachHang || '',
+        sdt: phone,
+        phone: phone,
+        soPhieuBaoGia: q.soPhieuBaoGia || q.maBaoGia || q.id
+      },
       attemptBucket: nextAttempt(q.trangThaiGuiTinBaoGia || undefined),
       userRole: userData?.role,
       forceResend: isResend
@@ -160,8 +170,17 @@ export function useQuotationActions(
     }
 
     await sendZnsAndToast({
-      entityId: drawerQuotation.id, entityType: 'QUOTATION', messageType: ZnsMessageType.BAOGIA,
-      phone: phone, payload: { ...drawerQuotation },
+      entityId: drawerQuotation.id,
+      entityType: 'QUOTATION',
+      messageType: ZnsMessageType.BAOGIA,
+      phone: phone,
+      payload: {
+        ...drawerQuotation,
+        tenKhachHang: custName || drawerQuotation.tenKhachHang || '',
+        sdt: phone,
+        phone: phone,
+        soPhieuBaoGia: drawerQuotation.soPhieuBaoGia || drawerQuotation.maBaoGia || drawerQuotation.id
+      },
       attemptBucket: nextAttempt(drawerQuotation.trangThaiGuiTinBaoGia || undefined),
       userRole: userData?.role,
       forceResend: isResend

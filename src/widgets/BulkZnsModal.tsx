@@ -414,11 +414,13 @@ export function BulkZnsModal({
             skipReason = 'Bỏ chọn thủ công';
           }
 
+          const resolvedCustName = q.tenKhachHang || parentCust?.tenKhachHang || parentCust?.ten_khach_hang || 'Khách hàng';
+
           list.push({
             id: recId,
             entityId: q.id || '',
             code: q.soPhieuBaoGia || 'BG',
-            customerName: q.tenKhachHang || 'Khách hàng',
+            customerName: resolvedCustName,
             contactName: resolvedContactName,
             roleOrBranch: isHydrated ? 'Hồ sơ KH' : undefined,
             phone: primaryMob.cleaned,
@@ -430,7 +432,13 @@ export function BulkZnsModal({
             rawStatus: q.trangThaiGuiTinBaoGia || undefined,
             willSend,
             skipReason,
-            originalEntity: { ...q, sdt: primaryMob.cleaned, phone: primaryMob.cleaned },
+            originalEntity: {
+              ...q,
+              tenKhachHang: resolvedCustName !== 'Khách hàng' ? resolvedCustName : (q.tenKhachHang || ''),
+              sdt: primaryMob.cleaned,
+              phone: primaryMob.cleaned,
+              soPhieuBaoGia: q.soPhieuBaoGia || q.maBaoGia || q.id
+            },
             amount,
             amountFormatted,
             dateStr,

@@ -244,5 +244,54 @@ describe('V54 Sovereign Autonomous Lifecycle Matrix & Dual-Flight Omni-Mesh Fabr
     });
   });
 
+  describe('6. Universal Cross-Module Entity Mesh Hydrator & Pre-Flight Verifier', () => {
+    it('passes preCheckEntitySnapshot for quotation when phone is passed as fallbackPhone', async () => {
+      const { preCheckEntitySnapshot } = await import('@/src/domain/zns-client');
+
+      const rawQuotation = {
+        id: 'BGVT-2026-0764',
+        tenKhachHang: 'Công Ty TNHH Cơ Khí Công Nghiệp Sài Gòn',
+        sdt: '', // empty in quotation
+        soPhieuBaoGia: 'BGVT-2026-0764'
+      };
+
+      // Calling with fallbackPhone '0938384265'
+      const check = preCheckEntitySnapshot('QUOTATION', rawQuotation, '0938384265');
+      expect(check.ok).toBe(true);
+      expect(check.missing).toHaveLength(0);
+    });
+
+    it('passes preCheckEntitySnapshot when customer name is under customer_name or customerName alias', async () => {
+      const { preCheckEntitySnapshot } = await import('@/src/domain/zns-client');
+
+      const entityWithAlias = {
+        id: 'BG-001',
+        customer_name: 'Công Ty An Phát',
+        phone: '0987654321',
+        maBaoGia: 'BG-001'
+      };
+
+      const check = preCheckEntitySnapshot('QUOTATION', entityWithAlias);
+      expect(check.ok).toBe(true);
+      expect(check.missing).toHaveLength(0);
+    });
+
+    it('auto-resolves soPhieuBaoGia from maBaoGia or id when missing soPhieuBaoGia property', async () => {
+      const { preCheckEntitySnapshot } = await import('@/src/domain/zns-client');
+
+      const quotationOnlyMa = {
+        id: 'quote-uuid-123',
+        tenKhachHang: 'Công Ty Cơ Khí Sài Gòn',
+        sdt: '0938384265',
+        maBaoGia: 'BGVT-2026-0764'
+      };
+
+      const check = preCheckEntitySnapshot('QUOTATION', quotationOnlyMa);
+      expect(check.ok).toBe(true);
+      expect(check.missing).toHaveLength(0);
+    });
+  });
+
 });
+
 

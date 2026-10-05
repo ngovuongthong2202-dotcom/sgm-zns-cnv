@@ -48,15 +48,37 @@ const ENTITY_REQUIRED_SNAPSHOT: Record<string, string[]> = {
   DELIVERY: ['tenKhachHang', 'sdt'], // Cho phép giao hàng từ báo giá dịch vụ/vật tư không có hợp đồng (fallback số hợp đồng)
 };
 
-export function preCheckEntitySnapshot(entityType: string, entity: Record<string, unknown>): { ok: boolean; missing: string[] } {
+export function preCheckEntitySnapshot(
+  entityType: string,
+  entity: Record<string, unknown>,
+  fallbackPhone?: string
+): { ok: boolean; missing: string[] } {
   const resolved = { ...entity };
-  if (!resolved.sdt && Array.isArray(resolved.contacts) && resolved.contacts.length > 0 && resolved.contacts[0]?.sdt) {
-    resolved.sdt = resolved.contacts[0].sdt;
+  
+  // Resolve sdt from fallbackPhone, phone, or contacts array
+  if (!resolved.sdt) {
+    resolved.sdt = fallbackPhone || resolved.phone || (Array.isArray(resolved.contacts) && resolved.contacts[0]?.sdt) || '';
   }
+
+  // Resolve tenKhachHang from customerName / customer_name / name
+  if (!resolved.tenKhachHang) {
+    resolved.tenKhachHang = resolved.customer_name || resolved.customerName || resolved.name || '';
+  }
+
+  // Resolve soPhieuBaoGia from maBaoGia / id
+  if (entityType === 'QUOTATION' && !resolved.soPhieuBaoGia) {
+    resolved.soPhieuBaoGia = resolved.maBaoGia || resolved.id || '';
+  }
+
+  // Resolve soHopDong from maHopDong / id
+  if (entityType === 'CONTRACT' && !resolved.soHopDong) {
+    resolved.soHopDong = resolved.maHopDong || resolved.id || '';
+  }
+
   const required = ENTITY_REQUIRED_SNAPSHOT[entityType] || [];
   const missing = required.filter((f: string) => {
     const v = resolved[f];
-    return v === undefined || v === null || v === '';
+    return v === undefined || v === null || String(v).trim() === '';
   });
   return { ok: missing.length === 0, missing };
 }
@@ -326,7 +348,11 @@ export async function sendZnsAndToast(args: SendZnsArgs, label?: string) {
   }
   // Pre-check snapshot — block sớm để UX tốt hơn
   if (args.payload) {
-    const check = preCheckEntitySnapshot(args.entityType, args.payload);
+    if (args.phone) {
+      if (!args.payload.sdt) args.payload.sdt = args.phone;
+      if (!args.payload.phone) args.payload.phone = args.phone;
+    }
+    const check = preCheckEntitySnapshot(args.entityType, args.payload, args.phone);
     if (!check.ok) {
       const tipMap: Record<string, string> = {
         tenKhachHang: 'Tên khách hàng',
