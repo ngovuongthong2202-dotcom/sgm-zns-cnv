@@ -84,6 +84,14 @@ export const getQuotationColumns = (
     id: 'tenKhachHang',
     header: 'Khách hàng',
     size: 290,
+    accessorFn: (row: any) => {
+      const c = row.__customerInfo;
+      const name = row.tenKhachHang || c?.tenKhachHang || '';
+      const phone = row.sdt || row.phone || c?.sdt || '';
+      const rep = row.nguoiDaiDien || c?.nguoiDaiDien || '';
+      const code = row.maKh || c?.maKh || '';
+      return `${name} ${phone} ${rep} ${code}`;
+    },
     cell: (info) => {
       const q = info.row.original;
       const liveCustomer = allCustomers?.find(c => c.id === q.customerId || (c.maKh && c.maKh === q.customerId));

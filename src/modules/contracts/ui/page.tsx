@@ -160,7 +160,28 @@ export default function ContractsFeature() {
     setActiveKpiFilter('ALL');
   };
 
-  const filteredContractsWithStt = useMemo(() => enrichWithStt(filteredContracts), [filteredContracts]);
+  const filteredContractsWithCustomer = useMemo(() => {
+    return filteredContracts.map(ct => {
+      const liveCustomer = allCustomers?.find(c => c.id === ct.customerId || (c.maKh && c.maKh === ct.customerId));
+      const resolvedName = ct.tenKhachHang || liveCustomer?.tenKhachHang || '';
+      const resolvedPhone = ct.sdt || liveCustomer?.sdt || (liveCustomer?.contacts?.[0]?.sdt) || '';
+      const resolvedRep = ct.nguoiDaiDien || liveCustomer?.nguoiDaiDien || '';
+      const resolvedAddress = ct.diaChi || liveCustomer?.diaChi || '';
+      const resolvedMaKh = ct.maKh || liveCustomer?.maKh || '';
+      return {
+        ...ct,
+        tenKhachHang: resolvedName,
+        sdt: resolvedPhone,
+        phone: (ct as any).phone || resolvedPhone,
+        nguoiDaiDien: resolvedRep,
+        diaChi: resolvedAddress,
+        maKh: resolvedMaKh,
+        __customerInfo: liveCustomer || undefined
+      };
+    });
+  }, [filteredContracts, allCustomers]);
+
+  const filteredContractsWithStt = useMemo(() => enrichWithStt(filteredContractsWithCustomer), [filteredContractsWithCustomer]);
 
   const dataView = useDataView({
     viewId: 'contracts_list',

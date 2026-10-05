@@ -96,6 +96,14 @@ export const getContractColumns = (
     id: 'tenKhachHang',
     header: t('customer.fields.name'),
     size: 280,
+    accessorFn: (row: any) => {
+      const c = row.__customerInfo;
+      const name = row.tenKhachHang || c?.tenKhachHang || '';
+      const phone = row.sdt || row.phone || c?.sdt || '';
+      const rep = row.nguoiDaiDien || c?.nguoiDaiDien || '';
+      const code = row.maKh || c?.maKh || '';
+      return `${name} ${phone} ${rep} ${code}`;
+    },
     cell: (info) => {
       const c = info.row.original;
       let phone = c.sdt || '';

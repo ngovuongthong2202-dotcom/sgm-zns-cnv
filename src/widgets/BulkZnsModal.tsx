@@ -33,6 +33,7 @@ import { Button } from '@/src/design-system';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
 import { UpdateCustomer } from '@/src/modules/customers/application/use-cases/UpdateCustomer';
 import { quotationRepo } from '@/src/modules/sales/infrastructure/QuotationRepoFirestore';
+import { normalizeVietnameseSearch, extractDigits, cleanTaxCode } from '@/src/shared/utils/vietnameseSearchEngine';
 
 export interface BulkZnsModalProps {
   isOpen: boolean;
@@ -70,6 +71,11 @@ export interface TargetRecipient {
   isHydratedFromCustomer?: boolean;
   hydratedNote?: string;
   availablePhones?: Array<{ cleaned: string; formatted: string; carrier?: string }>;
+  // V60 Apex Multi-Token Search & Card Layout
+  diaChi?: string;
+  tinhThanh?: string;
+  maKh?: string;
+  maSoThue?: string;
 }
 
 export interface DispatchLogItem {
@@ -98,8 +104,8 @@ export function BulkZnsModal({
   const [cooldownSeconds, setCooldownSeconds] = useState(5); // 5s, 7s, 10s
   const [manualToggles, setManualToggles] = useState<Record<string, boolean>>({});
 
-  // Cockpit filters (v50)
-  const [filterTab, setFilterTab] = useState<'ALL' | 'READY' | 'SENT' | 'EXCLUDED'>('ALL');
+  // Cockpit filters (v50/v60)
+  const [filterTab, setFilterTab] = useState<'ALL' | 'READY' | 'SENT' | 'EXCLUDED' | 'SELECTED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Real-time message subscription for 100% accurate dispatch history resolution
@@ -268,7 +274,11 @@ export function BulkZnsModal({
                 willSend,
                 skipReason,
                 originalEntity: { ...c, sdt: mob.cleaned, phone: mob.cleaned, nguoiDaiDien: ct.name },
-                contactObj: ct.rawContact
+                contactObj: ct.rawContact,
+                diaChi: c.diaChi || '',
+                tinhThanh: c.tinhThanh || '',
+                maKh: c.maKh || '',
+                maSoThue: c.maSoThue || ''
               });
             });
           } else if (ext.landlinePhones.length > 0) {
@@ -295,7 +305,11 @@ export function BulkZnsModal({
               isAlreadySent,
               willSend: false,
               skipReason: `Bỏ qua (Số bàn cố định ${land.cleaned.slice(0, 3)})`,
-              originalEntity: c
+              originalEntity: c,
+              diaChi: c.diaChi || '',
+              tinhThanh: c.tinhThanh || '',
+              maKh: c.maKh || '',
+              maSoThue: c.maSoThue || ''
             });
           } else {
             list.push({
@@ -311,7 +325,11 @@ export function BulkZnsModal({
               isAlreadySent: false,
               willSend: false,
               skipReason: 'Số điện thoại không hợp lệ',
-              originalEntity: c
+              originalEntity: c,
+              diaChi: c.diaChi || '',
+              tinhThanh: c.tinhThanh || '',
+              maKh: c.maKh || '',
+              maSoThue: c.maSoThue || ''
             });
           }
         });
@@ -444,7 +462,11 @@ export function BulkZnsModal({
             dateStr,
             isHydratedFromCustomer: isHydrated,
             hydratedNote,
-            availablePhones: uniqueMobilePhones
+            availablePhones: uniqueMobilePhones,
+            diaChi: (q as any).diaChi || parentCust?.diaChi || '',
+            tinhThanh: (q as any).tinhThanh || parentCust?.tinhThanh || '',
+            maKh: q.maKh || parentCust?.maKh || '',
+            maSoThue: (q as any).maSoThue || parentCust?.maSoThue || ''
           });
         } else if (ext.landlinePhones.length > 0) {
           const land = ext.landlinePhones[0];
@@ -475,7 +497,11 @@ export function BulkZnsModal({
             amountFormatted,
             dateStr,
             isHydratedFromCustomer: isHydrated,
-            hydratedNote
+            hydratedNote,
+            diaChi: (q as any).diaChi || parentCust?.diaChi || '',
+            tinhThanh: (q as any).tinhThanh || parentCust?.tinhThanh || '',
+            maKh: q.maKh || parentCust?.maKh || '',
+            maSoThue: (q as any).maSoThue || parentCust?.maSoThue || ''
           });
         } else {
           const recId = `quote-nophone-${q.id}`;
@@ -495,7 +521,11 @@ export function BulkZnsModal({
             originalEntity: q,
             amount,
             amountFormatted,
-            dateStr
+            dateStr,
+            diaChi: (q as any).diaChi || parentCust?.diaChi || '',
+            tinhThanh: (q as any).tinhThanh || parentCust?.tinhThanh || '',
+            maKh: q.maKh || parentCust?.maKh || '',
+            maSoThue: (q as any).maSoThue || parentCust?.maSoThue || ''
           });
         }
       });
@@ -523,14 +553,18 @@ export function BulkZnsModal({
       if (filterTab === 'SENT' && !r.isAlreadySent) return false;
       if (filterTab === 'EXCLUDED' && (!r.isLandline && r.phone)) return false;
 
-      // 2. Search query filter
+      // 2. Search query filter (Multi-dimensional Omni-Search)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchCode = (r.code || '').toLowerCase().includes(q);
         const matchName = (r.customerName || '').toLowerCase().includes(q);
         const matchContact = (r.contactName || '').toLowerCase().includes(q);
         const matchPhone = (r.phone || '').includes(q) || (r.phoneFormatted || '').includes(q);
-        if (!matchCode && !matchName && !matchContact && !matchPhone) return false;
+        const matchAddress = (r.diaChi || '').toLowerCase().includes(q);
+        const matchProvince = (r.tinhThanh || '').toLowerCase().includes(q);
+        const matchCustCode = (r.maKh || '').toLowerCase().includes(q);
+        const matchTax = (r.maSoThue || '').toLowerCase().includes(q);
+        if (!matchCode && !matchName && !matchContact && !matchPhone && !matchAddress && !matchProvince && !matchCustCode && !matchTax) return false;
       }
 
       return true;

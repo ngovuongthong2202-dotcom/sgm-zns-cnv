@@ -123,7 +123,28 @@ export default function QuotationsFeature() {
     filteredQuotations
   } = useQuotationsFilters(quotations, allContracts, allPayments, allDeliveries, customerTinhThanhMap);
 
-  const enhancedQuotations = useMemo(() => enhanceQuotationsWithProvince(filteredQuotations, customerTinhThanhMap), [filteredQuotations, customerTinhThanhMap]);
+  const enhancedQuotations = useMemo(() => {
+    const list = enhanceQuotationsWithProvince(filteredQuotations, customerTinhThanhMap);
+    return list.map(q => {
+      const liveCustomer = allCustomers?.find(c => c.id === q.customerId || (c.maKh && c.maKh === q.customerId));
+      const resolvedName = q.tenKhachHang || liveCustomer?.tenKhachHang || '';
+      const resolvedPhone = q.sdt || liveCustomer?.sdt || (liveCustomer?.contacts?.[0]?.sdt) || '';
+      const resolvedRep = q.nguoiDaiDien || liveCustomer?.nguoiDaiDien || (liveCustomer?.contacts?.[0]?.nguoiDaiDien) || '';
+      const resolvedAddress = q.diaChi || liveCustomer?.diaChi || '';
+      const resolvedMaKh = q.maKh || liveCustomer?.maKh || '';
+      return {
+        ...q,
+        tenKhachHang: resolvedName,
+        sdt: resolvedPhone,
+        phone: q.phone || resolvedPhone,
+        nguoiDaiDien: resolvedRep,
+        diaChi: resolvedAddress,
+        maKh: resolvedMaKh,
+        soPhieuBaoGia: q.soPhieuBaoGia || q.maBaoGia || q.id,
+        __customerInfo: liveCustomer || undefined
+      };
+    });
+  }, [filteredQuotations, customerTinhThanhMap, allCustomers]);
 
 
   // Keep drawerQuotation in sync with realtime updates
@@ -144,7 +165,7 @@ export default function QuotationsFeature() {
   } = useQuotationActions(
     createQuotation, updateQuotation, deleteQuotation, confirm,
     drawerQuotation, setDrawerQuotation, editingQuotation, setEditingQuotation, setIsFormOpen, drawerCustomer,
-    allContracts, allPayments, allDeliveries, userData
+    allContracts, allPayments, allDeliveries, userData, allCustomers
   );
 
   const columns = useMemo(() => getQuotationColumns(
