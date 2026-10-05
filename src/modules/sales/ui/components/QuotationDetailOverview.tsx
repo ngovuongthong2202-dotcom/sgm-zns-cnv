@@ -62,6 +62,15 @@ export function QuotationDetailOverview({
   const isBgMay = normalizeLoai(currentQuotation.loai) === QUOTATION_LOAI.MAY;
   const [copiedPhone, setCopiedPhone] = React.useState<string | null>(null);
 
+  const safeOwnersOptions = React.useMemo(() => {
+    const list = [...(owners || [])];
+    const currentPic = (currentQuotation.nguoiPhuTrach || '').trim();
+    if (currentPic && !list.some(o => o.trim().toLowerCase() === currentPic.toLowerCase())) {
+      list.unshift(currentPic);
+    }
+    return list.map(o => ({ value: o, label: o }));
+  }, [owners, currentQuotation.nguoiPhuTrach]);
+
   const handleCopyPhone = (ph: string) => {
     navigator.clipboard.writeText(ph);
     setCopiedPhone(ph);
@@ -438,7 +447,7 @@ export function QuotationDetailOverview({
                 <SearchableSelect 
                   value={quotation.nguoiPhuTrach || ''}
                   onChange={handleOwnerChange}
-                  options={owners.map(o => ({ value: o, label: o }))}
+                  options={safeOwnersOptions}
                   placeholder="-- Chọn PIC phụ trách --"
                 />
               </div>

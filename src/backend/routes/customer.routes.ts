@@ -145,9 +145,20 @@ router.post('/merge', async (req, res) => {
         srcMaKh && srcMaKh !== srcId ? adminDb.collection('deliveries').where('customerId', '==', srcMaKh).get() : Promise.resolve({ docs: [] }),
       ]);
 
+      const isOwnedBySource = (docSnap: any) => {
+        const d = docSnap.data();
+        if (!d || d.deletedAt) return false;
+        // If customerId is set, it MUST match srcId
+        if (d.customerId) {
+          return d.customerId === srcId;
+        }
+        // If customerId is missing/empty, only then match maKh
+        return !!srcMaKh && d.maKh === srcMaKh;
+      };
+
       const seenDocIds = new Set<string>();
 
-      [...quotesSnap.docs, ...quotesByMaKhSnap.docs, ...quotesByCustMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
+      [...quotesSnap.docs, ...quotesByMaKhSnap.docs, ...quotesByCustMaKhSnap.docs].filter(isOwnedBySource).forEach(d => {
         if (seenDocIds.has(d.id)) return;
         seenDocIds.add(d.id);
         affectedQuotations.push({ id: d.id, previousCustomerId: srcId, previousMaKh: d.data()?.maKh || srcMaKh });
@@ -160,7 +171,7 @@ router.post('/merge', async (req, res) => {
         });
       });
 
-      [...contractsSnap.docs, ...contractsByMaKhSnap.docs, ...contractsByCustMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
+      [...contractsSnap.docs, ...contractsByMaKhSnap.docs, ...contractsByCustMaKhSnap.docs].filter(isOwnedBySource).forEach(d => {
         if (seenDocIds.has(d.id)) return;
         seenDocIds.add(d.id);
         affectedContracts.push({ id: d.id, previousCustomerId: srcId, previousMaKh: d.data()?.maKh || srcMaKh });
@@ -173,7 +184,7 @@ router.post('/merge', async (req, res) => {
         });
       });
 
-      [...paymentsSnap.docs, ...paymentsByMaKhSnap.docs, ...paymentsByCustMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
+      [...paymentsSnap.docs, ...paymentsByMaKhSnap.docs, ...paymentsByCustMaKhSnap.docs].filter(isOwnedBySource).forEach(d => {
         if (seenDocIds.has(d.id)) return;
         seenDocIds.add(d.id);
         const pInstallments = Array.isArray(d.data()?.cacDotThu) ? d.data().cacDotThu.length : 1;
@@ -192,7 +203,7 @@ router.post('/merge', async (req, res) => {
         });
       });
 
-      [...deliveriesSnap.docs, ...deliveriesByMaKhSnap.docs, ...deliveriesByCustMaKhSnap.docs].filter(d => !d.data()?.deletedAt).forEach(d => {
+      [...deliveriesSnap.docs, ...deliveriesByMaKhSnap.docs, ...deliveriesByCustMaKhSnap.docs].filter(isOwnedBySource).forEach(d => {
         if (seenDocIds.has(d.id)) return;
         seenDocIds.add(d.id);
         const dShipments = Array.isArray(d.data()?.cacDotGiao) ? d.data().cacDotGiao.length : 1;

@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS customers (
     data JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 CREATE INDEX IF NOT EXISTS idx_customers_ma_kh ON customers(ma_kh);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_customers_active_ma_kh ON customers (ma_kh) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_customers_sdt ON customers(sdt);
 CREATE INDEX IF NOT EXISTS idx_customers_deleted_at ON customers(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_customers_created_at ON customers(created_at DESC);

@@ -186,17 +186,29 @@ export function useCustomerForm(
         logger.warn('Backend generate-makh API offline, synchronizing directly with Supabase/local state:', err);
       }
 
-      // 3. Fallback Supabase: Lấy sequence cao nhất từ database trực tiếp
+      // 3. Fallback Supabase: Lấy sequence từ counter customer_global và ma_kh cao nhất
       try {
+        const { data: counterDoc } = await supabase
+          .from('counters')
+          .select('data')
+          .eq('id', 'customer_global')
+          .maybeSingle();
+
+        if (counterDoc?.data?.seq && Number(counterDoc.data.seq) > highestSeq) {
+          highestSeq = Number(counterDoc.data.seq);
+        }
+
         const { data: dbCustomers } = await supabase
           .from('customers')
-          .select('maKh')
-          .order('createdAt', { ascending: false })
-          .limit(100);
+          .select('ma_kh')
+          .order('ma_kh', { ascending: false })
+          .limit(50);
 
         if (dbCustomers && Array.isArray(dbCustomers)) {
-          const dbMax = computeMaxCustomerSequence(dbCustomers);
-          if (dbMax > highestSeq) highestSeq = dbMax;
+          for (const row of dbCustomers) {
+            const seq = extractSequentialCustomerNumber(row?.ma_kh);
+            if (seq > highestSeq) highestSeq = seq;
+          }
         }
       } catch (dbErr) {
         logger.warn('Direct Supabase fetch for customer max sequence failed:', dbErr);

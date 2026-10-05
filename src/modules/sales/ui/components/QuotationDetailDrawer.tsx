@@ -25,6 +25,7 @@ import {
 import { FileText } from 'lucide-react';
 
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
+import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
 
 export interface QuotationDetailDrawerProps {
   quotation: Quotation | null;
@@ -144,12 +145,13 @@ export function QuotationDetailDrawer({
 
   if (!quotation) return null;
 
-  const customer = (customers && customers.find(c => c.id === quotation.customerId)) ||
-    (customers && customers.find(c => c.tenKhachHang === quotation.tenKhachHang)) ||
+  const customer = (quotation.customerId && customers ? customers.find(c => c.id === quotation.customerId) : null) ||
     (quotation.customerId ? entityCachePool.get('customers', quotation.customerId) : null) ||
-    (quotation.tenKhachHang ? entityCachePool.find('customers', (c: any) => c.tenKhachHang === quotation.tenKhachHang) : null) ||
+    (customers && customers.find(c => isSameCustomer(c, quotation))) ||
+    (entityCachePool.find('customers', (c: any) => isSameCustomer(c, quotation))) ||
     ({
       id: quotation.customerId || '',
+      maKh: quotation.maKh || '',
       tenKhachHang: quotation.tenKhachHang || 'Khách hàng',
       sdt: quotation.sdt || '',
       diaChi: (quotation as any).diaChiGiaoHang || '',
@@ -162,24 +164,33 @@ export function QuotationDetailDrawer({
   const safeDeliveries = (deliveries && deliveries.length > 0) ? deliveries : lazyDeliveries;
 
   const matchingContracts = safeContracts.filter(c => 
-    c.quotationId === quotation.id || 
-    (quotation.soPhieuBaoGia && c.soPhieuBaoGia === quotation.soPhieuBaoGia)
+    isSameCustomer(quotation, c) &&
+    (
+      c.quotationId === quotation.id || 
+      (quotation.soPhieuBaoGia && c.soPhieuBaoGia === quotation.soPhieuBaoGia)
+    )
   );
   const matchingContractIds = new Set(matchingContracts.map(c => c.id).filter(Boolean));
   const matchingContractSos = new Set(matchingContracts.map(c => c.soHopDong).filter(Boolean));
 
   const matchingPayments = safePayments.filter(p => 
-    p.quotationId === quotation.id || 
-    (quotation.soPhieuBaoGia && p.soPhieuBaoGia === quotation.soPhieuBaoGia) ||
-    (p.contractId && matchingContractIds.has(p.contractId)) ||
-    (p.soHopDong && matchingContractSos.has(p.soHopDong))
+    isSameCustomer(quotation, p) &&
+    (
+      p.quotationId === quotation.id || 
+      (quotation.soPhieuBaoGia && p.soPhieuBaoGia === quotation.soPhieuBaoGia) ||
+      (p.contractId && matchingContractIds.has(p.contractId)) ||
+      (p.soHopDong && matchingContractSos.has(p.soHopDong))
+    )
   );
 
   const matchingDeliveries = safeDeliveries.filter(d => 
-    d.quotationId === quotation.id || 
-    (quotation.soPhieuBaoGia && d.soPhieuBaoGia === quotation.soPhieuBaoGia) ||
-    (d.contractId && matchingContractIds.has(d.contractId)) ||
-    (d.soHopDong && matchingContractSos.has(d.soHopDong))
+    isSameCustomer(quotation, d) &&
+    (
+      d.quotationId === quotation.id || 
+      (quotation.soPhieuBaoGia && d.soPhieuBaoGia === quotation.soPhieuBaoGia) ||
+      (d.contractId && matchingContractIds.has(d.contractId)) ||
+      (d.soHopDong && matchingContractSos.has(d.soHopDong))
+    )
   );
 
   // CUSTOM TABS CONTROLLERS - Kiến trúc Tam Điểm (The Sovereign Triad)

@@ -25,6 +25,7 @@ import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { Contract } from '@/src/domain/schema/contract.schema';
 import { Payment } from '@/src/domain/schema/payment.schema';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
+import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
 
 interface Props {
   customer: Customer | null;
@@ -317,13 +318,16 @@ export function CustomerForm({
               if (hasCoreChanges) {
                 setIsCheckingImpact(true);
                 try {
-                  const targetKeys = [customer.id, customer.maKh].filter(Boolean) as string[];
-                  const [qList, cList, pList, dList] = await Promise.all([
-                    repositoryFactory.get<Quotation>('quotations').list({ fkField: 'customerId', fkId: targetKeys, limit: 100 }),
-                    repositoryFactory.get<Contract>('contracts').list({ fkField: 'customerId', fkId: targetKeys, limit: 100 }),
-                    repositoryFactory.get<Payment>('payments').list({ fkField: 'customerId', fkId: targetKeys, limit: 100 }),
-                    repositoryFactory.get<Delivery>('deliveries').list({ fkField: 'customerId', fkId: targetKeys, limit: 100 }),
+                  const [rawQ, rawC, rawP, rawD] = await Promise.all([
+                    repositoryFactory.get<Quotation>('quotations').list({ fkField: 'customerId', fkId: customer.id, limit: 100 }),
+                    repositoryFactory.get<Contract>('contracts').list({ fkField: 'customerId', fkId: customer.id, limit: 100 }),
+                    repositoryFactory.get<Payment>('payments').list({ fkField: 'customerId', fkId: customer.id, limit: 100 }),
+                    repositoryFactory.get<Delivery>('deliveries').list({ fkField: 'customerId', fkId: customer.id, limit: 100 }),
                   ]);
+                  const qList = rawQ.filter(q => isSameCustomer(customer, q));
+                  const cList = rawC.filter(c => isSameCustomer(customer, c));
+                  const pList = rawP.filter(p => isSameCustomer(customer, p));
+                  const dList = rawD.filter(d => isSameCustomer(customer, d));
 
 
                   const total = qList.length + cList.length + pList.length + dList.length;

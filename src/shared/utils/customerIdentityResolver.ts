@@ -76,6 +76,23 @@ function extractPhonesFromDoc(doc: any): string[] {
   return Array.from(new Set(phones));
 }
 
+function extractEntityCustomerId(doc: any): string {
+  if (!doc) return '';
+  if (doc.customerId) return String(doc.customerId).trim();
+  if (doc.customer_id) return String(doc.customer_id).trim();
+
+  // If it's a child transactional document, doc.id is document ID (e.g. quotation ID)
+  const isTransactionalDoc = !!(
+    doc.soPhieuBaoGia || doc.soHopDong || doc.paymentId || doc.deliveryId ||
+    doc.maBaoGia || doc.maHopDong || doc.maThanhToan || doc.maGiaoHang ||
+    doc.products || doc.revisions || doc.cacDotThu || doc.cacDotGiao
+  );
+  if (!isTransactionalDoc && doc.id) {
+    return String(doc.id).trim();
+  }
+  return '';
+}
+
 /**
  * Sovereign Invariant: Evaluates whether two documents (or entities) belong to the EXACT SAME CUSTOMER.
  * Prevents cross-customer data leakage across all 5 core modules (Quotations, Contracts, Payments, Deliveries, Customers).
@@ -85,44 +102,50 @@ export function isSameCustomer(docA: any, docB: any): boolean {
   if (docA === docB) return true;
 
   // 1. Resolve Customer ID
-  const idA = (docA.customerId || (docA.loaiKh ? docA.id : undefined) || docA.customer_id || '').trim();
-  const idB = (docB.customerId || (docB.loaiKh ? docB.id : undefined) || docB.customer_id || '').trim();
+  const idA = extractEntityCustomerId(docA);
+  const idB = extractEntityCustomerId(docB);
 
   // If both have explicit Customer IDs and they MATCH -> TRUE
   if (idA && idB && idA === idB) {
     return true;
   }
 
-  // 2. Resolve Customer Code (maKh)
+  // 2. Kiểm tra kế thừa mã đã gộp (Merged Customer Codes Heritage & Transitive Link)
   const maKhA = cleanCode(docA.maKh || docA.maKH || docA.ma_kh || '').toUpperCase();
   const maKhB = cleanCode(docB.maKh || docB.maKH || docB.ma_kh || '').toUpperCase();
 
-  if (maKhA && maKhB && maKhA === maKhB) {
-    return true;
-  }
-
-  // 2b. Kiểm tra kế thừa mã đã gộp (Merged Customer Codes Heritage & Transitive Link)
   const mergedA = Array.isArray(docA.mergedCustomerCodes) ? docA.mergedCustomerCodes.map((c: string) => cleanCode(c).toUpperCase()) : [];
   const mergedB = Array.isArray(docB.mergedCustomerCodes) ? docB.mergedCustomerCodes.map((c: string) => cleanCode(c).toUpperCase()) : [];
-  if ((maKhB && mergedA.includes(maKhB)) || (maKhA && mergedB.includes(maKhA))) {
+  if (
+    (idB && mergedA.includes(idB.toUpperCase())) ||
+    (idA && mergedB.includes(idA.toUpperCase())) ||
+    (maKhB && mergedA.includes(maKhB)) ||
+    (maKhA && mergedB.includes(maKhA))
+  ) {
     return true;
   }
   const mergedIntoA = cleanCode(docA.mergedInto || docA.merged_into || '').toUpperCase();
   const mergedIntoB = cleanCode(docB.mergedInto || docB.merged_into || '').toUpperCase();
-  if ((mergedIntoA && (mergedIntoA === idB.toUpperCase() || mergedIntoA === maKhB)) ||
-      (mergedIntoB && (mergedIntoB === idA.toUpperCase() || mergedIntoB === maKhA))) {
+  if ((mergedIntoA && (mergedIntoA === idB.toUpperCase() || (maKhB && mergedIntoA === maKhB))) ||
+      (mergedIntoB && (mergedIntoB === idA.toUpperCase() || (maKhA && mergedIntoB === maKhA)))) {
     return true;
   }
 
-  // CONFLICT CHECK: If both have explicit IDs or maKh and they DIFFER, they CANNOT be the same customer!
+  // SOVEREIGN CONFLICT CHECK: If both have explicit IDs and they DIFFER, they CANNOT be the same customer!
+  // This strictly prevents cross-customer contamination even if two customers share duplicate maKh.
   if (idA && idB && idA !== idB) {
     return false;
   }
-  if (maKhA && maKhB && maKhA !== maKhB) {
-    return false;
+
+  // 3. Resolve Customer Code (maKh) - Only when IDs are NOT in conflict
+  if (maKhA && maKhB) {
+    if (maKhA !== maKhB) {
+      return false;
+    }
+    return true;
   }
 
-  // 3. Tax Code (MST)
+  // 4. Tax Code (MST)
   const taxA = docA.maSoThue ? cleanCode(docA.maSoThue).replace(/[\s\-_]/g, '') : '';
   const taxB = docB.maSoThue ? cleanCode(docB.maSoThue).replace(/[\s\-_]/g, '') : '';
   if (taxA && taxB && taxA === taxB) {

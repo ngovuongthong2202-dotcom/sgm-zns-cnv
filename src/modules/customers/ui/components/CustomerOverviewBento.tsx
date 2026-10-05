@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 import React, { useState } from 'react';
 import { Customer } from '@/src/domain/schema/customer.schema';
-import { MapPin, Calendar, DollarSign, Tag, Activity, Flame, FileText, Copy, Check, Info, Smartphone, Building2, Star } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, Tag, Activity, Flame, FileText, Copy, Check, Info, Smartphone, Building2, Star, TrendingUp } from 'lucide-react';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { normalizeLegacyStatus } from '@/src/domain/enums/zns-status';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
@@ -55,11 +55,12 @@ export function CustomerOverviewBento({
     return (contracts || []).reduce((sum: number, c: any) => sum + Number(c.totalAmount || c.giaTriHopDong || 0), 0);
   }, [contracts]);
 
-  const ltv = customer.ltv
+  // VAS Accounting Standard (TT200): LTV represents Realized Commercial Cash (Thực thu)
+  const ltv = customer.ltv !== undefined && customer.ltv > 0
     ? customer.ltv
     : (calculatedTotalPaid > 0
         ? calculatedTotalPaid
-        : (totalContractsVal > 0 ? totalContractsVal : totalQuotesVal));
+        : (totalContractsVal > 0 ? totalContractsVal : 0));
 
   const debt = (customer.totalDebt !== undefined && customer.totalDebt > 0)
     ? customer.totalDebt
@@ -118,7 +119,21 @@ export function CustomerOverviewBento({
                 {ltv > 0 ? formatCurrency(ltv) : '0 ₫'}
               </div>
               <span className="text-3xs text-emerald-700 block truncate">
-                {calculatedTotalPaid > 0 ? `Thực thu: ${formatCurrency(calculatedTotalPaid)}` : (totalQuotesVal > 0 ? `Báo giá: ${formatCurrency(totalQuotesVal)}` : 'Chưa phát sinh')}
+                {calculatedTotalPaid > 0 ? `Thực thu: ${formatCurrency(calculatedTotalPaid)}` : 'Chưa phát sinh thu'}
+              </span>
+            </div>
+
+            {/* Pipeline Báo giá */}
+            <div className="p-3.5 bg-gradient-to-br from-blue-50/70 to-indigo-50/40 rounded-xl border border-blue-200/80 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-3xs font-bold uppercase tracking-wider text-blue-800">
+                <span>TIỀM NĂNG (PIPELINE)</span>
+                <TrendingUp size={13} className="text-blue-600" />
+              </div>
+              <div className="font-mono font-black text-base lg:text-lg text-blue-900 tabular-nums">
+                {totalQuotesVal > 0 ? formatCurrency(totalQuotesVal) : '0 ₫'}
+              </div>
+              <span className="text-3xs text-blue-700 block truncate">
+                {quotations.length > 0 ? `${quotations.length} Báo giá chào hàng` : 'Chưa có báo giá'}
               </span>
             </div>
 
@@ -138,17 +153,17 @@ export function CustomerOverviewBento({
                 {debt > 0 ? formatCurrency(debt) : '0 ₫'}
               </div>
               <span className="text-3xs text-slate-500 block truncate">
-                {totalContractVal > 0 ? `Tổng HĐ: ${formatCurrency(totalContractVal)}` : (totalQuotesVal > 0 ? `Tổng BG: ${formatCurrency(totalQuotesVal)}` : 'Chưa phát sinh')}
+                {totalContractVal > 0 ? `Tổng HĐ: ${formatCurrency(totalContractVal)}` : 'Chưa phát sinh nợ'}
               </span>
             </div>
 
             {/* Sức khỏe quan hệ */}
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 shadow-2xs space-y-1.5 sm:col-span-2 lg:col-span-2">
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 shadow-2xs space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-3xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                  <Flame size={12} className={`text-${health.color}-500`} /> SỨC KHỎE QUAN HỆ
+                  <Flame size={12} className={`text-${health.color}-500`} /> SỨC KHỎE
                 </span>
-                <span className={`text-3xs font-black px-2 py-0.5 rounded border uppercase ${
+                <span className={`text-3xs font-black px-1.5 py-0.5 rounded border uppercase ${
                   health.score >= 80 
                     ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
                     : health.score >= 60 
@@ -170,8 +185,8 @@ export function CustomerOverviewBento({
               </div>
 
               <div className="flex flex-col gap-0.5 pt-0.5">
-                {health.actionPlan.slice(0, 2).map((plan, idx) => (
-                  <span key={idx} className="text-2xs text-slate-600 truncate flex items-center gap-1">
+                {health.actionPlan.slice(0, 1).map((plan, idx) => (
+                  <span key={idx} className="text-2xs text-slate-600 truncate flex items-center gap-1" title={plan}>
                     <span className="w-1 h-1 rounded-full bg-slate-400 shrink-0" />
                     {plan}
                   </span>

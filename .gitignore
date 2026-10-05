@@ -32,5 +32,6 @@ read_line.ts
 undo_schema_import.ts
 DRAFT_firestore.rules
 *.temp
+scratch/
 .github/
 

@@ -83,8 +83,8 @@ export const swrColFetcher = async <T = unknown>(key: string): Promise<T[]> => {
       if (fkField && fkId) {
         filtered = inMemoryItems.filter((item: any) => {
           if (!item) return false;
-          if (String(item[fkField]) === String(fkId)) return true;
-          if (fkField === 'customerId' && (String(item.customerId) === String(fkId) || String(item.maKh) === String(fkId))) return true;
+          const val = item[fkField] ?? (fkField === 'customerId' ? item.customer_id : undefined);
+          if (val !== undefined && val !== null && String(val) === String(fkId)) return true;
           return false;
         });
       }

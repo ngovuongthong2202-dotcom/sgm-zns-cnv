@@ -17,7 +17,8 @@ import {
 import { SmartPhoneInput } from '@/src/platform/ui/design-system/form/SmartPhoneInput';
 import { parseVietQRBusinessData, generateEnterpriseNameSuggestions } from './CustomerFormHelpers';
 import { VIETNAM_PROVINCES_63 } from '@/src/hooks/useSharedFields';
-import { computeMaxCustomerSequence } from '../hooks/useCustomerForm';
+import { computeMaxCustomerSequence, extractSequentialCustomerNumber } from '../hooks/useCustomerForm';
+import { supabase } from '@/src/shared/config/supabase.client';
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { notify } from '@/src/shared/utils/notify';
 import { cleanProperVietnameseText } from '@/src/shared/utils/textFormatter';
@@ -325,9 +326,55 @@ export function QuickCustomerModal({
 
     setIsSaving(true);
     try {
-      // 1. Sinh mã khách hàng tuần tự
-      const highestSeq = computeMaxCustomerSequence(existingCustomers);
-      const nextMaKh = `KH${String(highestSeq + 1).padStart(4, '0')}`;
+      // 1. Sinh mã khách hàng tuần tự (Atomic & Database Verified)
+      let nextMaKh = '';
+      try {
+        const session = (await supabase.auth.getSession()).data.session;
+        const token = session?.access_token || 'sgm_admin_dev_token';
+        const res = await fetch('/api/customers/generate-makh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.maKh) {
+            nextMaKh = data.maKh;
+          }
+        }
+      } catch (e) {
+        console.warn('API generate-makh unreachable:', e);
+      }
+
+      if (!nextMaKh) {
+        let highestSeq = computeMaxCustomerSequence(existingCustomers);
+        try {
+          const { data: counterDoc } = await supabase
+            .from('counters')
+            .select('data')
+            .eq('id', 'customer_global')
+            .maybeSingle();
+
+          if (counterDoc?.data?.seq && Number(counterDoc.data.seq) > highestSeq) {
+            highestSeq = Number(counterDoc.data.seq);
+          }
+
+          const { data: dbCustomers } = await supabase
+            .from('customers')
+            .select('ma_kh')
+            .order('ma_kh', { ascending: false })
+            .limit(50);
+
+          if (dbCustomers && Array.isArray(dbCustomers)) {
+            for (const row of dbCustomers) {
+              const seq = extractSequentialCustomerNumber(row?.ma_kh);
+              if (seq > highestSeq) highestSeq = seq;
+            }
+          }
+        } catch (dbErr) {
+          console.warn('Supabase fallback sequence fetch failed:', dbErr);
+        }
+        nextMaKh = `KH${String(highestSeq + 1).padStart(4, '0')}`;
+      }
 
       const formattedContacts = contacts
         .filter(c => c.nguoiDaiDien.trim() || c.sdt.trim())
