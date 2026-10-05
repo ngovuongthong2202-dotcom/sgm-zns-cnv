@@ -225,7 +225,7 @@ export default function CustomersFeature() {
   return (
     <div className="flex flex-col h-full bg-slate-50">
       {/* Thống kê đài phát */}
-      <div className="px-6 pt-3 shrink-0">
+      <div className="px-6 pt-3 shrink-0 relative z-30">
         <CollapsibleStatsBanner
           storageKey="sgm_stats_pinned_customers"
           title="Chỉ số & Tổng quan Khách hàng"

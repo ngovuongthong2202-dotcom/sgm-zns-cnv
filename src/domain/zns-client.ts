@@ -133,15 +133,14 @@ export function isRecipientZnsAlreadySent({
 
   // 1. Phân nhánh QUOTATION: Kiểm tra chính xác theo chứng từ Báo giá
   if (entityType === 'QUOTATION') {
-    // 1a. Cờ trạng thái trực tiếp trên Báo giá
-    if (isZnsSuccessStatus(entity.trangThaiGuiTinBaoGia)) return true;
-    if (isZnsSuccessStatus(entity.trangThaiZns) && (entity.sentAt || entity.thongTinGuiZnsBaoGia)) return true;
-    if (entity.sentAt && isZnsSuccessStatus(entity.trangThaiGuiTinBaoGia)) return true;
-    if (entity.thongTinGuiZnsBaoGia && typeof entity.thongTinGuiZnsBaoGia === 'object') {
-      if (isZnsSuccessStatus((entity.thongTinGuiZnsBaoGia as any).status)) return true;
-    }
+    const qSentPhone = (
+      entity.thongTinGuiZnsBaoGia?.soDienThoaiNhan || 
+      entity.thongTinGuiZnsBaoGia?.phone || 
+      entity.sentPhone || 
+      ''
+    ).replace(/\D/g, '');
 
-    // 1b. Tra cứu trong collection znsMessages BẮT BUỘC PHẢI KHỚP ID HOẶC MÃ BÁO GIÁ
+    // 1a. Tra cứu trong collection znsMessages BẮT BUỘC PHẢI KHỚP ID HOẶC MÃ BÁO GIÁ VÀ SỐ ĐIỆN THOẠI
     if (Array.isArray(znsMessages) && znsMessages.length > 0) {
       const qId = entity.id;
       const qCode = entity.soPhieuBaoGia;
@@ -157,7 +156,25 @@ export function isRecipientZnsAlreadySent({
         return matchesType && (matchesEntityId || matchesCode) && isZnsSuccessStatus(m.status);
       });
       if (hasQuotationSuccess) return true;
+      if (cleanPhone) return false; // Nếu có log znsMessages mà không khớp SĐT này -> chưa gửi cho SĐT này
     }
+
+    // 1b. Cờ trạng thái trực tiếp trên Báo giá
+    if (cleanPhone && qSentPhone) {
+      if (cleanPhone === qSentPhone) {
+        if (isZnsSuccessStatus(entity.trangThaiGuiTinBaoGia)) return true;
+        if (isZnsSuccessStatus(entity.trangThaiZns)) return true;
+      }
+      return false;
+    }
+
+    if (isZnsSuccessStatus(entity.trangThaiGuiTinBaoGia)) return true;
+    if (isZnsSuccessStatus(entity.trangThaiZns) && (entity.sentAt || entity.thongTinGuiZnsBaoGia)) return true;
+    if (entity.sentAt && isZnsSuccessStatus(entity.trangThaiGuiTinBaoGia)) return true;
+    if (entity.thongTinGuiZnsBaoGia && typeof entity.thongTinGuiZnsBaoGia === 'object') {
+      if (isZnsSuccessStatus((entity.thongTinGuiZnsBaoGia as any).status)) return true;
+    }
+
     return false;
   }
 

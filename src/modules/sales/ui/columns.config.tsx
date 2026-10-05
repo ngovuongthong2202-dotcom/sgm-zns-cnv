@@ -48,7 +48,7 @@ export const getQuotationColumns = (
   onEditStatus: (quotation: Quotation, status: "MỚI" | "ĐANG CHỜ" | "ĐÃ CHỐT" | "HỦY") => void,
   onEditPic: (quotation: Quotation, pic: string) => void,
   nguoiPhuTrachList: string[],
-  onSendZns: (quotation: Quotation) => void,
+  onSendZns: (quotation: Quotation, targetPhoneOverride?: string) => void,
   onEdit?: (quotation: Quotation) => void,
   allCustomers?: Customer[],
 ): ColumnDef<Quotation>[] => [
@@ -118,18 +118,23 @@ export const getQuotationColumns = (
                 <span className="text-slate-700 font-medium">👤 {normalizedNguoiDaiDien}</span>
               )}
               {mobileList.length > 0 && mobileList.map((m: any, mIdx: number) => (
-                <span 
+                <button 
+                  type="button"
                   key={`m-${mIdx}`}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200/60 shadow-2xs"
-                  title={m.carrier ? `${m.carrier} - Zalo/ZNS OK` : 'Di động - Zalo/ZNS OK'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSendZns(q, m.cleaned);
+                  }}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs hover:bg-blue-600 hover:text-white hover:border-blue-700 active:scale-95 transition-all cursor-pointer group/pill"
+                  title={m.carrier ? `${m.carrier} - Bấm để gửi tin ZNS trực tiếp đến số ${m.formatted}` : `Bấm để gửi tin ZNS trực tiếp đến số ${m.formatted}`}
                 >
                   <span>{m.formatted}</span>
                   {m.carrier && (
-                    <span className="text-4xs px-1 rounded bg-blue-100/80 text-blue-800 font-sans">
+                    <span className="text-4xs px-1 rounded bg-blue-100/90 text-blue-800 font-sans group-hover/pill:bg-white/20 group-hover/pill:text-white transition-colors">
                       {m.carrier}
                     </span>
                   )}
-                </span>
+                </button>
               ))}
               {landlineList.length > 0 && landlineList.map((l: any, lIdx: number) => (
                 <span 

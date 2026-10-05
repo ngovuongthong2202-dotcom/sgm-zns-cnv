@@ -20,9 +20,11 @@ export async function syncCustomerSnapshots(forceFullSync = false): Promise<{ pr
         const nguoiPhuTrach = custData.nguoiPhuTrach;
         const nguoiDaiDien = custData.nguoiDaiDien;
 
-        const updates: Record<string, string> = {};
+        const updates: Record<string, any> = {};
         if (tenKhachHang !== undefined) updates.tenKhachHang = tenKhachHang;
+        if (sdt !== undefined) updates.sdt = sdt;
         if (nguoiPhuTrach !== undefined) updates.nguoiPhuTrach = nguoiPhuTrach;
+        if (nguoiDaiDien !== undefined) updates.nguoiDaiDien = nguoiDaiDien;
         if (maKh !== undefined) updates.maKh = maKh;
 
         if (Object.keys(updates).length === 0) continue;
@@ -50,7 +52,32 @@ export async function syncCustomerSnapshots(forceFullSync = false): Promise<{ pr
             if (updates.maKh !== undefined && dData.maKh !== updates.maKh) needsUpdate = true;
 
             if (needsUpdate) {
-              batch.update(d.ref, updates);
+              const docUpdates: Record<string, any> = { ...updates };
+              if (coll === 'quotations' && updates.sdt && dData.sdt && dData.sdt !== updates.sdt) {
+                if (dData.trangThaiGuiTinBaoGia === 'THANH_CONG' || dData.trangThaiZns === 'THANH_CONG') {
+                  docUpdates.trangThaiGuiTinBaoGia = 'CHO_GUI';
+                  docUpdates.trangThaiZns = 'CHO_GUI';
+                  const nowIso = new Date().toISOString();
+                  const oldAudit = dData.thongTinGuiZnsBaoGia || {};
+                  docUpdates.thongTinGuiZnsBaoGia = {
+                    ...oldAudit,
+                    needsResendAfterEdit: true,
+                    previousSentPhone: dData.sdt,
+                    previousSentAt: oldAudit.thoiGianGui || dData.sentAt,
+                    resetReason: `Đổi số điện thoại khách hàng từ ${dData.sdt} sang ${updates.sdt}`
+                  };
+                  const prevLogs = dData.nhatKySuaDoi || [];
+                  docUpdates.nhatKySuaDoi = [
+                    ...prevLogs,
+                    {
+                      thoiGian: nowIso,
+                      nguoiThucHien: 'Hệ thống CRON đồng bộ KH 360',
+                      noiDungThayDoi: `Chuyển trạng thái ZNS sang Chờ gửi do đổi SĐT khách hàng: ${dData.sdt} ➔ ${updates.sdt}`
+                    }
+                  ];
+                }
+              }
+              batch.update(d.ref, docUpdates);
               updatedDocIds.add(d.id);
               currentBatchCount++;
               hasUpdatesForCust = true;
@@ -81,10 +108,35 @@ export async function syncCustomerSnapshots(forceFullSync = false): Promise<{ pr
                 if (updates.nguoiDaiDien !== undefined && dData.nguoiDaiDien !== updates.nguoiDaiDien) needsUpdate = true;
 
                 if (needsUpdate) {
-                  batch.update(d.ref, {
+                  const docUpdates: Record<string, any> = {
                     ...updates,
                     customerId: cid
-                  });
+                  };
+                  if (coll === 'quotations' && updates.sdt && dData.sdt && dData.sdt !== updates.sdt) {
+                    if (dData.trangThaiGuiTinBaoGia === 'THANH_CONG' || dData.trangThaiZns === 'THANH_CONG') {
+                      docUpdates.trangThaiGuiTinBaoGia = 'CHO_GUI';
+                      docUpdates.trangThaiZns = 'CHO_GUI';
+                      const nowIso = new Date().toISOString();
+                      const oldAudit = dData.thongTinGuiZnsBaoGia || {};
+                      docUpdates.thongTinGuiZnsBaoGia = {
+                        ...oldAudit,
+                        needsResendAfterEdit: true,
+                        previousSentPhone: dData.sdt,
+                        previousSentAt: oldAudit.thoiGianGui || dData.sentAt,
+                        resetReason: `Đổi số điện thoại khách hàng từ ${dData.sdt} sang ${updates.sdt}`
+                      };
+                      const prevLogs = dData.nhatKySuaDoi || [];
+                      docUpdates.nhatKySuaDoi = [
+                        ...prevLogs,
+                        {
+                          thoiGian: nowIso,
+                          nguoiThucHien: 'Hệ thống CRON đồng bộ KH 360',
+                          noiDungThayDoi: `Chuyển trạng thái ZNS sang Chờ gửi do đổi SĐT khách hàng: ${dData.sdt} ➔ ${updates.sdt}`
+                        }
+                      ];
+                    }
+                  }
+                  batch.update(d.ref, docUpdates);
                   currentBatchCount++;
                   hasUpdatesForCust = true;
 
@@ -154,7 +206,7 @@ export async function syncCustomerSnapshots(forceFullSync = false): Promise<{ pr
         const custData = customerDoc.exists ? customerDoc.data() : null;
 
         const targetMaKh = job.maKh || custData?.maKh;
-        const updates: Record<string, string> = {};
+        const updates: Record<string, any> = {};
 
         const tenKhachHang = custData?.tenKhachHang || job.tenKhachHang;
         const sdt = custData?.sdt || job.sdt;
@@ -162,7 +214,9 @@ export async function syncCustomerSnapshots(forceFullSync = false): Promise<{ pr
         const nguoiDaiDien = custData?.nguoiDaiDien || job.nguoiDaiDien;
 
         if (tenKhachHang !== undefined) updates.tenKhachHang = tenKhachHang;
+        if (sdt !== undefined) updates.sdt = sdt;
         if (nguoiPhuTrach !== undefined) updates.nguoiPhuTrach = nguoiPhuTrach;
+        if (nguoiDaiDien !== undefined) updates.nguoiDaiDien = nguoiDaiDien;
         if (targetMaKh !== undefined) updates.maKh = targetMaKh;
 
         if (Object.keys(updates).length > 0) {
@@ -181,7 +235,33 @@ export async function syncCustomerSnapshots(forceFullSync = false): Promise<{ pr
 
             const updatedDocIds = new Set<string>();
             for (const d of docsById.docs) {
-              batch.update(d.ref, updates);
+              const dData = d.data();
+              const docUpdates: Record<string, any> = { ...updates };
+              if (coll === 'quotations' && updates.sdt && dData.sdt && dData.sdt !== updates.sdt) {
+                if (dData.trangThaiGuiTinBaoGia === 'THANH_CONG' || dData.trangThaiZns === 'THANH_CONG') {
+                  docUpdates.trangThaiGuiTinBaoGia = 'CHO_GUI';
+                  docUpdates.trangThaiZns = 'CHO_GUI';
+                  const nowIso = new Date().toISOString();
+                  const oldAudit = dData.thongTinGuiZnsBaoGia || {};
+                  docUpdates.thongTinGuiZnsBaoGia = {
+                    ...oldAudit,
+                    needsResendAfterEdit: true,
+                    previousSentPhone: dData.sdt,
+                    previousSentAt: oldAudit.thoiGianGui || dData.sentAt,
+                    resetReason: `Đổi số điện thoại khách hàng từ ${dData.sdt} sang ${updates.sdt}`
+                  };
+                  const prevLogs = dData.nhatKySuaDoi || [];
+                  docUpdates.nhatKySuaDoi = [
+                    ...prevLogs,
+                    {
+                      thoiGian: nowIso,
+                      nguoiThucHien: 'Hệ thống CRON đồng bộ KH 360',
+                      noiDungThayDoi: `Chuyển trạng thái ZNS sang Chờ gửi do đổi SĐT khách hàng: ${dData.sdt} ➔ ${updates.sdt}`
+                    }
+                  ];
+                }
+              }
+              batch.update(d.ref, docUpdates);
               updatedDocIds.add(d.id);
             }
 
@@ -193,10 +273,36 @@ export async function syncCustomerSnapshots(forceFullSync = false): Promise<{ pr
                 .get();
               for (const d of docsByCode.docs) {
                 if (!updatedDocIds.has(d.id)) {
-                  batch.update(d.ref, { 
+                  const dData = d.data();
+                  const docUpdates: Record<string, any> = { 
                     ...updates, 
                     customerId: job.customerId 
-                  });
+                  };
+                  if (coll === 'quotations' && updates.sdt && dData.sdt && dData.sdt !== updates.sdt) {
+                    if (dData.trangThaiGuiTinBaoGia === 'THANH_CONG' || dData.trangThaiZns === 'THANH_CONG') {
+                      docUpdates.trangThaiGuiTinBaoGia = 'CHO_GUI';
+                      docUpdates.trangThaiZns = 'CHO_GUI';
+                      const nowIso = new Date().toISOString();
+                      const oldAudit = dData.thongTinGuiZnsBaoGia || {};
+                      docUpdates.thongTinGuiZnsBaoGia = {
+                        ...oldAudit,
+                        needsResendAfterEdit: true,
+                        previousSentPhone: dData.sdt,
+                        previousSentAt: oldAudit.thoiGianGui || dData.sentAt,
+                        resetReason: `Đổi số điện thoại khách hàng từ ${dData.sdt} sang ${updates.sdt}`
+                      };
+                      const prevLogs = dData.nhatKySuaDoi || [];
+                      docUpdates.nhatKySuaDoi = [
+                        ...prevLogs,
+                        {
+                          thoiGian: nowIso,
+                          nguoiThucHien: 'Hệ thống CRON đồng bộ KH 360',
+                          noiDungThayDoi: `Chuyển trạng thái ZNS sang Chờ gửi do đổi SĐT khách hàng: ${dData.sdt} ➔ ${updates.sdt}`
+                        }
+                      ];
+                    }
+                  }
+                  batch.update(d.ref, docUpdates);
                   updatedDocIds.add(d.id);
                 }
               }

@@ -51,7 +51,23 @@ export function validateDocumentUpdate(
 
   for (const field of restricted) {
     if (before[field] !== undefined && after[field] !== undefined) {
-      if (JSON.stringify(before[field]) !== JSON.stringify(after[field])) {
+      if (field === 'products') {
+        const bProds = Array.isArray(before.products) ? before.products : [];
+        const aProds = Array.isArray(after.products) ? after.products : [];
+        const isProductsDiffer = bProds.length !== aProds.length || bProds.some((bp: any, idx: number) => {
+          const ap = aProds[idx] as any;
+          if (!ap) return true;
+          return (
+            (bp.productId || '') !== (ap.productId || '') ||
+            (bp.productName || '') !== (ap.productName || '') ||
+            Number(bp.quantity || 0) !== Number(ap.quantity || 0) ||
+            Number(bp.price || 0) !== Number(ap.price || 0)
+          );
+        });
+        if (isProductsDiffer) {
+          violations.push(field);
+        }
+      } else if (JSON.stringify(before[field]) !== JSON.stringify(after[field])) {
         violations.push(field);
       }
     }

@@ -54,6 +54,14 @@ export function CollapsibleStatsBanner({
     }
   }, [storageKey]);
 
+  const [isFullyExpanded, setIsFullyExpanded] = useState<boolean>(isExpanded);
+
+  useEffect(() => {
+    if (!isExpanded) {
+      setIsFullyExpanded(false);
+    }
+  }, [isExpanded]);
+
   const togglePin = (e: React.MouseEvent) => {
     e.stopPropagation();
     const nextPin = !isPinned;
@@ -69,7 +77,11 @@ export function CollapsibleStatsBanner({
   };
 
   const toggleExpanded = () => {
-    setIsExpanded((prev) => !prev);
+    setIsExpanded((prev) => {
+      const next = !prev;
+      if (!next) setIsFullyExpanded(false);
+      return next;
+    });
   };
 
   return (
@@ -144,7 +156,12 @@ export function CollapsibleStatsBanner({
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.22, ease: 'easeOut' }}
-            className="overflow-hidden"
+            onAnimationComplete={() => {
+              if (isExpanded) {
+                setIsFullyExpanded(true);
+              }
+            }}
+            className={isFullyExpanded ? "overflow-visible" : "overflow-hidden"}
           >
             <div className="pb-1">
               {children}

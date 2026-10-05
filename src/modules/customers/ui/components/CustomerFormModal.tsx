@@ -26,6 +26,7 @@ import { Contract } from '@/src/domain/schema/contract.schema';
 import { Payment } from '@/src/domain/schema/payment.schema';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
+import { EntityZnsStatus } from '@/src/domain/enums/zns-status';
 
 interface Props {
   customer: Customer | null;
@@ -147,7 +148,10 @@ export function CustomerForm({
         const quoteRepo = repositoryFactory.get<Quotation>('quotations');
         for (const q of quotations) {
           if (q.id) {
-            await quoteRepo.update(q.id, {
+            const isPhoneChanged = Boolean(dataToSave.sdt && q.sdt && dataToSave.sdt.trim() !== q.sdt.trim());
+            const willResetZns = isPhoneChanged && (q.trangThaiGuiTinBaoGia === EntityZnsStatus.THANH_CONG || (q as any).trangThaiZns === EntityZnsStatus.THANH_CONG);
+
+            const quoteUpdates: any = {
               tenKhachHang: dataToSave.tenKhachHang,
               sdt: dataToSave.sdt,
               diaChi: dataToSave.diaChi,
@@ -155,7 +159,32 @@ export function CustomerForm({
               tinhThanh: dataToSave.tinhThanh,
               maSoThue: dataToSave.maSoThue,
               phanLoaiKhach: dataToSave.loaiKh
-            } as any);
+            };
+
+            if (willResetZns) {
+              const nowIso = new Date().toISOString();
+              quoteUpdates.trangThaiGuiTinBaoGia = EntityZnsStatus.CHO_GUI;
+              quoteUpdates.trangThaiZns = EntityZnsStatus.CHO_GUI;
+              const oldAudit = (q as any).thongTinGuiZnsBaoGia || {};
+              quoteUpdates.thongTinGuiZnsBaoGia = {
+                ...oldAudit,
+                needsResendAfterEdit: true,
+                previousSentPhone: q.sdt,
+                previousSentAt: oldAudit.thoiGianGui || (q as any).sentAt,
+                resetReason: `Đổi số điện thoại khách hàng từ ${q.sdt} sang ${dataToSave.sdt}`
+              };
+              const prevLogs = (q as any).nhatKySuaDoi || [];
+              quoteUpdates.nhatKySuaDoi = [
+                ...prevLogs,
+                {
+                  thoiGian: nowIso,
+                  nguoiThucHien: 'Hệ thống đồng bộ KH 360',
+                  noiDungThayDoi: `Chuyển trạng thái ZNS sang Chờ gửi do đổi SĐT khách hàng: ${q.sdt} ➔ ${dataToSave.sdt}`
+                }
+              ];
+            }
+
+            await quoteRepo.update(q.id, quoteUpdates);
             syncedCount++;
           }
         }

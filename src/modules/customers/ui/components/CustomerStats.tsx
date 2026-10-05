@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Users, MapPin, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { Customer } from '@/src/domain/schema/customer.schema';
 import { normalizeLegacyStatus, EntityZnsStatus } from '@/src/domain/enums/zns-status';
@@ -21,6 +21,18 @@ export function CustomerStats({
   selectedProvince = null,
   onSelectProvince 
 }: Props) {
+  const [isProvinceOpen, setIsProvinceOpen] = useState(false);
+  const mapCardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (mapCardRef.current && !mapCardRef.current.contains(e.target as Node)) {
+        setIsProvinceOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const provincesCount = useMemo(() => {
     const counts: Record<string, number> = {};
     customers.forEach(c => {
@@ -138,11 +150,42 @@ export function CustomerStats({
           return (
             <div
               key={idx}
-              className={`group relative border rounded-xl py-2.5 px-3.5 flex items-center justify-between shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition-all select-none duration-150 ${activeBorders}`}
+              ref={mapCardRef}
+              onClick={() => setIsProvinceOpen(prev => !prev)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setIsProvinceOpen(prev => !prev);
+                }
+              }}
+              className={`group relative border rounded-xl py-2.5 px-3.5 flex items-center justify-between shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition-all select-none duration-150 cursor-pointer ${isProvinceOpen ? 'z-50 ring-2 ring-teal-500/40' : 'z-10'} ${activeBorders}`}
             >
-              <div className="absolute left-0 top-[calc(100%+4px)] w-[240px] bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-[100] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 origin-top">
-                <div className="text-2xs font-bold text-slate-500 uppercase tracking-widest px-2 py-1.5 mb-1.5 border-b border-slate-100">Chọn Tỉnh/Thành</div>
-                <div className="max-h-[300px] overflow-y-auto">
+              <div 
+                className={`absolute left-0 top-[calc(100%+6px)] w-[260px] bg-white border border-slate-300 rounded-xl shadow-2xl p-2 z-[99999] transition-all duration-200 origin-top ${
+                  isProvinceOpen 
+                    ? 'opacity-100 visible scale-100 pointer-events-auto' 
+                    : 'opacity-0 invisible scale-95 pointer-events-none group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-hover:pointer-events-auto'
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between px-2 py-1.5 mb-1.5 border-b border-slate-100">
+                  <span className="text-2xs font-bold text-slate-500 uppercase tracking-widest">Chọn Tỉnh/Thành</span>
+                  {selectedProvince && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectProvince?.(null);
+                        setIsProvinceOpen(false);
+                      }}
+                      className="text-3xs text-teal-600 hover:text-teal-800 font-semibold cursor-pointer underline"
+                    >
+                      Bỏ lọc
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-[280px] overflow-y-auto">
                   {provincesCount.length === 0 && (
                     <div className="p-3 text-center text-xs text-slate-500">{t('empty.noProvinceData')}</div>
                   )}
@@ -157,6 +200,7 @@ export function CustomerStats({
                         } else {
                           onSelectProvince?.(pName);
                         }
+                        setIsProvinceOpen(false);
                       }}
                     >
                       <span className="truncate pr-2">{pName}</span>
@@ -166,7 +210,7 @@ export function CustomerStats({
                 </div>
               </div>
 
-              <div className="flex flex-col min-w-0 flex-1 pr-2 cursor-default">
+              <div className="flex flex-col min-w-0 flex-1 pr-2">
                 <span className="text-2xs font-bold uppercase tracking-wide text-slate-500 truncate mb-0.5 font-sans">
                   {stat.label}
                 </span>
@@ -181,7 +225,7 @@ export function CustomerStats({
               </div>
               <div className="flex flex-col items-end shrink-0 gap-1.5">
                  <div
-                  className={`w-7 h-7 rounded-lg ${stat.iconColor} flex items-center justify-center shadow-sm cursor-help`}
+                  className={`w-7 h-7 rounded-lg ${stat.iconColor} flex items-center justify-center shadow-sm`}
                  >
                    <stat.icon size={14} />
                  </div>

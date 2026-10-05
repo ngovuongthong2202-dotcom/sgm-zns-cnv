@@ -82,6 +82,7 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
   const isCreating = !quotation?.id;
   const watchAll = watch();
 
+  const [isSaving, setIsSaving] = useState(false);
   const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
   const [quickCustomerInitial, setQuickCustomerInitial] = useState<QuickCustomerInitialData | undefined>(undefined);
 
@@ -96,44 +97,51 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
   });
 
   const submitForm = async (data: import('@/src/domain/schema/quotation.schema').Quotation) => {
-    const normalizedData = normalizeQuotationFormValues(data);
+    setIsSaving(true);
+    try {
+      const normalizedData = normalizeQuotationFormValues(data);
 
-    if (normalizedData.ngayHetHan && normalizedData.ngayBaoGia && normalizedData.ngayHetHan < normalizedData.ngayBaoGia) {
-      notify.error("Ngày hết hạn không thể đi trước ngày lập báo giá.");
-      return;
-    }
-
-    // Tự động tạo snapshot lịch sử (Price Revisions Engine) khi cập nhật báo giá đã có dữ liệu sản phẩm
-    if (quotation?.id && quotation.products && quotation.products.length > 0) {
-      const isModified = 
-        JSON.stringify(quotation.products) !== JSON.stringify(normalizedData.products) ||
-        quotation.totalAmount !== normalizedData.totalAmount ||
-        quotation.discountAmount !== normalizedData.discountAmount ||
-        quotation.vatAmount !== normalizedData.vatAmount;
-
-      if (isModified) {
-        const revCount = (quotation.revisions || []).length;
-        const autoRevision = {
-          id: crypto.randomUUID(),
-          name: `Phiên bản tự động #${revCount + 1}`,
-          note: 'Lưu tự động trước khi cập nhật bảng giá/sản phẩm mới',
-          createdAt: new Date().toISOString(),
-          createdBy: 'Hệ thống tự động',
-          products: quotation.products,
-          subTotal: quotation.subTotal || 0,
-          discountRate: Number(quotation.discountRate) || 0,
-          discountAmount: quotation.discountAmount || 0,
-          vatRate: Number(quotation.vatRate) || 0,
-          vatAmount: quotation.vatAmount || 0,
-          totalAmount: quotation.totalAmount || 0,
-        };
-        const cleanRev = Object.fromEntries(Object.entries(autoRevision).filter(([_, v]) => v !== undefined));
-        normalizedData.revisions = [...(quotation.revisions || []), cleanRev as any];
+      if (normalizedData.ngayHetHan && normalizedData.ngayBaoGia && normalizedData.ngayHetHan < normalizedData.ngayBaoGia) {
+        notify.error("Ngày hết hạn không thể đi trước ngày lập báo giá.");
+        return;
       }
-    }
 
-    await onSave(normalizedData);
-    await clearDraft();
+      // Tự động tạo snapshot lịch sử (Price Revisions Engine) khi cập nhật báo giá đã có dữ liệu sản phẩm
+      if (quotation?.id && quotation.products && quotation.products.length > 0) {
+        const isModified = 
+          JSON.stringify(quotation.products) !== JSON.stringify(normalizedData.products) ||
+          quotation.totalAmount !== normalizedData.totalAmount ||
+          quotation.discountAmount !== normalizedData.discountAmount ||
+          quotation.vatAmount !== normalizedData.vatAmount;
+
+        if (isModified) {
+          const revCount = (quotation.revisions || []).length;
+          const autoRevision = {
+            id: crypto.randomUUID(),
+            name: `Phiên bản tự động #${revCount + 1}`,
+            note: 'Lưu tự động trước khi cập nhật bảng giá/sản phẩm mới',
+            createdAt: new Date().toISOString(),
+            createdBy: 'Hệ thống tự động',
+            products: quotation.products,
+            subTotal: quotation.subTotal || 0,
+            discountRate: Number(quotation.discountRate) || 0,
+            discountAmount: quotation.discountAmount || 0,
+            vatRate: Number(quotation.vatRate) || 0,
+            vatAmount: quotation.vatAmount || 0,
+            totalAmount: quotation.totalAmount || 0,
+          };
+          const cleanRev = Object.fromEntries(Object.entries(autoRevision).filter(([_, v]) => v !== undefined));
+          normalizedData.revisions = [...(quotation.revisions || []), cleanRev as any];
+        }
+      }
+
+      await onSave(normalizedData);
+      await clearDraft();
+    } catch (err: unknown) {
+      notify.error((err as Error)?.message || 'Lỗi khi lưu báo giá');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handlePreSubmit = async (data: import('@/src/domain/schema/quotation.schema').Quotation) => {
@@ -248,6 +256,7 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
         {/* 2-Column desktop design for information density */}
         <form 
           id="quotationForm"
+          noValidate
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
@@ -395,10 +404,10 @@ export function QuotationFormModal({ quotation, quotations, customers = [], nguo
              <Button aria-label="Ký duyệt lưu hệ thống" 
                 type="submit"
                 form="quotationForm"
-                disabled={isSubmitting || isLockedByOther || businessLock?.locked || !canEdit}
+                disabled={isSubmitting || isSaving || isLockedByOther || businessLock?.locked || !canEdit}
                 className={`px-5 py-2 h-9 border-none text-white rounded-lg text-sm transition-colors flex items-center gap-2 shadow-sm ${(!canEdit || businessLock?.locked) ? 'bg-slate-400' : 'bg-blue-600'}`}
              >
-                {isSubmitting ? 'Đang gửi lưu trữ...' : quotation ? 'Sửa đổi chứng từ' : 'Ký phát & Lưu hệ thống'}
+                {(isSubmitting || isSaving) ? 'Đang gửi lưu trữ...' : quotation ? 'Sửa đổi chứng từ' : 'Ký phát & Lưu hệ thống'}
              </Button>
           </div>
         </div>

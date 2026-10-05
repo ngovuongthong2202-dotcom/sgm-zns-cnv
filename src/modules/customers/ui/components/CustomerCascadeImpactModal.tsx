@@ -301,6 +301,12 @@ export function CustomerCascadeImpactModal({
                         <p className="text-2xs text-slate-600 leading-relaxed mt-2">
                           Hệ thống sẽ cập nhật tên, SĐT, người đại diện và địa chỉ cho tất cả {quotations.length} bản báo giá liên kết của khách hàng.
                         </p>
+                        {changedFields.some(f => f.key === 'sdt') && (
+                          <div className="mt-2 p-1.5 rounded-md bg-amber-100/70 border border-amber-300 text-3xs font-medium text-amber-900 flex items-start gap-1.5">
+                            <span className="shrink-0 font-bold">ℹ️</span>
+                            <span>Báo giá đã từng gửi ZNS thành công sẽ tự động chuyển sang <strong>Chờ gửi ZNS</strong> để gửi lại cho số điện thoại mới. Lịch sử tin nhắn cũ vẫn được bảo lưu 100%.</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Contracts Card */}

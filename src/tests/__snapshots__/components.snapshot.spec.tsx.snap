@@ -5386,6 +5386,7 @@ exports[`Component Snapshots (Baseline) > renders QuotationFormModal 1`] = `
       <form
         class="flex-1 flex flex-col lg:flex-row min-h-0 bg-slate-50"
         id="quotationForm"
+        novalidate=""
       >
         <div
           class="flex-1 overflow-y-auto p-6 space-y-5 scrollbar-hide pb-20 border-r border-slate-200"

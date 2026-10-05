@@ -104,6 +104,7 @@ export function BulkZnsModal({
   const [allowResend, setAllowResend] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState(5); // 5s, 7s, 10s
   const [manualToggles, setManualToggles] = useState<Record<string, boolean>>({});
+  const [phoneOverrides, setPhoneOverrides] = useState<Record<string, string>>({});
 
   // Cockpit filters (v50/v60)
   const [filterTab, setFilterTab] = useState<'ALL' | 'READY' | 'SENT' | 'EXCLUDED' | 'SELECTED'>('ALL');
@@ -416,13 +417,14 @@ export function BulkZnsModal({
 
         // BẢO TOÀN TỶ LỆ 1-1: Mỗi báo giá tạo chính xác 1 dòng TargetRecipient
         if (uniqueMobilePhones.length > 0) {
-          const primaryMob = uniqueMobilePhones[0];
           const recId = `quote-${q.id}`;
+          const selectedCleaned = phoneOverrides[recId] || uniqueMobilePhones[0].cleaned;
+          const activeMob = uniqueMobilePhones.find(m => m.cleaned === selectedCleaned) || uniqueMobilePhones[0];
 
           const isAlreadySent = isRecipientZnsAlreadySent({
             entity: q,
             entityType: 'QUOTATION',
-            phone: primaryMob.cleaned,
+            phone: activeMob.cleaned,
             znsMessages: realtimeZnsMessages
           });
 
@@ -448,9 +450,9 @@ export function BulkZnsModal({
             customerName: resolvedCustName,
             contactName: resolvedContactName,
             roleOrBranch: isHydrated ? 'Hồ sơ KH' : undefined,
-            phone: primaryMob.cleaned,
-            phoneFormatted: primaryMob.formatted,
-            carrier: primaryMob.carrier,
+            phone: activeMob.cleaned,
+            phoneFormatted: activeMob.formatted,
+            carrier: activeMob.carrier,
             phoneType: 'MOBILE',
             isLandline: false,
             isAlreadySent,
@@ -461,8 +463,8 @@ export function BulkZnsModal({
               ...q,
               customerId: targetCustomerId,
               tenKhachHang: resolvedCustName !== 'Khách hàng' ? resolvedCustName : (q.tenKhachHang || ''),
-              sdt: primaryMob.cleaned,
-              phone: primaryMob.cleaned,
+              sdt: activeMob.cleaned,
+              phone: activeMob.cleaned,
               soPhieuBaoGia: q.soPhieuBaoGia || q.maBaoGia || q.id
             },
             amount,
@@ -546,7 +548,7 @@ export function BulkZnsModal({
     }
 
     return list;
-  }, [items, customers, entityType, allowResend, manualToggles, realtimeZnsMessages]);
+  }, [items, customers, entityType, allowResend, manualToggles, phoneOverrides, realtimeZnsMessages]);
 
   // Các danh sách con phục vụ thống kê & hàng đợi
   const eligibleRecipients = useMemo(() => recipients.filter(r => r.willSend), [recipients]);
@@ -597,6 +599,7 @@ export function BulkZnsModal({
       setSuccessCount(0);
       setFailedCount(0);
       setQueuedCount(0);
+      setPhoneOverrides({});
       setFilterTab('ALL');
       setSearchQuery('');
     }
@@ -826,7 +829,13 @@ export function BulkZnsModal({
               trangThaiGuiTinBaoGia: isSynchronousSuccess ? 'THANH_CONG' : 'DA_DAY_CHO_KQ',
               trangThaiZns: isSynchronousSuccess ? 'THANH_CONG' : 'DA_DAY_CHO_KQ',
               lifecycleStatus: 'SENT',
-              sentAt: nowIso
+              sentAt: nowIso,
+              thongTinGuiZnsBaoGia: {
+                soDienThoaiNhan: target.phone,
+                tenNguoiNhan: target.contactName || '',
+                thoiGianGui: nowIso,
+                trangThai: isSynchronousSuccess ? 'THANH_CONG' : 'DA_DAY_CHO_KQ'
+              }
             });
           } catch (qErr) {
             console.error(`[BulkZnsModal] Lỗi lưu trạng thái ZNS báo giá ${target.entityId}:`, qErr);
@@ -1214,13 +1223,47 @@ export function BulkZnsModal({
 
                           <div className="flex items-center gap-3 shrink-0">
                             <div className="text-right">
-                              <span className={`font-mono text-xs font-bold ${r.isLandline ? 'text-slate-400 line-through' : 'text-blue-900'}`}>
-                                {r.phoneFormatted}
-                              </span>
-                              {r.carrier && (
-                                <span className="text-3xs text-blue-700 bg-blue-50 px-1 py-0.1 rounded border border-blue-200 ml-1.5 font-bold">
-                                  {r.carrier}
-                                </span>
+                              {r.availablePhones && r.availablePhones.length > 1 ? (
+                                <div className="flex items-center gap-1.5 bg-blue-50/80 border border-blue-200 rounded-md px-2 py-0.5 shadow-2xs">
+                                  <span className="font-mono text-xs font-bold text-blue-900">
+                                    {r.phoneFormatted}
+                                  </span>
+                                  {r.carrier && (
+                                    <span className="text-3xs text-blue-700 bg-blue-50 px-1 py-0.1 rounded border border-blue-200 font-bold">
+                                      {r.carrier}
+                                    </span>
+                                  )}
+                                  <select
+                                    aria-label="Đổi số nhận ZNS"
+                                    value={r.phone}
+                                    onChange={(e) => {
+                                      const newPhone = e.target.value;
+                                      setPhoneOverrides(prev => ({
+                                        ...prev,
+                                        [r.id]: newPhone
+                                      }));
+                                    }}
+                                    disabled={stage !== 'PRE_FLIGHT'}
+                                    className="text-xs font-mono font-bold bg-white text-blue-900 border border-blue-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed ml-1"
+                                  >
+                                    {r.availablePhones.map(p => (
+                                      <option key={p.cleaned} value={p.cleaned}>
+                                        {p.formatted} {p.carrier ? `(${p.carrier})` : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ) : (
+                                <>
+                                  <span className={`font-mono text-xs font-bold ${r.isLandline ? 'text-slate-400 line-through' : 'text-blue-900'}`}>
+                                    {r.phoneFormatted}
+                                  </span>
+                                  {r.carrier && (
+                                    <span className="text-3xs text-blue-700 bg-blue-50 px-1 py-0.1 rounded border border-blue-200 ml-1.5 font-bold">
+                                      {r.carrier}
+                                    </span>
+                                  )}
+                                </>
                               )}
                             </div>
 
