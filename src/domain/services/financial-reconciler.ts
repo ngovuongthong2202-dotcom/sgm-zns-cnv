@@ -6,6 +6,7 @@
 
 import { Contract } from '@/src/domain/schema/contract.schema';
 import { Payment } from '@/src/domain/schema/payment.schema';
+import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
 import {
   normalizePaymentStatus,
   PaymentCanonicalStatus,
@@ -63,8 +64,12 @@ export function getLinkedPaymentsForContract(
     if (isPaymentCancelled(p.tinhTrangThanhToan)) return false;
 
     // NEXUS Pillar: Strict Customer Isolation - Tuyệt đối không cho phép dòng tiền khách hàng A gán vào hợp đồng khách hàng B
-    if (p.customerId && cCustomerId && p.customerId !== cCustomerId) {
-      return false;
+    const hasContractContext = Boolean(contract.customerId || (contract as any).customer_id || (contract as any).maKh || (contract as any).tenKhachHang);
+    const hasPaymentContext = Boolean(p.customerId || pAny.customer_id || pAny.maKh || pAny.tenKhachHang);
+    if (hasContractContext && hasPaymentContext) {
+      if (!isSameCustomer(contract, p)) {
+        return false;
+      }
     }
 
     const pContractId = p.contractId;

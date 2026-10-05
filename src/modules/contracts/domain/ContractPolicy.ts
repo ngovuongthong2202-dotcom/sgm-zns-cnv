@@ -2,6 +2,7 @@ import { Contract } from '@/src/domain/schema/contract.schema';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { Payment } from '@/src/domain/schema/payment.schema';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
+import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
 
 export function canCreateContract(quotation: Quotation | undefined | null): { allowed: boolean; reason?: string } {
   if (!quotation) return { allowed: false, reason: "Không tìm thấy báo giá." };
@@ -26,13 +27,22 @@ export function checkContractLock(
   const cId = oldContract.id;
   const cCode = oldContract.soHopDong;
 
+  const matchesCustomer = (target: any) => {
+    const hasOld = Boolean(oldContract.customerId || (oldContract as any).customer_id || (oldContract as any).maKh || (oldContract as any).tenKhachHang);
+    const hasTarget = Boolean(target?.customerId || target?.customer_id || target?.maKh || target?.tenKhachHang);
+    if (hasOld && hasTarget) {
+      return isSameCustomer(oldContract, target);
+    }
+    return true;
+  };
+
   const linkedPayments = (payments || []).filter(p => {
     const pRec = p as unknown as Record<string, unknown>;
-    return !pRec.deletedAt && ((cId && p.contractId === cId) || (cCode && pRec.soHopDong === cCode));
+    return !pRec.deletedAt && matchesCustomer(pRec) && ((cId && p.contractId === cId) || (cCode && pRec.soHopDong === cCode));
   });
   const linkedDeliveries = (deliveries || []).filter(d => {
     const dRec = d as unknown as Record<string, unknown>;
-    return !dRec.deletedAt && ((cId && d.contractId === cId) || (cCode && dRec.soHopDong === cCode));
+    return !dRec.deletedAt && matchesCustomer(dRec) && ((cId && d.contractId === cId) || (cCode && dRec.soHopDong === cCode));
   });
 
   const blockingDocs: string[] = [];

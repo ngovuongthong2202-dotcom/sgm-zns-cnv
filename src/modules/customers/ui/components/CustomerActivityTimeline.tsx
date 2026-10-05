@@ -56,18 +56,32 @@ export function CustomerActivityTimeline({ customerId }: { customerId: string })
       entityCachePool.setBatch('payments', payments);
       entityCachePool.setBatch('deliveries', deliveries);
 
-      const entityIds = [
+      const allEntityIds = Array.from(new Set([
         customerId,
         ...quotes.map(q => q.id),
         ...contracts.map(c => c.id),
         ...payments.map(p => p.id),
         ...deliveries.map(d => d.id)
-      ].filter(Boolean).slice(0, 30);
+      ].filter(Boolean))) as string[];
 
-      if (entityIds.length > 0) {
+      if (allEntityIds.length > 0) {
         try {
-          const znsRes = await repositoryFactory.get<ZnsMessage>('znsMessages').list({ fkField: 'entityId', fkId: entityIds as string[], limit: 50 });
-          if (isMounted) setMyZns(znsRes);
+          // Chunked batch query to avoid URL overflow while loading 100% of customer's ZNS records
+          const chunkSize = 40;
+          const chunks: string[][] = [];
+          for (let i = 0; i < allEntityIds.length; i += chunkSize) {
+            chunks.push(allEntityIds.slice(i, i + chunkSize));
+          }
+          const results = await Promise.all(
+            chunks.map(chunk =>
+              repositoryFactory.get<ZnsMessage>('znsMessages').list({
+                fkField: 'entityId',
+                fkId: chunk,
+                limit: 100
+              })
+            )
+          );
+          if (isMounted) setMyZns(results.flat());
         } catch (e) {
           console.warn('Failed to load ZNS for timeline', e);
         }

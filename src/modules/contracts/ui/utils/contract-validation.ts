@@ -39,6 +39,16 @@ export async function validateContractSubmit({
 
   const q = quotations.find(x => x.id === data.quotationId);
   const parentQuo = q || quotations.find(quo => quo.id === data.quotationId);
+
+  // SOVEREIGN IDENTITY INVARIANT: Hợp đồng kế thừa Báo giá BẮT BUỘC thuộc cùng 1 khách hàng
+  if (parentQuo && (data.customerId || data.customer_id || data.tenKhachHang || data.maKh)) {
+    const { isSameCustomer } = await import('@/src/shared/utils/customerIdentityResolver');
+    if (!isSameCustomer(data, parentQuo)) {
+      notify.error(`Lỗi xung đột danh tính: Báo giá ${parentQuo.soPhieuBaoGia || parentQuo.id} thuộc về khách hàng "${parentQuo.tenKhachHang || parentQuo.customerId}", không khớp với khách hàng "${data.tenKhachHang || data.customerId}" của Hợp đồng này. Vui lòng kiểm tra lại!`);
+      return false;
+    }
+  }
+
   if (parentQuo && parentQuo.ngayHetHan && data.ngayKy) {
      const expiredDate = new Date(parentQuo.ngayHetHan);
      const signDate = new Date(data.ngayKy);

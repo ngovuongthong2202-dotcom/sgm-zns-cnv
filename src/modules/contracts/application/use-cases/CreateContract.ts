@@ -32,8 +32,12 @@ export class CreateContractUseCase {
         return Result.fail(`Cannot fetch quotation: ${quotationResult.error}`);
     }
     const quotation = quotationResult.getValue();
-    // ZNS là kênh thông báo, không chặn việc ký kết hợp đồng kinh tế
-    void quotation;
+    if (quotation && (command.customerId || (command as any).maKh) && (quotation.customerId || (quotation as any).maKh)) {
+      const { isSameCustomer } = await import('../../../../shared/utils/customerIdentityResolver');
+      if (!isSameCustomer(command, quotation)) {
+        return Result.fail(`Customer identity mismatch: Contract customer does not match Quotation customer (${quotation.customerId})`);
+      }
+    }
 
     // 3. Aggregate Creation
     const { id, ...props } = command;

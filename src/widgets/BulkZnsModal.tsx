@@ -72,6 +72,7 @@ export interface TargetRecipient {
   hydratedNote?: string;
   availablePhones?: Array<{ cleaned: string; formatted: string; carrier?: string }>;
   // V60 Apex Multi-Token Search & Card Layout
+  customerId?: string;
   diaChi?: string;
   tinhThanh?: string;
   maKh?: string;
@@ -260,6 +261,7 @@ export function BulkZnsModal({
               list.push({
                 id: recId,
                 entityId: c.id || c.maKh || '',
+                customerId: c.id || c.maKh || '',
                 code: c.maKh || 'KH',
                 customerName: c.tenKhachHang || 'Khách hàng',
                 contactName: ct.name,
@@ -273,7 +275,7 @@ export function BulkZnsModal({
                 rawStatus: c.trangThaiGuiTinQuangCao || undefined,
                 willSend,
                 skipReason,
-                originalEntity: { ...c, sdt: mob.cleaned, phone: mob.cleaned, nguoiDaiDien: ct.name },
+                originalEntity: { ...c, sdt: mob.cleaned, phone: mob.cleaned, nguoiDaiDien: ct.name, customerId: c.id || c.maKh || '' },
                 contactObj: ct.rawContact,
                 diaChi: c.diaChi || '',
                 tinhThanh: c.tinhThanh || '',
@@ -294,6 +296,7 @@ export function BulkZnsModal({
             list.push({
               id: `cust-land-${c.id || c.maKh}-${ctIdx}`,
               entityId: c.id || c.maKh || '',
+              customerId: c.id || c.maKh || '',
               code: c.maKh || 'KH',
               customerName: c.tenKhachHang || 'Khách hàng',
               contactName: ct.name,
@@ -305,7 +308,7 @@ export function BulkZnsModal({
               isAlreadySent,
               willSend: false,
               skipReason: `Bỏ qua (Số bàn cố định ${land.cleaned.slice(0, 3)})`,
-              originalEntity: c,
+              originalEntity: { ...c, customerId: c.id || c.maKh || '' },
               diaChi: c.diaChi || '',
               tinhThanh: c.tinhThanh || '',
               maKh: c.maKh || '',
@@ -315,6 +318,7 @@ export function BulkZnsModal({
             list.push({
               id: `cust-inv-${c.id || c.maKh}-${ctIdx}`,
               entityId: c.id || c.maKh || '',
+              customerId: c.id || c.maKh || '',
               code: c.maKh || 'KH',
               customerName: c.tenKhachHang || 'Khách hàng',
               contactName: ct.name,
@@ -325,7 +329,7 @@ export function BulkZnsModal({
               isAlreadySent: false,
               willSend: false,
               skipReason: 'Số điện thoại không hợp lệ',
-              originalEntity: c,
+              originalEntity: { ...c, customerId: c.id || c.maKh || '' },
               diaChi: c.diaChi || '',
               tinhThanh: c.tinhThanh || '',
               maKh: c.maKh || '',
@@ -434,9 +438,12 @@ export function BulkZnsModal({
 
           const resolvedCustName = q.tenKhachHang || parentCust?.tenKhachHang || parentCust?.ten_khach_hang || 'Khách hàng';
 
+          const targetCustomerId = q.customerId || parentCust?.id || (q as any).customer_id || '';
+
           list.push({
             id: recId,
             entityId: q.id || '',
+            customerId: targetCustomerId,
             code: q.soPhieuBaoGia || 'BG',
             customerName: resolvedCustName,
             contactName: resolvedContactName,
@@ -452,6 +459,7 @@ export function BulkZnsModal({
             skipReason,
             originalEntity: {
               ...q,
+              customerId: targetCustomerId,
               tenKhachHang: resolvedCustName !== 'Khách hàng' ? resolvedCustName : (q.tenKhachHang || ''),
               sdt: primaryMob.cleaned,
               phone: primaryMob.cleaned,
@@ -478,9 +486,12 @@ export function BulkZnsModal({
             znsMessages: realtimeZnsMessages
           });
 
+          const targetCustomerId = q.customerId || parentCust?.id || (q as any).customer_id || '';
+
           list.push({
             id: recId,
             entityId: q.id || '',
+            customerId: targetCustomerId,
             code: q.soPhieuBaoGia || 'BG',
             customerName: q.tenKhachHang || 'Khách hàng',
             contactName: resolvedContactName,
@@ -492,7 +503,7 @@ export function BulkZnsModal({
             isAlreadySent,
             willSend: false,
             skipReason: `Bỏ qua (Số bàn cố định ${land.cleaned.slice(0, 3)})`,
-            originalEntity: q,
+            originalEntity: { ...q, customerId: targetCustomerId },
             amount,
             amountFormatted,
             dateStr,
@@ -505,9 +516,12 @@ export function BulkZnsModal({
           });
         } else {
           const recId = `quote-nophone-${q.id}`;
+          const targetCustomerId = q.customerId || parentCust?.id || (q as any).customer_id || '';
+
           list.push({
             id: recId,
             entityId: q.id || '',
+            customerId: targetCustomerId,
             code: q.soPhieuBaoGia || 'BG',
             customerName: q.tenKhachHang || 'Khách hàng',
             contactName: resolvedContactName,
@@ -518,7 +532,7 @@ export function BulkZnsModal({
             isAlreadySent: false,
             willSend: false,
             skipReason: rawPhone ? 'Số không hợp lệ' : 'Thiếu số điện thoại',
-            originalEntity: q,
+            originalEntity: { ...q, customerId: targetCustomerId },
             amount,
             amountFormatted,
             dateStr,
@@ -718,7 +732,12 @@ export function BulkZnsModal({
           entityType,
           messageType: msgType,
           phone: target.phone,
-          payload: { ...target.originalEntity, phone: target.phone, sdt: target.phone },
+          payload: { 
+            ...target.originalEntity, 
+            phone: target.phone, 
+            sdt: target.phone,
+            customerId: target.customerId || target.originalEntity?.customerId || (entityType === 'CUSTOMER' ? target.entityId : undefined)
+          },
           attemptBucket: attempt,
           forceResend: allowResend || target.isAlreadySent
         });

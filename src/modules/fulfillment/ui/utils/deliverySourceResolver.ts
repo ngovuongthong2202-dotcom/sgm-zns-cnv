@@ -31,12 +31,20 @@ export async function resolveDeliverySourceDocument(
   const soPhieuBaoGia = (typeof data.soPhieuBaoGia === 'string' ? data.soPhieuBaoGia.trim() : '') ||
                         (typeof data.soBaoGia === 'string' ? data.soBaoGia.trim() : '');
 
+  const matchesCustomerContext = (candidate: any) => {
+    if (!candidate) return false;
+    const hasDeliveryContext = Boolean(data.customerId || data.customer_id || data.maKh || data.tenKhachHang || data.sdt);
+    const hasCandidateContext = Boolean(candidate.customerId || candidate.customer_id || candidate.maKh || candidate.tenKhachHang || candidate.sdt);
+    if (!hasDeliveryContext || !hasCandidateContext) return true;
+    return isSameCustomer(data, candidate);
+  };
+
   // ═══ TẦNG 1: Tra cứu Hợp Đồng (Nếu có contractId) ═══
   if (rawContractId) {
     // 1.1 Props/Cache
-    const memContract = (options?.contracts || []).find((c: any) => c && (c.id === rawContractId || c.soHopDong === rawContractId)) ||
-                        entityCachePool.get('contracts', rawContractId) ||
-                        entityCachePool.find('contracts', (c: any) => c.id === rawContractId || c.soHopDong === rawContractId);
+    const memContract = (options?.contracts || []).find((c: any) => c && (c.id === rawContractId || c.soHopDong === rawContractId) && matchesCustomerContext(c)) ||
+                        (matchesCustomerContext(entityCachePool.get('contracts', rawContractId)) ? entityCachePool.get('contracts', rawContractId) : null) ||
+                        entityCachePool.find('contracts', (c: any) => (c.id === rawContractId || c.soHopDong === rawContractId) && matchesCustomerContext(c));
     if (memContract) {
       return { source: memContract, sourceType: 'contracts', sourceId: memContract.id || rawContractId };
     }
@@ -44,7 +52,7 @@ export async function resolveDeliverySourceDocument(
     // 1.2 Repository GetById
     try {
       const snap = await repositoryFactory.get<any>('contracts').getById(rawContractId);
-      if (snap) {
+      if (snap && matchesCustomerContext(snap)) {
         return { source: snap, sourceType: 'contracts', sourceId: snap.id || rawContractId };
       }
     } catch {
@@ -52,14 +60,14 @@ export async function resolveDeliverySourceDocument(
     }
 
     // 1.3 Self-Healing: Nếu contractId thực chất là quotationId do dữ liệu cũ bị ô nhiễm
-    const memQuo = (options?.quotations || []).find((q: any) => q && (q.id === rawContractId || q.soPhieuBaoGia === rawContractId)) ||
-                   entityCachePool.get('quotations', rawContractId);
+    const memQuo = (options?.quotations || []).find((q: any) => q && (q.id === rawContractId || q.soPhieuBaoGia === rawContractId) && matchesCustomerContext(q)) ||
+                   (matchesCustomerContext(entityCachePool.get('quotations', rawContractId)) ? entityCachePool.get('quotations', rawContractId) : null);
     if (memQuo) {
       return { source: memQuo, sourceType: 'quotations', sourceId: memQuo.id || rawContractId };
     }
     try {
       const qSnap = await repositoryFactory.get<any>('quotations').getById(rawContractId);
-      if (qSnap) {
+      if (qSnap && matchesCustomerContext(qSnap)) {
         return { source: qSnap, sourceType: 'quotations', sourceId: qSnap.id || rawContractId };
       }
     } catch {
@@ -70,9 +78,9 @@ export async function resolveDeliverySourceDocument(
   // ═══ TẦNG 2: Tra cứu Báo Giá (Nếu có quotationId) ═══
   if (rawQuotationId) {
     // 2.1 Props/Cache
-    const memQuotation = (options?.quotations || []).find((q: any) => q && (q.id === rawQuotationId || q.soPhieuBaoGia === rawQuotationId)) ||
-                         entityCachePool.get('quotations', rawQuotationId) ||
-                         entityCachePool.find('quotations', (q: any) => q.id === rawQuotationId || q.soPhieuBaoGia === rawQuotationId);
+    const memQuotation = (options?.quotations || []).find((q: any) => q && (q.id === rawQuotationId || q.soPhieuBaoGia === rawQuotationId) && matchesCustomerContext(q)) ||
+                         (matchesCustomerContext(entityCachePool.get('quotations', rawQuotationId)) ? entityCachePool.get('quotations', rawQuotationId) : null) ||
+                         entityCachePool.find('quotations', (q: any) => (q.id === rawQuotationId || q.soPhieuBaoGia === rawQuotationId) && matchesCustomerContext(q));
     if (memQuotation) {
       return { source: memQuotation, sourceType: 'quotations', sourceId: memQuotation.id || rawQuotationId };
     }
@@ -80,7 +88,7 @@ export async function resolveDeliverySourceDocument(
     // 2.2 Repository GetById
     try {
       const snap = await repositoryFactory.get<any>('quotations').getById(rawQuotationId);
-      if (snap) {
+      if (snap && matchesCustomerContext(snap)) {
         return { source: snap, sourceType: 'quotations', sourceId: snap.id || rawQuotationId };
       }
     } catch {
@@ -88,8 +96,8 @@ export async function resolveDeliverySourceDocument(
     }
 
     // 2.3 Self-Healing: Nếu quotationId thực chất là contractId
-    const memContract = (options?.contracts || []).find((c: any) => c && (c.id === rawQuotationId || c.soHopDong === rawQuotationId)) ||
-                        entityCachePool.get('contracts', rawQuotationId);
+    const memContract = (options?.contracts || []).find((c: any) => c && (c.id === rawQuotationId || c.soHopDong === rawQuotationId) && matchesCustomerContext(c)) ||
+                        (matchesCustomerContext(entityCachePool.get('contracts', rawQuotationId)) ? entityCachePool.get('contracts', rawQuotationId) : null);
     if (memContract) {
       return { source: memContract, sourceType: 'contracts', sourceId: memContract.id || rawQuotationId };
     }
@@ -97,13 +105,16 @@ export async function resolveDeliverySourceDocument(
 
   // ═══ TẦNG 3: Phân giải thông qua Phiếu Thu (Payment Linkage Fallback) ═══
   if (rawPaymentId) {
-    let paymentDoc = (options?.payments || []).find((p: any) => p && (p.id === rawPaymentId || p.paymentId === rawPaymentId)) ||
-                     entityCachePool.get('payments', rawPaymentId) ||
-                     entityCachePool.find('payments', (p: any) => p.id === rawPaymentId || p.paymentId === rawPaymentId);
+    let paymentDoc = (options?.payments || []).find((p: any) => p && (p.id === rawPaymentId || p.paymentId === rawPaymentId) && matchesCustomerContext(p)) ||
+                     (matchesCustomerContext(entityCachePool.get('payments', rawPaymentId)) ? entityCachePool.get('payments', rawPaymentId) : null) ||
+                     entityCachePool.find('payments', (p: any) => (p.id === rawPaymentId || p.paymentId === rawPaymentId) && matchesCustomerContext(p));
 
     if (!paymentDoc) {
       try {
-        paymentDoc = await repositoryFactory.get<any>('payments').getById(rawPaymentId);
+        const snap = await repositoryFactory.get<any>('payments').getById(rawPaymentId);
+        if (snap && matchesCustomerContext(snap)) {
+          paymentDoc = snap;
+        }
       } catch {
         // ignore
       }
@@ -112,12 +123,12 @@ export async function resolveDeliverySourceDocument(
     if (paymentDoc) {
       // Nếu Payment trỏ tới HĐ
       if (paymentDoc.contractId) {
-        const cSnap = (options?.contracts || []).find((c: any) => c.id === paymentDoc.contractId || c.soHopDong === paymentDoc.contractId) ||
-                      entityCachePool.get('contracts', paymentDoc.contractId);
+        const cSnap = (options?.contracts || []).find((c: any) => c && (c.id === paymentDoc.contractId || c.soHopDong === paymentDoc.contractId) && matchesCustomerContext(c)) ||
+                      (matchesCustomerContext(entityCachePool.get('contracts', paymentDoc.contractId)) ? entityCachePool.get('contracts', paymentDoc.contractId) : null);
         if (cSnap) return { source: cSnap, sourceType: 'contracts', sourceId: cSnap.id || paymentDoc.contractId };
         try {
           const fetchedC = await repositoryFactory.get<any>('contracts').getById(paymentDoc.contractId);
-          if (fetchedC) return { source: fetchedC, sourceType: 'contracts', sourceId: fetchedC.id || paymentDoc.contractId };
+          if (fetchedC && matchesCustomerContext(fetchedC)) return { source: fetchedC, sourceType: 'contracts', sourceId: fetchedC.id || paymentDoc.contractId };
         } catch {
           // ignore
         }
@@ -125,19 +136,19 @@ export async function resolveDeliverySourceDocument(
 
       // Nếu Payment trỏ tới Báo giá (BG Vật tư / BG Dịch vụ)
       if (paymentDoc.quotationId) {
-        const qSnap = (options?.quotations || []).find((q: any) => q.id === paymentDoc.quotationId || q.soPhieuBaoGia === paymentDoc.quotationId) ||
-                      entityCachePool.get('quotations', paymentDoc.quotationId);
+        const qSnap = (options?.quotations || []).find((q: any) => q && (q.id === paymentDoc.quotationId || q.soPhieuBaoGia === paymentDoc.quotationId) && matchesCustomerContext(q)) ||
+                      (matchesCustomerContext(entityCachePool.get('quotations', paymentDoc.quotationId)) ? entityCachePool.get('quotations', paymentDoc.quotationId) : null);
         if (qSnap) return { source: qSnap, sourceType: 'quotations', sourceId: qSnap.id || paymentDoc.quotationId };
         try {
           const fetchedQ = await repositoryFactory.get<any>('quotations').getById(paymentDoc.quotationId);
-          if (fetchedQ) return { source: fetchedQ, sourceType: 'quotations', sourceId: fetchedQ.id || paymentDoc.quotationId };
+          if (fetchedQ && matchesCustomerContext(fetchedQ)) return { source: fetchedQ, sourceType: 'quotations', sourceId: fetchedQ.id || paymentDoc.quotationId };
         } catch {
           // ignore
         }
       }
 
       // Nếu Payment có sẵn thông tin sản phẩm và là BG Vật tư / Dịch vụ độc lập
-      if (paymentDoc.products && Array.isArray(paymentDoc.products) && paymentDoc.products.length > 0) {
+      if (paymentDoc.products && Array.isArray(paymentDoc.products) && paymentDoc.products.length > 0 && matchesCustomerContext(paymentDoc)) {
         return {
           source: paymentDoc,
           sourceType: paymentDoc.contractId ? 'contracts' : 'quotations',
@@ -148,12 +159,6 @@ export async function resolveDeliverySourceDocument(
   }
 
   // ═══ TẦNG 4: Tra cứu theo Mã Nghiệp Vụ (Code Matching Fallback) ═══
-  const matchesCustomerContext = (candidate: any) => {
-    const hasContext = Boolean(data.customerId || data.customer_id || data.maKh || data.tenKhachHang || data.sdt);
-    if (!hasContext) return true;
-    return isSameCustomer(data, candidate);
-  };
-
   if (soHopDong) {
     const cMatch = (options?.contracts || []).find((c: any) => c && (c.soHopDong === soHopDong || c.contractCode === soHopDong) && matchesCustomerContext(c)) ||
                    entityCachePool.find('contracts', (c: any) => (c.soHopDong === soHopDong || c.contractCode === soHopDong) && matchesCustomerContext(c));

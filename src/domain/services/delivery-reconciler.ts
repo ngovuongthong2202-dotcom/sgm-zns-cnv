@@ -4,6 +4,22 @@
  * and delivery gating across Sales, Contracts, Billing, and Fulfillment.
  */
 
+import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
+
+export function isReconcilerCustomerCompatible(sourceDoc: any, targetDoc: any): boolean {
+  if (!sourceDoc || !targetDoc) return false;
+  const hasSource = Boolean(
+    sourceDoc.customerId || sourceDoc.customer_id || sourceDoc.maKh || sourceDoc.maSoThue || sourceDoc.tenKhachHang || sourceDoc.sdt
+  );
+  const hasTarget = Boolean(
+    targetDoc.customerId || targetDoc.customer_id || targetDoc.maKh || targetDoc.maSoThue || targetDoc.tenKhachHang || targetDoc.sdt
+  );
+  if (hasSource && hasTarget) {
+    return isSameCustomer(sourceDoc, targetDoc);
+  }
+  return true;
+}
+
 export interface ReconcilerProductItem {
   id?: string;
   productId?: string;
@@ -125,12 +141,12 @@ export function isSourceDocumentFullyDelivered(
   );
 
   const contractData = sourceDoc.contractId
-    ? contracts.find((c) => c.id === sourceDoc.contractId || c.soHopDong === sourceDoc.soHopDong)
-    : (sourceDoc.soHopDong ? contracts.find((c) => c.soHopDong === sourceDoc.soHopDong) : null);
+    ? contracts.find((c) => (c.id === sourceDoc.contractId || c.soHopDong === sourceDoc.soHopDong) && isReconcilerCustomerCompatible(sourceDoc, c))
+    : (sourceDoc.soHopDong ? contracts.find((c) => c.soHopDong === sourceDoc.soHopDong && isReconcilerCustomerCompatible(sourceDoc, c)) : null);
 
   const quotationData = sourceDoc.quotationId
-    ? quotations.find((q) => q.id === sourceDoc.quotationId || q.soPhieuBaoGia === sourceDoc.soPhieuBaoGia)
-    : (sourceDoc.soPhieuBaoGia ? quotations.find((q) => q.soPhieuBaoGia === sourceDoc.soPhieuBaoGia) : null);
+    ? quotations.find((q) => (q.id === sourceDoc.quotationId || q.soPhieuBaoGia === sourceDoc.soPhieuBaoGia) && isReconcilerCustomerCompatible(sourceDoc, q))
+    : (sourceDoc.soPhieuBaoGia ? quotations.find((q) => q.soPhieuBaoGia === sourceDoc.soPhieuBaoGia && isReconcilerCustomerCompatible(sourceDoc, q)) : null);
 
   const productList: ReconcilerProductItem[] =
     (Array.isArray(sourceDoc.products) && sourceDoc.products.length > 0 ? sourceDoc.products : null) ||
@@ -143,13 +159,14 @@ export function isSourceDocumentFullyDelivered(
     [];
 
   const linkedDeliveries = validDeliveries.filter((d) => {
+    // Sovereign Identity Invariant: delivery must belong to the same customer as sourceDoc
+    if (!isReconcilerCustomerCompatible(sourceDoc, d)) return false;
+
     if (d.paymentId && (d.paymentId === sourceDoc.id || d.paymentId === sourceDoc.paymentId)) return true;
     if (d.soChungTuThamChieu && (d.soChungTuThamChieu === sourceDoc.paymentId || d.soChungTuThamChieu === sourceDoc.id)) return true;
-    if (contractData && d.contractId && d.contractId === contractData.id) return true;
-    if (sourceDoc.contractId && d.contractId && d.contractId === sourceDoc.contractId) return true;
+    if (d.contractId && (d.contractId === sourceDoc.id || (contractData && d.contractId === contractData.id) || (sourceDoc.contractId && d.contractId === sourceDoc.contractId))) return true;
     if (sourceDoc.soHopDong && d.soHopDong && d.soHopDong === sourceDoc.soHopDong) return true;
-    if (quotationData && d.quotationId && d.quotationId === quotationData.id) return true;
-    if (sourceDoc.quotationId && d.quotationId && d.quotationId === sourceDoc.quotationId) return true;
+    if (d.quotationId && (d.quotationId === sourceDoc.id || (quotationData && d.quotationId === quotationData.id) || (sourceDoc.quotationId && d.quotationId === sourceDoc.quotationId))) return true;
     if (sourceDoc.soPhieuBaoGia && d.soPhieuBaoGia && d.soPhieuBaoGia === sourceDoc.soPhieuBaoGia) return true;
     if (sourceDoc.soDonHang && d.soDonHang && d.soDonHang === sourceDoc.soDonHang) return true;
     return false;
