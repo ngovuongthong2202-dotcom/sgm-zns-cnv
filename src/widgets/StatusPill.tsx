@@ -7,6 +7,8 @@ interface StatusPillProps {
   statusStr?: string;
   animate?: boolean;
   className?: string;
+  reason?: string;
+  errorCode?: string | number;
 }
 
 /**
@@ -14,7 +16,7 @@ interface StatusPillProps {
  * Height: 20px (h-5), Micro-typography (text-2xs font-medium)
  * Meets Linear/Notion visual specifications.
  */
-export function StatusPill({ statusStr = '', animate = true, className }: StatusPillProps) {
+export function StatusPill({ statusStr = '', animate = true, className, reason, errorCode }: StatusPillProps) {
   // Try to parse as ZNS status first
   const normalizedZns = normalizeLegacyStatus(statusStr);
   
@@ -66,9 +68,11 @@ export function StatusPill({ statusStr = '', animate = true, className }: Status
 
   return (
     <span 
+      title={reason ? (errorCode ? `[Mã lỗi ${errorCode}] ${reason}` : reason) : undefined}
       className={twMerge(
         clsx(
           "inline-flex items-center h-5 px-1.5 rounded-md text-2xs font-medium gap-1 border transition-all duration-150 select-none",
+          reason ? "cursor-help" : "",
           classes,
           className
         )
@@ -82,6 +86,11 @@ export function StatusPill({ statusStr = '', animate = true, className }: Status
       )}
       {IconComponent && !showPulse && <IconComponent className="w-3 h-3 shrink-0 opacity-80" />}
       <span className="truncate">{label}</span>
+      {errorCode && (
+        <span className="text-3xs font-mono px-1 rounded bg-red-100 text-red-800 font-bold shrink-0">
+          {errorCode}
+        </span>
+      )}
     </span>
   );
 }

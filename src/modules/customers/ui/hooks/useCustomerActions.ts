@@ -260,7 +260,10 @@ export function useCustomerActions({
     setLocalCustomers(prev => [mockCustomer, ...prev]);
 
     try {
-      await createCustomer(payload);
+      const saved = await createCustomer(payload);
+      if (saved && saved.id) {
+        setLocalCustomers(prev => prev.map(c => c.id === generatedId ? (saved as Customer) : c));
+      }
       notify.success(`Đã tạo KH ${data.tenKhachHang} (${data.maKh})`);
       setIsFormDirty(false);
       if (!continueCreating) {
@@ -277,9 +280,16 @@ export function useCustomerActions({
   }, [localCustomers, createCustomer, refresh, setLocalCustomers, setDrawerState]);
 
   const handleSendZns = useCallback(async (c: Customer) => {
-    const customerId = c.id || c.maKh;
-    const validContacts = (Array.isArray(c.contacts) && c.contacts.length > 0)
-      ? c.contacts.filter(ct => ct && (ct.sdt || ct.nguoiDaiDien))
+    let resolvedCustomer = c;
+    if (resolvedCustomer.id && resolvedCustomer.id.startsWith('temp-')) {
+      const realOne = localCustomers.find(item => item.maKh === resolvedCustomer.maKh && !item.id.startsWith('temp-'));
+      if (realOne) {
+        resolvedCustomer = realOne;
+      }
+    }
+    const customerId = (resolvedCustomer.id && !resolvedCustomer.id.startsWith('temp-')) ? resolvedCustomer.id : (resolvedCustomer.maKh || resolvedCustomer.id);
+    const validContacts = (Array.isArray(resolvedCustomer.contacts) && resolvedCustomer.contacts.length > 0)
+      ? resolvedCustomer.contacts.filter(ct => ct && (ct.sdt || ct.nguoiDaiDien))
       : [];
 
     // Nếu khách hàng có từ 2 đầu mối liên hệ trở lên -> Mở panel chuyên dụng để chọn đầu mối và xem lịch sử từng người

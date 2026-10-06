@@ -28,13 +28,19 @@ export const getCustomerColumns = (
     accessorKey: 'maKh',
     header: 'Mã KH',
     size: 100,
-    cell: (info) => (
-      <div className="w-full min-w-0 flex items-center">
-        <span className="truncate block font-mono text-xs text-slate-600 font-medium" title={String(info.getValue())}>
-          {normalizeCode(String(info.getValue()))}
-        </span>
-      </div>
-    ),
+    cell: (info) => {
+      const val = info.getValue();
+      const codeStr = (val && String(val) !== 'undefined' && String(val) !== 'null' && String(val).trim() !== '') 
+        ? normalizeCode(String(val)) 
+        : '---';
+      return (
+        <div className="w-full min-w-0 flex items-center">
+          <span className="truncate block font-mono text-xs text-slate-600 font-medium" title={codeStr}>
+            {codeStr}
+          </span>
+        </div>
+      );
+    },
   },
   {
     accessorKey: 'ngayTao',

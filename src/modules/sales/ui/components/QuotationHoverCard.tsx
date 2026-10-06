@@ -55,7 +55,11 @@ function QuotationHoverCardContent({ quotation, quotationId }: { quotation?: Quo
         const totalValue = activeQuotation.products?.reduce((acc: number, p: any) => acc + ((p.price || 0) * (p.quantity || 1)), 0) || 0;
         const displayCustomerName = customer?.tenKhachHang || activeQuotation.tenKhachHang || '—';
         const displayRepresentative = customer?.nguoiDaiDien || activeQuotation.nguoiDaiDien || '—';
-        const displayPhone = customer?.sdt || activeQuotation.sdt || '—';
+        const displayPhone = [
+          activeQuotation.sdt,
+          customer?.sdt,
+          ...(customer?.contacts?.map((c: any) => c.sdt) || [])
+        ].filter(Boolean).join(' , ') || '—';
         const displayProvince = customer?.tinhThanh || '—';
         const displayAddress = customer?.diaChi || '—';
 

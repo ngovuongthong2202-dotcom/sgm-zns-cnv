@@ -609,12 +609,23 @@ class DocRef {
     const tableName = this.tableName;
     const desc = TABLE_DESCRIPTORS[tableName];
 
+    // Guard against updating temporary client-side IDs
+    if (this.id && String(this.id).startsWith('temp-')) {
+      logger.warn({ tableName: this.tableName, id: this.id }, 'DocRef.update skipped: ID is a temporary client-side ID');
+      return;
+    }
+
     if (!desc || desc.hasDataJsonb) {
       const { data: existing } = await supabaseAdmin
         .from(this.tableName)
         .select('data')
         .eq('id', this.id)
         .maybeSingle();
+
+      if (!existing) {
+        logger.warn({ tableName: this.tableName, id: this.id }, 'DocRef.update skipped: Document does not exist in database (preventing unwanted upsert)');
+        return;
+      }
 
       const currentData = (existing?.data as Record<string, unknown>) || {};
       const mergedData = { ...currentData, ...updateData };

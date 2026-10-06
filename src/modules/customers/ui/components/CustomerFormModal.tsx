@@ -163,8 +163,8 @@ export function CustomerForm({
 
             if (willResetZns) {
               const nowIso = new Date().toISOString();
-              quoteUpdates.trangThaiGuiTinBaoGia = EntityZnsStatus.CHO_GUI;
-              quoteUpdates.trangThaiZns = EntityZnsStatus.CHO_GUI;
+              quoteUpdates.trangThaiGuiTinBaoGia = EntityZnsStatus.CAN_GUI_LAI;
+              quoteUpdates.trangThaiZns = EntityZnsStatus.CAN_GUI_LAI;
               const oldAudit = (q as any).thongTinGuiZnsBaoGia || {};
               quoteUpdates.thongTinGuiZnsBaoGia = {
                 ...oldAudit,

@@ -153,8 +153,8 @@ describe('Sovereign Quotation ZNS & 360 Phone Cascade Engine', () => {
       };
 
       if (willResetZns) {
-        quoteUpdates.trangThaiGuiTinBaoGia = EntityZnsStatus.CHO_GUI;
-        quoteUpdates.trangThaiZns = EntityZnsStatus.CHO_GUI;
+        quoteUpdates.trangThaiGuiTinBaoGia = EntityZnsStatus.CAN_GUI_LAI;
+        quoteUpdates.trangThaiZns = EntityZnsStatus.CAN_GUI_LAI;
         quoteUpdates.thongTinGuiZnsBaoGia = {
           ...oldQuotation.thongTinGuiZnsBaoGia,
           needsResendAfterEdit: true,
@@ -163,7 +163,7 @@ describe('Sovereign Quotation ZNS & 360 Phone Cascade Engine', () => {
         };
       }
 
-      expect(quoteUpdates.trangThaiGuiTinBaoGia).toBe(EntityZnsStatus.CHO_GUI);
+      expect(quoteUpdates.trangThaiGuiTinBaoGia).toBe(EntityZnsStatus.CAN_GUI_LAI);
       expect(quoteUpdates.sdt).toBe('0988776655');
       expect(quoteUpdates.thongTinGuiZnsBaoGia.previousSentPhone).toBe('0901234567');
       expect(quoteUpdates.thongTinGuiZnsBaoGia.needsResendAfterEdit).toBe(true);

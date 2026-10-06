@@ -100,15 +100,24 @@ export const getQuotationColumns = (
       // Ưu tiên đầu mối & SĐT gốc của chính báo giá này, bảo toàn phả hệ khi khách hàng được gộp
       const rawRep = q.nguoiDaiDien || liveCustomer?.nguoiDaiDien || '';
       const normalizedNguoiDaiDien = normalizePersonName(rawRep);
-      const rawPhone = q.sdt || liveCustomer?.sdt || '';
-      const address = q.diaChi || liveCustomer?.diaChi || '';
       
-      const telecom = rawPhone ? extractVietnamesePhones(rawPhone, address) : null;
+      // Gom toàn bộ số điện thoại từ Báo giá & Khách hàng liên kết & Danh bạ để đảm bảo có nút gửi ZNS di động
+      const rawPhonesPool = [
+        q.sdt,
+        q.phone,
+        liveCustomer?.sdt,
+        liveCustomer?.phone,
+        ...(liveCustomer?.contacts?.map((c: any) => c.sdt) || []),
+        ...(liveCustomer?.contacts?.flatMap((c: any) => c.danhSachSdt || []) || [])
+      ].filter(Boolean).join(' , ');
+
+      const address = q.diaChi || liveCustomer?.diaChi || '';
+      const telecom = rawPhonesPool ? extractVietnamesePhones(rawPhonesPool, address) : null;
       const mobileList = telecom?.mobilePhones || [];
       const landlineList = telecom?.landlinePhones || [];
       
       return (
-        <QuotationHoverCard quotation={{ ...q, tenKhachHang: displayName, nguoiDaiDien: rawRep, sdt: rawPhone }}>
+        <QuotationHoverCard quotation={{ ...q, tenKhachHang: displayName, nguoiDaiDien: rawRep, sdt: rawPhonesPool || q.sdt }}>
           <div className="w-full min-w-0 flex flex-col justify-center gap-1 pointer-events-auto py-1">
             <span className="font-semibold text-slate-900 text-xs leading-snug whitespace-normal break-words line-clamp-3 transition-colors group-hover:text-blue-600" title={name}>
               {name}
@@ -227,12 +236,27 @@ export const getQuotationColumns = (
 
       let statusLabel: string;
       let statusColor: string;
+      let statusTooltip: string | undefined = undefined;
+      let statusErrorCode: string | number | undefined = undefined;
       const isZnsSent = isZnsSuccessStatus(q.trangThaiGuiTinBaoGia) || isZnsSuccessStatus((q as any).trangThaiZns);
 
       if (q.tinhTrangBaoGia !== 'ĐÃ CHỐT') {
-        if (znsStatus === EntityZnsStatus.THAT_BAI) {
+        if (znsStatus === EntityZnsStatus.THAT_BAI || znsStatus === EntityZnsStatus.VUOT_HAN_MUC) {
           statusLabel = 'ZNS Thất bại';
           statusColor = 'bg-red-50 text-red-700 border-red-200';
+          const errReason = (q as any).thongTinGuiZnsBaoGia?.lyDoThatBai || 
+                            (q as any).znsErrorReason || 
+                            (q as any).errorReason || 
+                            (q as any).znsErrorMessage;
+          const errCode = (q as any).thongTinGuiZnsBaoGia?.maLoi || 
+                          (q as any).znsErrorCode || 
+                          (q as any).errorCode;
+          if (errReason) {
+            statusTooltip = errCode ? `[Mã lỗi ${errCode}] ${errReason}` : `Lý do: ${errReason}`;
+            statusErrorCode = errCode;
+          } else {
+            statusTooltip = 'Gửi tin ZNS không thành công (Xem chi tiết trong ZNS Hub)';
+          }
         } else if (!isZnsSent) {
           statusLabel = 'Chờ gửi ZNS';
           statusColor = 'bg-amber-50 text-amber-700 border-amber-200';
@@ -259,7 +283,14 @@ export const getQuotationColumns = (
         }
       }
       
-      return <WorkflowStatusCell label={statusLabel} colorClass={statusColor} />;
+      return (
+        <WorkflowStatusCell 
+          label={statusLabel} 
+          colorClass={statusColor} 
+          tooltip={statusTooltip} 
+          errorCode={statusErrorCode} 
+        />
+      );
     }
   },
   {

@@ -26,15 +26,38 @@ export function useCustomers(options?: { loadRelated?: boolean }) {
   const { deleteRecord } = useMutation<Customer>({ collection: 'customers' });
 
   const createCustomer = async (data: Partial<Customer>) => {
-    return await CreateCustomer.execute(data);
+    const saved = await CreateCustomer.execute(data);
+    try {
+      const { realtimeStore } = await import('@/src/data/realtime-store');
+      realtimeStore.mutateOptimistic('customers', 'create', saved);
+      const { clearSwrColCache } = await import('@/src/data/swr-fetchers');
+      clearSwrColCache('customers');
+      const { crossTabSync } = await import('@/src/shared/utils/crossTabSync');
+      crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'customers' });
+    } catch (e) {
+      // safe fallback
+    }
+    return saved;
   };
 
   const updateCustomer = async (id: string, updates: Partial<Customer>) => {
     await UpdateCustomer.execute(id, updates);
+    try {
+      const { realtimeStore } = await import('@/src/data/realtime-store');
+      realtimeStore.mutateOptimistic('customers', 'update', { id, ...updates });
+      const { clearSwrColCache } = await import('@/src/data/swr-fetchers');
+      clearSwrColCache('customers');
+      const { crossTabSync } = await import('@/src/shared/utils/crossTabSync');
+      crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'customers' });
+    } catch (e) {
+      // safe fallback
+    }
   };
 
-
-  const dummyRefresh = async () => {};
+  const refresh = async () => {
+    const { realtimeStore } = await import('@/src/data/realtime-store');
+    realtimeStore.refresh('customers');
+  };
 
   return {
     customers,
@@ -44,7 +67,7 @@ export function useCustomers(options?: { loadRelated?: boolean }) {
     loading: loading,
     loadMore,
     hasMore,
-    refresh: dummyRefresh,
+    refresh,
     createCustomer,
     updateCustomer,
     deleteCustomer: deleteRecord,

@@ -4,6 +4,7 @@ import { adminDb } from '../../config/supabase.admin';
 import { workflowEventService } from '../workflow/workflow-event.service';
 import { logger } from '../../lib/logger';
 import { normalizeLegacyStatus, EntityZnsStatus } from '../../../domain/enums/zns-status';
+import { resolveZaloError } from './zalo-error-dictionary';
 
 export class VendorWebhookHandler {
   async handleResult(req: Request, res: Response) {
@@ -203,9 +204,24 @@ export class VendorWebhookHandler {
             internalStatus = 'FAILED';
           }
           
+          const rawError = payload.errorMessage || 
+                           payload.error_message || 
+                           payload.response?.errorMessage || 
+                           payload.response?.error_message || 
+                           payload.error || 
+                           payload.message || 
+                           payload.row_data?.errorMessage ||
+                           (payload.response && !payload.response.isSuccess ? payload.response : null);
+
+          const zaloDiagnosis = resolveZaloError(rawError || payload);
+
           t.update(znsMessageDoc.ref, { 
             status: internalStatus,
             vendorStatus: vendorStatus, 
+            errorCode: zaloDiagnosis.code,
+            errorReason: zaloDiagnosis.reason,
+            errorLog: zaloDiagnosis.rawMessage || null,
+            actionGuide: zaloDiagnosis.actionGuide || null,
             updatedAt: new Date().toISOString()
           });
           
@@ -227,53 +243,97 @@ export class VendorWebhookHandler {
             const targetField = fieldMap[entType];
             if (targetField) {
               const targetCol = entType.endsWith('s') ? entType : `${entType}s`;
-              const entityRef = adminDb.collection(targetCol).doc(znsData.entityId);
-              const updates: Record<string, any> = {
-                [targetField]: norm,
-                updatedAt: new Date().toISOString()
-              };
-              if (norm === EntityZnsStatus.THANH_CONG && znsData.phone) {
-                updates.znsLastSentPhone = znsData.phone;
-              }
-              if (entType.includes('customer')) {
-                updates.trangThaiZns = norm;
-                updates.trangThaiGuiTinQuangCao = norm;
-                if (norm === EntityZnsStatus.THANH_CONG && znsData.phone) {
-                  try {
-                    const custSnap = await t.get(entityRef);
-                    if (custSnap.exists) {
-                      const custData = custSnap.data() || {};
-                      const cleanPhone = String(znsData.phone).trim();
-                      const existingHist = { ...(custData.contactsZnsHistory || {}) };
-                      const nowIso = new Date().toISOString();
-                      existingHist[cleanPhone] = {
-                        status: 'SUCCESS',
-                        sentAt: nowIso
-                      };
-                      updates.contactsZnsHistory = existingHist;
+              let resolvedEntityId = znsData.entityId;
 
-                      if (Array.isArray(custData.contacts)) {
-                        const updatedContacts = [...custData.contacts];
-                        const cIdx = updatedContacts.findIndex((ct: any) => {
-                          const p = (ct?.sdt || '').trim();
-                          return p === cleanPhone || p.endsWith(cleanPhone.slice(-9)) || cleanPhone.endsWith(p.slice(-9));
-                        });
-                        if (cIdx >= 0) {
-                          updatedContacts[cIdx] = {
-                            ...updatedContacts[cIdx],
-                            trangThaiZns: 'THANH_CONG',
-                            ngayGuiZns: nowIso
-                          };
-                          updates.contacts = updatedContacts;
-                        }
-                      }
-                    }
-                  } catch (e) {
-                    logger.warn({ err: e }, 'Failed to deep-update customer contactsZnsHistory in webhook');
-                  }
+              // Fallback for temporary IDs: lookup real customer by phone if possible
+              if (resolvedEntityId && String(resolvedEntityId).startsWith('temp-') && entType.includes('customer') && znsData.phone) {
+                const qCust = await adminDb.collection('customers').where('sdt', '==', znsData.phone).limit(1).get();
+                if (!qCust.empty) {
+                  resolvedEntityId = qCust.docs[0].id;
                 }
               }
-              t.update(entityRef, updates);
+
+              // Only update if entity ID is not a temporary client-side ID
+              if (resolvedEntityId && !String(resolvedEntityId).startsWith('temp-')) {
+                const entityRef = adminDb.collection(targetCol).doc(resolvedEntityId);
+                const updates: Record<string, any> = {
+                  [targetField]: norm,
+                  updatedAt: new Date().toISOString()
+                };
+
+                if (norm === EntityZnsStatus.THAT_BAI || norm === EntityZnsStatus.VUOT_HAN_MUC) {
+                  updates.znsErrorCode = zaloDiagnosis.code;
+                  updates.znsErrorMessage = zaloDiagnosis.rawMessage;
+                  updates.znsErrorReason = zaloDiagnosis.reason;
+                  updates.znsActionGuide = zaloDiagnosis.actionGuide;
+                  if (entType.includes('quotation')) {
+                    updates.thongTinGuiZnsBaoGia = {
+                      lyDoThatBai: `${zaloDiagnosis.reason} (Mã ${zaloDiagnosis.code})`,
+                      maLoi: zaloDiagnosis.code,
+                      chiTietLoi: zaloDiagnosis.rawMessage,
+                      huongDan: zaloDiagnosis.actionGuide,
+                      thatBaiLuc: new Date().toISOString()
+                    };
+                  }
+                }
+
+                if (norm === EntityZnsStatus.THANH_CONG && znsData.phone) {
+                  updates.znsLastSentPhone = znsData.phone;
+                  if (entType.includes('quotation')) {
+                    updates.thongTinGuiZnsBaoGia = {
+                      lyDoThatBai: null,
+                      maLoi: null,
+                      thatBaiLuc: null,
+                      daGuiThanhCongLuc: new Date().toISOString(),
+                      sdtNhan: znsData.phone
+                    };
+                  }
+                }
+                if (entType.includes('customer')) {
+                  updates.trangThaiZns = norm;
+                  updates.trangThaiGuiTinQuangCao = norm;
+                  if (norm === EntityZnsStatus.THAT_BAI || norm === EntityZnsStatus.VUOT_HAN_MUC) {
+                    updates.znsErrorReason = zaloDiagnosis.reason;
+                    updates.znsErrorCode = zaloDiagnosis.code;
+                  }
+                  if (norm === EntityZnsStatus.THANH_CONG && znsData.phone) {
+                    try {
+                      const custSnap = await t.get(entityRef);
+                      if (custSnap.exists) {
+                        const custData = custSnap.data() || {};
+                        const cleanPhone = String(znsData.phone).trim();
+                        const existingHist = { ...(custData.contactsZnsHistory || {}) };
+                        const nowIso = new Date().toISOString();
+                        existingHist[cleanPhone] = {
+                          status: 'SUCCESS',
+                          sentAt: nowIso
+                        };
+                        updates.contactsZnsHistory = existingHist;
+
+                        if (Array.isArray(custData.contacts)) {
+                          const updatedContacts = [...custData.contacts];
+                          const cIdx = updatedContacts.findIndex((ct: any) => {
+                            const p = (ct?.sdt || '').trim();
+                            return p === cleanPhone || p.endsWith(cleanPhone.slice(-9)) || cleanPhone.endsWith(p.slice(-9));
+                          });
+                          if (cIdx >= 0) {
+                            updatedContacts[cIdx] = {
+                              ...updatedContacts[cIdx],
+                              trangThaiZns: 'THANH_CONG',
+                              ngayGuiZns: nowIso
+                            };
+                            updates.contacts = updatedContacts;
+                          }
+                        }
+                      }
+                    } catch (e) {
+                      logger.warn({ err: e }, 'Failed to deep-update customer contactsZnsHistory in webhook');
+                    }
+                  }
+                }
+
+                t.update(entityRef, updates);
+              }
             }
           }
 
