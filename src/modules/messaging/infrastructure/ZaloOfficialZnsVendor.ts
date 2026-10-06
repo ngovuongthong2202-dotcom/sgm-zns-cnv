@@ -5,6 +5,7 @@ import { logger } from '../../../shared/lib/logger';
 import { resilientFetch } from '../../../backend/lib/resilient-transport';
 import { adminDb } from '../../../backend/config/supabase.admin';
 import { translateZaloError } from '../../../backend/services/zns/zalo-error-dictionary';
+import { sanitizeZnsCustomerName } from '../../../backend/services/zns/zns-payload.builder';
 
 /**
  * Ánh xạ mặc định các loại tin nhắn SGM sang 6 Template ID đã được duyệt trên Zalo OA
@@ -42,9 +43,19 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
     const moneyFormatted = new Intl.NumberFormat('vi-VN').format(Number(p.soTien || p.totalAmount || p.giaTriHopDong || 0)) + ' đ';
     const machineCountStr = String(p.slMay || p.machine_count || (Array.isArray(p.items) ? p.items.length : 1));
 
+    // Ưu tiên tuyệt đối trường "Chuẩn ZNS" (tenZns / ten_zns) để customer_name không vượt quá 30 ký tự
+    const znsCandidate = p.tenZns || p.ten_zns || p.tenKhachHangZns || p.customer_name_zns;
+    let customerName = (znsCandidate || p.customer_name || p.tenKhachHang || 'Quý khách hàng').toString().trim();
+    if (customerName.length > 30) {
+      customerName = sanitizeZnsCustomerName(customerName);
+    }
+    if (customerName.length > 30) {
+      customerName = customerName.slice(0, 30).trim();
+    }
+
     return {
-      // 1. Nhận diện khách hàng
-      customer_name: p.tenKhachHang || p.customer_name || 'Quý khách hàng',
+      // 1. Nhận diện khách hàng (Bắt buộc theo chuẩn Zalo: tối đa 30 ký tự)
+      customer_name: customerName,
       customer_phone: p.sdt || p.phone || '',
       phone: p.sdt || p.phone || '',
 

@@ -739,7 +739,9 @@ export function BulkZnsModal({
             ...target.originalEntity, 
             phone: target.phone, 
             sdt: target.phone,
-            customerId: target.customerId || target.originalEntity?.customerId || (entityType === 'CUSTOMER' ? target.entityId : undefined)
+            customerId: target.customerId || target.originalEntity?.customerId || (entityType === 'CUSTOMER' ? target.entityId : undefined),
+            tenZns: target.originalEntity?.tenZns || (target.originalEntity as any)?.ten_zns,
+            customer_name: target.originalEntity?.tenZns || (target.originalEntity as any)?.ten_zns || target.customerName
           },
           attemptBucket: attempt,
           forceResend: allowResend || target.isAlreadySent

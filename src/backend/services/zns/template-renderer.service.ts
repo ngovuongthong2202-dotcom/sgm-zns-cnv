@@ -265,7 +265,11 @@ export class TemplateRendererService {
         }
         
         // Format value
-        output[variable.name] = this.formatValue(value, variable.format);
+        let formattedVal = this.formatValue(value, variable.format);
+        if (variable.name === 'customer_name' && formattedVal.length > 30) {
+          formattedVal = formattedVal.slice(0, 30).trim();
+        }
+        output[variable.name] = formattedVal;
         
         // Trace source cho debug (chỉ trong dev/audit)
         if (process.env.NODE_ENV !== 'production') {
@@ -351,6 +355,14 @@ export class TemplateRendererService {
   private extractValue(doc: AnyEntity, sourceField: string): unknown {
     if (!doc || !sourceField) return undefined;
     
+    // Ưu tiên đặc biệt cho trường Chuẩn ZNS khi truy xuất tenKhachHang / customer_name
+    if (sourceField === 'tenKhachHang' || sourceField === 'customer_name') {
+      const znsVal = (doc as any).tenZns || (doc as any).ten_zns || (doc as any).tenKhachHangZns;
+      if (this.isMeaningful(znsVal)) {
+        return znsVal;
+      }
+    }
+
     let val: unknown = undefined;
     if (sourceField.includes('[]')) {
       const parts = sourceField.split('[].');
@@ -375,8 +387,8 @@ export class TemplateRendererService {
 
     // Smart aliases fallback cho các trường phổ biến
     if (!this.isMeaningful(val)) {
-      if (sourceField === 'tenKhachHang') {
-        val = (doc as any).tenKhachHang || (doc as any).customer_name || (doc as any).customerName || (doc as any).name || (doc as any).contacts?.[0]?.nguoiDaiDien || (doc as any).nguoiDaiDien;
+      if (sourceField === 'tenKhachHang' || sourceField === 'customer_name') {
+        val = (doc as any).tenZns || (doc as any).ten_zns || (doc as any).tenKhachHangZns || (doc as any).tenKhachHang || (doc as any).customer_name || (doc as any).customerName || (doc as any).name || (doc as any).contacts?.[0]?.nguoiDaiDien || (doc as any).nguoiDaiDien;
       } else if (sourceField === 'sdt') {
         val = (doc as any).sdt || (doc as any).phone || (doc as any).soDienThoai || (doc as any).phoneNumber || (doc as any).contacts?.[0]?.sdt;
       } else if (sourceField === 'soHopDong') {

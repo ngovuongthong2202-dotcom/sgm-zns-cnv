@@ -29,6 +29,14 @@ describe('Zalo Error Dictionary & Diagnostic Telemetry', () => {
     expect(result.reason).toContain('định dạng');
   });
 
+  it('correctly maps Zalo error code -1121 (customer_name data breaks max length)', () => {
+    const rawError = 'Response code: -1121 | Message: customer_name data breaks max length';
+    const result = resolveZaloError(rawError);
+    expect(result.code).toBe(-1121);
+    expect(result.reason).toContain('độ dài tối đa');
+    expect(result.actionGuide).toContain('Chuẩn ZNS');
+  });
+
   it('handles unknown error gracefully without throwing', () => {
     const result = resolveZaloError('Network connection reset');
     expect(result.code).toBe('FAIL');

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { vendorWebhookHandler } from '../services/zns/vendor-webhook.handler';
-import { znsPayloadBuilder } from '../services/zns/zns-payload.builder';
+import { znsPayloadBuilder, sanitizeZnsCustomerName } from '../services/zns/zns-payload.builder';
 import { adminDb } from '../config/supabase.admin';
 import { ZnsMessage } from '../../domain/schema/workflow.schema';
 import { SendZnsMessageUseCase } from '../../modules/messaging/application/use-cases/SendZnsMessage';
@@ -218,6 +218,20 @@ router.post('/preview', async (req, res) => {
     
     const payloadData = docSnap.data() as Record<string, unknown>;
     
+    // Nếu chưa có tenZns và không phải là CUSTOMER, tự động enrich từ hồ sơ khách hàng
+    if (entityType !== 'CUSTOMER' && !payloadData.tenZns && !payloadData.ten_zns) {
+      const custId = (payloadData.customerId || payloadData.customer_id || payloadData.maKh) as string;
+      if (custId) {
+        try {
+          const cSnap = await adminDb.collection('customers').doc(custId).get();
+          if (cSnap.exists) {
+            const cData = cSnap.data() as Record<string, unknown>;
+            payloadData.tenZns = cData.tenZns || cData.ten_zns;
+          }
+        } catch {}
+      }
+    }
+    
     const dummyMessage = {
        entityId,
        entityType,
@@ -293,27 +307,81 @@ router.post('/send', async (req, res) => {
     const targetCustId = (clientEntity.customerId as string) || 
                          (dbEntity.customerId as string) || 
                          (dbEntity.customer_id as string) || 
-                         (dbEntity.maKh as string);
+                         (dbEntity.maKh as string) ||
+                         (clientEntity.maKh as string);
     let parentCustomer: Record<string, unknown> = {};
-    if (targetCustId && (!clientEntity.tenKhachHang && !dbEntity.tenKhachHang && !clientEntity.customer_name && !dbEntity.customer_name)) {
+    if (body.entityType === 'CUSTOMER') {
+      parentCustomer = dbEntity;
+    } else if (targetCustId) {
       try {
         const custSnap = await adminDb.collection('customers').doc(targetCustId).get();
         if (custSnap.exists) {
           parentCustomer = (custSnap.data() as Record<string, unknown>) || {};
+        } else {
+          // Tra cứu dự phòng theo mã khách hàng maKh (ví dụ: KH0436)
+          const querySnap = await adminDb.collection('customers').where('maKh', '==', targetCustId).limit(1).get();
+          if (!querySnap.empty) {
+            parentCustomer = (querySnap.docs[0].data() as Record<string, unknown>) || {};
+          }
         }
       } catch (err) {
         // Fallback gracefully
       }
     }
 
-    const resolvedCustomerName = 
-      (clientEntity.tenKhachHang as string) || 
-      (dbEntity.tenKhachHang as string) || 
-      (clientEntity.customer_name as string) || 
-      (dbEntity.customer_name as string) || 
-      (parentCustomer.tenKhachHang as string) || 
-      (parentCustomer.ten_khach_hang as string) || 
-      '';
+    // Tra cứu bổ sung theo tên khách hàng nếu chưa tìm thấy parentCustomer
+    if (body.entityType !== 'CUSTOMER' && Object.keys(parentCustomer).length === 0) {
+      const searchName = (dbEntity.tenKhachHang || clientEntity.tenKhachHang) as string;
+      if (searchName) {
+        try {
+          const nameSnap = await adminDb.collection('customers').where('tenKhachHang', '==', searchName).limit(1).get();
+          if (!nameSnap.empty) {
+            parentCustomer = (nameSnap.docs[0].data() as Record<string, unknown>) || {};
+          }
+        } catch {
+          // Fallback gracefully
+        }
+      }
+    }
+
+    // Ưu tiên tuyệt đối trường "Chuẩn ZNS" (tenZns / ten_zns) theo yêu cầu Zalo Cloud OpenAPI
+    const candidateZns = (
+      clientEntity.tenZns || 
+      clientEntity.ten_zns || 
+      clientEntity.tenKhachHangZns || 
+      dbEntity.tenZns || 
+      dbEntity.ten_zns || 
+      dbEntity.tenKhachHangZns || 
+      parentCustomer.tenZns || 
+      parentCustomer.ten_zns || 
+      parentCustomer.tenKhachHangZns || 
+      parentCustomer.tenThuongMai || 
+      clientEntity.tenThuongMai
+    ) as string | undefined;
+
+    let resolvedZnsName = candidateZns ? String(candidateZns).trim() : '';
+
+    const rawLegalName = String(
+      clientEntity.tenKhachHang || 
+      dbEntity.tenKhachHang || 
+      clientEntity.customer_name || 
+      dbEntity.customer_name || 
+      parentCustomer.tenKhachHang || 
+      parentCustomer.ten_khach_hang || 
+      ''
+    ).trim();
+
+    // Nếu chưa có Chuẩn ZNS trong hồ sơ, tự động chuẩn hóa từ tên pháp lý / thương mại
+    if (!resolvedZnsName && rawLegalName) {
+      resolvedZnsName = sanitizeZnsCustomerName(rawLegalName);
+    }
+
+    if (resolvedZnsName.length > 30) {
+      resolvedZnsName = sanitizeZnsCustomerName(resolvedZnsName);
+    }
+    if (resolvedZnsName.length > 30) {
+      resolvedZnsName = resolvedZnsName.slice(0, 30).trim();
+    }
 
     const mergedPayload: Record<string, unknown> = {
       ...parentCustomer,
@@ -321,8 +389,10 @@ router.post('/send', async (req, res) => {
       ...clientEntity,
       phone: normalizedPhone,
       sdt: normalizedPhone,
-      tenKhachHang: resolvedCustomerName,
-      customer_name: resolvedCustomerName,
+      tenZns: resolvedZnsName,
+      ten_zns: resolvedZnsName,
+      tenKhachHang: rawLegalName || resolvedZnsName,
+      customer_name: resolvedZnsName || rawLegalName.slice(0, 30),
       customerId: clientEntity.customerId || dbEntity.customerId || (body.entityType === 'CUSTOMER' ? body.entityId : targetCustId),
       entityId: body.entityId,
       entityType: body.entityType,

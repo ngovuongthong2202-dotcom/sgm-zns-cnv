@@ -28,6 +28,12 @@ export const ZALO_ERROR_MAP: Record<string, ZaloErrorInfo> = {
     vietnameseReason: 'Vượt hạn mức gửi tin ZNS của Zalo OA trong ngày',
     actionGuide: 'Liên hệ quản trị viên nâng hạn mức OA hoặc gửi lại vào ngày hôm sau.'
   },
+  '-1121': {
+    code: -1121,
+    name: 'customer_name data breaks max length',
+    vietnameseReason: 'Tên khách hàng vượt quá độ dài tối đa cho phép của Zalo (tối đa 30 ký tự)',
+    actionGuide: 'Hệ thống đã tự động ưu tiên lấy trường "Chuẩn ZNS" (≤ 30 ký tự) từ hồ sơ khách hàng. Vui lòng kiểm tra lại trường "Chuẩn ZNS" trong hồ sơ khách hàng.'
+  },
   '-1122': {
     code: -1122,
     name: 'Missing required template parameters',
@@ -87,7 +93,7 @@ export function resolveZaloError(rawInput: unknown): {
 
   // 1. Try regex matching for numeric Zalo response codes, e.g. "Response code: -118", "code": -118, "code: -1472"
   const codeMatch = rawStr.match(/(?:response\s*code|error\s*code|code)["':\s]+(-?\d+)/i) ||
-                    rawStr.match(/-118|-1472|-110|-1122|-108|-132|-124|-125|-104/);
+                    rawStr.match(/-118|-1472|-110|-1121|-1122|-108|-132|-124|-125|-104/);
 
   if (codeMatch) {
     const code = codeMatch[1] || codeMatch[0];

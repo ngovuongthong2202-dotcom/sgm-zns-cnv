@@ -173,7 +173,7 @@ export class ZnsPayloadBuilder {
     
     // Fallbacks cho customer_name & phone (áp dụng cho mọi template)
     if (requiredVarsSet.has('customer_name') && isEmp(rendered.customer_name)) {
-      rendered.customer_name = (p.tenKhachHang as string) || (p.customer_name as string) || (p.customerName as string) || (p.name as string) || ((p.contacts as any)?.[0]?.nguoiDaiDien as string) || (p.nguoiDaiDien as string) || '';
+      rendered.customer_name = (p.tenZns as string) || (p.ten_zns as string) || (p.tenKhachHangZns as string) || (p.tenKhachHang as string) || (p.customer_name as string) || (p.customerName as string) || (p.name as string) || ((p.contacts as any)?.[0]?.nguoiDaiDien as string) || (p.nguoiDaiDien as string) || '';
     }
     if (requiredVarsSet.has('phone') && isEmp(rendered.phone)) {
       rendered.phone = message.phone || (p.sdt as string) || (p.phone as string) || (p.soDienThoai as string) || ((p.contacts as any)?.[0]?.sdt as string) || '';
@@ -384,6 +384,8 @@ export class ZnsPayloadBuilder {
     // Format values with ultimate fallback ensuring Zalo parameter is never empty and strictly <= 30 chars
     const rawCustomerName = (
       (p as any).tenZns ||
+      (p as any).ten_zns ||
+      (p as any).tenKhachHangZns ||
       (p as any).tenThuongMai ||
       variables.customer_name || 
       p.tenKhachHang || 

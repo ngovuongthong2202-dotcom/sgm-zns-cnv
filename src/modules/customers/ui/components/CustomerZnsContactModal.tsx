@@ -236,6 +236,8 @@ export function CustomerZnsContactModal({
         phone: phone,
         payload: {
           ...customer,
+          tenZns: customer.tenZns,
+          customer_name: customer.tenZns || customer.tenKhachHang,
           sdt: phone,
           phone: phone,
           nguoiDaiDien: contact.nguoiDaiDien || customer.nguoiDaiDien || '',
@@ -313,6 +315,8 @@ export function CustomerZnsContactModal({
           phone: phone,
           payload: {
             ...customer,
+            tenZns: customer.tenZns,
+            customer_name: customer.tenZns || customer.tenKhachHang,
             sdt: phone,
             phone: phone,
             nguoiDaiDien: contact.nguoiDaiDien || customer.nguoiDaiDien || '',

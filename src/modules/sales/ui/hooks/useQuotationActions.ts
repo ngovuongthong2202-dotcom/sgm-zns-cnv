@@ -62,7 +62,13 @@ export function useQuotationActions(
 
   const handleSendQuotationZns = useCallback(async (q: Quotation, targetPhoneOverride?: string) => {
     // 1. Ưu tiên tra cứu trực tiếp trong RAM (0ms) từ allCustomers
-    const liveCust = allCustomers?.find(c => c.id === q.customerId || (c.maKh && c.maKh === q.customerId)) || null;
+    const liveCust = allCustomers?.find(c => 
+      c.id === q.customerId || 
+      (c.maKh && c.maKh === q.customerId) ||
+      (q as any).customer_id === c.id ||
+      (q as any).maKh === c.maKh ||
+      c.tenKhachHang === q.tenKhachHang
+    ) || null;
     let customerDoc: any = liveCust;
     let customerName = q.tenKhachHang || liveCust?.tenKhachHang;
 
@@ -78,7 +84,9 @@ export function useQuotationActions(
       }
     }
 
-    const resolvedCustName = customerName || q.tenKhachHang || 'Khách hàng';
+    // Ưu tiên trường "Chuẩn ZNS" (tenZns / ten_zns) để khớp chuẩn độ dài Zalo
+    const znsCustName = customerDoc?.tenZns || customerDoc?.ten_zns || (q as any).tenZns || (q as any).ten_zns;
+    const resolvedCustName = znsCustName || customerName || q.tenKhachHang || 'Khách hàng';
 
     // Thu thập tất cả SĐT di động hợp lệ có thể gửi ZNS
     const availableMobiles: Array<{ cleaned: string; formatted: string; carrier?: string }> = [];
@@ -151,7 +159,11 @@ export function useQuotationActions(
       phone: phone,
       payload: {
         ...q,
-        tenKhachHang: resolvedCustName,
+        customerId: q.customerId || customerDoc?.id || customerDoc?.maKh,
+        tenKhachHang: q.tenKhachHang || customerDoc?.tenKhachHang || resolvedCustName,
+        tenZns: znsCustName || resolvedCustName,
+        ten_zns: znsCustName || resolvedCustName,
+        customer_name: znsCustName || resolvedCustName,
         sdt: phone,
         phone: phone,
         soPhieuBaoGia: q.soPhieuBaoGia || q.maBaoGia || q.id
@@ -272,8 +284,15 @@ export function useQuotationActions(
 
   const handleDrawerSendZns = useCallback(async (targetPhoneOverride?: string) => {
     if (!drawerQuotation?.id) return;
-    const parentCust = drawerCustomer || allCustomers?.find(c => c.id === drawerQuotation.customerId || (c.maKh && c.maKh === drawerQuotation.customerId));
-    const custName = drawerQuotation.tenKhachHang || parentCust?.tenKhachHang || 'Khách hàng';
+    const parentCust = drawerCustomer || allCustomers?.find(c => 
+      c.id === drawerQuotation.customerId || 
+      (c.maKh && c.maKh === drawerQuotation.customerId) ||
+      (drawerQuotation as any).customer_id === c.id ||
+      (drawerQuotation as any).maKh === c.maKh ||
+      c.tenKhachHang === drawerQuotation.tenKhachHang
+    );
+    const znsCustName = parentCust?.tenZns || parentCust?.ten_zns || (drawerQuotation as any).tenZns || (drawerQuotation as any).ten_zns;
+    const custName = znsCustName || drawerQuotation.tenKhachHang || parentCust?.tenKhachHang || 'Khách hàng';
 
     // Thu thập tất cả SĐT di động hợp lệ
     const availableMobiles: Array<{ cleaned: string; formatted: string; carrier?: string }> = [];
@@ -346,7 +365,11 @@ export function useQuotationActions(
       phone: phone,
       payload: {
         ...drawerQuotation,
-        tenKhachHang: custName,
+        customerId: drawerQuotation.customerId || parentCust?.id || parentCust?.maKh,
+        tenKhachHang: drawerQuotation.tenKhachHang || parentCust?.tenKhachHang || custName,
+        tenZns: znsCustName || custName,
+        ten_zns: znsCustName || custName,
+        customer_name: znsCustName || custName,
         sdt: phone,
         phone: phone,
         soPhieuBaoGia: drawerQuotation.soPhieuBaoGia || drawerQuotation.maBaoGia || drawerQuotation.id

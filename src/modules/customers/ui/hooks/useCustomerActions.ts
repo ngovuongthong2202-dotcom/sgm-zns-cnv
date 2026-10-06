@@ -344,7 +344,13 @@ export function useCustomerActions({
         entityType: 'CUSTOMER', 
         messageType: ZnsMessageType.CUSTOMER_PRE_QUOTE,
         phone: phone, 
-        payload: { ...c, sdt: phone, phone }, 
+        payload: { 
+          ...c, 
+          tenZns: c.tenZns,
+          customer_name: c.tenZns || c.tenKhachHang,
+          sdt: phone, 
+          phone 
+        }, 
         attemptBucket: nextAttempt(c.trangThaiGuiTinQuangCao as string | undefined),
         userRole: userData?.role,
         forceResend
