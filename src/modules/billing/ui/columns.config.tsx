@@ -597,7 +597,11 @@ export const getPaymentColumns = (
        
        if (installments.length > 1) {
          const sentCount = installments.filter((inst: any) => 
+           inst.trangThaiZns === 'THÀNH CÔNG' ||
+           inst.trangThaiZns === 'ĐÃ GỬI' ||
+           inst.znsStatus === 'THÀNH CÔNG' ||
            inst.znsStatus === 'ĐÃ GỬI' || 
+           inst.trangThaiGuiTin === 'THÀNH CÔNG' ||
            inst.trangThaiGuiTin === 'ĐÃ GỬI' || 
            Boolean(inst.znsSentAt) ||
            (inst.lanThu === 1 && (status === EntityZnsStatus.THANH_CONG || (status as any) === 'ĐÃ GỬI'))
@@ -607,7 +611,14 @@ export const getPaymentColumns = (
          const partialSent = sentCount > 0 && sentCount < installments.length;
          
          return (
-           <div onClick={(e) => e.stopPropagation()} className="flex flex-col gap-0.5">
+           <div 
+             onClick={(e) => {
+               e.stopPropagation();
+               if (onSendZns) onSendZns(p);
+             }} 
+             className="flex flex-col gap-0.5 cursor-pointer hover:opacity-80 transition-opacity"
+             title="Bấm để mở xem trước & gửi ZNS thanh toán"
+           >
              {allSent ? (
                <span className="px-2 py-0.5 rounded-md text-2xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 tracking-tight uppercase leading-none inline-flex items-center gap-1">
                  ✓ Đã gửi ({sentCount}/{installments.length} đợt)
@@ -626,7 +637,14 @@ export const getPaymentColumns = (
        }
 
        return (
-         <div onClick={(e) => e.stopPropagation()}>
+         <div 
+           onClick={(e) => {
+             e.stopPropagation();
+             if (onSendZns) onSendZns(p);
+           }}
+           className="cursor-pointer hover:opacity-80 transition-opacity inline-block"
+           title="Bấm để mở xem trước & gửi ZNS thanh toán"
+         >
            <StatusPill statusStr={status as string} />
          </div>
        );

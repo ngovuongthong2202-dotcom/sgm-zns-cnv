@@ -13,6 +13,11 @@ export const PaymentInstallmentSchema = z.object({
   nguoiThu: z.string().optional(),
   ghiChu: z.string().optional(),
   createdAt: z.string().optional(),
+  trangThaiZns: z.string().optional(),
+  znsStatus: z.string().optional(),
+  znsSentAt: z.string().optional(),
+  znsTrackingId: z.string().optional(),
+  znsPhone: z.string().optional(),
 });
 
 export type PaymentInstallment = z.infer<typeof PaymentInstallmentSchema>;

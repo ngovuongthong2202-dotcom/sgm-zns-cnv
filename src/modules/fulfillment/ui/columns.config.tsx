@@ -13,7 +13,7 @@ import { isPaymentFullyPaid, isPaymentPartial } from '@/src/domain/enums/payment
 import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 import { reconcileDeliveryShipments } from './utils/delivery-reconciler';
 
-export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: any }>[] => [
+export const getDeliveryColumns = (onSendZns?: (delivery: Delivery) => void): ColumnDef<Delivery & { __customerInfo?: any }>[] => [
   createSttColumn() as any,
   {
     accessorKey: 'deliveryId',
@@ -453,9 +453,17 @@ export const getDeliveryColumns = (): ColumnDef<Delivery & { __customerInfo?: an
     header: 'ZNS',
     size: 120,
     cell: (info) => {
+       const d = info.row.original;
        const status = normalizeLegacyStatus(String(info.getValue() || ''));
        return (
-         <div onClick={(e) => e.stopPropagation()} className="w-full min-w-0 flex items-center max-w-full">
+         <div 
+           onClick={(e) => {
+             e.stopPropagation();
+             if (onSendZns) onSendZns(d);
+           }} 
+           className="w-full min-w-0 flex items-center max-w-full cursor-pointer hover:opacity-80 transition-opacity"
+           title="Bấm để mở xem trước & gửi ZNS giao hàng"
+         >
            <StatusPill statusStr={status as any} />
          </div>
        );

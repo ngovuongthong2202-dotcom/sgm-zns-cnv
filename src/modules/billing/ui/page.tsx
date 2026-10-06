@@ -25,6 +25,7 @@ import { CollapsibleStatsBanner } from '@/src/platform/ui/design-system/stats/Co
 import { PaymentFilterBar } from './components/PaymentFilterBar';
 import { extractPaymentTinhThanhList } from './utils/extractors';
 import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
+import { formatZnsDate } from '@/src/shared/utils/formatDate';
 import { usePaymentsActions } from './hooks/usePaymentsActions';
  
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
@@ -344,7 +345,7 @@ export default function PaymentsFeature() {
             setEditingPayment(pm);
             setIsFormOpen(true);
           }}
-          onSendZns={handleSendZns}
+          onSendZns={(pm: Payment, instIdx?: number) => handleSendZns(pm, instIdx)}
           onDelete={handleDeletePayment}
           onUpdate={async (id, data) => {
             await updatePaymentWithTransaction(id, () => data);
@@ -429,14 +430,46 @@ export default function PaymentsFeature() {
             so_don_hang: znsPreviewPayment.payment.soDonHang || znsPreviewPayment.payment.soHopDong || '',
             so_hop_dong: znsPreviewPayment.payment.soHopDong || znsPreviewPayment.payment.soDonHang || '',
             order_code: znsPreviewPayment.payment.soHopDong || znsPreviewPayment.payment.soDonHang || znsPreviewPayment.payment.paymentId || '',
-            ngay_thanh_toan: znsPreviewPayment.payment.ngayThanhToan,
-            time: znsPreviewPayment.payment.ngayThanhToan,
+            ngay_thanh_toan: formatZnsDate(znsPreviewPayment.payment.ngayThanhToan),
+            time: formatZnsDate(znsPreviewPayment.payment.ngayThanhToan),
             so_luong: String(znsPreviewPayment.payment.soLuong || znsPreviewPayment.payment.slMay || 1),
             phone: znsPreviewPayment.phone,
             sdt: znsPreviewPayment.phone
           }}
           availablePhones={znsPreviewPayment.availablePhones}
-          onSuccess={() => {
+          onSuccess={async () => {
+            if (znsPreviewPayment?.payment?.id) {
+              const currentP = znsPreviewPayment.payment;
+              const instIdx = znsPreviewPayment.installmentIndex;
+              if (instIdx !== undefined && Array.isArray(currentP.cacDotThu) && currentP.cacDotThu[instIdx]) {
+                const updatedCacDotThu = [...currentP.cacDotThu];
+                updatedCacDotThu[instIdx] = {
+                  ...updatedCacDotThu[instIdx],
+                  trangThaiZns: 'THÀNH CÔNG',
+                  znsStatus: 'THÀNH CÔNG',
+                  znsSentAt: new Date().toISOString(),
+                  znsPhone: znsPreviewPayment.phone
+                };
+                try {
+                  await repositoryFactory.get('payments').update(currentP.id, {
+                    cacDotThu: updatedCacDotThu,
+                    trangThaiGuiTinThanhToan: 'THÀNH CÔNG'
+                  } as any);
+                  setDrawerPayment(prev => {
+                    if (prev && prev.id === currentP.id) {
+                      return {
+                        ...prev,
+                        cacDotThu: updatedCacDotThu,
+                        trangThaiGuiTinThanhToan: 'THÀNH CÔNG'
+                      };
+                    }
+                    return prev;
+                  });
+                } catch (e) {
+                  console.error('Failed to update installment ZNS status in DB:', e);
+                }
+              }
+            }
             refresh();
           }}
         />

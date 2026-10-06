@@ -40,7 +40,7 @@ interface PaymentDetailDrawerProps {
   onClose: () => void;
   payment: Payment;
   onEdit?: (payment: Payment) => void;
-  onSendZns?: (payment: Payment) => void;
+  onSendZns?: (payment: Payment, installmentIndex?: number) => void;
   onDelete?: (payment: Payment) => void;
   onUpdate?: (id: string, data: Partial<Payment>) => Promise<void>;
   modal?: boolean;
@@ -477,11 +477,17 @@ export function PaymentDetailDrawer({
                     <tbody className="divide-y divide-slate-100">
                       {effectiveInstallments.map((inst, idx) => {
                         const isFirstInst = (inst.lanThu === 1 || idx === 0);
-                        const isSent = (inst as any).znsStatus === 'ĐÃ GỬI' || 
+                        const isSent = (inst as any).trangThaiZns === 'THÀNH CÔNG' ||
+                                       (inst as any).trangThaiZns === 'ĐÃ GỬI' ||
+                                       (inst as any).znsStatus === 'THÀNH CÔNG' ||
+                                       (inst as any).znsStatus === 'ĐÃ GỬI' || 
+                                       (inst as any).trangThaiGuiTin === 'THÀNH CÔNG' || 
                                        (inst as any).trangThaiGuiTin === 'ĐÃ GỬI' || 
                                        Boolean((inst as any).znsSentAt) ||
-                                       (isFirstInst && (payment.trangThaiGuiTinThanhToan === 'ĐÃ GỬI' || (payment as any).trangThaiGuiTinThanhToan === 'SENT'));
-                        const isFailed = (inst as any).znsStatus === 'THẤT BẠI' || 
+                                       (isFirstInst && (payment.trangThaiGuiTinThanhToan === 'THÀNH CÔNG' || payment.trangThaiGuiTinThanhToan === 'ĐÃ GỬI' || (payment as any).trangThaiGuiTinThanhToan === 'SENT'));
+                        const isFailed = (inst as any).trangThaiZns === 'THẤT BẠI' ||
+                                         (inst as any).znsStatus === 'THẤT BẠI' || 
+                                         (inst as any).trangThaiGuiTin === 'THẤT BẠI' ||
                                          (isFirstInst && (payment.trangThaiGuiTinThanhToan === 'THẤT BẠI' || (payment as any).trangThaiGuiTinThanhToan === 'FAILED'));
 
                         return (
@@ -545,7 +551,7 @@ export function PaymentDetailDrawer({
                                       phuongThucThanhToan: inst.phuongThucThanhToan || payment.phuongThucThanhToan,
                                       tenNguoiNop: inst.nguoiNop || payerName,
                                     };
-                                    onSendZns(installmentPaymentSnapshot);
+                                    onSendZns(installmentPaymentSnapshot, idx);
                                   }}
                                   className={`inline-flex items-center gap-1 text-3xs font-bold px-2 py-1 rounded transition-colors cursor-pointer border ${
                                     isSent 

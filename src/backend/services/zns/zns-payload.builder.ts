@@ -2,7 +2,7 @@ import { ZnsMessage } from '../../../domain/schema/workflow.schema';
 import * as crypto from 'crypto';
 import { templateRendererService } from './template-renderer.service';
 import { z } from 'zod';
-import { formatDate } from '../../../shared/utils/formatDate';
+import { formatDate, formatZnsDate } from '../../../shared/utils/formatDate';
 import { addVietnamWorkingDays } from '../../../shared/utils/vietnamBusinessDays';
 import { resolveDeliveryDisplayCode } from '../../../shared/utils/voucherResolver';
 import { extractVietnamesePhones } from '../../../modules/customers/ui/utils/vietnameseTelecomExtractor';
@@ -45,6 +45,7 @@ const TARGET_MAP: Record<string, { col: string, act: string, disp: string }> = {
   'THANH_TOAN_CONG_NO_DEN_HAN':       { col: 'Gửi ZNS Nhắc hạn (Đến hạn)',   act: 'hanh_dong_gui_zns_thanh_toan_den_han', disp: 'Gửi tin ZNS (Nhắc đến hạn)' },
   'GIAOHANG_ZNS':                     { col: 'Gửi ZNS Giao hàng',            act: 'hanh_dong_gui_zns_giao_hang', disp: 'Gửi tin ZNS (Giao hàng)' },
   'GIAOHANG_HOANTAT':                 { col: 'Gửi ZNS Giao hàng HT',         act: 'hanh_dong_gui_zns_giao_hang_ht', disp: 'Gửi tin ZNS (Giao hàng Hoàn tất)' },
+  'GIAOHANG_BAOHANH':                 { col: 'Gửi ZNS Bảo hành',             act: 'hanh_dong_gui_zns_bao_hanh',    disp: 'Gửi tin ZNS (Kích hoạt bảo hành)' },
 };
 
 /**
@@ -58,6 +59,8 @@ const ZALO_REQUIRED_VARS: Record<string, string[]> = {
   THANH_TOAN_TAT_TOAN:['customer_name', 'phone', 'order_code', 'ngay_thanh_toan', 'so_luong', 'dvt', 'so_don_hang', 'so_hop_dong'],
   THANH_TOAN_CONG_NO: ['customer_name', 'phone', 'order_code', 'time', 'so_luong', 'dvt', 'so_don_hang', 'so_hop_dong'],
   GIAOHANG_ZNS:       ['customer_name', 'phone', 'So_hop_dong', 'So_don_hang', 'so_phieu_xuat', 'ngay_giao_may', 'danh_sach_ma_may', 'so_luong', 'dvt'],
+  GIAOHANG_HOANTAT:   ['customer_name', 'phone', 'ma_bao_hanh', 'product', 'date'],
+  GIAOHANG_BAOHANH:   ['customer_name', 'phone', 'ma_bao_hanh', 'product', 'date'],
 };
 
 export interface BuildPayloadOptions {
@@ -219,7 +222,7 @@ export class ZnsPayloadBuilder {
     }
 
     if (requiredVarsSet.has('time') && isEmp(rendered.time)) {
-        rendered.time = p.time || p.ngayThanhToan || (p.createdAt ? formatDate(p.createdAt as string) : formatDate(new Date().toISOString()));
+        rendered.time = formatZnsDate(p.time || p.ngayThanhToan || p.createdAt || new Date());
     }
     if (requiredVarsSet.has('so_phieu_xuat') && isEmp(rendered.so_phieu_xuat)) {
         const spFallback = p.soPhieuXuat || (p as any).soPhieuGiaoHang || (p as any).deliveryCode || resolveDeliveryDisplayCode(p) || 'PXK-AUTO';
@@ -227,7 +230,7 @@ export class ZnsPayloadBuilder {
     }
     if (requiredVarsSet.has('ngay_giao_may') && isEmp(rendered.ngay_giao_may)) {
         const rawDate = p.ngayGiaoMay || p.ngayGiao || p.ngayGiaoThucTe || p.createdAt;
-        rendered.ngay_giao_may = rawDate ? formatDate(rawDate as string) : formatDate(new Date().toISOString());
+        rendered.ngay_giao_may = formatZnsDate(rawDate || new Date());
     }
     if (!isEmp((p as any).thoGiaoMay)) {
         rendered.tho_giao_may = (p as any).thoGiaoMay;
@@ -257,15 +260,29 @@ export class ZnsPayloadBuilder {
         }
     }
 
+    // Template 531052: Kích hoạt bảo hành (ma_bao_hanh, product, date)
+    if (requiredVarsSet.has('ma_bao_hanh') && isEmp(rendered.ma_bao_hanh)) {
+        const firstSerial = Array.isArray(p.danhSachMaMay) && p.danhSachMaMay.length > 0 ? p.danhSachMaMay[0] : null;
+        rendered.ma_bao_hanh = String(p.ma_bao_hanh || firstSerial || (p as any).serial || p.soPhieuXuat || p.id || 'BH-SGM').slice(0, 30);
+    }
+    if (requiredVarsSet.has('product') && isEmp(rendered.product)) {
+        const soHd = p.soHopDong || p.soDonHang || '';
+        rendered.product = String(p.product || ('Căn cứ theo ' + (soHd || 'HĐ SGM'))).slice(0, 30);
+    }
+    if (requiredVarsSet.has('date') && isEmp(rendered.date)) {
+        const rawDate = p.date || p.expiryDateFormatted || p.ngayGiaoThucTe || p.ngayGiaoHang || p.ngayKy || new Date();
+        rendered.date = formatZnsDate(rawDate);
+    }
+
     if (requiredVarsSet.has('so_phieu_bao_gia') && isEmp(rendered.so_phieu_bao_gia)) {
       rendered.so_phieu_bao_gia = (p.soPhieuBaoGia as string) || (p.maBaoGia as string) || 'BG-AUTO';
     }
     if (requiredVarsSet.has('ngay_bao_gia') && isEmp(rendered.ngay_bao_gia)) {
       const raw = (p.ngayBaoGia as string) || (p.createdAt as string) || new Date().toISOString();
-      rendered.ngay_bao_gia = formatDate(raw);
+      rendered.ngay_bao_gia = formatZnsDate(raw);
     }
     if (requiredVarsSet.has('ngay_het_han') && isEmp(rendered.ngay_het_han)) {
-      rendered.ngay_het_han = p.ngayHetHan ? formatDate(p.ngayHetHan) : 'Không có';
+      rendered.ngay_het_han = p.ngayHetHan ? formatZnsDate(p.ngayHetHan) : 'Không có';
     }
     if (requiredVarsSet.has('sl_may') && isEmp(rendered.sl_may)) {
       rendered.sl_may = String(p.slMay || p.soLuong || '1');
@@ -286,14 +303,14 @@ export class ZnsPayloadBuilder {
     }
     if (requiredVarsSet.has('ngay_ky') && isEmp(rendered.ngay_ky)) {
       const raw = (p.ngayKy as string) || (p.createdAt as string) || new Date().toISOString();
-      rendered.ngay_ky = formatDate(raw);
+      rendered.ngay_ky = formatZnsDate(raw);
     }
     if (requiredVarsSet.has('so_ngay') && isEmp(rendered.so_ngay)) {
       rendered.so_ngay = String(p.soNgayDuKienHoanThanh || p.soNgay || '30');
     }
     if ((requiredVarsSet.has('ngay_du_kien_hoan_thanh') || requiredVarsSet.has('ngay_hoan_thanh')) && isEmp(rendered.ngay_du_kien_hoan_thanh || rendered.ngay_hoan_thanh)) {
       if (p.ngayGiaoThucTe && requiredVarsSet.has('ngay_hoan_thanh')) {
-        rendered.ngay_hoan_thanh = formatDate(p.ngayGiaoThucTe as string);
+        rendered.ngay_hoan_thanh = formatZnsDate(p.ngayGiaoThucTe as string);
       }
       const isPostDelivery = Boolean(p.dacCachGiaoTruoc || p.isPostDeliverySettlement || p.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU');
       const baseDate = isPostDelivery
@@ -303,7 +320,7 @@ export class ZnsPayloadBuilder {
       const extensionDays = Number(p.soNgayGiaHan || 0);
       const totalDays = baseDays + extensionDays;
       const target = addVietnamWorkingDays(baseDate, totalDays);
-      const val = target ? formatDate(target) : formatDate(new Date());
+      const val = target ? formatZnsDate(target) : formatZnsDate(new Date());
       if (requiredVarsSet.has('ngay_du_kien_hoan_thanh')) rendered.ngay_du_kien_hoan_thanh = val;
       if (requiredVarsSet.has('ngay_hoan_thanh') && isEmp(rendered.ngay_hoan_thanh)) rendered.ngay_hoan_thanh = val;
     }
@@ -312,7 +329,7 @@ export class ZnsPayloadBuilder {
     }
     if (requiredVarsSet.has('ngay_thanh_toan') && isEmp(rendered.ngay_thanh_toan)) {
       const raw = (p.ngayThanhToan as string) || (p.time as string) || new Date().toISOString();
-      rendered.ngay_thanh_toan = formatDate(raw);
+      rendered.ngay_thanh_toan = formatZnsDate(raw);
     }
 
     // 4. Strict mode check: nếu thiếu biến required → throw

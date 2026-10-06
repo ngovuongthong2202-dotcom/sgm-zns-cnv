@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { notify } from '@/src/shared/utils/notify';
+import { formatZnsDate } from '@/src/shared/utils/formatDate';
 import { sendZnsAndToast, nextAttempt, checkZnsResendAllowed } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { ZBS_TEMPLATE_REGISTRY, getZbsTemplateInfo, ZbsTemplateInfo } from '@/src/domain/constants/zbs-template.registry';
@@ -96,7 +97,8 @@ export function UniversalZnsPreviewModal({
     'Ngô Vương Thông'
   ).toString().replace(/\s*\(.*?\)\s*/g, ' ').trim().slice(0, 30);
 
-  const dateValue = payload.ngayKy || payload.ngayBaoGia || payload.ngayThanhToan || payload.ngayGiaoMay || payload.ngayGiaoThucTe || new Date().toLocaleDateString('vi-VN');
+  const rawDateVal = payload.date || payload.ngayKy || payload.ngayBaoGia || payload.ngayThanhToan || payload.time || payload.ngayGiaoMay || payload.ngayGiaoThucTe;
+  const dateValue = formatZnsDate(rawDateVal);
   const codeValue = documentCode || payload.soPhieuBaoGia || payload.soHopDong || payload.order_code || payload.soPhieuThu || payload.soPhieuXuat || entityId;
 
   // Handle send ZNS
@@ -114,20 +116,36 @@ export function UniversalZnsPreviewModal({
 
     setIsSending(true);
     try {
+      const sanitizedPayload: Record<string, any> = {
+        ...payload,
+        customer_name: resolvedCustomerName,
+        phone: targetPhone,
+        sdt: targetPhone,
+        nguoiPhuTrach: officerName,
+        nguoi_phu_trach: officerName,
+        nhan_vien: officerName
+      };
+
+      // Chuẩn hóa toàn bộ các trường ngày tháng sang dd/mm/yyyy
+      if (sanitizedPayload.ngay_bao_gia) sanitizedPayload.ngay_bao_gia = formatZnsDate(sanitizedPayload.ngay_bao_gia);
+      if (sanitizedPayload.ngay_het_han) sanitizedPayload.ngay_het_han = formatZnsDate(sanitizedPayload.ngay_het_han);
+      if (sanitizedPayload.ngay_ky) sanitizedPayload.ngay_ky = formatZnsDate(sanitizedPayload.ngay_ky);
+      if (sanitizedPayload.sign_date) sanitizedPayload.sign_date = formatZnsDate(sanitizedPayload.sign_date);
+      if (sanitizedPayload.ngay_thanh_toan) sanitizedPayload.ngay_thanh_toan = formatZnsDate(sanitizedPayload.ngay_thanh_toan);
+      if (sanitizedPayload.payment_date) sanitizedPayload.payment_date = formatZnsDate(sanitizedPayload.payment_date);
+      if (sanitizedPayload.time) sanitizedPayload.time = formatZnsDate(sanitizedPayload.time);
+      if (sanitizedPayload.ngay_giao_may) sanitizedPayload.ngay_giao_may = formatZnsDate(sanitizedPayload.ngay_giao_may);
+      if (sanitizedPayload.delivery_date) sanitizedPayload.delivery_date = formatZnsDate(sanitizedPayload.delivery_date);
+      if (sanitizedPayload.date) sanitizedPayload.date = formatZnsDate(sanitizedPayload.date);
+      if (sanitizedPayload.ngay_du_kien_hoan_thanh) sanitizedPayload.ngay_du_kien_hoan_thanh = formatZnsDate(sanitizedPayload.ngay_du_kien_hoan_thanh);
+      if (sanitizedPayload.ngay_hoan_thanh) sanitizedPayload.ngay_hoan_thanh = formatZnsDate(sanitizedPayload.ngay_hoan_thanh);
+
       await sendZnsAndToast({
         entityId,
         entityType,
         messageType: templateInfo.messageType,
         phone: targetPhone,
-        payload: {
-          ...payload,
-          customer_name: resolvedCustomerName,
-          phone: targetPhone,
-          sdt: targetPhone,
-          nguoiPhuTrach: officerName,
-          nguoi_phu_trach: officerName,
-          nhan_vien: officerName
-        },
+        payload: sanitizedPayload,
         attemptBucket: nextAttempt(),
         userRole: userData?.role,
         forceResend: Boolean(duplicateCheck.isAlreadySent)
@@ -151,7 +169,7 @@ export function UniversalZnsPreviewModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-3 sm:p-4 bg-slate-900/75 backdrop-blur-sm animate-in fade-in duration-200 pointer-events-auto">
       <div 
         className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
@@ -339,8 +357,12 @@ export function UniversalZnsPreviewModal({
                           displayVal = new Intl.NumberFormat('vi-VN').format(Number(payload.soTien || payload.totalAmount || 0)) + ' đ';
                         } else if (param.name === 'nguoi_phu_trach' || param.name === 'nhan_vien') {
                           displayVal = officerName;
+                        } else if (param.name === 'product') {
+                          displayVal = payload.product || ('Căn cứ theo ' + (payload.soHopDong || payload.soDonHang || 'HĐ SGM'));
+                        } else if (param.name === 'ma_bao_hanh') {
+                          displayVal = payload.ma_bao_hanh || payload.serial || (Array.isArray(payload.danhSachMaMay) ? payload.danhSachMaMay[0] : (payload.soPhieuXuat || payload.deliveryId || 'BH-SGM'));
                         } else if (param.name === 'date' || param.name === 'time' || param.name.includes('ngay')) {
-                          displayVal = dateValue;
+                          displayVal = formatZnsDate(payload[param.name] || dateValue);
                         }
 
                         return (

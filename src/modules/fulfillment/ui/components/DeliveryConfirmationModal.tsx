@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { motion } from 'motion/react';
-import { CheckCircle2, User, Calendar, FileText, Package, MapPin, RotateCcw, X, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, User, Calendar, FileText, Package, MapPin, RotateCcw, X, ShieldCheck, Send } from 'lucide-react';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/src/design-system/Button';
@@ -16,6 +16,7 @@ interface DeliveryConfirmationModalProps {
   onClose: () => void;
   onRevertConfirmation?: (delivery: Delivery) => Promise<void>;
   canRevert?: boolean;
+  onSendZns?: (delivery: Delivery, templateCode?: 'GIAOHANG_ZNS' | 'GIAOHANG_HOANTAT' | 'GIAOHANG_BAOHANH') => void;
 }
 
 export function DeliveryConfirmationModal({
@@ -23,6 +24,7 @@ export function DeliveryConfirmationModal({
   onClose,
   onRevertConfirmation,
   canRevert = false,
+  onSendZns,
 }: DeliveryConfirmationModalProps) {
   const [mounted, setMounted] = useState(false);
   const [isReverting, setIsReverting] = useState(false);
@@ -334,6 +336,21 @@ export function DeliveryConfirmationModal({
                   ) : <div />}
 
                   <div className="flex items-center gap-2.5">
+                    {onSendZns && (
+                      <Button
+                        type="button"
+                        variant="subtle"
+                        onClick={() => {
+                          onSendZns(delivery, 'GIAOHANG_BAOHANH');
+                          onClose();
+                        }}
+                        className="h-[38px] px-3 font-bold border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-900 flex items-center gap-1.5"
+                      >
+                        <Send size={14} className="text-purple-700" />
+                        <span>Gửi ZNS Bảo hành #531052</span>
+                      </Button>
+                    )}
+
                     <ExportHandoverPdf
                       delivery={delivery}
                       variant="secondary"

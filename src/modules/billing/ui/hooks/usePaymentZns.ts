@@ -15,10 +15,11 @@ export function usePaymentZns(
     customer?: any;
     phone?: string;
     messageType: ZnsMessageType;
+    installmentIndex?: number;
     availablePhones?: Array<{ phone: string; label?: string; isPrimary?: boolean }>;
   } | null>(null);
 
-  const handleSendZns = async (payment: Payment) => {
+  const handleSendZns = async (payment: Payment, installmentIndex?: number) => {
     let phone = payment.sdt;
     let customerName = payment.tenKhachHang;
     let cSnap: any = null;
@@ -116,7 +117,21 @@ export function usePaymentZns(
     if (!enrichedPayment.soLuong) enrichedPayment.soLuong = enrichedPayment.slMay || 1;
     if (!enrichedPayment.dvt) enrichedPayment.dvt = 'Cái';
 
-    const messageType = payment.tinhTrangThanhToan === 'Tất toán' 
+    // Nếu gửi cho từng đợt thu cụ thể
+    if (installmentIndex !== undefined && Array.isArray(payment.cacDotThu) && payment.cacDotThu[installmentIndex]) {
+      const inst = payment.cacDotThu[installmentIndex];
+      enrichedPayment.soTien = inst.soTien || enrichedPayment.soTien;
+      enrichedPayment.ngayThanhToan = inst.ngayThu || enrichedPayment.ngayThanhToan;
+      enrichedPayment.phuongThucThanhToan = inst.phuongThucThanhToan || enrichedPayment.phuongThucThanhToan;
+      if (inst.nguoiNop) enrichedPayment.tenNguoiNop = inst.nguoiNop;
+    }
+
+    const isFullyPaid = payment.tinhTrangThanhToan === 'Tất toán' || 
+                        payment.tinhTrangThanhToan === 'ĐÃ THANH TOÁN' ||
+                        payment.tinhTrangThanhToan === 'DA_THANH_TOAN' ||
+                        Number(payment.congNoConLai || 0) <= 0;
+
+    const messageType = isFullyPaid 
       ? ZnsMessageType.THANH_TOAN_TAT_TOAN 
       : ZnsMessageType.THANH_TOAN_CONG_NO;
 
@@ -125,6 +140,7 @@ export function usePaymentZns(
       customer: cSnap,
       phone: targetPhone,
       messageType,
+      installmentIndex,
       availablePhones: availableMobiles.map((m, idx) => ({
         phone: m.cleaned,
         label: `${m.formatted} (${m.carrier || 'Di động'})`,

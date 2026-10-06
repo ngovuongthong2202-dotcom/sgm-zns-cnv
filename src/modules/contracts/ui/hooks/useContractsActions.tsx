@@ -6,7 +6,7 @@ import { sendZnsAndToast, nextAttempt, checkZnsResendAllowed } from '@/src/domai
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { customerRepo } from '@/src/modules/customers';
 import { useEntityLifecycle } from '@/src/hooks/useEntityLifecycle';
-import { resolveZnsTargetPhone } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
+import { resolveZnsTargetPhone, extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 export function useContractsActions(
   deleteContract: (id: string) => Promise<void>,
@@ -81,53 +81,58 @@ export function useContractsActions(
   } | null>(null);
 
   const handleSendContractZns = useCallback(async (c: Contract) => {
-    let customerDoc: any = null;
-    let customerName = c.tenKhachHang;
-    if (c.customerId) {
-        customerDoc = await customerRepo.getById(c.customerId);
-        if (customerDoc) {
-          customerName = customerName || customerDoc.tenKhachHang;
-        }
-    }
-    const targetPhoneInfo = resolveZnsTargetPhone(c.soZaloMacDinh || c.sdt, c.danhSachSdt, customerDoc);
-    const phone = targetPhoneInfo.validPhone || (c.sdt ? c.sdt.replace(/\D/g, '') : null);
-
-    if (!c.id) return notify.error("Hợp đồng không hợp lệ để gửi tin ZNS");
-
-    const rawPhonesPool = [
-      c.sdt,
-      c.sdtPhu,
-      c.soZaloMacDinh,
-      ...(Array.isArray(c.danhSachSdt) ? c.danhSachSdt : []),
-      ...(customerDoc ? [
-        customerDoc.sdt,
-        customerDoc.sdtPhu,
-        customerDoc.soZaloMacDinh,
-        ...(Array.isArray(customerDoc.danhSachSdt) ? customerDoc.danhSachSdt : []),
-        ...(Array.isArray(customerDoc.contacts) ? customerDoc.contacts.map((ct: any) => ct?.sdt) : [])
-      ] : [])
-    ].filter(Boolean).join(' ');
-
-    const extracted = extractVietnamesePhones(rawPhonesPool, c.diaChi || customerDoc?.diaChi);
-    const availableMobiles: Array<{ cleaned: string; formatted: string; carrier?: string }> = [];
-    const seenMob = new Set<string>();
-    extracted.mobilePhones.forEach(m => {
-      if (!seenMob.has(m.cleaned)) {
-        seenMob.add(m.cleaned);
-        availableMobiles.push(m);
+    try {
+      let customerDoc: any = null;
+      let customerName = c.tenKhachHang;
+      if (c.customerId) {
+          customerDoc = await customerRepo.getById(c.customerId);
+          if (customerDoc) {
+            customerName = customerName || customerDoc.tenKhachHang;
+          }
       }
-    });
+      const targetPhoneInfo = resolveZnsTargetPhone(c.soZaloMacDinh || c.sdt, c.danhSachSdt, customerDoc);
+      const phone = targetPhoneInfo.validPhone || (c.sdt ? c.sdt.replace(/\D/g, '') : null);
 
-    setZnsPreviewContract({
-      contract: c,
-      customer: customerDoc,
-      phone: phone || availableMobiles[0]?.cleaned || '',
-      availablePhones: availableMobiles.map((m, idx) => ({
-        phone: m.cleaned,
-        label: `${m.formatted} (${m.carrier || 'Di động'})`,
-        isPrimary: idx === 0
-      }))
-    });
+      if (!c.id) return notify.error("Hợp đồng không hợp lệ để gửi tin ZNS");
+
+      const rawPhonesPool = [
+        c.sdt,
+        c.sdtPhu,
+        c.soZaloMacDinh,
+        ...(Array.isArray(c.danhSachSdt) ? c.danhSachSdt : []),
+        ...(customerDoc ? [
+          customerDoc.sdt,
+          customerDoc.sdtPhu,
+          customerDoc.soZaloMacDinh,
+          ...(Array.isArray(customerDoc.danhSachSdt) ? customerDoc.danhSachSdt : []),
+          ...(Array.isArray(customerDoc.contacts) ? customerDoc.contacts.map((ct: any) => ct?.sdt) : [])
+        ] : [])
+      ].filter(Boolean).join(' ');
+
+      const extracted = extractVietnamesePhones(rawPhonesPool, c.diaChi || customerDoc?.diaChi);
+      const availableMobiles: Array<{ cleaned: string; formatted: string; carrier?: string }> = [];
+      const seenMob = new Set<string>();
+      extracted.mobilePhones.forEach(m => {
+        if (!seenMob.has(m.cleaned)) {
+          seenMob.add(m.cleaned);
+          availableMobiles.push(m);
+        }
+      });
+
+      setZnsPreviewContract({
+        contract: c,
+        customer: customerDoc,
+        phone: phone || availableMobiles[0]?.cleaned || '',
+        availablePhones: availableMobiles.map((m, idx) => ({
+          phone: m.cleaned,
+          label: `${m.formatted} (${m.carrier || 'Di động'})`,
+          isPrimary: idx === 0
+        }))
+      });
+    } catch (err: any) {
+      console.error('Error preparing contract ZNS preview:', err);
+      notify.error("Lỗi khi mở xem trước tin ZNS Hợp đồng: " + (err.message || String(err)));
+    }
   }, []);
 
   return {

@@ -298,7 +298,18 @@ export const getQuotationColumns = (
     id: 'trangThaiGuiTinBaoGia',
     header: 'Log ZNS',
     size: 110,
-    cell: (info) => <ZnsStatusCell status={info.getValue() as EntityZnsStatus} />
+    cell: (info) => (
+      <div 
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSendZns) onSendZns(info.row.original);
+        }}
+        className="cursor-pointer hover:opacity-80 transition-opacity inline-block"
+        title="Bấm để mở xem trước & gửi ZNS báo giá (#533064)"
+      >
+        <ZnsStatusCell status={info.getValue() as EntityZnsStatus} />
+      </div>
+    )
   },
   {
     accessorKey: 'nguoiPhuTrach',

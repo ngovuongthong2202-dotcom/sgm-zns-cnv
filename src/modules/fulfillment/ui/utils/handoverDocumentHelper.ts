@@ -2,6 +2,7 @@ import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { ProductItem } from '@/src/domain/schema/product.schema';
 import { resolveAcceptanceProtocolCode } from '@/src/shared/utils/voucherResolver';
 import { SGM_COMPANY_INFO } from '@/src/shared/constants/companyInfo';
+import { formatZnsDate } from '@/src/shared/utils/formatDate';
 
 export interface HandoverTechnicalCheckItem {
   id: string;
@@ -170,6 +171,99 @@ export function resolveItemWarranty(item: ProductItem, _delivery?: Delivery): st
 
   // Linh kiện, phụ kiện, vật tư tiêu hao
   return 'Theo NSX';
+}
+
+/**
+ * Trích xuất ngày hết hạn bảo hành của sản phẩm có thời hạn dài nhất (theo đúng định dạng dd/mm/yyyy)
+ * phục vụ mẫu ZNS 531052 (Kích hoạt bảo hành)
+ */
+export function calculateMaxWarrantyExpiryDate(delivery: Partial<Delivery>): {
+  expiryDateFormatted: string;
+  maxMonths: number;
+  primarySerial: string;
+  contractReference: string;
+  contractProductLabel: string;
+} {
+  // 1. Xác định ngày giao hàng mốc (Base Date)
+  const rawBase = delivery.ngayGiaoThucTe || delivery.ngayGiaoHang || new Date().toISOString();
+  let baseDate = new Date();
+  if (typeof rawBase === 'string') {
+    const dmyMatch = rawBase.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    const ymdMatch = rawBase.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (dmyMatch) {
+      baseDate = new Date(Number(dmyMatch[3]), Number(dmyMatch[2]) - 1, Number(dmyMatch[1]));
+    } else if (ymdMatch) {
+      baseDate = new Date(Number(ymdMatch[1]), Number(ymdMatch[2]) - 1, Number(ymdMatch[3]));
+    } else {
+      const parsed = new Date(rawBase);
+      if (!isNaN(parsed.getTime())) baseDate = parsed;
+    }
+  } else if (rawBase instanceof Date) {
+    baseDate = rawBase;
+  }
+
+  // 2. Tìm thời hạn bảo hành dài nhất của các sản phẩm (tính bằng tháng)
+  const prods = Array.isArray(delivery.products) ? delivery.products : [];
+  let maxMonths = 12; // Mặc định máy móc SGM bảo hành 12 tháng
+
+  for (const p of prods) {
+    let months = 0;
+    if (typeof (p as any).warrantyMonths === 'number' && (p as any).warrantyMonths > 0) {
+      months = (p as any).warrantyMonths;
+    } else if ((p as any).thoiGianBaoHanh) {
+      const matchMonth = String((p as any).thoiGianBaoHanh).match(/(\d+)\s*(tháng|thang|m)/i);
+      const matchYear = String((p as any).thoiGianBaoHanh).match(/(\d+)\s*(năm|nam|y)/i);
+      if (matchMonth) {
+        months = parseInt(matchMonth[1], 10);
+      } else if (matchYear) {
+        months = parseInt(matchYear[1], 10) * 12;
+      }
+    } else {
+      const resolvedText = resolveItemWarranty(p, delivery as any);
+      const matchMonth = resolvedText.match(/(\d+)\s*(tháng|thang|m)/i);
+      if (matchMonth) {
+        months = parseInt(matchMonth[1], 10);
+      }
+    }
+
+    if (months > maxMonths) {
+      maxMonths = months;
+    }
+  }
+
+  // 3. Tính ngày hết hạn = baseDate + maxMonths
+  const expiryDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + maxMonths, baseDate.getDate());
+  const expiryDateFormatted = formatZnsDate(expiryDate);
+
+  // 4. Trích xuất số Serial thực tế đã xuất kho
+  let primarySerial = '';
+  if (Array.isArray(delivery.danhSachMaMay) && delivery.danhSachMaMay.length > 0) {
+    primarySerial = String(delivery.danhSachMaMay[0]).trim();
+  } else {
+    for (const p of prods) {
+      const ser = resolveMachineSerials(p, delivery as any);
+      if (ser) {
+        primarySerial = ser.split(',')[0].trim();
+        break;
+      }
+    }
+  }
+  if (!primarySerial) {
+    primarySerial = String(delivery.deliveryId || delivery.id || 'BH-SGM');
+  }
+  primarySerial = primarySerial.slice(0, 30);
+
+  // 5. Căn cứ theo hợp đồng
+  const soHd = delivery.soHopDong || delivery.soDonHang || '';
+  const contractReference = ('Căn cứ theo ' + (soHd || 'HĐ SGM')).slice(0, 30);
+
+  return {
+    expiryDateFormatted,
+    maxMonths,
+    primarySerial,
+    contractReference,
+    contractProductLabel: contractReference,
+  };
 }
 
 export { resolveAcceptanceProtocolCode, SGM_COMPANY_INFO };

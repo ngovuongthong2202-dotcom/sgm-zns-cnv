@@ -289,9 +289,17 @@ export const getCustomerColumns = (
     header: 'ZNS Quảng cáo',
     size: 140,
     cell: (info) => {
+      const c = info.row.original;
       const status = info.getValue();
       return (
-         <div className="w-full min-w-0 flex items-center" onClick={(e) => e.stopPropagation()}>
+         <div 
+           className="w-full min-w-0 flex items-center cursor-pointer hover:opacity-80 transition-opacity" 
+           onClick={(e) => {
+             e.stopPropagation();
+             if (onSendZns) onSendZns(c);
+           }}
+           title="Bấm để mở xem trước & gửi ZNS giới thiệu giải pháp (#533060)"
+         >
            <StatusPill statusStr={status as any} />
          </div>
       );

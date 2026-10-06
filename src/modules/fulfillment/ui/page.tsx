@@ -36,6 +36,8 @@ import { migrateLegacyDeliveriesToUnifiedLedger, reconcileDeliveryShipments } fr
 import { DeliveryShipment } from '@/src/domain/schema/delivery.schema';
 import { notify } from '@/src/shared/utils/notify';
 import { CheckCircle2 } from 'lucide-react';
+import { calculateMaxWarrantyExpiryDate } from './utils/handoverDocumentHelper';
+import { formatZnsDate } from '@/src/shared/utils/formatDate';
 import { UniversalZnsPreviewModal } from '@/src/platform/ui/zns/UniversalZnsPreviewModal';
 const DeliveryDrawerRouteListener = React.memo(function DeliveryDrawerRouteListener({
   hasDrawer,
@@ -223,7 +225,7 @@ export default function DeliveriesFeature() {
   );
 
 
-  const columns = useMemo(() => getDeliveryColumns(), []);
+  const columns = useMemo(() => getDeliveryColumns(handleSendZns), [handleSendZns]);
 
   const handleResetAllFilters = () => {
     setSelectedStatus('');
@@ -498,6 +500,7 @@ export default function DeliveriesFeature() {
           onClose={() => setViewingConfirmationDelivery(null)}
           onRevertConfirmation={handleRevertDeliveryConfirmation}
           canRevert={can('update', 'delivery', userData?.role)}
+          onSendZns={handleSendZns}
         />
       )}
 
@@ -521,28 +524,32 @@ export default function DeliveriesFeature() {
           documentCode={znsPreviewDelivery.delivery.deliveryId || znsPreviewDelivery.delivery.id}
           customerName={znsPreviewDelivery.customer?.tenZns || znsPreviewDelivery.delivery.tenKhachHang}
           phone={znsPreviewDelivery.phone}
-          payload={{
-            ...znsPreviewDelivery.delivery,
-            customerId: znsPreviewDelivery.delivery.customerId || znsPreviewDelivery.customer?.id,
-            tenKhachHang: znsPreviewDelivery.delivery.tenKhachHang || znsPreviewDelivery.customer?.tenKhachHang,
-            tenZns: znsPreviewDelivery.customer?.tenZns || znsPreviewDelivery.delivery.tenKhachHang,
-            ten_zns: znsPreviewDelivery.customer?.tenZns || znsPreviewDelivery.delivery.tenKhachHang,
-            customer_name: znsPreviewDelivery.customer?.tenZns || znsPreviewDelivery.delivery.tenKhachHang,
-            So_hop_dong: znsPreviewDelivery.delivery.soHopDong || '',
-            So_don_hang: znsPreviewDelivery.delivery.soDonHang || znsPreviewDelivery.delivery.soHopDong || '',
-            so_phieu_xuat: znsPreviewDelivery.delivery.deliveryId || znsPreviewDelivery.delivery.id || '',
-            ngay_giao_may: znsPreviewDelivery.delivery.ngayGiaoThucTe || znsPreviewDelivery.delivery.ngayGiaoHang || '',
-            danh_sach_ma_may: Array.isArray(znsPreviewDelivery.delivery.products) 
-              ? znsPreviewDelivery.delivery.products.map((p: any) => p.serialNumber || p.maMay || p.productName).filter(Boolean).join(', ')
-              : '',
-            so_luong: String(znsPreviewDelivery.delivery.slMay || (Array.isArray(znsPreviewDelivery.delivery.products) ? znsPreviewDelivery.delivery.products.length : 1)),
-            dvt: znsPreviewDelivery.delivery.dvt || 'Máy',
-            ma_bao_hanh: znsPreviewDelivery.delivery.deliveryId || znsPreviewDelivery.delivery.id || 'BH-SGM',
-            product: String(znsPreviewDelivery.delivery.tenMay || (Array.isArray(znsPreviewDelivery.delivery.products) && znsPreviewDelivery.delivery.products[0]?.productName) || 'Máy cán tôn SGM').slice(0, 30),
-            date: znsPreviewDelivery.delivery.ngayGiaoThucTe || znsPreviewDelivery.delivery.ngayGiaoHang || '',
-            phone: znsPreviewDelivery.phone,
-            sdt: znsPreviewDelivery.phone
-          }}
+          payload={(() => {
+            const isWarranty = znsPreviewDelivery.subtype === 'GIAOHANG_BAOHANH' || znsPreviewDelivery.messageType === 'GIAOHANG_BAOHANH' || znsPreviewDelivery.messageType === 'GIAOHANG_HOANTAT';
+            const warrantyInfo = calculateMaxWarrantyExpiryDate(znsPreviewDelivery.delivery);
+            return {
+              ...znsPreviewDelivery.delivery,
+              customerId: znsPreviewDelivery.delivery.customerId || znsPreviewDelivery.customer?.id,
+              tenKhachHang: znsPreviewDelivery.delivery.tenKhachHang || znsPreviewDelivery.customer?.tenKhachHang,
+              tenZns: znsPreviewDelivery.customer?.tenZns || znsPreviewDelivery.delivery.tenKhachHang,
+              ten_zns: znsPreviewDelivery.customer?.tenZns || znsPreviewDelivery.delivery.tenKhachHang,
+              customer_name: znsPreviewDelivery.customer?.tenZns || znsPreviewDelivery.delivery.tenKhachHang,
+              So_hop_dong: znsPreviewDelivery.delivery.soHopDong || '',
+              So_don_hang: znsPreviewDelivery.delivery.soDonHang || znsPreviewDelivery.delivery.soHopDong || '',
+              so_phieu_xuat: znsPreviewDelivery.delivery.deliveryId || znsPreviewDelivery.delivery.id || '',
+              ngay_giao_may: formatZnsDate(znsPreviewDelivery.delivery.ngayGiaoThucTe || znsPreviewDelivery.delivery.ngayGiaoHang),
+              danh_sach_ma_may: Array.isArray(znsPreviewDelivery.delivery.products) 
+                ? znsPreviewDelivery.delivery.products.map((p: any) => p.serialNumber || p.maMay || p.productName).filter(Boolean).join(', ')
+                : '',
+              so_luong: String(znsPreviewDelivery.delivery.slMay || (Array.isArray(znsPreviewDelivery.delivery.products) ? znsPreviewDelivery.delivery.products.length : 1)),
+              dvt: znsPreviewDelivery.delivery.dvt || 'Máy',
+              ma_bao_hanh: isWarranty ? warrantyInfo.primarySerial : (znsPreviewDelivery.delivery.deliveryId || znsPreviewDelivery.delivery.id || 'BH-SGM'),
+              product: isWarranty ? warrantyInfo.contractReference : String(znsPreviewDelivery.delivery.tenMay || (Array.isArray(znsPreviewDelivery.delivery.products) && znsPreviewDelivery.delivery.products[0]?.productName) || 'Máy cán tôn SGM').slice(0, 30),
+              date: isWarranty ? warrantyInfo.expiryDateFormatted : formatZnsDate(znsPreviewDelivery.delivery.ngayGiaoThucTe || znsPreviewDelivery.delivery.ngayGiaoHang),
+              phone: znsPreviewDelivery.phone,
+              sdt: znsPreviewDelivery.phone
+            };
+          })()}
           availablePhones={znsPreviewDelivery.availablePhones}
           onSuccess={() => {
             // refresh

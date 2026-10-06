@@ -150,7 +150,7 @@ export default function ContractsFeature() {
   const [prefillQuotation, setPrefillQuotation] = useState<any>(null);
 
   // Real-time pillars
-  const columns = useMemo(() => getContractColumns(realtimeDeliveries, realtimePayments, allCustomers), [realtimeDeliveries, realtimePayments, allCustomers]);
+  const columns = useMemo(() => getContractColumns(realtimeDeliveries, realtimePayments, allCustomers, handleSendContractZns), [realtimeDeliveries, realtimePayments, allCustomers, handleSendContractZns]);
 
   const handleResetAllFilters = () => {
     setSelectedNguoiPhuTrach('');

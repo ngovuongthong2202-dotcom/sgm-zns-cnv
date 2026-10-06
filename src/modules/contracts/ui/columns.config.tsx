@@ -26,7 +26,8 @@ import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietna
 export const getContractColumns = (
   deliveries: Delivery[],
   payments: Payment[],
-  customers: Customer[] = []
+  customers: Customer[] = [],
+  onSendZns?: (contract: Contract) => void
 ): ColumnDef<Contract>[] => [
   createSttColumn<Contract>(),
   {
@@ -445,8 +446,18 @@ export const getContractColumns = (
     size: 130,
     cell: (info) => {
        const status = info.getValue() as string;
+       const contract = info.row.original;
        return (
-         <div onClick={(e) => e.stopPropagation()}>
+         <div 
+           onClick={(e) => {
+             e.stopPropagation();
+             if (onSendZns) {
+               onSendZns(contract);
+             }
+           }}
+           className={onSendZns ? "cursor-pointer hover:opacity-80 transition-opacity inline-flex" : "inline-flex"}
+           title={onSendZns ? "Nhấn để xem trước & gửi tin ZNS Hợp Đồng #533068" : undefined}
+         >
            <StatusPill statusStr={status as keyof typeof EntityZnsStatus} />
          </div>
        );

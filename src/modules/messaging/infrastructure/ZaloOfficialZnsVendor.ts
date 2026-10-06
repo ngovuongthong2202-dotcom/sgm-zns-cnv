@@ -6,6 +6,7 @@ import { resilientFetch } from '../../../backend/lib/resilient-transport';
 import { adminDb } from '../../../backend/config/supabase.admin';
 import { translateZaloError } from '../../../backend/services/zns/zalo-error-dictionary';
 import { sanitizeZnsCustomerName, sanitizeZnsPersonName } from '../../../backend/services/zns/zns-payload.builder';
+import { formatZnsDate } from '../../../shared/utils/formatDate';
 
 /**
  * Ánh xạ chuẩn xác 7 loại tin nhắn SGM sang đúng 7 Template ID đã được duyệt trên Zalo OA
@@ -38,9 +39,10 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
    * Trích xuất các tham số dữ liệu mẫu (template_data) từ payload chứng từ SGM
    * Cung cấp đồng thời cả tên tiếng Việt theo duyệt mẫu Zalo OA và tên chuẩn tiếng Anh
    */
-  private extractTemplateData(payload: Record<string, any>, messageType: string): Record<string, any> {
+  public extractTemplateData(payload: Record<string, any>, messageType: string): Record<string, any> {
     const p = payload || {};
-    const dateFormatted = p.ngayKy || p.ngayThanhToan || p.ngayGiaoThucTe || p.ngayBaoGia || new Date().toLocaleDateString('vi-VN');
+    const rawDate = p.ngayKy || p.ngayThanhToan || p.ngayGiaoThucTe || p.ngayBaoGia || new Date();
+    const dateFormatted = formatZnsDate(rawDate);
     const moneyFormatted = new Intl.NumberFormat('vi-VN').format(Number(p.soTien || p.totalAmount || p.giaTriHopDong || 0)) + ' đ';
     const machineCountStr = String(p.slMay || p.machine_count || (Array.isArray(p.items) ? p.items.length : 1));
 
@@ -87,8 +89,8 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       // 2. Phân hệ Báo giá (Template 533064)
       so_phieu_bao_gia: quotationCode,
       quotation_code: quotationCode,
-      ngay_bao_gia: p.ngayBaoGia || dateFormatted,
-      ngay_het_han: p.ngayHetHan || p.ngayHieuLuc || dateFormatted,
+      ngay_bao_gia: formatZnsDate(p.ngay_bao_gia || p.ngayBaoGia || dateFormatted),
+      ngay_het_han: formatZnsDate(p.ngay_het_han || p.ngayHetHan || p.ngayHieuLuc || dateFormatted),
       sl_may: machineCountStr,
       machine_count: machineCountStr,
       nguoi_phu_trach: cleanOfficer,
@@ -100,8 +102,8 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       order_code: orderCode,
       so_don_hang: orderCode,
       So_don_hang: orderCode,
-      ngay_ky: p.ngayKy || dateFormatted,
-      sign_date: p.ngayKy || dateFormatted,
+      ngay_ky: formatZnsDate(p.ngay_ky || p.ngayKy || dateFormatted),
+      sign_date: formatZnsDate(p.sign_date || p.ngayKy || dateFormatted),
       so_ngay: soNgayNum,
       so_phieu: quotationCode || contractCode,
       nhan_vien: cleanOfficer,
@@ -112,25 +114,25 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       so_tien_thanh_toan: moneyFormatted,
       total_amount: moneyFormatted,
       paid_amount: moneyFormatted,
-      ngay_thanh_toan: p.ngayThanhToan || dateFormatted,
-      payment_date: p.ngayThanhToan || dateFormatted,
-      time: p.ngayThanhToan || dateFormatted,
+      ngay_thanh_toan: formatZnsDate(p.ngay_thanh_toan || p.ngayThanhToan || dateFormatted),
+      payment_date: formatZnsDate(p.payment_date || p.ngayThanhToan || dateFormatted),
+      time: formatZnsDate(p.time || p.ngayThanhToan || dateFormatted),
 
       // 5. Phân hệ Giao hàng (Xác nhận giao hàng: 552545)
       So_hop_dong: contractCode,
       So_don_hang: orderCode,
       so_phieu_xuat: deliveryCode,
       delivery_code: deliveryCode,
-      ngay_giao_may: p.ngayGiaoThucTe || p.ngayGiaoHang || dateFormatted,
-      delivery_date: p.ngayGiaoThucTe || p.ngayGiaoHang || dateFormatted,
+      ngay_giao_may: formatZnsDate(p.ngay_giao_may || p.ngayGiaoThucTe || p.ngayGiaoHang || dateFormatted),
+      delivery_date: formatZnsDate(p.delivery_date || p.ngayGiaoThucTe || p.ngayGiaoHang || dateFormatted),
       danh_sach_ma_may: machineList,
       dvt: String(p.dvt || 'Máy').slice(0, 30),
       so_luong: machineCountStr,
 
       // 6. Phân hệ Kích hoạt Bảo hành (Template 531052)
-      ma_bao_hanh: String(p.soPhieuXuat || p.deliveryId || p.maBaoHanh || quotationCode || 'BH-SGM').slice(0, 30),
-      product: String(p.tenMay || p.sanPham || p.product || (Array.isArray(p.items) && p.items[0]?.tenSanPham) || 'Máy cán tôn SGM').slice(0, 30),
-      date: p.ngayGiaoThucTe || p.ngayGiaoHang || p.ngayKichHoat || dateFormatted,
+      ma_bao_hanh: String(p.ma_bao_hanh || p.serial || (Array.isArray(p.danhSachMaMay) ? p.danhSachMaMay[0] : null) || p.soPhieuXuat || p.deliveryId || 'BH-SGM').slice(0, 30),
+      product: String(p.product || (contractCode !== '---' ? ('Căn cứ theo ' + contractCode) : (orderCode !== '---' ? ('Căn cứ theo ' + orderCode) : (p.sanPham || p.tenMay || 'Căn cứ theo HĐ SGM')))).slice(0, 30),
+      date: formatZnsDate(p.date || p.expiryDateFormatted || p.ngayGiaoThucTe || p.ngayGiaoHang || dateFormatted),
 
       // 7. Nhận diện công ty (≤ 30 ký tự)
       company_name: 'Cơ Khí Sài Gòn (SGM)'

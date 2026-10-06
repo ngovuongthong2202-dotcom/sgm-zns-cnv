@@ -29,7 +29,8 @@ import { useConfirm } from '@/src/design-system/Confirm';
 import { 
   FileText, 
   Trash2,
-  Layers
+  Layers,
+  Send
 } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { QuotationHoverCard } from '@/src/modules/sales/ui/components/QuotationHoverCard';
@@ -718,6 +719,19 @@ export function ContractDetailDrawer({
           )}
 
           <Button aria-label="Đóng" variant="secondary" size="sm" className="h-9 font-bold" onClick={onClose}>Đóng</Button>
+          {onSendZns && (
+            <Button
+              aria-label="Gửi tin Zalo Hợp Đồng"
+              variant="subtle"
+              size="sm"
+              className="h-9 font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 flex items-center gap-1.5"
+              onClick={() => onSendZns(drawerContract)}
+            >
+              <Send size={13} className="text-blue-600" />
+              <span>Gửi tin Zalo</span>
+              <span className="text-3xs font-mono px-1 py-0.2 bg-blue-100 text-blue-800 rounded font-black">#533068</span>
+            </Button>
+          )}
           <Button aria-label="Chỉnh sửa" variant="primary" size="sm" className="h-9 font-bold" onClick={() => onEdit(drawerContract)}>Chỉnh sửa</Button>
         </div>
       }
