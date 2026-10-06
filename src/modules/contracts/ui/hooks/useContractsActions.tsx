@@ -73,6 +73,13 @@ export function useContractsActions(
     }
   };
 
+  const [znsPreviewContract, setZnsPreviewContract] = useState<{
+    contract: Contract;
+    customer?: any;
+    phone?: string;
+    availablePhones?: Array<{ phone: string; label?: string; isPrimary?: boolean }>;
+  } | null>(null);
+
   const handleSendContractZns = useCallback(async (c: Contract) => {
     let customerDoc: any = null;
     let customerName = c.tenKhachHang;
@@ -83,35 +90,45 @@ export function useContractsActions(
         }
     }
     const targetPhoneInfo = resolveZnsTargetPhone(c.soZaloMacDinh || c.sdt, c.danhSachSdt, customerDoc);
-    const phone = targetPhoneInfo.validPhone;
-    if (!c.id || !phone) return notify.error(targetPhoneInfo.warning || "Khách hàng thiếu SĐT di động hợp lệ để gửi tin ZNS");
+    const phone = targetPhoneInfo.validPhone || (c.sdt ? c.sdt.replace(/\D/g, '') : null);
 
-    const duplicateCheck = checkZnsResendAllowed(c as any, phone, userRole);
-    let forceResend = false;
-    if (duplicateCheck.isAlreadySent) {
-      const force = await confirm({
-        title: 'Xác nhận gửi lại ZNS Hợp Đồng',
-        message: `Hợp đồng này (${c.soHopDong || c.id}) đã từng gửi ZNS thành công đến số điện thoại ${phone}. Bạn có chắc chắn muốn gửi lại tin nhắn ZNS này không?`,
-        variant: 'info',
-        confirmText: 'Gửi lại ZNS',
-        cancelText: 'Hủy bỏ'
-      });
-      if (!force) return;
-      forceResend = true;
-    } else {
-      if (!await confirm({ title: "Gửi ZNS Hợp Đồng", message: `Gửi ZNS Hợp đồng đến khách hàng ${customerName}?` })) return;
-    }
-    await sendZnsAndToast({
-      entityId: c.id,
-      entityType: 'CONTRACT',
-      messageType: ZnsMessageType.HOPDONG_SIGN_ZNS,
-      phone: phone as string,
-      payload: { ...c },
-      attemptBucket: nextAttempt(c.trangThaiGuiTinHopDong || undefined),
-      userRole,
-      forceResend
+    if (!c.id) return notify.error("Hợp đồng không hợp lệ để gửi tin ZNS");
+
+    const rawPhonesPool = [
+      c.sdt,
+      c.sdtPhu,
+      c.soZaloMacDinh,
+      ...(Array.isArray(c.danhSachSdt) ? c.danhSachSdt : []),
+      ...(customerDoc ? [
+        customerDoc.sdt,
+        customerDoc.sdtPhu,
+        customerDoc.soZaloMacDinh,
+        ...(Array.isArray(customerDoc.danhSachSdt) ? customerDoc.danhSachSdt : []),
+        ...(Array.isArray(customerDoc.contacts) ? customerDoc.contacts.map((ct: any) => ct?.sdt) : [])
+      ] : [])
+    ].filter(Boolean).join(' ');
+
+    const extracted = extractVietnamesePhones(rawPhonesPool, c.diaChi || customerDoc?.diaChi);
+    const availableMobiles: Array<{ cleaned: string; formatted: string; carrier?: string }> = [];
+    const seenMob = new Set<string>();
+    extracted.mobilePhones.forEach(m => {
+      if (!seenMob.has(m.cleaned)) {
+        seenMob.add(m.cleaned);
+        availableMobiles.push(m);
+      }
     });
-  }, [confirm, userRole]);
+
+    setZnsPreviewContract({
+      contract: c,
+      customer: customerDoc,
+      phone: phone || availableMobiles[0]?.cleaned || '',
+      availablePhones: availableMobiles.map((m, idx) => ({
+        phone: m.cleaned,
+        label: `${m.formatted} (${m.carrier || 'Di động'})`,
+        isPrimary: idx === 0
+      }))
+    });
+  }, []);
 
   return {
     editingContract,
@@ -126,6 +143,8 @@ export function useContractsActions(
     setPrefillDeliveryContract,
     handleDeleteContract,
     handleSendContractZns,
+    znsPreviewContract,
+    setZnsPreviewContract,
     blockingModalState,
     closeBlockingModal
   };

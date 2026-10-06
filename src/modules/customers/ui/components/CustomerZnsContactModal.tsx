@@ -14,8 +14,10 @@ import {
   History,
   Search,
   ShieldCheck,
-  Check
+  Check,
+  Smartphone
 } from 'lucide-react';
+import { UniversalZnsPreviewModal } from '@/src/platform/ui/zns/UniversalZnsPreviewModal';
 import { notify } from '@/src/shared/utils/notify';
 import { sendZnsAndToast, nextAttempt } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
@@ -47,6 +49,7 @@ export function CustomerZnsContactModal({
   const [filterMode, setFilterMode] = useState<'all' | 'sent' | 'unsent'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
   // Load message logs from zns_messages for this customer
   useEffect(() => {
@@ -458,17 +461,34 @@ export function CustomerZnsContactModal({
                   </span>
                 </>
               )}
+              <span className="font-mono bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded border border-amber-400/40 font-bold flex items-center gap-1">
+                ID MẪU ZBS: #533060
+              </span>
+              <span className="text-slate-400 font-medium">THÔNG TIN GIẢI PHÁP MÁY CÔNG NGHIỆP</span>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 flex items-center justify-center transition-all cursor-pointer shrink-0"
-            title="Đóng modal"
-          >
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="subtle"
+              size="xs"
+              onClick={() => setPreviewModalOpen(true)}
+              className="bg-blue-600/30 text-blue-300 border border-blue-400/40 hover:bg-blue-600/50 text-2xs font-bold flex items-center gap-1.5 h-8 px-3"
+            >
+              <Smartphone size={13} />
+              <span>Xem trước mẫu ZBS (#533060)</span>
+            </Button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 flex items-center justify-center transition-all cursor-pointer shrink-0"
+              title="Đóng modal"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {/* ========================================================================= */}
@@ -790,6 +810,28 @@ export function CustomerZnsContactModal({
           </div>
         </div>
       </div>
+
+      {previewModalOpen && customer && (
+        <UniversalZnsPreviewModal
+          isOpen={previewModalOpen}
+          onClose={() => setPreviewModalOpen(false)}
+          messageType={ZnsMessageType.CUSTOMER_PRE_QUOTE}
+          entityType="CUSTOMER"
+          entityId={customer.id || customer.maKh || ''}
+          documentCode={customer.maKh}
+          customerName={customer.tenZns || customer.tenKhachHang}
+          phone={contactsList[0]?.sdt || customer.sdt}
+          payload={{
+            ...customer,
+            customerId: customer.id || customer.maKh,
+            tenKhachHang: customer.tenKhachHang,
+            tenZns: customer.tenZns,
+            sdt: contactsList[0]?.sdt || customer.sdt
+          }}
+          availablePhones={contactsList.map(c => ({ phone: c.sdt, label: c.nguoiDaiDien || c.chucVu }))}
+          onSuccess={() => onRefresh?.()}
+        />
+      )}
     </div>
   );
 }

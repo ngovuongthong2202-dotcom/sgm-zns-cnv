@@ -44,6 +44,7 @@ export interface ContractDetailDrawerProps {
   onCreatePayment?: (contract: Contract) => void;
   onCreateDelivery?: (contract: Contract) => void;
   onDelete?: (contract: Contract) => void;
+  onSendZns?: (contract: Contract) => void;
   modal?: boolean;
   className?: string;
 }
@@ -58,6 +59,7 @@ export function ContractDetailDrawer({
   onCreatePayment,
   onCreateDelivery,
   onDelete,
+  onSendZns,
   modal,
   className,
 }: ContractDetailDrawerProps) {
@@ -496,19 +498,15 @@ export function ContractDetailDrawer({
                 aria-label="Gửi thông báo ZNS" 
                 size="xs"
                 variant="subtle"
-                className="text-3xs font-bold uppercase tracking-wider h-6 px-2 text-blue-700"
-                onClick={async () => {
-                  const c = customers.find(x => x.id === drawerContract.customerId);
-                  const phone = drawerContract.sdt || c?.sdt;
-                  if (!phone) return notify.error("Khách hàng không có số điện thoại");
-                  if (!await confirm({ title: 'Thông báo tiến độ', message: `Gửi thông báo tiến độ HĐ tới ${phone}?` })) return;
-                  await sendZnsAndToast({
-                    entityId: drawerContract.id!, entityType: 'CONTRACT', messageType: ZnsMessageType.HOPDONG_SIGN_ZNS,
-                    phone: phone as string, payload: { ...drawerContract }, attemptBucket: nextAttempt(drawerContract.trangThaiGuiTinHopDong || undefined)
-                  });
+                className="text-3xs font-bold uppercase tracking-wider h-6 px-2 text-blue-700 flex items-center gap-1 cursor-pointer hover:bg-blue-50 transition-colors"
+                onClick={() => {
+                  if (onSendZns && drawerContract) {
+                    onSendZns(drawerContract);
+                  }
                 }}
               >
-                Gửi ZNS
+                <span>Gửi ZNS</span>
+                <span className="text-3xs font-mono px-1 py-0.2 bg-blue-100 text-blue-800 rounded font-black">#533068</span>
               </Button>
             </div>
 

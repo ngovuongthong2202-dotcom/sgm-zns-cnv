@@ -1252,20 +1252,26 @@ export function DeliveryDetailDrawer({
                   variant="ghost"
                   size="sm"
                   onClick={() => onSendZns(drawerDelivery, 'GIAOHANG_ZNS')}
-                  className="w-full justify-start text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2"
+                  className="w-full justify-between text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg flex items-center cursor-pointer"
                 >
-                  <Send size={12} className="text-amber-600" />
-                  Cập Nhật Lộ Trình (GIAOHANG_ZNS)
+                  <span className="flex items-center gap-2">
+                    <Send size={12} className="text-blue-600" />
+                    Xác nhận giao hàng
+                  </span>
+                  <span className="text-3xs font-mono px-1.5 py-0.2 bg-blue-100 text-blue-800 rounded font-black">#552545</span>
                 </Button>
                 <Button 
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => onSendZns(drawerDelivery, 'GIAOHANG_HOANTAT')}
-                  className="w-full justify-start text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2 border-t border-slate-100"
+                  className="w-full justify-between text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg flex items-center border-t border-slate-100 cursor-pointer"
                 >
-                  <Send size={12} className="text-emerald-600" />
-                  Gửi Hoàn Tất (GIAOHANG_HOANTAT)
+                  <span className="flex items-center gap-2">
+                    <Send size={12} className="text-emerald-600" />
+                    Kích hoạt bảo hành
+                  </span>
+                  <span className="text-3xs font-mono px-1.5 py-0.2 bg-purple-100 text-purple-800 rounded font-black">#531052</span>
                 </Button>
               </div>
             </div>

@@ -8,17 +8,18 @@ import { translateZaloError } from '../../../backend/services/zns/zalo-error-dic
 import { sanitizeZnsCustomerName, sanitizeZnsPersonName } from '../../../backend/services/zns/zns-payload.builder';
 
 /**
- * Ánh xạ mặc định các loại tin nhắn SGM sang 6 Template ID đã được duyệt trên Zalo OA
+ * Ánh xạ chuẩn xác 7 loại tin nhắn SGM sang đúng 7 Template ID đã được duyệt trên Zalo OA
  */
 export const DEFAULT_ZALO_TEMPLATE_MAP: Record<string, string> = {
-  HOPDONG_SIGN_ZNS: '552604',           // XÁC NHẬN KÝ HỢP ĐỒNG THÀNH CÔNG
-  GIAOHANG_ZNS: '552545',               // XÁC NHẬN GIAO HÀNG (Chính thức)
-  GIAOHANG_HOANTAT: '552545',          // XÁC NHẬN GIAO HÀNG (Chính thức)
-  THANH_TOAN_TAT_TOAN: '552490',       // XÁC NHẬN HOÀN TẤT THANH TOÁN
-  THANH_TOAN_CONG_NO: '547381',         // XÁC NHẬN THANH TOÁN THÀNH CÔNG ver2
-  THANH_TOAN_CONG_NO_DEN_HAN: '547381', // XÁC NHẬN THANH TOÁN THÀNH CÔNG ver2
-  BAOGIA: '533064',                     // THÔNG BÁO BÁO GIÁ THÀNH CÔNG
-  CUSTOMER_PRE_QUOTE: '533060'         // THÔNG TIN GIẢI PHÁP MÁY CÔNG NGHIỆP
+  CUSTOMER_PRE_QUOTE: '533060',         // 1. THÔNG TIN GIẢI PHÁP MÁY CÔNG NGHIỆP
+  BAOGIA: '533064',                     // 2. THÔNG BÁO BÁO GIÁ THÀNH CÔNG
+  HOPDONG_SIGN_ZNS: '533068',           // 3. XÁC NHẬN KÝ HỢP ĐỒNG THÀNH CÔNG
+  THANH_TOAN_TAT_TOAN: '552490',       // 4. XÁC NHẬN HOÀN TẤT THANH TOÁN (Tất toán)
+  THANH_TOAN_CONG_NO: '547381',         // 5. XÁC NHẬN THANH TOÁN THÀNH CÔNG ver2 (Công nợ)
+  THANH_TOAN_CONG_NO_DEN_HAN: '547381', // 5. XÁC NHẬN THANH TOÁN THÀNH CÔNG ver2 (Công nợ)
+  GIAOHANG_ZNS: '552545',               // 6. XÁC NHẬN GIAO HÀNG (Chính thức)
+  GIAOHANG_HOANTAT: '531052',          // 7. XÁC NHẬN KÍCH HOẠT BẢO HÀNH THÀNH CÔNG
+  GIAOHANG_BAOHANH: '531052'           // 7. XÁC NHẬN KÍCH HOẠT BẢO HÀNH THÀNH CÔNG
 };
 
 export class ZaloOfficialZnsVendor implements ZnsVendorPort {
@@ -43,7 +44,7 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
     const moneyFormatted = new Intl.NumberFormat('vi-VN').format(Number(p.soTien || p.totalAmount || p.giaTriHopDong || 0)) + ' đ';
     const machineCountStr = String(p.slMay || p.machine_count || (Array.isArray(p.items) ? p.items.length : 1));
 
-    // Ưu tiên tuyệt đối trường "Chuẩn ZNS" (tenZns / ten_zns) để customer_name không vượt quá 30 ký tự
+    // 1. Ưu tiên tuyệt đối trường "Chuẩn ZNS" (tenZns / ten_zns) để customer_name không vượt quá 30 ký tự
     const znsCandidate = p.tenZns || p.ten_zns || p.tenKhachHangZns || p.customer_name_zns;
     let customerName = (znsCandidate || p.customer_name || p.tenKhachHang || 'Quý khách hàng').toString().trim();
     if (customerName.length > 30) {
@@ -64,9 +65,13 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
     const paymentCode = String(p.soPhieuThu || p.paymentId || p.maThanhToan || '---').slice(0, 30);
     const deliveryCode = String(p.soPhieuXuat || p.deliveryId || p.maGiaoHang || '---').slice(0, 30);
     let machineList = String(p.danhSachMaMay || p.maMay || 'Thiết bị tiêu chuẩn').trim();
-    if (machineList.length > 100) {
-      machineList = machineList.slice(0, 97) + '...';
+    if (machineList.length > 200) {
+      machineList = machineList.slice(0, 197) + '...';
     }
+
+    // Số ngày hoàn thành cho template Hợp đồng (yêu cầu kiểu NUMBER)
+    const rawSoNgay = parseInt(String(p.thoiGianThucHien || p.soNgayDuKienHoanThanh || p.soNgay || p.so_ngay || 30).replace(/\D/g, '') || '30', 10);
+    const soNgayNum = isNaN(rawSoNgay) ? 30 : rawSoNgay;
 
     const templateData: Record<string, any> = {
       // 1. Nhận diện khách hàng (Bắt buộc theo chuẩn Zalo: tối đa 30 ký tự)
@@ -74,7 +79,12 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       customer_phone: p.sdt || p.phone || '',
       phone: p.sdt || p.phone || '',
 
-      // 2. Phân hệ Báo giá
+      // 1b. Tham số đối tác CNV CDP cho Khách hàng (Template 533060)
+      cnv_campaign_id: String(p.cnv_campaign_id || p.campaign_id || 'SGM_CSKH_2026'),
+      cnv_zns_template_id: String(p.cnv_zns_template_id || '533060'),
+      cnv_tracking_id: String(p.cnv_tracking_id || p.trackingId || 'SGM_TRACK_01'),
+
+      // 2. Phân hệ Báo giá (Template 533064)
       so_phieu_bao_gia: quotationCode,
       quotation_code: quotationCode,
       ngay_bao_gia: p.ngayBaoGia || dateFormatted,
@@ -84,17 +94,19 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       nguoi_phu_trach: cleanOfficer,
       officer_name: cleanOfficer,
 
-      // 3. Phân hệ Hợp đồng
+      // 3. Phân hệ Hợp đồng (Template 533068)
       so_hop_dong: contractCode,
       contract_code: contractCode,
       order_code: orderCode,
       so_don_hang: orderCode,
+      So_don_hang: orderCode,
       ngay_ky: p.ngayKy || dateFormatted,
       sign_date: p.ngayKy || dateFormatted,
+      so_ngay: soNgayNum,
       so_phieu: quotationCode || contractCode,
       nhan_vien: cleanOfficer,
 
-      // 4. Phân hệ Thanh toán
+      // 4. Phân hệ Thanh toán (Tất toán: 552490, Công nợ: 547381)
       payment_code: paymentCode,
       so_tien: moneyFormatted,
       so_tien_thanh_toan: moneyFormatted,
@@ -104,22 +116,38 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       payment_date: p.ngayThanhToan || dateFormatted,
       time: p.ngayThanhToan || dateFormatted,
 
-      // 5. Phân hệ Giao hàng
+      // 5. Phân hệ Giao hàng (Xác nhận giao hàng: 552545)
+      So_hop_dong: contractCode,
+      So_don_hang: orderCode,
       so_phieu_xuat: deliveryCode,
       delivery_code: deliveryCode,
       ngay_giao_may: p.ngayGiaoThucTe || p.ngayGiaoHang || dateFormatted,
       delivery_date: p.ngayGiaoThucTe || p.ngayGiaoHang || dateFormatted,
       danh_sach_ma_may: machineList,
-      dvt: String(p.dvt || 'Máy').slice(0, 10),
+      dvt: String(p.dvt || 'Máy').slice(0, 30),
       so_luong: machineCountStr,
 
-      // 6. Nhận diện công ty (≤ 30 ký tự)
+      // 6. Phân hệ Kích hoạt Bảo hành (Template 531052)
+      ma_bao_hanh: String(p.soPhieuXuat || p.deliveryId || p.maBaoHanh || quotationCode || 'BH-SGM').slice(0, 30),
+      product: String(p.tenMay || p.sanPham || p.product || (Array.isArray(p.items) && p.items[0]?.tenSanPham) || 'Máy cán tôn SGM').slice(0, 30),
+      date: p.ngayGiaoThucTe || p.ngayGiaoHang || p.ngayKichHoat || dateFormatted,
+
+      // 7. Nhận diện công ty (≤ 30 ký tự)
       company_name: 'Cơ Khí Sài Gòn (SGM)'
     };
 
-    // Universal safety guardrail: Đảm bảo không biến văn bản nào vượt quá 30 ký tự (ngoại trừ danh sách máy & URLs)
+    // Universal safety guardrail: Đảm bảo không biến văn bản nào vượt quá 30 ký tự (ngoại trừ danh sách máy, mã CNV & URLs)
     for (const [key, val] of Object.entries(templateData)) {
-      if (typeof val === 'string' && key !== 'danh_sach_ma_may' && !key.includes('link') && !key.includes('url') && val.length > 30) {
+      if (
+        typeof val === 'string' && 
+        key !== 'danh_sach_ma_may' && 
+        key !== 'cnv_campaign_id' &&
+        key !== 'cnv_zns_template_id' &&
+        key !== 'cnv_tracking_id' &&
+        !key.includes('link') && 
+        !key.includes('url') && 
+        val.length > 30
+      ) {
         templateData[key] = val.slice(0, 30).trim();
       }
     }

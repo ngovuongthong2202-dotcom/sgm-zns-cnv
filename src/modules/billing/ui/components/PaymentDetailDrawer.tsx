@@ -959,10 +959,13 @@ export function PaymentDetailDrawer({
                   variant="subtle"
                   size="sm"
                   onClick={() => onSendZns(payment)}
-                  className="h-9 font-bold"
+                  className="h-9 font-bold flex items-center gap-1.5 cursor-pointer text-blue-700 hover:bg-blue-50"
                   leftIcon={<Send size={12} />}
                 >
-                  Gửi tin Zalo
+                  <span>Gửi tin Zalo</span>
+                  <span className="text-3xs font-mono px-1.5 py-0.2 bg-blue-100 text-blue-800 rounded font-black">
+                    {payment.tinhTrangThanhToan === 'Tất toán' ? '#552490' : '#547381'}
+                  </span>
                 </Button>
               )}
 

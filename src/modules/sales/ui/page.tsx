@@ -22,6 +22,8 @@ import { Zap, Send } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { CreateQuotationFromSalesOrderModal } from './components/CreateQuotationFromSalesOrderModal';
 import { BulkZnsModal } from '@/src/widgets/BulkZnsModal';
+import { UniversalZnsPreviewModal } from '@/src/platform/ui/zns/UniversalZnsPreviewModal';
+import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 
 
 const QuotationFormModal = lazy(() => import('./components/QuotationFormModal').then(m => ({ default: m.QuotationFormModal })));
@@ -161,6 +163,7 @@ export default function QuotationsFeature() {
 
   const {
     handleSendQuotationZns, handleDeleteQuotation, handleSaveQuotation, handleDrawerSendZns,
+    znsPreviewQuotation, setZnsPreviewQuotation,
     blockingModalState, closeBlockingModal
   } = useQuotationActions(
     createQuotation, updateQuotation, deleteQuotation, confirm,
@@ -441,6 +444,35 @@ export default function QuotationsFeature() {
           customers={allCustomers}
           userRole={userData?.role}
           onSuccess={refresh}
+        />
+      )}
+      {znsPreviewQuotation && (
+        <UniversalZnsPreviewModal
+          isOpen={!!znsPreviewQuotation}
+          onClose={() => setZnsPreviewQuotation(null)}
+          messageType={ZnsMessageType.BAOGIA}
+          entityType="QUOTATION"
+          entityId={znsPreviewQuotation.quotation.id || ''}
+          documentCode={znsPreviewQuotation.quotation.soPhieuBaoGia || znsPreviewQuotation.quotation.maBaoGia || znsPreviewQuotation.quotation.id}
+          customerName={znsPreviewQuotation.customer?.tenZns || znsPreviewQuotation.quotation.tenKhachHang}
+          phone={znsPreviewQuotation.phone}
+          payload={{
+            ...znsPreviewQuotation.quotation,
+            customerId: znsPreviewQuotation.quotation.customerId || znsPreviewQuotation.customer?.id,
+            tenKhachHang: znsPreviewQuotation.quotation.tenKhachHang || znsPreviewQuotation.customer?.tenKhachHang,
+            tenZns: znsPreviewQuotation.customer?.tenZns || znsPreviewQuotation.quotation.tenKhachHang,
+            ten_zns: znsPreviewQuotation.customer?.tenZns || znsPreviewQuotation.quotation.tenKhachHang,
+            customer_name: znsPreviewQuotation.customer?.tenZns || znsPreviewQuotation.quotation.tenKhachHang,
+            nguoiPhuTrach: znsPreviewQuotation.quotation.nguoiPhuTrach,
+            nguoi_phu_trach: znsPreviewQuotation.quotation.nguoiPhuTrach,
+            soPhieuBaoGia: znsPreviewQuotation.quotation.soPhieuBaoGia || znsPreviewQuotation.quotation.id,
+            phone: znsPreviewQuotation.phone,
+            sdt: znsPreviewQuotation.phone
+          }}
+          availablePhones={znsPreviewQuotation.availablePhones}
+          onSuccess={() => {
+            refresh?.();
+          }}
         />
       )}
     </div>

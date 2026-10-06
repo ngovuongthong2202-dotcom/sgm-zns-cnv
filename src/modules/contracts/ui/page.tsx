@@ -34,6 +34,8 @@ import { getLinkedDeliveriesForContract } from '@/src/domain/services/delivery-r
 
 import { ContractModalsContainer } from './components/ContractModalsContainer';
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
+import { UniversalZnsPreviewModal } from '@/src/platform/ui/zns/UniversalZnsPreviewModal';
+import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 
 const ContractRouteSync = React.memo(function ContractRouteSync({
   hasDrawer,
@@ -105,6 +107,8 @@ export default function ContractsFeature() {
     prefillDeliveryContract, setPrefillDeliveryContract,
     handleDeleteContract,
     handleSendContractZns,
+    znsPreviewContract,
+    setZnsPreviewContract,
     blockingModalState,
     closeBlockingModal
   } = useContractsActions(deleteContract, realtimePayments, realtimeDeliveries, userData?.role);
@@ -372,6 +376,7 @@ export default function ContractsFeature() {
         createDelivery={createDelivery}
         handleDeleteContract={handleDeleteContract}
         getRemainingProducts={getRemainingProducts}
+        onSendZns={handleSendContractZns}
       />
       <BlockingDocumentsModal
         isOpen={blockingModalState.isOpen}
@@ -382,6 +387,43 @@ export default function ContractsFeature() {
         blockingDocuments={blockingModalState.blockingDocuments}
         detailedBlocks={blockingModalState.detailedBlocks}
       />
+      {znsPreviewContract && (
+        <UniversalZnsPreviewModal
+          isOpen={!!znsPreviewContract}
+          onClose={() => setZnsPreviewContract(null)}
+          messageType={ZnsMessageType.HOPDONG_SIGN_ZNS}
+          entityType="CONTRACT"
+          entityId={znsPreviewContract.contract.id || ''}
+          documentCode={znsPreviewContract.contract.soHopDong || znsPreviewContract.contract.id}
+          customerName={znsPreviewContract.customer?.tenZns || znsPreviewContract.contract.tenKhachHang}
+          phone={znsPreviewContract.phone}
+          payload={{
+            ...znsPreviewContract.contract,
+            customerId: znsPreviewContract.contract.customerId || znsPreviewContract.customer?.id,
+            tenKhachHang: znsPreviewContract.contract.tenKhachHang || znsPreviewContract.customer?.tenKhachHang,
+            tenZns: znsPreviewContract.customer?.tenZns || znsPreviewContract.contract.tenKhachHang,
+            ten_zns: znsPreviewContract.customer?.tenZns || znsPreviewContract.contract.tenKhachHang,
+            customer_name: znsPreviewContract.customer?.tenZns || znsPreviewContract.contract.tenKhachHang,
+            order_code: znsPreviewContract.contract.soHopDong || znsPreviewContract.contract.id,
+            soHopDong: znsPreviewContract.contract.soHopDong || znsPreviewContract.contract.id,
+            so_hop_dong: znsPreviewContract.contract.soHopDong || znsPreviewContract.contract.id,
+            ngayKy: znsPreviewContract.contract.ngayKy,
+            ngay_ky: znsPreviewContract.contract.ngayKy,
+            soNgay: znsPreviewContract.contract.thoiGianThucHien || znsPreviewContract.contract.soNgay || 30,
+            so_ngay: znsPreviewContract.contract.thoiGianThucHien || znsPreviewContract.contract.soNgay || 30,
+            soPhieu: znsPreviewContract.contract.soPhieuBaoGia || znsPreviewContract.contract.soHopDong || '',
+            so_phieu: znsPreviewContract.contract.soPhieuBaoGia || znsPreviewContract.contract.soHopDong || '',
+            nhanVien: znsPreviewContract.contract.nguoiPhuTrach || 'Ngô Vương Thông',
+            nhan_vien: znsPreviewContract.contract.nguoiPhuTrach || 'Ngô Vương Thông',
+            phone: znsPreviewContract.phone,
+            sdt: znsPreviewContract.phone
+          }}
+          availablePhones={znsPreviewContract.availablePhones}
+          onSuccess={() => {
+            // Success callback
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -134,6 +134,22 @@ const BUILTIN_DEFAULT_TEMPLATES: Record<string, ZnsTemplate> = {
       { name: 'dvt', label: 'ĐVT', sourceField: 'dvt', sourceEntity: 'SELF', format: 'raw' },
     ],
   },
+  GIAOHANG_BAOHANH: {
+    templateKey: 'GIAOHANG_BAOHANH',
+    label: 'Tin nhắn kích hoạt bảo hành',
+    entityType: 'DELIVERY',
+    version: 1,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    updatedBy: 'SYSTEM',
+    variables: [
+      { name: 'customer_name', label: 'Tên KH', sourceField: 'tenKhachHang', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'ma_bao_hanh', label: 'Mã bảo hành', sourceField: 'soPhieuXuat', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'product', label: 'Sản phẩm', sourceField: 'tenMay', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'date', label: 'Ngày kích hoạt', sourceField: 'ngayGiaoMay', format: 'date', sourceEntity: 'SELF' },
+    ],
+  },
 };
 
 export class TemplateRendererService {

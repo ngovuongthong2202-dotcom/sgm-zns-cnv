@@ -72,7 +72,7 @@ export function usePaymentsActions(
     }
   }, [deletePayment, confirm, drawerPayment, refresh, deliveries, showBlockingModal]);
 
-  const { handleSendZns } = usePaymentZns(confirm, refresh, userRole);
+  const { handleSendZns, znsPreviewPayment, setZnsPreviewPayment } = usePaymentZns(confirm, refresh, userRole);
 
   const handleCreatePrepaidFinalPayment = useCallback((delivery: Delivery | any) => {
     const code = `PT${Date.now().toString().slice(-6)}`;
@@ -114,6 +114,8 @@ export function usePaymentsActions(
     setIsFormOpen,
     handleDeletePayment,
     handleSendZns,
+    znsPreviewPayment,
+    setZnsPreviewPayment,
     handleCreatePrepaidFinalPayment,
     blockingModalState,
     closeBlockingModal,

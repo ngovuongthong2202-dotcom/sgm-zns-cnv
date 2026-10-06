@@ -1,46 +1,56 @@
+import { useState } from 'react';
 import { Payment } from '@/src/domain/schema/payment.schema';
 import { notify } from '@/src/shared/utils/notify';
-import { sendZnsAndToast, nextAttempt, checkZnsResendAllowed } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { repositoryFactory } from '@/src/data/repositories/factory';
+import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 export function usePaymentZns(
   confirm: (opts: import('@/src/design-system/Confirm').ConfirmOptions) => Promise<boolean>, 
   refresh: () => void,
   userRole?: string
 ) {
+  const [znsPreviewPayment, setZnsPreviewPayment] = useState<{
+    payment: Payment;
+    customer?: any;
+    phone?: string;
+    messageType: ZnsMessageType;
+    availablePhones?: Array<{ phone: string; label?: string; isPrimary?: boolean }>;
+  } | null>(null);
+
   const handleSendZns = async (payment: Payment) => {
     let phone = payment.sdt;
     let customerName = payment.tenKhachHang;
+    let cSnap: any = null;
     
-    if (!phone && payment.customerId) {
-      const cSnap = await repositoryFactory.get<any>('customers').getById(payment.customerId);
+    if (payment.customerId) {
+      cSnap = await repositoryFactory.get<any>('customers').getById(payment.customerId);
       if (cSnap) {
-        phone = cSnap.sdt || cSnap.soDienThoai || cSnap.contacts?.[0]?.sdt;
+        phone = phone || cSnap.sdt || cSnap.soDienThoai || cSnap.contacts?.[0]?.sdt;
         customerName = customerName || cSnap.tenKhachHang;
       }
     }
-    if (!phone) {
-       notify.error("Khách hàng không có số điện thoại hợp lệ");
-       return;
-    }
 
-    // Kiểm tra gửi lại nếu đã gửi thành công trước đó
-    const duplicateCheck = checkZnsResendAllowed(payment as any, phone, userRole);
-    const isResend = Boolean(duplicateCheck.isAlreadySent);
-    
-    if (isResend) {
-      const confirmResend = await confirm({
-        title: 'Xác nhận gửi lại ZNS Thanh Toán',
-        message: `Phiếu thu ${payment.paymentId || payment.id} đã từng được gửi ZNS trước đó. Bạn có chắc chắn muốn gửi lại tin nhắn ZNS cho khách hàng ${customerName || ''} (${phone}) không?`,
-        variant: 'info',
-        confirmText: 'Gửi lại ZNS',
-        cancelText: 'Hủy bỏ'
-      });
-      if (!confirmResend) return;
-    } else {
-      if (!await confirm({ title: "Gửi ZNS Thanh Toán", message: `Gửi ZNS Thanh toán đến ${customerName || ''} (${phone})?` })) return;
-    }
+    const rawPhonesPool = [
+      payment.sdt,
+      cSnap?.sdt,
+      cSnap?.sdtPhu,
+      cSnap?.soZaloMacDinh,
+      ...(Array.isArray(cSnap?.danhSachSdt) ? cSnap.danhSachSdt : []),
+      ...(Array.isArray(cSnap?.contacts) ? cSnap.contacts.map((ct: any) => ct?.sdt) : [])
+    ].filter(Boolean).join(' ');
+
+    const extracted = extractVietnamesePhones(rawPhonesPool, payment.diaChi || cSnap?.diaChi);
+    const availableMobiles: Array<{ cleaned: string; formatted: string; carrier?: string }> = [];
+    const seenMob = new Set<string>();
+    extracted.mobilePhones.forEach(m => {
+      if (!seenMob.has(m.cleaned)) {
+        seenMob.add(m.cleaned);
+        availableMobiles.push(m);
+      }
+    });
+
+    const targetPhone = phone || availableMobiles[0]?.cleaned || '';
     
     const enrichedPayment: any = { ...payment };
     
@@ -110,14 +120,18 @@ export function usePaymentZns(
       ? ZnsMessageType.THANH_TOAN_TAT_TOAN 
       : ZnsMessageType.THANH_TOAN_CONG_NO;
 
-    await sendZnsAndToast({
-       entityId: payment.id!, entityType: 'PAYMENT', messageType, phone: phone, payload: enrichedPayment as Record<string, unknown>,
-       attemptBucket: nextAttempt(payment.trangThaiGuiTinThanhToan as string | undefined),
-       userRole,
-       forceResend: isResend
+    setZnsPreviewPayment({
+      payment: enrichedPayment,
+      customer: cSnap,
+      phone: targetPhone,
+      messageType,
+      availablePhones: availableMobiles.map((m, idx) => ({
+        phone: m.cleaned,
+        label: `${m.formatted} (${m.carrier || 'Di động'})`,
+        isPrimary: idx === 0
+      }))
     });
-    refresh();
   };
 
-  return { handleSendZns };
+  return { handleSendZns, znsPreviewPayment, setZnsPreviewPayment };
 }

@@ -47,6 +47,7 @@ interface ContractModalsContainerProps {
   createDelivery: (data: any) => Promise<any>;
   handleDeleteContract: (contract: Contract) => Promise<void>;
   getRemainingProducts: (contract: Contract, deliveries: any[]) => any[];
+  onSendZns?: (contract: Contract) => void;
   prefillQuotation?: any;
   setPrefillQuotation?: (quo: any) => void;
 }
@@ -78,6 +79,7 @@ export function ContractModalsContainer({
   createDelivery,
   handleDeleteContract,
   getRemainingProducts,
+  onSendZns,
 }: ContractModalsContainerProps) {
   const { user } = useAuth();
   const [pendingDeliveryContract, setPendingDeliveryContract] = React.useState<Contract | null>(null);
@@ -96,6 +98,7 @@ export function ContractModalsContainer({
         modal={!isFormModalActive}
         className={isFormModalActive ? 'opacity-0 pointer-events-none' : ''}
         onClose={() => setDrawerContract(null)}
+        onSendZns={onSendZns}
         onEdit={(contract) => { setEditingContract(contract); setDrawerContract(null); setIsFormOpen(true); }}
         onCreatePayment={async (contract) => {
           const linkedPayments = getLinkedPaymentsForContract(contract, realtimePayments || []);

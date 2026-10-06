@@ -33,6 +33,7 @@ import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 
 import PaymentDeliveryBanner from './components/PaymentDeliveryBanner';
+import { UniversalZnsPreviewModal } from '@/src/platform/ui/zns/UniversalZnsPreviewModal';
 
 const PaymentRouteSync = React.memo(function PaymentRouteSync({
   hasDrawer,
@@ -122,6 +123,8 @@ export default function PaymentsFeature() {
     isFormOpen, setIsFormOpen,
     handleDeletePayment,
     handleSendZns,
+    znsPreviewPayment,
+    setZnsPreviewPayment,
     handleCreatePrepaidFinalPayment,
     blockingModalState,
     closeBlockingModal,
@@ -405,6 +408,39 @@ export default function PaymentsFeature() {
         blockingDocuments={blockingModalState.blockingDocuments}
         detailedBlocks={blockingModalState.detailedBlocks}
       />
+      {znsPreviewPayment && (
+        <UniversalZnsPreviewModal
+          isOpen={!!znsPreviewPayment}
+          onClose={() => setZnsPreviewPayment(null)}
+          messageType={znsPreviewPayment.messageType}
+          subtype={znsPreviewPayment.messageType}
+          entityType="PAYMENT"
+          entityId={znsPreviewPayment.payment.id || ''}
+          documentCode={znsPreviewPayment.payment.paymentId || znsPreviewPayment.payment.id}
+          customerName={znsPreviewPayment.customer?.tenZns || znsPreviewPayment.payment.tenKhachHang}
+          phone={znsPreviewPayment.phone}
+          payload={{
+            ...znsPreviewPayment.payment,
+            customerId: znsPreviewPayment.payment.customerId || znsPreviewPayment.customer?.id,
+            tenKhachHang: znsPreviewPayment.payment.tenKhachHang || znsPreviewPayment.customer?.tenKhachHang,
+            tenZns: znsPreviewPayment.customer?.tenZns || znsPreviewPayment.payment.tenKhachHang,
+            ten_zns: znsPreviewPayment.customer?.tenZns || znsPreviewPayment.payment.tenKhachHang,
+            customer_name: znsPreviewPayment.customer?.tenZns || znsPreviewPayment.payment.tenKhachHang,
+            so_don_hang: znsPreviewPayment.payment.soDonHang || znsPreviewPayment.payment.soHopDong || '',
+            so_hop_dong: znsPreviewPayment.payment.soHopDong || znsPreviewPayment.payment.soDonHang || '',
+            order_code: znsPreviewPayment.payment.soHopDong || znsPreviewPayment.payment.soDonHang || znsPreviewPayment.payment.paymentId || '',
+            ngay_thanh_toan: znsPreviewPayment.payment.ngayThanhToan,
+            time: znsPreviewPayment.payment.ngayThanhToan,
+            so_luong: String(znsPreviewPayment.payment.soLuong || znsPreviewPayment.payment.slMay || 1),
+            phone: znsPreviewPayment.phone,
+            sdt: znsPreviewPayment.phone
+          }}
+          availablePhones={znsPreviewPayment.availablePhones}
+          onSuccess={() => {
+            refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

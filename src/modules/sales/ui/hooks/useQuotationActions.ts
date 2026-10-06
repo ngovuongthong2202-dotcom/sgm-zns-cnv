@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { notify } from '@/src/shared/utils/notify';
 import { sendZnsAndToast, nextAttempt, checkZnsResendAllowed } from '@/src/domain/zns-client';
@@ -59,6 +59,12 @@ export function useQuotationActions(
   userData?: any,
   allCustomers: any[] = []
 ) {
+  const [znsPreviewQuotation, setZnsPreviewQuotation] = useState<{
+    quotation: Quotation;
+    customer?: any;
+    phone?: string;
+    availablePhones?: Array<{ phone: string; label?: string; isPrimary?: boolean }>;
+  } | null>(null);
 
   const handleSendQuotationZns = useCallback(async (q: Quotation, targetPhoneOverride?: string) => {
     // 1. Ưu tiên tra cứu trực tiếp trong RAM (0ms) từ allCustomers
@@ -116,65 +122,28 @@ export function useQuotationActions(
 
     let phone: string | null = targetPhoneOverride ? targetPhoneOverride.replace(/\D/g, '') : null;
 
-    if (!phone && availableMobiles.length > 1) {
-      const phoneListStr = availableMobiles.map((p, idx) => `• ${p.formatted} (${p.carrier || 'Di động'})${idx === 0 ? ' [Số chính]' : ''}`).join('\n');
-      const pickPrimary = await confirm({
-        title: 'Lựa chọn số điện thoại nhận ZNS Báo Giá',
-        message: `Khách hàng ${resolvedCustName} có ${availableMobiles.length} số điện thoại di động:\n\n${phoneListStr}\n\nBạn muốn gửi tin ZNS đến số nào?`,
-        variant: 'info',
-        confirmText: `Gửi đến ${availableMobiles[0].formatted}`,
-        cancelText: `Gửi đến ${availableMobiles[1].formatted}`
-      });
-      phone = pickPrimary ? availableMobiles[0].cleaned : availableMobiles[1].cleaned;
-    } else if (!phone) {
+    if (!phone) {
       const targetPhoneInfo = resolveZnsTargetPhone(q.soZaloMacDinh || q.sdt, q.danhSachSdt, customerDoc);
       phone = targetPhoneInfo.validPhone || (q.sdt ? q.sdt.replace(/\D/g, '') : null);
     }
 
-    if (!q.id || !phone) {
-      notify.error('Khách hàng thiếu SĐT di động hợp lệ để gửi tin ZNS');
+    if (!q.id) {
+      notify.error('Báo giá không hợp lệ để gửi tin ZNS');
       return;
     }
 
-    const duplicateCheck = checkZnsResendAllowed(q as any, phone, userData?.role);
-    const isResend = Boolean(duplicateCheck.isAlreadySent);
-    
-    if (isResend) {
-      const confirmResend = await confirm({
-        title: 'Xác nhận gửi lại ZNS Báo Giá',
-        message: `Báo giá ${q.soPhieuBaoGia || q.id} đã từng được gửi ZNS đến số ${phone} trước đó. Bạn có chắc chắn muốn gửi lại tin nhắn ZNS cho khách hàng ${resolvedCustName} (${phone}) không?`,
-        variant: 'info',
-        confirmText: 'Gửi lại ZNS',
-        cancelText: 'Hủy bỏ'
-      });
-      if (!confirmResend) return;
-    } else if (!targetPhoneOverride) {
-      if (!await confirm({ title: 'Gửi ZNS Báo Giá', message: `Gửi ZNS Báo giá đến khách hàng ${resolvedCustName} (${phone})?` })) return;
-    }
-
-    await sendZnsAndToast({
-      entityId: q.id,
-      entityType: 'QUOTATION',
-      messageType: ZnsMessageType.BAOGIA,
-      phone: phone,
-      payload: {
-        ...q,
-        customerId: q.customerId || customerDoc?.id || customerDoc?.maKh,
-        tenKhachHang: q.tenKhachHang || customerDoc?.tenKhachHang || resolvedCustName,
-        tenZns: znsCustName || resolvedCustName,
-        ten_zns: znsCustName || resolvedCustName,
-        customer_name: znsCustName || resolvedCustName,
-        nguoiPhuTrach: q.nguoiPhuTrach ? q.nguoiPhuTrach.replace(/\s*\(.*?\)\s*/g, ' ').slice(0, 30).trim() : 'Ngô Vương Thông',
-        nguoi_phu_trach: q.nguoiPhuTrach ? q.nguoiPhuTrach.replace(/\s*\(.*?\)\s*/g, ' ').slice(0, 30).trim() : 'Ngô Vương Thông',
-        sdt: phone,
-        phone: phone,
-        soPhieuBaoGia: q.soPhieuBaoGia || q.maBaoGia || q.id
-      },
-      attemptBucket: nextAttempt(q.trangThaiGuiTinBaoGia || undefined),
-      userRole: userData?.role,
-      forceResend: isResend
+    // Mở giao diện Live Preview Mẫu ZBS Báo Giá (#533064) trực quan
+    setZnsPreviewQuotation({
+      quotation: q,
+      customer: customerDoc,
+      phone: phone || availableMobiles[0]?.cleaned || '',
+      availablePhones: availableMobiles.map((m, idx) => ({
+        phone: m.cleaned,
+        label: `${m.formatted} (${m.carrier || 'Di động'})`,
+        isPrimary: idx === 0
+      }))
     });
-  }, [allCustomers, confirm, userData]);
+  }, [allCustomers]);
 
   const { blockingModalState, showBlockingModal, closeBlockingModal } = useEntityLifecycle();
 
@@ -324,71 +293,35 @@ export function useQuotationActions(
 
     let phone: string | null = targetPhoneOverride ? targetPhoneOverride.replace(/\D/g, '') : null;
 
-    if (!phone && availableMobiles.length > 1) {
-      const phoneListStr = availableMobiles.map((p, idx) => `• ${p.formatted} (${p.carrier || 'Di động'})${idx === 0 ? ' [Số chính]' : ''}`).join('\n');
-      const pickPrimary = await confirm({
-        title: 'Lựa chọn số điện thoại nhận ZNS Báo Giá',
-        message: `Khách hàng ${custName} có ${availableMobiles.length} số điện thoại di động:\n\n${phoneListStr}\n\nBạn muốn gửi tin ZNS đến số nào?`,
-        variant: 'info',
-        confirmText: `Gửi đến ${availableMobiles[0].formatted}`,
-        cancelText: `Gửi đến ${availableMobiles[1].formatted}`
-      });
-      phone = pickPrimary ? availableMobiles[0].cleaned : availableMobiles[1].cleaned;
-    } else if (!phone) {
+    if (!phone) {
       const targetPhoneInfo = resolveZnsTargetPhone(drawerQuotation.soZaloMacDinh || drawerQuotation.sdt, drawerQuotation.danhSachSdt, parentCust);
       phone = targetPhoneInfo.validPhone || (drawerQuotation.sdt ? drawerQuotation.sdt.replace(/\D/g, '') : null);
     }
 
-    if (!phone) {
-       notify.error('Khách hàng thiếu SĐT di động hợp lệ để gửi tin ZNS');
+    if (!drawerQuotation.id) {
+       notify.error('Báo giá không hợp lệ để gửi tin ZNS');
        return;
     }
 
-    const duplicateCheck = checkZnsResendAllowed(drawerQuotation as any, phone, userData?.role);
-    const isResend = Boolean(duplicateCheck.isAlreadySent);
-
-    if (isResend) {
-      const confirmResend = await confirm({
-        title: 'Xác nhận gửi lại ZNS Báo Giá',
-        message: `Báo giá ${drawerQuotation.soPhieuBaoGia || drawerQuotation.id} đã từng được gửi ZNS đến số ${phone} trước đó. Bạn có chắc chắn muốn gửi lại tin nhắn ZNS cho khách hàng ${custName} (${phone}) không?`,
-        variant: 'info',
-        confirmText: 'Gửi lại ZNS',
-        cancelText: 'Hủy bỏ'
-      });
-      if (!confirmResend) return;
-    } else if (!targetPhoneOverride) {
-      if (!await confirm({ title: 'Gửi ZNS Báo Giá', message: `Gửi ZNS Báo giá đến khách hàng ${custName} (${phone})?` })) return;
-    }
-
-    await sendZnsAndToast({
-      entityId: drawerQuotation.id,
-      entityType: 'QUOTATION',
-      messageType: ZnsMessageType.BAOGIA,
-      phone: phone,
-      payload: {
-        ...drawerQuotation,
-        customerId: drawerQuotation.customerId || parentCust?.id || parentCust?.maKh,
-        tenKhachHang: drawerQuotation.tenKhachHang || parentCust?.tenKhachHang || custName,
-        tenZns: znsCustName || custName,
-        ten_zns: znsCustName || custName,
-        customer_name: znsCustName || custName,
-        nguoiPhuTrach: drawerQuotation.nguoiPhuTrach ? drawerQuotation.nguoiPhuTrach.replace(/\s*\(.*?\)\s*/g, ' ').slice(0, 30).trim() : 'Ngô Vương Thông',
-        nguoi_phu_trach: drawerQuotation.nguoiPhuTrach ? drawerQuotation.nguoiPhuTrach.replace(/\s*\(.*?\)\s*/g, ' ').slice(0, 30).trim() : 'Ngô Vương Thông',
-        sdt: phone,
-        phone: phone,
-        soPhieuBaoGia: drawerQuotation.soPhieuBaoGia || drawerQuotation.maBaoGia || drawerQuotation.id
-      },
-      attemptBucket: nextAttempt(drawerQuotation.trangThaiGuiTinBaoGia || undefined),
-      userRole: userData?.role,
-      forceResend: isResend
+    setZnsPreviewQuotation({
+      quotation: drawerQuotation,
+      customer: parentCust,
+      phone: phone || availableMobiles[0]?.cleaned || '',
+      availablePhones: availableMobiles.map((m, idx) => ({
+        phone: m.cleaned,
+        label: `${m.formatted} (${m.carrier || 'Di động'})`,
+        isPrimary: idx === 0
+      }))
     });
-  }, [drawerQuotation, drawerCustomer, allCustomers, confirm, userData]);
+  }, [drawerQuotation, drawerCustomer, allCustomers]);
 
   return {
     handleSendQuotationZns,
     handleDeleteQuotation,
     handleSaveQuotation,
     handleDrawerSendZns,
+    znsPreviewQuotation,
+    setZnsPreviewQuotation,
     blockingModalState,
     closeBlockingModal
   };

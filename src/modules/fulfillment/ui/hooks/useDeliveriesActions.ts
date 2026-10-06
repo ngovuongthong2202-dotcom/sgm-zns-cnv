@@ -17,6 +17,7 @@ import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
 import { auditLogsRepo } from '@/src/data/repositories/system.repo';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { resolveDeliverySourceDocument } from '../utils/deliverySourceResolver';
+import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
 export function useDeliveriesActions(
   createDelivery: (data: Delivery) => Promise<string>,
@@ -297,50 +298,63 @@ export function useDeliveriesActions(
      }
   };
 
-  const handleSendZns = useCallback(async (del: Delivery, templateCode: 'GIAOHANG_ZNS' | 'GIAOHANG_HOANTAT' = 'GIAOHANG_ZNS') => {
+  const [znsPreviewDelivery, setZnsPreviewDelivery] = useState<{
+    delivery: Delivery;
+    customer?: any;
+    phone?: string;
+    messageType: string;
+    subtype: string;
+    availablePhones?: Array<{ phone: string; label?: string; isPrimary?: boolean }>;
+  } | null>(null);
+
+  const handleSendZns = useCallback(async (del: Delivery, templateCode: 'GIAOHANG_ZNS' | 'GIAOHANG_HOANTAT' | 'GIAOHANG_BAOHANH' = 'GIAOHANG_ZNS') => {
      let phone = del.sdt;
      let customerName = del.tenKhachHang;
+     let cSnap: any = null;
      
-     if (!phone && del.customerId) {
-       const cSnap = await customerRepo.getById(del.customerId);
+     if (del.customerId) {
+       cSnap = await customerRepo.getById(del.customerId);
        if (cSnap) {
-         const cData = cSnap;
-         phone = cData.sdt || (cData as any).soDienThoai || cData.contacts?.[0]?.sdt;
-         customerName = customerName || cData.tenKhachHang;
+         phone = phone || cSnap.sdt || (cSnap as any).soDienThoai || cSnap.contacts?.[0]?.sdt;
+         customerName = customerName || cSnap.tenKhachHang;
        }
      }
      
-     if (!phone) { notify.error("Khách hàng thiếu SĐT"); return; }
+     const rawPhonesPool = [
+       del.sdt,
+       cSnap?.sdt,
+       cSnap?.sdtPhu,
+       cSnap?.soZaloMacDinh,
+       ...(Array.isArray(cSnap?.danhSachSdt) ? cSnap.danhSachSdt : []),
+       ...(Array.isArray(cSnap?.contacts) ? cSnap.contacts.map((ct: any) => ct?.sdt) : [])
+     ].filter(Boolean).join(' ');
 
-     // Kiểm tra gửi lại nếu đã gửi thành công trước đó
-     const duplicateCheck = checkZnsResendAllowed(del as any, phone, userRole);
-     const isResend = Boolean(duplicateCheck.isAlreadySent);
-     const textTemplateLabel = templateCode === ZnsMessageType.GIAOHANG_ZNS ? 'CẬP NHẬT GIAO HÀNG (ZNS)' : 'HOÀN TẤT (GIAOHANG_HOANTAT)';
-
-     if (isResend) {
-       const confirmResend = await confirm({
-         title: 'Xác nhận gửi lại ZNS Giao Hàng',
-         message: `Phiếu giao hàng ${del.deliveryId || del.id} đã từng được gửi ZNS trước đó. Bạn có chắc chắn muốn gửi lại tin nhắn Zalo ${textTemplateLabel} cho khách hàng ${customerName || ''} (${phone}) không?`,
-         variant: 'info',
-         confirmText: 'Gửi lại ZNS',
-         cancelText: 'Hủy bỏ'
-       });
-       if (!confirmResend) return;
-     } else {
-       if (!await confirm({ title: `Gửi ZNS Giao Hàng`, message: `Gửi tin Zalo ${textTemplateLabel} đến số ${phone} của ${customerName || ''}?` })) return;
-     }
-     
-     await sendZnsAndToast({
-        entityId: del.id!, 
-        entityType: 'DELIVERY', 
-        messageType: templateCode, 
-        phone: phone, 
-        payload: { ...del } as Record<string, unknown>,
-        attemptBucket: nextAttempt(del.trangThaiGuiTinGiaoHang as string | undefined),
-        userRole,
-        forceResend: isResend
+     const extracted = extractVietnamesePhones(rawPhonesPool, del.diaChiGiaoHang || del.diaChi || cSnap?.diaChi);
+     const availableMobiles: Array<{ cleaned: string; formatted: string; carrier?: string }> = [];
+     const seenMob = new Set<string>();
+     extracted.mobilePhones.forEach(m => {
+       if (!seenMob.has(m.cleaned)) {
+         seenMob.add(m.cleaned);
+         availableMobiles.push(m);
+       }
      });
-  }, [confirm, userRole]);
+
+     const targetPhone = phone || availableMobiles[0]?.cleaned || '';
+     const targetSubtype = templateCode === 'GIAOHANG_HOANTAT' || templateCode === ZnsMessageType.GIAOHANG_BAOHANH ? 'GIAOHANG_BAOHANH' : 'GIAOHANG_ZNS';
+
+     setZnsPreviewDelivery({
+       delivery: del,
+       customer: cSnap,
+       phone: targetPhone,
+       messageType: templateCode,
+       subtype: targetSubtype,
+       availablePhones: availableMobiles.map((m, idx) => ({
+         phone: m.cleaned,
+         label: `${m.formatted} (${m.carrier || 'Di động'})`,
+         isPrimary: idx === 0
+       }))
+     });
+  }, []);
 
   // Action cancel delivery with explanation/reason
   const handleCancelDelivery = useCallback(async (del: Delivery, reason: string) => {
@@ -616,6 +630,8 @@ export function useDeliveriesActions(
     handleMarkDelivered,
     onCompleteDeliverySubmit,
     handleSendZns,
+    znsPreviewDelivery,
+    setZnsPreviewDelivery,
     handleCancelDelivery,
     handleReschedule,
     handleSaveDelivery,

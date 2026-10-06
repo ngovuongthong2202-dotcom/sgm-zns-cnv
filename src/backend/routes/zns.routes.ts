@@ -9,6 +9,7 @@ import { multiProviderZnsVendor as znsVendor } from '../../modules/messaging/inf
 import { zaloTokenManager } from '../services/zns/zalo-token-manager.service';
 import { bulkEnqueueHelper } from '../services/zns/outbound-helpers';
 import '../../modules/messaging/application/handlers/EntityEventsHandler';
+import { ZBS_TEMPLATE_REGISTRY } from '../../domain/constants/zbs-template.registry';
 
 const router = Router();
 const sendZnsUseCase = new SendZnsMessageUseCase(znsRepository, znsVendor);
@@ -71,6 +72,11 @@ router.use((req, res, next) => {
     }
   }
   next();
+});
+
+// Live ZBS Template Catalog API
+router.get('/templates/catalog', (req, res) => {
+  return res.json({ success: true, templates: ZBS_TEMPLATE_REGISTRY });
 });
 
 // Dedicated Vault API: GET ZNS Configuration

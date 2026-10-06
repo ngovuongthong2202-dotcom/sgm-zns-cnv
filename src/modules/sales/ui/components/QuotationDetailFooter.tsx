@@ -76,12 +76,13 @@ export function QuotationDetailFooter({
           aria-label="Trình gửi Zalo" 
           variant="primary"
           size="sm"
-          className="px-5 h-9 font-bold text-xs"
+          className="px-4 h-9 font-bold text-xs flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer"
           onClick={handleSendZnsWithLock}
           disabled={isZnsLocked}
           leftIcon={<Send size={12} />}
         >
-          {isZnsLocked ? 'Đang gửi...' : 'Gửi ZNS'}
+          <span>{isZnsLocked ? 'Đang gửi...' : 'Gửi ZNS'}</span>
+          <span className="text-3xs font-mono px-1.5 py-0.5 rounded-full bg-blue-500/30 text-blue-100 border border-blue-400/30">#533064</span>
         </Button>
 
         <span className="w-px h-4 bg-slate-200 mx-1"></span>
