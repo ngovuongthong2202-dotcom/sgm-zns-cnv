@@ -142,3 +142,18 @@ export function resolveZaloError(rawInput: unknown): {
     rawMessage: rawStr
   };
 }
+
+export function translateZaloError(code: number | string, defaultMsg?: string): { explanation: string; actionGuide: string } {
+  const codeStr = String(code);
+  const found = ZALO_ERROR_MAP[codeStr];
+  if (found) {
+    return {
+      explanation: found.vietnameseReason,
+      actionGuide: found.actionGuide
+    };
+  }
+  return {
+    explanation: defaultMsg || 'Lỗi xử lý yêu cầu Zalo OpenAPI',
+    actionGuide: 'Kiểm tra tài khoản Zalo Cloud hoặc liên hệ ban quản trị.'
+  };
+}

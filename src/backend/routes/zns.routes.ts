@@ -5,7 +5,8 @@ import { adminDb } from '../config/supabase.admin';
 import { ZnsMessage } from '../../domain/schema/workflow.schema';
 import { SendZnsMessageUseCase } from '../../modules/messaging/application/use-cases/SendZnsMessage';
 import { znsRepository } from '../../modules/messaging/infrastructure/ZnsRepoSupabase';
-import { znsVendor } from '../../modules/messaging/infrastructure/CnvZnsVendor';
+import { multiProviderZnsVendor as znsVendor } from '../../modules/messaging/infrastructure/MultiProviderZnsVendor';
+import { zaloTokenManager } from '../services/zns/zalo-token-manager.service';
 import { bulkEnqueueHelper } from '../services/zns/outbound-helpers';
 import '../../modules/messaging/application/handlers/EntityEventsHandler';
 
@@ -17,6 +18,43 @@ import { resilientFetch } from '../lib/resilient-transport';
 // Modern unified endpoint for vendor webhook results
 router.post('/vendor-webhook/zns-result', (req, res) => vendorWebhookHandler.handleResult(req, res));
 router.post('/webhook/cnv', (req, res) => vendorWebhookHandler.handleResult(req, res));
+router.post('/webhook/zalo-official', (req, res) => vendorWebhookHandler.handleResult(req, res));
+
+// Endpoint for testing connection to Zalo OpenAPI direct
+router.post('/test-zalo-direct', async (req, res) => {
+  try {
+    const creds = await zaloTokenManager.getCredentials();
+    const appId = req.body?.appId || creds.appId;
+    const secretKey = req.body?.secretKey || creds.secretKey;
+    const oaId = req.body?.oaId || creds.oaId;
+
+    if (!appId || !secretKey) {
+      return res.status(400).json({
+        success: false,
+        error: 'Chưa cấu hình App ID và Secret Key của Zalo App trong Cài đặt.'
+      });
+    }
+
+    const token = await zaloTokenManager.getValidAccessToken();
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        error: 'Không thể cấp phát Access Token. Hãy kiểm tra lại Refresh Token hoặc phân quyền OA trong Zalo Developer Console.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Kết nối Zalo Cloud OpenAPI thành công! Access Token hợp lệ sẵn sàng gửi tin.',
+      oaId: oaId || 'ZBS-OA'
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: `Lỗi kiểm tra kết nối Zalo OpenAPI: ${err.message || String(err)}`
+    });
+  }
+});
 
 // Endpoint for testing connection to vendor webhook
 router.post('/test-webhook-dryrun', async (req, res) => {

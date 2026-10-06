@@ -271,3 +271,42 @@ export function validateShipmentQuantities(
 
   return { valid: true };
 }
+
+/**
+ * Trích xuất danh sách các phiếu giao hàng liên kết hợp lệ cho một Hợp đồng cụ thể.
+ * Áp dụng Sovereign Customer Isolation & Primary Key Priority.
+ */
+export function getLinkedDeliveriesForContract(
+  contract: any,
+  deliveries: any[] = []
+): any[] {
+  if (!contract || !Array.isArray(deliveries)) return [];
+  const cId = contract.id ? String(contract.id).trim().toLowerCase() : '';
+  const cSoHD = contract.soHopDong ? String(contract.soHopDong).trim().toLowerCase() : '';
+
+  return deliveries.filter(d => {
+    if (!d) return false;
+    const dAny = d as any;
+    if (dAny.deletedAt || dAny.deleted_at || dAny.isDeleted) return false;
+    if (isDeliveryCancelled(d.tinhTrangGiaoHang || dAny.status)) return false;
+
+    // NEXUS Pillar: Strict Customer Isolation - Tuyệt đối không gom phiếu giao hàng của khách hàng khác
+    if (!isReconcilerCustomerCompatible(contract, d)) {
+      return false;
+    }
+
+    const dContractId = d.contractId ? String(d.contractId).trim().toLowerCase() : (dAny.contract_id ? String(dAny.contract_id).trim().toLowerCase() : '');
+    const dSoHopDong = d.soHopDong ? String(d.soHopDong).trim().toLowerCase() : (dAny.contractCode ? String(dAny.contractCode).trim().toLowerCase() : '');
+
+    // NEXUS Pillar: Primary Key Priority - Nếu phiếu có contractId rõ ràng, bắt buộc phải khớp ID hợp đồng
+    if (dContractId) {
+      return (cId && dContractId === cId) || (cSoHD && dContractId === cSoHD);
+    }
+
+    // Secondary fallback: Chỉ đối chiếu số hợp đồng khi phiếu giao hàng chưa gán contractId cụ thể
+    return Boolean(
+      (cSoHD && dSoHopDong === cSoHD) ||
+      (cId && dSoHopDong === cId)
+    );
+  });
+}

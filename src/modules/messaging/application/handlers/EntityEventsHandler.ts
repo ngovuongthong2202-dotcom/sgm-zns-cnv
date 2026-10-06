@@ -2,7 +2,7 @@ import { eventBus } from '../../../../platform/events/EventBus';
 import { DomainEvent } from '../../../../platform/domain/DomainEvent';
 import { SendZnsMessageUseCase } from '../use-cases/SendZnsMessage';
 import { znsRepository } from '../../infrastructure/ZnsRepoSupabase';
-import { znsVendor } from '../../infrastructure/CnvZnsVendor';
+import { multiProviderZnsVendor as znsVendor } from '../../infrastructure/MultiProviderZnsVendor';
 import { adminDb } from '../../../../backend/config/supabase.admin';
 
 export class EntityEventsHandler {

@@ -2,7 +2,7 @@ import { adminDb } from '../../config/supabase.admin';
 import { logger } from '../../lib/logger';
 import { SendZnsMessageUseCase } from '../../../modules/messaging/application/use-cases/SendZnsMessage';
 import { znsRepository } from '../../../modules/messaging/infrastructure/ZnsRepoSupabase';
-import { znsVendor } from '../../../modules/messaging/infrastructure/CnvZnsVendor';
+import { multiProviderZnsVendor as znsVendor } from '../../../modules/messaging/infrastructure/MultiProviderZnsVendor';
 import {
   syncCustomerSnapshots,
   cleanupExpiredLocks

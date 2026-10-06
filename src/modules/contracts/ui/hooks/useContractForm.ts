@@ -36,9 +36,9 @@ export function useContractForm(
   const { draft, saveDraft, clearDraft, lastSavedAt } = useDraft<Contract>('contracts', scopedDraftKey);
 
   const initialFormValues = useMemo(() => {
-    const base = getInitialContractFormValues(contract, draft);
+    const base = getInitialContractFormValues(contract, draft, contracts);
     return { ...base, nguoiPhuTrach: contract?.nguoiPhuTrach || draft?.nguoiPhuTrach || defaultOfficer };
-  }, [contract, draft, defaultOfficer]);
+  }, [contract, draft, defaultOfficer, contracts]);
 
   const { register, handleSubmit, watch, setValue, getValues, reset, formState: { errors, isSubmitting, isDirty } } = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -48,11 +48,11 @@ export function useContractForm(
   useEffect(() => {
     if (contract) {
       reset({
-        ...getInitialContractFormValues(contract, null),
+        ...getInitialContractFormValues(contract, null, contracts),
         nguoiPhuTrach: contract.nguoiPhuTrach || defaultOfficer
       });
     }
-  }, [contract, reset, defaultOfficer]);
+  }, [contract, reset, defaultOfficer, contracts]);
 
   const selectedQuoId = watch('quotationId');
   const products = watch('products') || [];
@@ -65,24 +65,26 @@ export function useContractForm(
     let isCancelled = false;
     if (!contract && !draft) {
       const currentCode = watch('soHopDong');
-      if (!currentCode) {
-        const fallbackCode = generateDeterministicNextCode('HD', contracts);
+      const fallbackCode = generateDeterministicNextCode('HD', contracts);
+      
+      // Nếu chưa có mã hoặc đang là mã khởi tạo mặc định, ưu tiên gán fallback tuần tự
+      if (!currentCode || currentCode === 'HD-2026-0001') {
         setValue('soHopDong', fallbackCode, { shouldValidate: true });
-
-        fetch('/api/workflow/next-code/contract', { method: 'POST' })
-          .then(res => res.json())
-          .then(data => {
-            if (!isCancelled && data.success && data.code) {
-              setValue('soHopDong', data.code, { shouldValidate: true });
-            }
-          })
-          .catch(() => {
-            // Giữ fallbackCode an toàn khi mất kết nối mạng
-          });
       }
+
+      fetch('/api/workflow/next-code/contract', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+          if (!isCancelled && data.success && data.code) {
+            setValue('soHopDong', data.code, { shouldValidate: true });
+          }
+        })
+        .catch(() => {
+          // Giữ fallbackCode an toàn khi mất kết nối mạng
+        });
     }
     return () => { isCancelled = true; };
-  }, [contract, draft, setValue, watch]);
+  }, [contract, draft, setValue, contracts]);
 
   useEffect(() => {
     if (prefillQuotation && !contract && !selectedQuoId && !draft) {

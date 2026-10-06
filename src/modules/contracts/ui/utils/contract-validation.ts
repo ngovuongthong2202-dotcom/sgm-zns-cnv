@@ -21,7 +21,7 @@ export async function validateContractSubmit({
   if (data.soHopDong && Array.isArray(allContracts)) {
     const normCode = (data.soHopDong || '').toString().trim().toUpperCase();
     const duplicate = allContracts.find((c: any) => {
-      if (contract && (c.id === contract.id || c.soHopDong === contract.soHopDong)) return false;
+      if (contract && c.id === contract.id) return false;
       const cCode = (c.soHopDong || c.so_hop_dong || c.maHopDong || '').toString().trim().toUpperCase();
       return cCode === normCode && !c.deletedAt && !c.deleted_at;
     });

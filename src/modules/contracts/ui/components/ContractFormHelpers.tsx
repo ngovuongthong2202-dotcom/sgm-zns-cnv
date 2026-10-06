@@ -21,7 +21,7 @@ export type FormValues = z.input<typeof FormSchema>;
 
 export const STEPS = ['Thông tin chung', 'Sản phẩm & Máy', 'Tài chính', 'Điều khoản', 'Xem trước'];
 
-export function getInitialContractFormValues(contract: any, draft: any): any {
+export function getInitialContractFormValues(contract: any, draft: any, contracts: any[] = []): any {
   const source = contract || draft;
   if (source) {
     const rawProducts = Array.isArray(source.products) ? source.products : [];
@@ -52,7 +52,7 @@ export function getInitialContractFormValues(contract: any, draft: any): any {
   return {
     trangThaiGuiTinHopDong: EntityZnsStatus.CHUA_GUI,
     ngayKy: new Date().toISOString().split('T')[0],
-    soHopDong: generateDeterministicNextCode('HD'),
+    soHopDong: generateDeterministicNextCode('HD', contracts),
     soNgayDuKienHoanThanh: 30,
     soNgayGiaHan: 0,
     lyDoGiaHan: '',

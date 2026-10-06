@@ -15,7 +15,8 @@ import { normalizeBusinessName, normalizePersonName, normalizeCode } from '@/src
 import { ContractHoverCard } from './components/ContractHoverCard';
 import { CurrencyCell } from '@/src/design-system/dataview/cells/CurrencyCell';
 import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
-import { reconcileContractFinancials } from '@/src/domain/services/financial-reconciler';
+import { reconcileContractFinancials, getLinkedPaymentsForContract } from '@/src/domain/services/financial-reconciler';
+import { getLinkedDeliveriesForContract } from '@/src/domain/services/delivery-reconciler';
 
 
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
@@ -283,8 +284,8 @@ export const getContractColumns = (
     cell: (info) => {
       const c = info.row.original;
       
-      const pays = payments.filter(p => p.contractId === c.id || p.contractId === c.soHopDong || (p as any).contractCode === c.soHopDong || p.soHopDong === c.soHopDong);
-      const dels = deliveries.filter(d => d.contractId === c.id || d.contractId === c.soHopDong || (d as any).contractCode === c.soHopDong || d.soHopDong === c.soHopDong);
+      const pays = getLinkedPaymentsForContract(c, payments);
+      const dels = getLinkedDeliveriesForContract(c, deliveries);
       
       const cProdList = Array.isArray(c.products) ? c.products : [];
       const prog = reconcileContractFinancials(c, payments);
@@ -366,7 +367,7 @@ export const getContractColumns = (
     size: 160,
     cell: (info) => {
       const c = info.row.original;
-      const dels = deliveries.filter(d => d.contractId === c.id || d.contractId === c.soHopDong || (d as any).contractCode === c.soHopDong || d.soHopDong === c.soHopDong);
+      const dels = getLinkedDeliveriesForContract(c, deliveries);
       const hasWaiver = dels.some((d: any) => d.dacCachGiaoTruoc || d.hinhThucThanhToan === 'GIAO_TRUOC_TT_SAU');
 
       const cProdList = Array.isArray(c.products) ? c.products : [];
@@ -393,13 +394,15 @@ export const getContractColumns = (
       const pct = totalContractQty > 0 ? Math.min(100, Math.round((totalDeliveredQty / totalContractQty) * 100)) : 0;
       const remainingQty = Math.max(0, totalContractQty - totalDeliveredQty);
       
-      const latestDelivery = dels
-        .filter((d: Delivery) => d.ngayGiaoThucTe)
-        .sort((a, b) => {
-          const strB = typeof b.ngayGiaoThucTe === 'string' ? b.ngayGiaoThucTe : (typeof (b.ngayGiaoThucTe as any)?.toDate === 'function' ? (b.ngayGiaoThucTe as any).toDate().toISOString() : String(b.ngayGiaoThucTe || ''));
-          const strA = typeof a.ngayGiaoThucTe === 'string' ? a.ngayGiaoThucTe : (typeof (a.ngayGiaoThucTe as any)?.toDate === 'function' ? (a.ngayGiaoThucTe as any).toDate().toISOString() : String(a.ngayGiaoThucTe || ''));
-          return strB.localeCompare(strA);
-        })[0];
+      const latestDelivery = totalDeliveredQty > 0
+        ? dels
+            .filter((d: Delivery) => d.ngayGiaoThucTe)
+            .sort((a, b) => {
+              const strB = typeof b.ngayGiaoThucTe === 'string' ? b.ngayGiaoThucTe : (typeof (b.ngayGiaoThucTe as any)?.toDate === 'function' ? (b.ngayGiaoThucTe as any).toDate().toISOString() : String(b.ngayGiaoThucTe || ''));
+              const strA = typeof a.ngayGiaoThucTe === 'string' ? a.ngayGiaoThucTe : (typeof (a.ngayGiaoThucTe as any)?.toDate === 'function' ? (a.ngayGiaoThucTe as any).toDate().toISOString() : String(a.ngayGiaoThucTe || ''));
+              return strB.localeCompare(strA);
+            })[0]
+        : null;
       
       let colorClass = 'bg-slate-200';
       if (pct === 100) colorClass = 'bg-emerald-500';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, FileText, CreditCard, Calendar, Loader2, CheckCircle2 } from 'lucide-react';
+import { Search, FileText, CreditCard, Calendar, Loader2, CheckCircle2, RefreshCw, AlertCircle } from 'lucide-react';
 import { resolveSalesOrderByContractNumber } from '@/src/modules/sales/domain/services/salesOrderErpBridgeService';
 import { QuotationSmartSearch } from '@/src/widgets/QuotationSmartSearch';
 import { formatDate } from '@/src/shared/utils/formatDate';
@@ -87,12 +87,39 @@ export function ContractBasisSection({
   );
 }
 
-export function ContractDefinitionSection({ register, setValue, errors, estimatedCompletionDate, nguoiPhuTrachList, businessLock, watch }: any) {
+export function ContractDefinitionSection({ register, setValue, errors, estimatedCompletionDate, nguoiPhuTrachList, businessLock, watch, contracts, contract }: any) {
   const { user, userData } = useAuth();
   const isAdmin = isAdministratorRole(userData, user);
   const { handleBlurUppercase, handleBlurTrim } = useSmartFormInput();
   const [isLookingUpErpOrder, setIsLookingUpErpOrder] = React.useState(false);
   const [matchedOrderNotice, setMatchedOrderNotice] = React.useState<string | null>(null);
+  const [isGeneratingCode, setIsGeneratingCode] = React.useState(false);
+
+  const currentSoHopDong = (watch('soHopDong') || '').toString().trim();
+  const duplicateContract = React.useMemo(() => {
+    if (!currentSoHopDong || !Array.isArray(contracts)) return null;
+    const norm = currentSoHopDong.toUpperCase();
+    return contracts.find((c: any) => {
+      if (contract && (c.id === contract.id || c.soHopDong === contract.soHopDong)) return false;
+      const cCode = (c.soHopDong || c.maHopDong || c.so_hop_dong || '').toString().trim().toUpperCase();
+      return cCode === norm && !c.deletedAt && !c.deleted_at;
+    });
+  }, [currentSoHopDong, contracts, contract]);
+
+  const handleGenerateNextCode = React.useCallback(async () => {
+    setIsGeneratingCode(true);
+    try {
+      const res = await fetch('/api/workflow/next-code/contract', { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.code) {
+        setValue?.('soHopDong', data.code, { shouldDirty: true, shouldValidate: true });
+      }
+    } catch {
+      // Ignore network glitch
+    } finally {
+      setIsGeneratingCode(false);
+    }
+  }, [setValue]);
 
   const handleContractBlur = React.useCallback(async (val: string) => {
     setValue?.('soHopDong', val, { shouldDirty: true });
@@ -131,24 +158,44 @@ export function ContractDefinitionSection({ register, setValue, errors, estimate
             <label className="text-2xs font-medium uppercase tracking-wide text-slate-500">
               Số Hợp Đồng <span className="text-red-650">*</span>
             </label>
-            {isLookingUpErpOrder && (
-              <span className="text-3xs text-blue-600 flex items-center gap-1 font-semibold">
-                <Loader2 className="animate-spin" size={10} /> Đang dò ERP...
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {isLookingUpErpOrder && (
+                <span className="text-3xs text-blue-600 flex items-center gap-1 font-semibold">
+                  <Loader2 className="animate-spin" size={10} /> Đang dò ERP...
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleGenerateNextCode}
+                disabled={businessLock.locked || isGeneratingCode}
+                title="Lấy số HĐ kế tiếp tự động từ máy chủ"
+                className="text-3xs text-blue-600 hover:text-blue-800 disabled:opacity-50 flex items-center gap-1 font-semibold transition-colors"
+              >
+                <RefreshCw size={10} className={isGeneratingCode ? "animate-spin" : ""} />
+                <span>Sinh mã mới</span>
+              </button>
+            </div>
           </div>
-          <input 
-            aria-label="Số Hợp Đồng" 
-            disabled={businessLock.locked} 
-            {...register('soHopDong')} 
-            onBlur={(e) => handleBlurUppercase(e, handleContractBlur)}
-            className="premium-input w-full font-mono font-bold text-slate-900 h-8 rounded-lg border border-slate-200 px-3 text-sm focus:border-slate-950 outline-none bg-white disabled:bg-slate-100 disabled:opacity-75" 
-            placeholder="Ví dụ: 244/SC-SGM/2026..." 
-          />
+          <div className="relative">
+            <input 
+              aria-label="Số Hợp Đồng" 
+              disabled={businessLock.locked} 
+              {...register('soHopDong')} 
+              onBlur={(e) => handleBlurUppercase(e, handleContractBlur)}
+              className={`premium-input w-full font-mono font-bold text-slate-900 h-8 rounded-lg border px-3 text-sm focus:border-slate-950 outline-none bg-white disabled:bg-slate-100 disabled:opacity-75 ${duplicateContract ? 'border-red-500 bg-red-50/20 text-red-700' : 'border-slate-200'}`} 
+              placeholder="Ví dụ: HD-2026-0140..." 
+            />
+          </div>
           {matchedOrderNotice && (
             <span className="text-3xs text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
               <CheckCircle2 size={10} /> {matchedOrderNotice}
             </span>
+          )}
+          {duplicateContract && (
+            <p className="text-red-600 text-2xs font-bold flex items-center gap-1 mt-1 bg-red-50 p-1.5 rounded border border-red-200">
+              <AlertCircle size={12} className="shrink-0" />
+              <span>Số HĐ &quot;{currentSoHopDong}&quot; đã tồn tại trên hệ thống (Khách hàng: {duplicateContract.tenKhachHang || 'khác'}). Vui lòng đổi số khác hoặc bấm &quot;Sinh mã mới&quot;!</span>
+            </p>
           )}
           {errors.soHopDong && <p className="text-red-600 text-xs font-medium mt-1">{errors.soHopDong.message as string}</p>}
         </div>

@@ -29,6 +29,7 @@ import { useContractsActions } from './hooks/useContractsActions';
 
 import { useSharedFields } from '@/src/hooks/useSharedFields';
 import { smartAllocateSerials } from '@/src/widgets/product-list-input/useProductItemSemantic';
+import { getLinkedDeliveriesForContract } from '@/src/domain/services/delivery-reconciler';
  
 
 import { ContractModalsContainer } from './components/ContractModalsContainer';
@@ -215,7 +216,7 @@ export default function ContractsFeature() {
   }, [setIsFormOpen]);
 
   const getRemainingProducts = (contract: Contract, deliveries: any[]) => {
-    const contractDels = deliveries.filter(d => d.contractId === contract.id || (d.soHopDong && contract.soHopDong && d.soHopDong.trim().toLowerCase() === contract.soHopDong.trim().toLowerCase()));
+    const contractDels = getLinkedDeliveriesForContract(contract, deliveries);
     const raw = (contract.products || []).map(p => {
       const delivered = contractDels.reduce((sum, d) => {
         if (Array.isArray(d.cacDotGiao) && d.cacDotGiao.length > 0) {

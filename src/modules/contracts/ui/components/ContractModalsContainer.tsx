@@ -14,6 +14,8 @@ import { repositoryFactory } from '@/src/data/repositories/factory';
 import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
 import { calculateMachineAllocation } from '@/src/shared/utils/voucherResolver';
 import { calculateActualMachineCount, smartAllocateSerials } from '@/src/widgets/product-list-input/useProductItemSemantic';
+import { getLinkedPaymentsForContract } from '@/src/domain/services/financial-reconciler';
+import { getLinkedDeliveriesForContract } from '@/src/domain/services/delivery-reconciler';
 
 const ContractFormModal = React.lazy(() => import('./ContractFormModal').then(m => ({ default: m.ContractFormModal })));
 const PaymentFormDrawer = React.lazy(() => import('@/src/modules/billing/ui/components/PaymentFormDrawer').then(m => ({ default: m.PaymentFormDrawer })));
@@ -96,10 +98,8 @@ export function ContractModalsContainer({
         onClose={() => setDrawerContract(null)}
         onEdit={(contract) => { setEditingContract(contract); setDrawerContract(null); setIsFormOpen(true); }}
         onCreatePayment={async (contract) => {
-          const existingPayment = (realtimePayments || []).find((p: any) => 
-            !p.deletedAt && !p.deleted_at && 
-            (p.contractId === contract.id || p.contractId === contract.soHopDong || p.contractCode === contract.soHopDong || p.soHopDong === contract.soHopDong)
-          );
+          const linkedPayments = getLinkedPaymentsForContract(contract, realtimePayments || []);
+          const existingPayment = linkedPayments[0];
           if (existingPayment) {
             notify.info(`Hợp đồng ${contract.soHopDong} đã có phiếu thanh toán (${existingPayment.paymentId}). Mỗi hợp đồng chỉ tạo 1 phiếu thu duy nhất!`);
             return;
@@ -110,28 +110,7 @@ export function ContractModalsContainer({
           setPrefillPaymentContract(contract);
         }}
         onCreateDelivery={async (contract) => {
-          const cId = (contract.id || '').trim().toLowerCase();
-          const cSoHopDong = (contract.soHopDong || '').trim().toLowerCase();
-          const cSoDonHang = (contract.soDonHang || '').trim().toLowerCase();
-          const cQuoId = (contract.quotationId || '').trim().toLowerCase();
-
-          const contractDeliveries = (realtimeDeliveries || []).filter((d: any) => {
-            if (!d || d.deletedAt || d.deleted_at || d.isDeleted) return false;
-            const status = (d.tinhTrangGiaoHang || d.status || '').toString().trim().toUpperCase();
-            if (status === 'HỦY' || status === 'HUY' || status === 'CANCELLED') return false;
-
-            const dContractId = (d.contractId || '').trim().toLowerCase();
-            const dSoHopDong = (d.soHopDong || d.contractCode || '').trim().toLowerCase();
-            const dSoDonHang = (d.soDonHang || '').trim().toLowerCase();
-            const dQuoId = (d.quotationId || '').trim().toLowerCase();
-
-            return (
-              (cId && (dContractId === cId || dContractId === cSoHopDong)) ||
-              (cSoHopDong && (dSoHopDong === cSoHopDong || dContractId === cSoHopDong || dSoHopDong === cId)) ||
-              (cSoDonHang && dSoDonHang && dSoDonHang === cSoDonHang) ||
-              (cQuoId && dQuoId && dQuoId === cQuoId)
-            );
-          });
+          const contractDeliveries = getLinkedDeliveriesForContract(contract, realtimeDeliveries || []);
 
           const allocGate = calculateMachineAllocation(contract, contractDeliveries);
           if (allocGate.isFullyAllocated) {
@@ -144,10 +123,8 @@ export function ContractModalsContainer({
             return;
           }
 
-          const linkedPayment = (realtimePayments || []).find((p: any) => 
-            !p.deletedAt && !p.deleted_at && 
-            (p.contractId === contract.id || p.contractId === contract.soHopDong || p.contractCode === contract.soHopDong || p.soHopDong === contract.soHopDong)
-          );
+          const linkedPayments = getLinkedPaymentsForContract(contract, realtimePayments || []);
+          const linkedPayment = linkedPayments[0];
 
           if (!linkedPayment) {
             // Nghiệp vụ bảo toàn Workflow: Kích hoạt Đặc cách Ban Giám Đốc (Giao trước - Thanh toán sau)
@@ -298,10 +275,8 @@ export function ContractModalsContainer({
       })()}
 
       {prefillDeliveryContract && (() => {
-        const linkedPayment = (realtimePayments || []).find((p: any) => 
-          !p.deletedAt && !p.deleted_at && 
-          (p.contractId === prefillDeliveryContract.id || p.contractId === prefillDeliveryContract.soHopDong || p.contractCode === prefillDeliveryContract.soHopDong || p.soHopDong === prefillDeliveryContract.soHopDong)
-        );
+        const linkedPayments = getLinkedPaymentsForContract(prefillDeliveryContract, realtimePayments || []);
+        const linkedPayment = linkedPayments[0];
         const effectivePaymentId = transitionPaymentInfo?.id || linkedPayment?.id || linkedPayment?.paymentId || '';
         const effectivePaymentCode = transitionPaymentInfo?.code || linkedPayment?.paymentId || '';
         const isDacCach = Boolean(
@@ -309,6 +284,8 @@ export function ContractModalsContainer({
           linkedPayment?.dacCachGiaoTruoc || 
           (linkedPayment?.tinhTrangThanhToan && String(linkedPayment.tinhTrangThanhToan).toLowerCase().includes('chưa'))
         );
+
+        const remainingProds = getRemainingProducts(prefillDeliveryContract, getLinkedDeliveriesForContract(prefillDeliveryContract, realtimeDeliveries || []));
 
         return (
           <Suspense fallback={<ModalSkeleton />}>
@@ -328,9 +305,9 @@ export function ContractModalsContainer({
                 soPhieuBaoGia: prefillDeliveryContract.soPhieuBaoGia,
                 ngayBaoGia: prefillDeliveryContract.ngayBaoGia,
                 giaTriHopDong: prefillDeliveryContract.totalAmount || 0,
-                products: getRemainingProducts(prefillDeliveryContract, (realtimeDeliveries || []).filter((d: any) => d.contractId === prefillDeliveryContract.id || d.soHopDong === prefillDeliveryContract.soHopDong)),
+                products: remainingProds,
                 danhSachMaMay: prefillDeliveryContract.danhSachMaMay || [],
-                slMay: calculateActualMachineCount(getRemainingProducts(prefillDeliveryContract, (realtimeDeliveries || []).filter((d: any) => d.contractId === prefillDeliveryContract.id || d.soHopDong === prefillDeliveryContract.soHopDong))) || 1,
+                slMay: calculateActualMachineCount(remainingProds) || 1,
                 nguoiPhuTrach: prefillDeliveryContract.nguoiPhuTrach || '',
                 diaChiGiaoHang: (prefillDeliveryContract as any).diaChiGiaoHang || (prefillDeliveryContract as any).diaChi || '',
                 nguoiLienHe: (prefillDeliveryContract as any).nguoiLienHe || (prefillDeliveryContract as any).nguoiDaiDien || '',

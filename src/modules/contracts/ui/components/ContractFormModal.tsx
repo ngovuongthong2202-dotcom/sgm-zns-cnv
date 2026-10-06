@@ -209,6 +209,8 @@ export function ContractFormModal({ contract, contracts, quotations, nguoiPhuTra
                 nguoiPhuTrachList={effectiveNguoiPhuTrachList}
                 businessLock={businessLock}
                 watch={watch}
+                contracts={contracts}
+                contract={contract}
               />
             </div>
 

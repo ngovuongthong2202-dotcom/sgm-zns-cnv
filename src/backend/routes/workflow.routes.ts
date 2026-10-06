@@ -149,9 +149,11 @@ router.post('/create/:entityType', async (req, res) => {
           .get();
         const existingDocs = dupSnap.docs.filter((d: any) => !d.data()?.deletedAt && d.id !== data.id);
         if (existingDocs.length > 0) {
-          const healedCode = await sequenceGeneratorService.getNextCode('contract', { year: validContractYear });
-          console.warn(`[WorkflowRoutes] Contract code collision for "${candidateContractCode}". Auto-healed to "${healedCode}".`);
-          data.soHopDong = healedCode;
+          const dupDoc = existingDocs[0].data();
+          const dupCustomer = dupDoc?.tenKhachHang || dupDoc?.customerId || 'khách hàng khác';
+          return res.status(409).json({ 
+            error: `Số hợp đồng "${candidateContractCode}" đã tồn tại trên hệ thống (của ${dupCustomer}). Vui lòng kiểm tra lại hoặc đổi số khác!` 
+          });
         }
       }
 
