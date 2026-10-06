@@ -58,6 +58,27 @@ export function normalizeLegacyStatus(legacy?: string | null): EntityZnsStatus {
   return ZnsStatusVO.fromString(legacy);
 }
 
+/**
+ * Kiểm tra trạng thái có phải là thành công hay không (hỗ trợ mọi biến thể có dấu, không dấu, uppercase, v.v.)
+ */
+export function isZnsSuccessStatus(status?: string | null): boolean {
+  if (!status) return false;
+  const normalized = normalizeLegacyStatus(status);
+  if (normalized === EntityZnsStatus.THANH_CONG) return true;
+  const s = String(status).toLowerCase().trim();
+  return (
+    s === 'success' ||
+    s === 'sent' ||
+    s === 'ok' ||
+    s === 'true' ||
+    s.includes('thành công') ||
+    s.includes('thanh_cong') ||
+    s.includes('thanh cong') ||
+    s.includes('đã gửi') ||
+    s.includes('da_gui')
+  );
+}
+
 export function getStatusBadgeMeta(legacyStatus?: string | null) {
   const status = normalizeLegacyStatus(legacyStatus);
   
