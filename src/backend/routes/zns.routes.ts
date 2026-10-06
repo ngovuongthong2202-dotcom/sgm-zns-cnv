@@ -53,23 +53,24 @@ function renderZaloVerificationHtml(code: string): string {
 }
 
 // 1. Zalo Domain & Webhook Verification Endpoints (Xác thực quyền sở hữu Webhook URL & Domain)
-router.get(['/webhook/zalo-official', '/webhook/zalo-official/'], async (req, res) => {
-  const code = await resolveZaloDomainVerificationCode();
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  return res.status(200).send(renderZaloVerificationHtml(code));
-});
-
-router.get(['/webhook/cnv', '/webhook/cnv/'], async (req, res) => {
-  const code = await resolveZaloDomainVerificationCode();
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  return res.status(200).send(renderZaloVerificationHtml(code));
-});
-
-// Universal file verifier: /zalo*.html và /*verification*.html
-router.get(['/zalo*.html', '/*zalo*.html', '/*verification*.html'], async (req, res) => {
-  const code = await resolveZaloDomainVerificationCode();
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  return res.status(200).send(renderZaloVerificationHtml(code));
+router.use((req, res, next) => {
+  if (req.method === 'GET') {
+    const p = (req.path || '').toLowerCase();
+    if (
+      p === '/webhook/zalo-official' ||
+      p === '/webhook/zalo-official/' ||
+      p === '/webhook/cnv' ||
+      p === '/webhook/cnv/' ||
+      (p.endsWith('.html') && (p.includes('zalo') || p.includes('verification')))
+    ) {
+      resolveZaloDomainVerificationCode().then(code => {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.status(200).send(renderZaloVerificationHtml(code));
+      }).catch(next);
+      return;
+    }
+  }
+  next();
 });
 
 // Dedicated Vault API: GET ZNS Configuration

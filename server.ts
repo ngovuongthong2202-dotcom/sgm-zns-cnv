@@ -75,10 +75,20 @@ async function startServer() {
 </body>
 </html>`;
 
-  app.get(['/zalo*.html', '/*zalo*.html', '/*verification*.html', '/webhook/zalo-official', '/webhook/zalo-official/'], (req, res) => {
-    const code = process.env.ZALO_DOMAIN_VERIFICATION_CODE?.trim() || 'NFEp0htcDovC-vigiCqADK7yswojYW5GC3Ot';
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.status(200).send(renderRootZaloVerification(code));
+  app.use((req, res, next) => {
+    if (req.method === 'GET') {
+      const p = (req.path || '').toLowerCase();
+      if (
+        p === '/webhook/zalo-official' ||
+        p === '/webhook/zalo-official/' ||
+        (p.endsWith('.html') && (p.includes('zalo') || p.includes('verification')))
+      ) {
+        const code = process.env.ZALO_DOMAIN_VERIFICATION_CODE?.trim() || 'NFEp0htcDovC-vigiCqADK7yswojYW5GC3Ot';
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.status(200).send(renderRootZaloVerification(code));
+      }
+    }
+    next();
   });
 
   app.use('/api/zns', znsRoutes);
