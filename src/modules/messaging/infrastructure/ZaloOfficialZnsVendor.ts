@@ -5,7 +5,7 @@ import { logger } from '../../../shared/lib/logger';
 import { resilientFetch } from '../../../backend/lib/resilient-transport';
 import { adminDb } from '../../../backend/config/supabase.admin';
 import { translateZaloError } from '../../../backend/services/zns/zalo-error-dictionary';
-import { sanitizeZnsCustomerName } from '../../../backend/services/zns/zns-payload.builder';
+import { sanitizeZnsCustomerName, sanitizeZnsPersonName } from '../../../backend/services/zns/zns-payload.builder';
 
 /**
  * Ánh xạ mặc định các loại tin nhắn SGM sang 6 Template ID đã được duyệt trên Zalo OA
@@ -53,34 +53,49 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       customerName = customerName.slice(0, 30).trim();
     }
 
-    return {
+    // 2. Nhận diện người phụ trách & nhân viên (Bắt buộc theo chuẩn Zalo: tối đa 30 ký tự, bóc tách chức danh trong ngoặc)
+    const rawOfficer = (p.nguoiPhuTrach || p.nhanVien || p.officer_name || 'Ngô Vương Thông').toString().trim();
+    const cleanOfficer = sanitizeZnsPersonName(rawOfficer);
+
+    // 3. Chuẩn hóa mã chứng từ (tối đa 30 ký tự)
+    const quotationCode = String(p.soPhieuBaoGia || p.maBaoGia || p.id || '---').slice(0, 30);
+    const contractCode = String(p.soHopDong || p.maHopDong || '---').slice(0, 30);
+    const orderCode = String(p.soDonHang || p.soHopDong || '---').slice(0, 30);
+    const paymentCode = String(p.soPhieuThu || p.paymentId || p.maThanhToan || '---').slice(0, 30);
+    const deliveryCode = String(p.soPhieuXuat || p.deliveryId || p.maGiaoHang || '---').slice(0, 30);
+    let machineList = String(p.danhSachMaMay || p.maMay || 'Thiết bị tiêu chuẩn').trim();
+    if (machineList.length > 100) {
+      machineList = machineList.slice(0, 97) + '...';
+    }
+
+    const templateData: Record<string, any> = {
       // 1. Nhận diện khách hàng (Bắt buộc theo chuẩn Zalo: tối đa 30 ký tự)
       customer_name: customerName,
       customer_phone: p.sdt || p.phone || '',
       phone: p.sdt || p.phone || '',
 
       // 2. Phân hệ Báo giá
-      so_phieu_bao_gia: p.soPhieuBaoGia || p.maBaoGia || p.id || '---',
-      quotation_code: p.soPhieuBaoGia || p.maBaoGia || p.id || '---',
+      so_phieu_bao_gia: quotationCode,
+      quotation_code: quotationCode,
       ngay_bao_gia: p.ngayBaoGia || dateFormatted,
       ngay_het_han: p.ngayHetHan || p.ngayHieuLuc || dateFormatted,
       sl_may: machineCountStr,
       machine_count: machineCountStr,
-      nguoi_phu_trach: p.nguoiPhuTrach || 'Ngô Vương Thông',
-      officer_name: p.nguoiPhuTrach || 'Ngô Vương Thông',
+      nguoi_phu_trach: cleanOfficer,
+      officer_name: cleanOfficer,
 
       // 3. Phân hệ Hợp đồng
-      so_hop_dong: p.soHopDong || p.maHopDong || '---',
-      contract_code: p.soHopDong || p.maHopDong || '---',
-      order_code: p.soDonHang || p.soHopDong || '---',
-      so_don_hang: p.soDonHang || p.soHopDong || '---',
+      so_hop_dong: contractCode,
+      contract_code: contractCode,
+      order_code: orderCode,
+      so_don_hang: orderCode,
       ngay_ky: p.ngayKy || dateFormatted,
       sign_date: p.ngayKy || dateFormatted,
-      so_phieu: p.soPhieuBaoGia || p.soHopDong || '---',
-      nhan_vien: p.nguoiPhuTrach || 'Ngô Vương Thông',
+      so_phieu: quotationCode || contractCode,
+      nhan_vien: cleanOfficer,
 
       // 4. Phân hệ Thanh toán
-      payment_code: p.soPhieuThu || p.paymentId || p.maThanhToan || '---',
+      payment_code: paymentCode,
       so_tien: moneyFormatted,
       so_tien_thanh_toan: moneyFormatted,
       total_amount: moneyFormatted,
@@ -90,17 +105,26 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       time: p.ngayThanhToan || dateFormatted,
 
       // 5. Phân hệ Giao hàng
-      so_phieu_xuat: p.soPhieuXuat || p.deliveryId || p.maGiaoHang || '---',
-      delivery_code: p.soPhieuXuat || p.deliveryId || p.maGiaoHang || '---',
+      so_phieu_xuat: deliveryCode,
+      delivery_code: deliveryCode,
       ngay_giao_may: p.ngayGiaoThucTe || p.ngayGiaoHang || dateFormatted,
       delivery_date: p.ngayGiaoThucTe || p.ngayGiaoHang || dateFormatted,
-      danh_sach_ma_may: p.danhSachMaMay || p.maMay || 'Thiết bị tiêu chuẩn',
-      dvt: p.dvt || 'Máy',
+      danh_sach_ma_may: machineList,
+      dvt: String(p.dvt || 'Máy').slice(0, 10),
       so_luong: machineCountStr,
 
-      // 6. Nhận diện công ty
-      company_name: 'Công ty TNHH Cơ Khí Công Nghiệp Sài Gòn (SGM)'
+      // 6. Nhận diện công ty (≤ 30 ký tự)
+      company_name: 'Cơ Khí Sài Gòn (SGM)'
     };
+
+    // Universal safety guardrail: Đảm bảo không biến văn bản nào vượt quá 30 ký tự (ngoại trừ danh sách máy & URLs)
+    for (const [key, val] of Object.entries(templateData)) {
+      if (typeof val === 'string' && key !== 'danh_sach_ma_may' && !key.includes('link') && !key.includes('url') && val.length > 30) {
+        templateData[key] = val.slice(0, 30).trim();
+      }
+    }
+
+    return templateData;
   }
 
   async send(message: ZnsMessageAggregate): Promise<{ trackingId: string; success: boolean; rawResponse: any; error?: string }> {

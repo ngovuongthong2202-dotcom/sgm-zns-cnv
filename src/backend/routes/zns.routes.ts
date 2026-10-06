@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { vendorWebhookHandler } from '../services/zns/vendor-webhook.handler';
-import { znsPayloadBuilder, sanitizeZnsCustomerName } from '../services/zns/zns-payload.builder';
+import { znsPayloadBuilder, sanitizeZnsCustomerName, sanitizeZnsPersonName } from '../services/zns/zns-payload.builder';
 import { adminDb } from '../config/supabase.admin';
 import { ZnsMessage } from '../../domain/schema/workflow.schema';
 import { SendZnsMessageUseCase } from '../../modules/messaging/application/use-cases/SendZnsMessage';
@@ -19,6 +19,58 @@ import { resilientFetch } from '../lib/resilient-transport';
 router.post('/vendor-webhook/zns-result', (req, res) => vendorWebhookHandler.handleResult(req, res));
 router.post('/webhook/cnv', (req, res) => vendorWebhookHandler.handleResult(req, res));
 router.post('/webhook/zalo-official', (req, res) => vendorWebhookHandler.handleResult(req, res));
+
+/**
+ * Helper trích xuất mã xác thực tên miền Zalo (3 tầng bảo vệ: Render Env -> DB Vault -> Fallback)
+ */
+async function resolveZaloDomainVerificationCode(): Promise<string> {
+  if (process.env.ZALO_DOMAIN_VERIFICATION_CODE) {
+    return process.env.ZALO_DOMAIN_VERIFICATION_CODE.trim();
+  }
+  try {
+    const doc = await adminDb.collection('settings').doc('zns_config').get();
+    if (doc.exists && doc.data()?.zaloDomainVerificationCode) {
+      return String(doc.data().zaloDomainVerificationCode).trim();
+    }
+  } catch {
+    // Fallback gracefully
+  }
+  return 'NFEp0htcDovC-vigiCqADK7yswojYW5GC3Ot';
+}
+
+function renderZaloVerificationHtml(code: string): string {
+  return `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="zalo-platform-site-verification" content="${code}" />
+  <title>Zalo Webhook Verification - SGM OS</title>
+</head>
+<body>
+  <p>Zalo Webhook Verification Endpoint Active - SGM OS</p>
+</body>
+</html>`;
+}
+
+// 1. Zalo Domain & Webhook Verification Endpoints (Xác thực quyền sở hữu Webhook URL & Domain)
+router.get(['/webhook/zalo-official', '/webhook/zalo-official/'], async (req, res) => {
+  const code = await resolveZaloDomainVerificationCode();
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.status(200).send(renderZaloVerificationHtml(code));
+});
+
+router.get(['/webhook/cnv', '/webhook/cnv/'], async (req, res) => {
+  const code = await resolveZaloDomainVerificationCode();
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.status(200).send(renderZaloVerificationHtml(code));
+});
+
+// Universal file verifier: /zalo*.html và /*verification*.html
+router.get(['/zalo*.html', '/*zalo*.html', '/*verification*.html'], async (req, res) => {
+  const code = await resolveZaloDomainVerificationCode();
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.status(200).send(renderZaloVerificationHtml(code));
+});
 
 // Dedicated Vault API: GET ZNS Configuration
 router.get('/config', async (req, res) => {
@@ -383,6 +435,18 @@ router.post('/send', async (req, res) => {
       resolvedZnsName = resolvedZnsName.slice(0, 30).trim();
     }
 
+    // Chuẩn hóa tên người phụ trách / nhân viên (bóc tách chức danh trong ngoặc)
+    const rawOfficer = String(
+      clientEntity.nguoiPhuTrach || 
+      dbEntity.nguoiPhuTrach || 
+      clientEntity.nhanVien || 
+      dbEntity.nhanVien || 
+      clientEntity.officer_name || 
+      dbEntity.officer_name || 
+      'Ngô Vương Thông'
+    ).trim();
+    const cleanOfficer = sanitizeZnsPersonName(rawOfficer);
+
     const mergedPayload: Record<string, unknown> = {
       ...parentCustomer,
       ...dbEntity,
@@ -393,6 +457,11 @@ router.post('/send', async (req, res) => {
       ten_zns: resolvedZnsName,
       tenKhachHang: rawLegalName || resolvedZnsName,
       customer_name: resolvedZnsName || rawLegalName.slice(0, 30),
+      nguoiPhuTrach: cleanOfficer,
+      nguoi_phu_trach: cleanOfficer,
+      nhanVien: cleanOfficer,
+      nhan_vien: cleanOfficer,
+      officer_name: cleanOfficer,
       customerId: clientEntity.customerId || dbEntity.customerId || (body.entityType === 'CUSTOMER' ? body.entityId : targetCustId),
       entityId: body.entityId,
       entityType: body.entityType,

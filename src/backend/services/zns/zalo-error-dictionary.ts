@@ -72,6 +72,40 @@ export const ZALO_ERROR_MAP: Record<string, ZaloErrorInfo> = {
   }
 };
 
+function extractBreaksMaxLengthField(msg: string): string | null {
+  if (!msg) return null;
+  const match = msg.match(/([a-zA-Z0-9_]+)\s+data\s+breaks\s+max\s+length/i) ||
+                msg.match(/breaks\s+max\s+length\s*[:\s]+([a-zA-Z0-9_]+)/i) ||
+                msg.match(/\[([a-zA-Z0-9_]+)\]\s+breaks\s+max\s+length/i);
+  return match ? (match[1] || match[2]) : null;
+}
+
+function getFieldLengthErrorInfo(field: string): { explanation: string; actionGuide: string } {
+  const lower = field.toLowerCase();
+  if (['nguoi_phu_trach', 'officer_name', 'nhan_vien'].includes(lower)) {
+    return {
+      explanation: 'Tên người phụ trách/nhân viên vượt quá độ dài tối đa cho phép của Zalo (tối đa 30 ký tự)',
+      actionGuide: 'Hệ thống đã tự động rút gọn và loại bỏ phần chức danh/phòng ban trong ngoặc đơn. Vui lòng kiểm tra lại họ tên nhân viên phụ trách.'
+    };
+  }
+  if (['customer_name', 'ten_khach_hang'].includes(lower)) {
+    return {
+      explanation: 'Tên khách hàng vượt quá độ dài tối đa cho phép của Zalo (tối đa 30 ký tự)',
+      actionGuide: 'Hệ thống đã tự động ưu tiên lấy trường "Chuẩn ZNS" (≤ 30 ký tự) từ hồ sơ khách hàng. Vui lòng kiểm tra lại trường "Chuẩn ZNS" trong hồ sơ khách hàng.'
+    };
+  }
+  if (['ma_don_hang', 'ma_hop_dong', 'so_bao_gia', 'so_phieu_bao_gia', 'ma_phieu'].includes(lower)) {
+    return {
+      explanation: 'Mã chứng từ/số phiếu vượt quá độ dài tối đa cho phép của Zalo (tối đa 30 ký tự)',
+      actionGuide: 'Kiểm tra và rút gọn mã chứng từ hoặc số phiếu dưới 30 ký tự.'
+    };
+  }
+  return {
+    explanation: `Tham số [${field}] vượt quá độ dài tối đa cho phép của Zalo (tối đa 30 ký tự)`,
+    actionGuide: `Vui lòng kiểm tra và rút gọn nội dung tham số [${field}] gửi lên Zalo ZNS.`
+  };
+}
+
 /**
  * Parses raw error text or object to extract Zalo error code and friendly explanation
  */
@@ -97,6 +131,18 @@ export function resolveZaloError(rawInput: unknown): {
 
   if (codeMatch) {
     const code = codeMatch[1] || codeMatch[0];
+    if (String(code) === '-1121' || rawStr.toLowerCase().includes('breaks max length')) {
+      const field = extractBreaksMaxLengthField(rawStr);
+      if (field) {
+        const customInfo = getFieldLengthErrorInfo(field);
+        return {
+          code: -1121,
+          reason: customInfo.explanation,
+          actionGuide: customInfo.actionGuide,
+          rawMessage: rawStr
+        };
+      }
+    }
     const info = ZALO_ERROR_MAP[code];
     if (info) {
       return {
@@ -110,6 +156,19 @@ export function resolveZaloError(rawInput: unknown): {
 
   // 2. Keyword matching fallbacks
   const lower = rawStr.toLowerCase();
+  if (lower.includes('breaks max length')) {
+    const field = extractBreaksMaxLengthField(rawStr);
+    if (field) {
+      const customInfo = getFieldLengthErrorInfo(field);
+      return {
+        code: -1121,
+        reason: customInfo.explanation,
+        actionGuide: customInfo.actionGuide,
+        rawMessage: rawStr
+      };
+    }
+  }
+
   if (lower.includes('not existed') || lower.includes('not exist') || lower.includes('chưa đăng ký')) {
     const info = ZALO_ERROR_MAP['-118'];
     return {
@@ -151,6 +210,15 @@ export function resolveZaloError(rawInput: unknown): {
 
 export function translateZaloError(code: number | string, defaultMsg?: string): { explanation: string; actionGuide: string } {
   const codeStr = String(code);
+  const msgStr = defaultMsg || '';
+
+  if (codeStr === '-1121' || msgStr.toLowerCase().includes('breaks max length')) {
+    const field = extractBreaksMaxLengthField(msgStr);
+    if (field) {
+      return getFieldLengthErrorInfo(field);
+    }
+  }
+
   const found = ZALO_ERROR_MAP[codeStr];
   if (found) {
     return {

@@ -164,6 +164,8 @@ export function useQuotationActions(
         tenZns: znsCustName || resolvedCustName,
         ten_zns: znsCustName || resolvedCustName,
         customer_name: znsCustName || resolvedCustName,
+        nguoiPhuTrach: q.nguoiPhuTrach ? q.nguoiPhuTrach.replace(/\s*\(.*?\)\s*/g, ' ').slice(0, 30).trim() : 'Ngô Vương Thông',
+        nguoi_phu_trach: q.nguoiPhuTrach ? q.nguoiPhuTrach.replace(/\s*\(.*?\)\s*/g, ' ').slice(0, 30).trim() : 'Ngô Vương Thông',
         sdt: phone,
         phone: phone,
         soPhieuBaoGia: q.soPhieuBaoGia || q.maBaoGia || q.id
@@ -370,6 +372,8 @@ export function useQuotationActions(
         tenZns: znsCustName || custName,
         ten_zns: znsCustName || custName,
         customer_name: znsCustName || custName,
+        nguoiPhuTrach: drawerQuotation.nguoiPhuTrach ? drawerQuotation.nguoiPhuTrach.replace(/\s*\(.*?\)\s*/g, ' ').slice(0, 30).trim() : 'Ngô Vương Thông',
+        nguoi_phu_trach: drawerQuotation.nguoiPhuTrach ? drawerQuotation.nguoiPhuTrach.replace(/\s*\(.*?\)\s*/g, ' ').slice(0, 30).trim() : 'Ngô Vương Thông',
         sdt: phone,
         phone: phone,
         soPhieuBaoGia: drawerQuotation.soPhieuBaoGia || drawerQuotation.maBaoGia || drawerQuotation.id

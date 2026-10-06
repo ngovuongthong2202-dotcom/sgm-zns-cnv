@@ -9,6 +9,7 @@ import { ContractSchema } from '../../../domain/schema/contract.schema';
 import { QuotationSchema } from '../../../domain/schema/quotation.schema';
 import { PaymentSchema } from '../../../domain/schema/payment.schema';
 import { DeliverySchema } from '../../../domain/schema/delivery.schema';
+import { sanitizeZnsCustomerName, sanitizeZnsPersonName } from './zns-payload.builder';
 
 export type AnyEntity = 
   | z.infer<typeof CustomerSchema>
@@ -266,7 +267,17 @@ export class TemplateRendererService {
         
         // Format value
         let formattedVal = this.formatValue(value, variable.format);
-        if (variable.name === 'customer_name' && formattedVal.length > 30) {
+        if (variable.name === 'customer_name' || variable.name === 'ten_khach_hang') {
+          formattedVal = sanitizeZnsCustomerName(formattedVal);
+          if (formattedVal.length > 30) {
+            formattedVal = formattedVal.slice(0, 30).trim();
+          }
+        } else if (['nguoi_phu_trach', 'nhan_vien', 'officer_name'].includes(variable.name)) {
+          formattedVal = sanitizeZnsPersonName(formattedVal);
+          if (formattedVal.length > 30) {
+            formattedVal = formattedVal.slice(0, 30).trim();
+          }
+        } else if (variable.name !== 'danh_sach_ma_may' && !variable.name.includes('link') && !variable.name.includes('url') && formattedVal.length > 30) {
           formattedVal = formattedVal.slice(0, 30).trim();
         }
         output[variable.name] = formattedVal;

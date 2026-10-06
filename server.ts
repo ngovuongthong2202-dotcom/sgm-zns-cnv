@@ -62,6 +62,25 @@ async function startServer() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  // Zalo Domain & Webhook Verification Mesh (Root level fallback)
+  const renderRootZaloVerification = (code: string) => `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="zalo-platform-site-verification" content="${code}" />
+  <title>Zalo Domain Verification - SGM OS</title>
+</head>
+<body>
+  <p>Zalo Domain Verification Active - SGM OS</p>
+</body>
+</html>`;
+
+  app.get(['/zalo*.html', '/*zalo*.html', '/*verification*.html', '/webhook/zalo-official', '/webhook/zalo-official/'], (req, res) => {
+    const code = process.env.ZALO_DOMAIN_VERIFICATION_CODE?.trim() || 'NFEp0htcDovC-vigiCqADK7yswojYW5GC3Ot';
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.status(200).send(renderRootZaloVerification(code));
+  });
+
   app.use('/api/zns', znsRoutes);
   app.use('/api/cron', cronRoutes);
   app.use('/api/workflow', workflowRoutes);

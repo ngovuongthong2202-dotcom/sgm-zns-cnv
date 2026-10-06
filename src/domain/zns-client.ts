@@ -369,6 +369,18 @@ export async function sendZnsAndToast(args: SendZnsArgs, label?: string) {
       if (!args.payload.sdt) args.payload.sdt = args.phone;
       if (!args.payload.phone) args.payload.phone = args.phone;
     }
+    // Universal client-side person name sanitization (strips '(IT - Administrator)', caps at 30 chars)
+    const cleanPerson = (val: unknown) => {
+      if (!val || typeof val !== 'string') return val;
+      const stripped = val.replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+      return stripped.length > 30 ? stripped.slice(0, 30).trim() : stripped;
+    };
+    if (args.payload.nguoiPhuTrach) args.payload.nguoiPhuTrach = cleanPerson(args.payload.nguoiPhuTrach);
+    if (args.payload.nguoi_phu_trach) args.payload.nguoi_phu_trach = cleanPerson(args.payload.nguoi_phu_trach);
+    if (args.payload.nhanVien) args.payload.nhanVien = cleanPerson(args.payload.nhanVien);
+    if (args.payload.nhan_vien) args.payload.nhan_vien = cleanPerson(args.payload.nhan_vien);
+    if (args.payload.officer_name) args.payload.officer_name = cleanPerson(args.payload.officer_name);
+
     const check = preCheckEntitySnapshot(args.entityType, args.payload, args.phone);
     if (!check.ok) {
       const tipMap: Record<string, string> = {
