@@ -3,10 +3,8 @@ import { notify } from '@/src/shared/utils/notify';
 import { Save, ShieldAlert, Check, Copy, Zap, Globe, Key, RefreshCw, HelpCircle, Send } from 'lucide-react';
 import { useAuth } from '@/src/modules/iam';
 import { Button } from '@/src/design-system/Button';
-import { settingsRepo } from '@/src/data/repositories';
 
 export default function VendorPage() {
-  const [znsConfigDoc, setZnsConfigDoc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   
@@ -15,7 +13,31 @@ export default function VendorPage() {
   const [copiedZaloCallback, setCopiedZaloCallback] = useState(false);
   const [testingCnv, setTestingCnv] = useState(false);
   const [testingZalo, setTestingZalo] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<'HYBRID' | 'ZALO_OFFICIAL' | 'CNV'>('HYBRID');
+
+  // Controlled Form State (Zero Data Loss)
+  const [formState, setFormState] = useState({
+    znsProvider: 'HYBRID',
+    zaloAppId: '',
+    zaloSecretKey: '',
+    zaloOaId: '',
+    zaloRefreshToken: '',
+    zaloAccessToken: '',
+    zaloTokenExpiresAt: 0,
+
+    vendorUrl_CUSTOMER_PRE_QUOTE: 'https://hub.cnvcdp.com/webhook/e2c1c68e-8075-424b-9bf0-c9061c51ce18-7409-678568754e04-a6dee0cb4',
+    vendorUrl_BAOGIA: 'https://hub.cnvcdp.com/webhook/5bf3fd76-9e8f-4008-b825-c4639fd43116-73ff-88325a7b35ed-e30f03fad',
+    vendorUrl_HOPDONG_SIGN_ZNS: 'https://hub.cnvcdp.com/webhook/70742289-f67f-4892-a3b9-b4eb28167d35-7bb9-b0be94c9a782-218e51587',
+    vendorUrl_THANH_TOAN_TAT_TOAN: 'https://hub.cnvcdp.com/webhook/d7e6345c-d732-4104-92d8-0e1930a12b6f-7cb1-6118d544b450-fc775af3d',
+    vendorUrl_THANH_TOAN_CONG_NO: 'https://hub.cnvcdp.com/webhook/d7e6345c-d732-4104-92d8-0e1930a12b6f-7cb1-6118d544b450-fc775af3d',
+    vendorUrl_GIAOHANG_ZNS: 'https://hub.cnvcdp.com/webhook/f795ffef-5d21-425d-8af9-b2361116961f-7362-d99b4e61a2a4-c5074e61b',
+    vendorUrl_GIAOHANG_HOANTAT: 'https://hub.cnvcdp.com/webhook/f795ffef-5d21-425d-8af9-b2361116961f-7362-d99b4e61a2a4-c5074e61b',
+    vendorWebhookSecret: '',
+    maxRetries: 3,
+    retryBackoffMs: 5000,
+    requireSecret: true,
+    isAsyncVendor: true,
+    templateStrictMode: true
+  });
 
   const copiedTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const cnvWebhookUrl = `${window.location.origin.replace('ais-dev', 'ais-pre')}/api/zns/vendor-webhook/zns-result`;
@@ -23,18 +45,28 @@ export default function VendorPage() {
 
   useEffect(() => {
     let mounted = true;
-    const unsub = settingsRepo.subscribeSettings<any>('zns_config', (data) => {
-      if (mounted) {
-        setZnsConfigDoc(data || {});
-        if (data?.znsProvider) {
-          setSelectedProvider(data.znsProvider);
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch('/api/zns/config');
+        const data = await res.json();
+        if (mounted && data?.success && data?.config) {
+          setFormState(prev => ({
+            ...prev,
+            ...data.config,
+            znsProvider: data.config.znsProvider || prev.znsProvider
+          }));
         }
-        setLoading(false);
+      } catch (err) {
+        console.error('[VendorPage] Lỗi đọc cấu hình ZNS từ Vault:', err);
+      } finally {
+        if (mounted) setLoading(false);
       }
-    });
+    };
+
+    fetchConfig();
     return () => {
       mounted = false;
-      unsub();
+      if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
     };
   }, []);
 
@@ -51,18 +83,10 @@ export default function VendorPage() {
     notify.info('Đã sao chép URL vào clipboard!');
   };
 
-  React.useEffect(() => {
-    return () => {
-      if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
-    };
-  }, []);
-
   const handleTestCnvWebhook = async () => {
     setTestingCnv(true);
     try {
-      const warmUpInput = document.getElementById('vendorUrl_CUSTOMER_PRE_QUOTE') as HTMLInputElement | null;
-      const quoteInput = document.getElementById('vendorUrl_BAOGIA') as HTMLInputElement | null;
-      const testUrl = warmUpInput?.value?.trim() || quoteInput?.value?.trim() || znsConfigDoc?.vendorUrl_CUSTOMER_PRE_QUOTE || znsConfigDoc?.vendorUrl_BAOGIA || '';
+      const testUrl = formState.vendorUrl_CUSTOMER_PRE_QUOTE || formState.vendorUrl_BAOGIA || '';
 
       const res = await fetch('/api/zns/test-webhook-dryrun', {
         method: 'POST',
@@ -84,20 +108,24 @@ export default function VendorPage() {
   const handleTestZaloDirect = async () => {
     setTestingZalo(true);
     try {
-      const appId = (document.getElementById('zaloAppId') as HTMLInputElement)?.value?.trim() || znsConfigDoc?.zaloAppId;
-      const secretKey = (document.getElementById('zaloSecretKey') as HTMLInputElement)?.value?.trim() || znsConfigDoc?.zaloSecretKey;
-      const oaId = (document.getElementById('zaloOaId') as HTMLInputElement)?.value?.trim() || znsConfigDoc?.zaloOaId;
-
       const res = await fetch('/api/zns/test-zalo-direct', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ appId, secretKey, oaId })
+        body: JSON.stringify({
+          appId: formState.zaloAppId,
+          secretKey: formState.zaloSecretKey,
+          oaId: formState.zaloOaId,
+          refreshToken: formState.zaloRefreshToken
+        })
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
         throw new Error(data?.error || `Lỗi HTTP ${res.status}`);
       }
       notify.success(data?.message || 'Kết nối thành công tới Zalo Cloud OpenAPI!');
+      if (data?.tokenExpiresAt) {
+        setFormState(prev => ({ ...prev, zaloTokenExpiresAt: data.tokenExpiresAt }));
+      }
     } catch (err: any) {
       notify.error(err instanceof Error ? err.message : String(err));
     } finally {
@@ -108,38 +136,20 @@ export default function VendorPage() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSaving(true);
-    const formData = new FormData(e.currentTarget);
-    
-    const newConfig = {
-      znsProvider: selectedProvider,
-      zaloAppId: formData.get('zaloAppId')?.toString()?.trim() || '',
-      zaloSecretKey: formData.get('zaloSecretKey')?.toString()?.trim() || '',
-      zaloOaId: formData.get('zaloOaId')?.toString()?.trim() || '',
-      zaloRefreshToken: formData.get('zaloRefreshToken')?.toString()?.trim() || '',
-      zaloAccessToken: formData.get('zaloAccessToken')?.toString()?.trim() || '',
-
-      vendorUrl_CUSTOMER_PRE_QUOTE: formData.get('vendorUrl_CUSTOMER_PRE_QUOTE')?.toString()?.trim() || '',
-      vendorUrl_BAOGIA: formData.get('vendorUrl_BAOGIA')?.toString()?.trim() || '',
-      vendorUrl_HOPDONG_SIGN_ZNS: formData.get('vendorUrl_HOPDONG_SIGN_ZNS')?.toString()?.trim() || '',
-      vendorUrl_THANH_TOAN_TAT_TOAN: formData.get('vendorUrl_THANH_TOAN_TAT_TOAN')?.toString()?.trim() || '',
-      vendorUrl_THANH_TOAN_CONG_NO: formData.get('vendorUrl_THANH_TOAN_CONG_NO')?.toString()?.trim() || '',
-      vendorUrl_GIAOHANG_ZNS: formData.get('vendorUrl_GIAOHANG_ZNS')?.toString()?.trim() || '',
-      vendorUrl_GIAOHANG_HOANTAT: formData.get('vendorUrl_GIAOHANG_HOANTAT')?.toString()?.trim() || '',
-      vendorWebhookSecret: formData.get('vendorWebhookSecret')?.toString()?.trim() || '',
-      maxRetries: parseInt(formData.get('maxRetries')?.toString() || '3', 10),
-      retryBackoffMs: parseInt(formData.get('retryBackoffMs')?.toString() || '5000', 10),
-      requireSecret: formData.get('requireSecret') === 'on',
-      isAsyncVendor: formData.get('isAsyncVendor') === 'on',
-      templateStrictMode: formData.get('templateStrictMode') === 'on',
-    };
-
     try {
-      await settingsRepo.setSettings('zns_config', {
-        ...newConfig,
-        updatedAt: new Date().toISOString(),
-        updatedBy: user?.uid || 'admin'
+      const res = await fetch('/api/zns/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formState,
+          updatedBy: user?.uid || 'admin'
+        })
       });
-      notify.success('Đã lưu cấu hình kênh gửi ZNS thành công');
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `Lỗi HTTP ${res.status}`);
+      }
+      notify.success('Đã lưu cấu hình kênh gửi ZNS thành công vào Vault!');
     } catch (err: any) { 
       notify.error('Lỗi lưu cấu hình: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
@@ -147,7 +157,11 @@ export default function VendorPage() {
     }
   };
 
-  if (loading) return <div className="p-8 text-slate-600 font-mono text-sm animate-pulse">Đang tải cấu hình ZNS...</div>;
+  const updateField = (field: string, value: any) => {
+    setFormState(prev => ({ ...prev, [field]: value }));
+  };
+
+  if (loading) return <div className="p-8 text-slate-600 font-mono text-sm animate-pulse">Đang tải cấu hình ZNS từ Vault...</div>;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -161,9 +175,9 @@ export default function VendorPage() {
       {/* Mode Selector Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div 
-          onClick={() => setSelectedProvider('HYBRID')}
+          onClick={() => updateField('znsProvider', 'HYBRID')}
           className={`cursor-pointer rounded-xl border p-4 transition-all ${
-            selectedProvider === 'HYBRID' 
+            formState.znsProvider === 'HYBRID' 
               ? 'border-blue-600 bg-blue-50/50 shadow-sm ring-1 ring-blue-600' 
               : 'border-slate-200 bg-white hover:border-slate-300'
           }`}
@@ -173,15 +187,15 @@ export default function VendorPage() {
             <h4 className="font-semibold text-sm text-slate-900">Đa Kênh (Hybrid - Khuyên dùng)</h4>
           </div>
           <p className="text-xs text-slate-600 leading-relaxed">
-            Ưu tiên gửi trực tiếp Zalo OpenAPI (nhanh & rõ mã lỗi). Tự động Fallback sang Webhook CNV nếu gặp sự cố.
+            Ưu tiên gửi trực tiếp Zalo OpenAPI (nhanh & rõ mã lỗi). Tự động Fallback sang Webhook CNV nếu gặp sự cố mạng.
           </p>
           <span className="inline-block mt-2 px-2 py-0.5 text-3xs font-semibold rounded bg-blue-100 text-blue-700">Tối ưu nhất</span>
         </div>
 
         <div 
-          onClick={() => setSelectedProvider('ZALO_OFFICIAL')}
+          onClick={() => updateField('znsProvider', 'ZALO_OFFICIAL')}
           className={`cursor-pointer rounded-xl border p-4 transition-all ${
-            selectedProvider === 'ZALO_OFFICIAL' 
+            formState.znsProvider === 'ZALO_OFFICIAL' 
               ? 'border-emerald-600 bg-emerald-50/50 shadow-sm ring-1 ring-emerald-600' 
               : 'border-slate-200 bg-white hover:border-slate-300'
           }`}
@@ -197,9 +211,9 @@ export default function VendorPage() {
         </div>
 
         <div 
-          onClick={() => setSelectedProvider('CNV')}
+          onClick={() => updateField('znsProvider', 'CNV')}
           className={`cursor-pointer rounded-xl border p-4 transition-all ${
-            selectedProvider === 'CNV' 
+            formState.znsProvider === 'CNV' 
               ? 'border-amber-600 bg-amber-50/50 shadow-sm ring-1 ring-amber-600' 
               : 'border-slate-200 bg-white hover:border-slate-300'
           }`}
@@ -248,7 +262,8 @@ export default function VendorPage() {
                   id="zaloAppId" 
                   name="zaloAppId" 
                   type="text" 
-                  defaultValue={znsConfigDoc?.zaloAppId || ''} 
+                  value={formState.zaloAppId} 
+                  onChange={e => updateField('zaloAppId', e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-lg px-3 h-8 text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" 
                   placeholder="VD: 31828392019283..." 
                 />
@@ -262,7 +277,8 @@ export default function VendorPage() {
                   id="zaloSecretKey" 
                   name="zaloSecretKey" 
                   type="password" 
-                  defaultValue={znsConfigDoc?.zaloSecretKey || ''} 
+                  value={formState.zaloSecretKey} 
+                  onChange={e => updateField('zaloSecretKey', e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-lg px-3 h-8 text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" 
                   placeholder="Khóa bí mật ứng dụng Zalo" 
                 />
@@ -276,7 +292,8 @@ export default function VendorPage() {
                   id="zaloOaId" 
                   name="zaloOaId" 
                   type="text" 
-                  defaultValue={znsConfigDoc?.zaloOaId || ''} 
+                  value={formState.zaloOaId} 
+                  onChange={e => updateField('zaloOaId', e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-lg px-3 h-8 text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" 
                   placeholder="VD: 4423859201..." 
                 />
@@ -290,7 +307,8 @@ export default function VendorPage() {
                   id="zaloRefreshToken" 
                   name="zaloRefreshToken" 
                   type="password" 
-                  defaultValue={znsConfigDoc?.zaloRefreshToken || ''} 
+                  value={formState.zaloRefreshToken} 
+                  onChange={e => updateField('zaloRefreshToken', e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-lg px-3 h-8 text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" 
                   placeholder="Mã Refresh Token để hệ thống tự cấp mới Access Token" 
                 />
@@ -298,11 +316,11 @@ export default function VendorPage() {
             </div>
 
             {/* Token Expiry Status */}
-            {znsConfigDoc?.zaloTokenExpiresAt && (
+            {formState.zaloTokenExpiresAt > 0 && (
               <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100 flex items-center justify-between text-xs text-emerald-800">
                 <span className="flex items-center gap-1.5">
                   <Check size={14} className="text-emerald-600" />
-                  Access Token đang hoạt động. Hạn tự động làm mới: <strong>{new Date(znsConfigDoc.zaloTokenExpiresAt).toLocaleString('vi-VN')}</strong>
+                  Access Token đang hoạt động. Hạn tự động làm mới: <strong>{new Date(formState.zaloTokenExpiresAt).toLocaleString('vi-VN')}</strong>
                 </span>
                 <span className="text-3xs bg-emerald-200 px-2 py-0.5 rounded font-mono">Tự động gia hạn PKCE</span>
               </div>
@@ -380,7 +398,8 @@ export default function VendorPage() {
                     id={item.key} 
                     name={item.key} 
                     type="url" 
-                    defaultValue={znsConfigDoc?.[item.key] || ''} 
+                    value={(formState as any)[item.key] || ''} 
+                    onChange={e => updateField(item.key, e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-lg px-3 h-8 text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow" 
                     placeholder="https://your-cnv-webhook-handler.com/path" 
                   />
@@ -399,31 +418,67 @@ export default function VendorPage() {
                   id="vendorWebhookSecret" 
                   name="vendorWebhookSecret" 
                   type="password"
-                  defaultValue={znsConfigDoc?.vendorWebhookSecret || ''}
+                  value={formState.vendorWebhookSecret}
+                  onChange={e => updateField('vendorWebhookSecret', e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-lg px-3 h-8 text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                 />
               </div>
               <div className="space-y-1.5">
                 <label htmlFor="maxRetries" className="text-2xs font-medium text-slate-500 uppercase tracking-wide">Số lần thử lại tối đa</label>
-                <input id="maxRetries" name="maxRetries" type="number" defaultValue={znsConfigDoc?.maxRetries || 3} className="w-full bg-white border border-slate-200 rounded-lg px-3 h-8 text-sm outline-none tabular-nums" />
+                <input 
+                  id="maxRetries" 
+                  name="maxRetries" 
+                  type="number" 
+                  value={formState.maxRetries} 
+                  onChange={e => updateField('maxRetries', parseInt(e.target.value || '0', 10))}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-3 h-8 text-sm outline-none tabular-nums" 
+                />
               </div>
               <div className="space-y-1.5">
                 <label htmlFor="retryBackoffMs" className="text-2xs font-medium text-slate-500 uppercase tracking-wide">Khoảng cách thử lại (ms)</label>
-                <input id="retryBackoffMs" name="retryBackoffMs" type="number" defaultValue={znsConfigDoc?.retryBackoffMs || 5000} className="w-full bg-white border border-slate-200 rounded-lg px-3 h-8 text-sm outline-none tabular-nums" />
+                <input 
+                  id="retryBackoffMs" 
+                  name="retryBackoffMs" 
+                  type="number" 
+                  value={formState.retryBackoffMs} 
+                  onChange={e => updateField('retryBackoffMs', parseInt(e.target.value || '0', 10))}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-3 h-8 text-sm outline-none tabular-nums" 
+                />
               </div>
             </div>
 
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
               <label className="flex items-center gap-2 cursor-pointer group">
-                <input aria-label="Tùy chọn" type="checkbox" name="templateStrictMode" className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 focus:ring-2" defaultChecked={znsConfigDoc?.templateStrictMode === true} />
+                <input 
+                  aria-label="Tùy chọn" 
+                  type="checkbox" 
+                  name="templateStrictMode" 
+                  className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 focus:ring-2" 
+                  checked={formState.templateStrictMode} 
+                  onChange={e => updateField('templateStrictMode', e.target.checked)}
+                />
                 <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">Strict Mode (Chặn gửi nếu thiếu biến Template)</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer group">
-                <input aria-label="Tùy chọn" type="checkbox" name="requireSecret" className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 focus:ring-2" defaultChecked={znsConfigDoc?.requireSecret !== false} />
+                <input 
+                  aria-label="Tùy chọn" 
+                  type="checkbox" 
+                  name="requireSecret" 
+                  className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 focus:ring-2" 
+                  checked={formState.requireSecret} 
+                  onChange={e => updateField('requireSecret', e.target.checked)}
+                />
                 <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">Xác thực chéo Header (Bắt buộc khớp Secret)</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer group">
-                <input aria-label="Tùy chọn" type="checkbox" name="isAsyncVendor" className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 focus:ring-2" defaultChecked={znsConfigDoc?.isAsyncVendor !== false} />
+                <input 
+                  aria-label="Tùy chọn" 
+                  type="checkbox" 
+                  name="isAsyncVendor" 
+                  className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 focus:ring-2" 
+                  checked={formState.isAsyncVendor} 
+                  onChange={e => updateField('isAsyncVendor', e.target.checked)}
+                />
                 <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">Async Pulse Mode (Xử lý bất đồng bộ - Make/CNV)</span>
               </label>
             </div>
@@ -433,7 +488,7 @@ export default function VendorPage() {
         {/* Sticky Action Bar */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-200 bg-white/95 backdrop-blur flex justify-between items-center rounded-b-xl z-10">
           <div className="text-xs text-slate-500">
-            Chế độ đang chọn: <strong className="text-blue-600 font-semibold">{selectedProvider}</strong>
+            Chế độ đang chọn: <strong className="text-blue-600 font-semibold">{formState.znsProvider}</strong>
           </div>
           <Button 
             aria-label="Lưu cấu hình" 

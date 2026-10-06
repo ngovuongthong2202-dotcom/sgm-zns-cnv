@@ -74,26 +74,31 @@ export class ZaloTokenManagerService {
    */
   public async getValidAccessToken(): Promise<string | null> {
     const creds = await this.getCredentials();
-
-    if (!creds.appId || !creds.secretKey) {
-      return null;
-    }
-
     const now = Date.now();
     const marginMs = 15 * 60 * 1000; // 15 phút an toàn
 
-    // Nếu access token còn hạn sử dụng
-    if (creds.accessToken && creds.tokenExpiresAt && creds.tokenExpiresAt - now > marginMs) {
+    // 1. Nếu access token còn hạn sử dụng an toàn (> 15 phút), dùng ngay không cần gọi Zalo
+    if (creds.accessToken && creds.tokenExpiresAt && (creds.tokenExpiresAt - now > marginMs)) {
       return creds.accessToken;
     }
 
-    // Nếu không có refresh token, không thể tự làm mới
+    // 2. Nếu thiếu App ID hoặc Secret Key nhưng access token vẫn chưa quá hạn, dùng tạm
+    if (!creds.appId || !creds.secretKey) {
+      if (creds.accessToken && (!creds.tokenExpiresAt || creds.tokenExpiresAt > now)) {
+        return creds.accessToken;
+      }
+      return creds.accessToken || null;
+    }
+
+    // 3. Nếu không có refresh token, không thể tự làm mới
     if (!creds.refreshToken) {
-      if (creds.accessToken) return creds.accessToken;
+      if (creds.accessToken && (!creds.tokenExpiresAt || creds.tokenExpiresAt > now)) {
+        return creds.accessToken;
+      }
       return null;
     }
 
-    // Khóa chống Race-Condition khi nhiều request cùng xin refresh đồng thời
+    // 4. Khóa chống Race-Condition khi nhiều request cùng xin refresh đồng thời
     if (this.inFlightRefreshPromise) {
       return this.inFlightRefreshPromise;
     }
@@ -150,6 +155,52 @@ export class ZaloTokenManagerService {
     } catch (err: any) {
       logger.error({ err }, '[ZaloTokenManager] Lỗi mạng khi gọi Zalo OAuth token endpoint');
       return creds.accessToken || null;
+    }
+  }
+
+  /**
+   * Gọi Zalo OAuth v4 để cấp mới Token với tham số truyền trực tiếp từ client (test connection)
+   */
+  public async refreshTokenDirect(appId: string, secretKey: string, refreshToken: string, oaId?: string): Promise<{ success: boolean; accessToken?: string; expiresAt?: number; error?: string }> {
+    try {
+      logger.info({ appId }, '[ZaloTokenManager] Xác thực & cấp mới Token Zalo trực tiếp...');
+      const response = await resilientFetch('https://oauth.zaloapp.com/v4/oa/access_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'secret_key': secretKey
+        },
+        body: new URLSearchParams({
+          app_id: appId,
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken
+        }).toString()
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data || data.error || !data.access_token) {
+        const errorMsg = data?.message || data?.error_description || (data?.error ? `Mã lỗi Zalo: ${data.error}` : 'Lỗi không xác định từ Zalo OAuth');
+        return { success: false, error: errorMsg };
+      }
+
+      const newAccessToken = data.access_token;
+      const newRefreshToken = data.refresh_token || refreshToken;
+      const expiresInSec = Number(data.expires_in) || 90000;
+      const newExpiresAt = Date.now() + (expiresInSec * 1000);
+
+      await this.saveCredentials({
+        appId,
+        secretKey,
+        oaId,
+        refreshToken: newRefreshToken,
+        accessToken: newAccessToken,
+        tokenExpiresAt: newExpiresAt
+      });
+
+      return { success: true, accessToken: newAccessToken, expiresAt: newExpiresAt };
+    } catch (err: any) {
+      return { success: false, error: err.message || String(err) };
     }
   }
 }

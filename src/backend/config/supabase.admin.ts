@@ -473,9 +473,23 @@ class DocRef {
       id: this.id
     };
 
-    // 1. Chỉ chèn data nếu bảng hỗ trợ cột JSONB data
+    // 1. Chỉ chèn data nếu bảng hỗ trợ cột JSONB data (hỗ trợ merge an toàn)
     if (!desc || desc.hasDataJsonb) {
-      payload.data = recordData;
+      if (options?.merge) {
+        try {
+          const { data: existing } = await supabaseAdmin
+            .from(tableName)
+            .select('data')
+            .eq('id', this.id)
+            .maybeSingle();
+          const existingData = (existing?.data as Record<string, unknown>) || {};
+          payload.data = { ...existingData, ...recordData };
+        } catch {
+          payload.data = recordData;
+        }
+      } else {
+        payload.data = recordData;
+      }
     }
 
     // 2. Chỉ chèn updated_at nếu bảng có cột updated_at

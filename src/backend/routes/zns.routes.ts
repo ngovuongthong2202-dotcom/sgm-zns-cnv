@@ -20,33 +20,73 @@ router.post('/vendor-webhook/zns-result', (req, res) => vendorWebhookHandler.han
 router.post('/webhook/cnv', (req, res) => vendorWebhookHandler.handleResult(req, res));
 router.post('/webhook/zalo-official', (req, res) => vendorWebhookHandler.handleResult(req, res));
 
+// Dedicated Vault API: GET ZNS Configuration
+router.get('/config', async (req, res) => {
+  try {
+    const doc = await adminDb.collection('settings').doc('zns_config').get();
+    const data = doc.exists ? doc.data() || {} : {};
+    return res.json({ success: true, config: data });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || String(err) });
+  }
+});
+
+// Dedicated Vault API: POST ZNS Configuration (Atomic Service Role Merge)
+router.post('/config', async (req, res) => {
+  try {
+    const newConfig = req.body || {};
+    const docRef = adminDb.collection('settings').doc('zns_config');
+    const updatePayload: Record<string, any> = {
+      ...newConfig,
+      updatedAt: new Date().toISOString()
+    };
+    await docRef.set(updatePayload, { merge: true });
+    return res.json({ success: true, message: 'Đã lưu cấu hình ZNS thành công!', config: updatePayload });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || String(err) });
+  }
+});
+
 // Endpoint for testing connection to Zalo OpenAPI direct
 router.post('/test-zalo-direct', async (req, res) => {
   try {
     const creds = await zaloTokenManager.getCredentials();
-    const appId = req.body?.appId || creds.appId;
-    const secretKey = req.body?.secretKey || creds.secretKey;
-    const oaId = req.body?.oaId || creds.oaId;
+    const appId = String(req.body?.appId || creds.appId || '').trim();
+    const secretKey = String(req.body?.secretKey || creds.secretKey || '').trim();
+    const oaId = String(req.body?.oaId || creds.oaId || '').trim();
+    const refreshToken = String(req.body?.refreshToken || creds.refreshToken || '').trim();
 
-    if (!appId || !secretKey) {
-      return res.status(400).json({
-        success: false,
-        error: 'Chưa cấu hình App ID và Secret Key của Zalo App trong Cài đặt.'
+    // 1. Nếu có đầy đủ appId, secretKey, refreshToken từ form hoặc DB, thực hiện refresh trực tiếp
+    if (appId && secretKey && refreshToken) {
+      const refreshResult = await zaloTokenManager.refreshTokenDirect(appId, secretKey, refreshToken, oaId);
+      if (!refreshResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: `Zalo từ chối cấp Token: ${refreshResult.error}. Vui lòng kiểm tra lại App ID, Secret Key hoặc Refresh Token.`
+        });
+      }
+      return res.json({
+        success: true,
+        message: 'Kết nối Zalo Cloud OpenAPI thành công! Access Token mới đã được cấp phát và lưu an toàn.',
+        oaId: oaId || 'ZBS-OA',
+        tokenExpiresAt: refreshResult.expiresAt
       });
     }
 
-    const token = await zaloTokenManager.getValidAccessToken();
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        error: 'Không thể cấp phát Access Token. Hãy kiểm tra lại Refresh Token hoặc phân quyền OA trong Zalo Developer Console.'
+    // 2. Nếu thiếu thông tin để refresh mới, kiểm tra xem đã có access token nào đang còn hạn không
+    const validToken = await zaloTokenManager.getValidAccessToken();
+    if (validToken) {
+      return res.json({
+        success: true,
+        message: 'Kết nối Zalo Cloud OpenAPI thành công! Access Token hiện tại đang còn hiệu lực.',
+        oaId: oaId || creds.oaId || 'ZBS-OA',
+        tokenExpiresAt: creds.tokenExpiresAt
       });
     }
 
-    return res.json({
-      success: true,
-      message: 'Kết nối Zalo Cloud OpenAPI thành công! Access Token hợp lệ sẵn sàng gửi tin.',
-      oaId: oaId || 'ZBS-OA'
+    return res.status(400).json({
+      success: false,
+      error: 'Chưa cấu hình đủ App ID, Secret Key và Refresh Token của Zalo trong Cài đặt.'
     });
   } catch (err: any) {
     return res.status(500).json({
@@ -300,6 +340,15 @@ router.post('/send', async (req, res) => {
       forceResend: Boolean(body.forceResend)
     });
     
+    if (result.status === 'FAILED') {
+      return res.status(200).json({ 
+        success: false, 
+        messageId: result.messageId, 
+        status: result.status, 
+        error: result.error || 'Gửi ZNS thất bại' 
+      });
+    }
+
     res.status(200).json({ success: true, messageId: result.messageId, status: result.status });
   } catch (error: unknown) { 
     const errMsg = error instanceof Error ? error.message : String(error);

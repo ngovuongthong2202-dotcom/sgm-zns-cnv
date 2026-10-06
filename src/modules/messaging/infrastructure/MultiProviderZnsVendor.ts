@@ -33,12 +33,20 @@ export class MultiProviderZnsVendor implements ZnsVendorPort {
         return directResult;
       }
 
-      // Nếu lỗi do dữ liệu Zalo từ chối (ví dụ SĐT không tồn tại, hết hạn mức), giữ nguyên kết quả lỗi rõ ràng
-      if (directResult.error && directResult.error.includes('[Zalo Mã')) {
+      // Nếu lỗi do Zalo Gateway từ chối (SĐT không tồn tại, hết quota, quyền OA...), giữ nguyên kết quả lỗi rõ ràng
+      if (directResult.error && (
+        directResult.error.includes('[Zalo Mã') ||
+        directResult.error.includes('không tồn tại') ||
+        directResult.error.includes('hạn mức') ||
+        directResult.error.includes('định dạng') ||
+        directResult.error.includes('chặn') ||
+        directResult.error.includes('Token') ||
+        directResult.error.includes('Zalo')
+      )) {
         return directResult;
       }
 
-      logger.warn({ messageId: message.id, error: directResult.error }, '[MultiProviderZnsVendor] Gặp sự cố kết nối Zalo OpenAPI. Tự động Fallback sang Webhook CNV...');
+      logger.warn({ messageId: message.id, error: directResult.error }, '[MultiProviderZnsVendor] Gặp sự cố kết nối mạng Zalo OpenAPI. Tự động Fallback sang Webhook CNV...');
     } else {
       logger.info({ messageId: message.id }, '[MultiProviderZnsVendor] Chưa cấu hình Zalo App. Định tuyến sang Webhook CNV...');
     }
