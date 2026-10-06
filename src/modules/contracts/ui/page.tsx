@@ -171,7 +171,7 @@ export default function ContractsFeature() {
       const resolvedName = ct.tenKhachHang || liveCustomer?.tenKhachHang || '';
       const resolvedPhone = ct.sdt || liveCustomer?.sdt || (liveCustomer?.contacts?.[0]?.sdt) || '';
       const resolvedRep = ct.nguoiDaiDien || liveCustomer?.nguoiDaiDien || '';
-      const resolvedAddress = ct.diaChi || liveCustomer?.diaChi || '';
+      const resolvedAddress = (ct as any).diaChi || liveCustomer?.diaChi || '';
       const resolvedMaKh = ct.maKh || liveCustomer?.maKh || '';
       return {
         ...ct,
@@ -190,7 +190,7 @@ export default function ContractsFeature() {
 
   const dataView = useDataView({
     viewId: 'contracts_list',
-    columns,
+    columns: columns as any,
     data: filteredContractsWithStt,
     initialState: {
       grouping: [],
@@ -409,8 +409,8 @@ export default function ContractsFeature() {
             so_hop_dong: znsPreviewContract.contract.soHopDong || znsPreviewContract.contract.id,
             ngayKy: znsPreviewContract.contract.ngayKy,
             ngay_ky: znsPreviewContract.contract.ngayKy,
-            soNgay: znsPreviewContract.contract.thoiGianThucHien || znsPreviewContract.contract.soNgay || 30,
-            so_ngay: znsPreviewContract.contract.thoiGianThucHien || znsPreviewContract.contract.soNgay || 30,
+            soNgay: (znsPreviewContract.contract as any).thoiGianThucHien || (znsPreviewContract.contract as any).soNgay || 30,
+            so_ngay: (znsPreviewContract.contract as any).thoiGianThucHien || (znsPreviewContract.contract as any).soNgay || 30,
             soPhieu: znsPreviewContract.contract.soPhieuBaoGia || znsPreviewContract.contract.soHopDong || '',
             so_phieu: znsPreviewContract.contract.soPhieuBaoGia || znsPreviewContract.contract.soHopDong || '',
             nhanVien: znsPreviewContract.contract.nguoiPhuTrach || 'Ngô Vương Thông',

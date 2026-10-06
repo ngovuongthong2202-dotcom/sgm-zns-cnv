@@ -329,7 +329,7 @@ export function useDeliveriesActions(
        ...(Array.isArray(cSnap?.contacts) ? cSnap.contacts.map((ct: any) => ct?.sdt) : [])
      ].filter(Boolean).join(' ');
 
-     const extracted = extractVietnamesePhones(rawPhonesPool, del.diaChiGiaoHang || del.diaChi || cSnap?.diaChi);
+     const extracted = extractVietnamesePhones(rawPhonesPool, del.diaChiGiaoHang || (del as any).diaChi || cSnap?.diaChi);
      const availableMobiles: Array<{ cleaned: string; formatted: string; carrier?: string }> = [];
      const seenMob = new Set<string>();
      extracted.mobilePhones.forEach(m => {

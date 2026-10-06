@@ -828,7 +828,7 @@ export function CustomerZnsContactModal({
             tenZns: customer.tenZns,
             sdt: contactsList[0]?.sdt || customer.sdt
           }}
-          availablePhones={contactsList.map(c => ({ phone: c.sdt, label: c.nguoiDaiDien || c.chucVu }))}
+          availablePhones={contactsList.filter(c => !!c.sdt).map(c => ({ phone: c.sdt as string, label: c.nguoiDaiDien || c.chucVu }))}
           onSuccess={() => onRefresh?.()}
         />
       )}

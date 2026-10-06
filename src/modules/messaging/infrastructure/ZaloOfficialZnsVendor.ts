@@ -62,8 +62,10 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
 
     // 3. Chuẩn hóa mã chứng từ (tối đa 30 ký tự)
     const quotationCode = String(p.soPhieuBaoGia || p.maBaoGia || p.id || '---').slice(0, 30);
-    const contractCode = String(p.soHopDong || p.maHopDong || '---').slice(0, 30);
-    const orderCode = String(p.soDonHang || p.soHopDong || '---').slice(0, 30);
+    const contractCode = String(p.soHopDong || p.maHopDong || p.contractCode || '---').slice(0, 30);
+    const orderCode = String(p.soDonHang || p.orderCode || p.soHopDong || '---').slice(0, 30);
+    // Ưu tiên tuyệt đối: p.order_code (được chọn từ UI/Override) -> contractCode (Số Hợp đồng) -> orderCode (Số Đơn hàng)
+    const resolvedContractOrderCode = String(p.order_code || p.soHopDong || p.maHopDong || p.soDonHang || '---').slice(0, 30);
     const paymentCode = String(p.soPhieuThu || p.paymentId || p.maThanhToan || '---').slice(0, 30);
     const deliveryCode = String(p.soPhieuXuat || p.deliveryId || p.maGiaoHang || '---').slice(0, 30);
     let machineList = String(p.danhSachMaMay || p.maMay || 'Thiết bị tiêu chuẩn').trim();
@@ -99,9 +101,8 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       // 3. Phân hệ Hợp đồng (Template 533068)
       so_hop_dong: contractCode,
       contract_code: contractCode,
-      order_code: orderCode,
+      order_code: resolvedContractOrderCode,
       so_don_hang: orderCode,
-      So_don_hang: orderCode,
       ngay_ky: formatZnsDate(p.ngay_ky || p.ngayKy || dateFormatted),
       sign_date: formatZnsDate(p.sign_date || p.ngayKy || dateFormatted),
       so_ngay: soNgayNum,

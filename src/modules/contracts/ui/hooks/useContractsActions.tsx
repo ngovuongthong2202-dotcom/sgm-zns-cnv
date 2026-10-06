@@ -109,7 +109,7 @@ export function useContractsActions(
         ] : [])
       ].filter(Boolean).join(' ');
 
-      const extracted = extractVietnamesePhones(rawPhonesPool, c.diaChi || customerDoc?.diaChi);
+      const extracted = extractVietnamesePhones(rawPhonesPool, (c as any).diaChi || customerDoc?.diaChi);
       const availableMobiles: Array<{ cleaned: string; formatted: string; carrier?: string }> = [];
       const seenMob = new Set<string>();
       extracted.mobilePhones.forEach(m => {

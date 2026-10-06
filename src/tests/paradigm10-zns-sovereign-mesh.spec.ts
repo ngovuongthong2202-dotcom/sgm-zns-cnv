@@ -38,7 +38,7 @@ describe('Paradigm 10: Apex Sovereign Omni-Mesh Fabric & Sub-Entity Ledger Synch
 
   describe('Trụ cột 2: calculateMaxWarrantyExpiryDate (Warranty Intelligence Engine)', () => {
     it('identifies the longest warranty across products and calculates expiry date', () => {
-      const mockDelivery: Partial<Delivery> = {
+      const mockDelivery: any = {
         deliveryId: 'GH-2026-001',
         soHopDong: '062/VT-SGM/2026',
         ngayGiaoHang: '2026-01-15',

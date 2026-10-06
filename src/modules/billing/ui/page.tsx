@@ -432,7 +432,7 @@ export default function PaymentsFeature() {
             order_code: znsPreviewPayment.payment.soHopDong || znsPreviewPayment.payment.soDonHang || znsPreviewPayment.payment.paymentId || '',
             ngay_thanh_toan: formatZnsDate(znsPreviewPayment.payment.ngayThanhToan),
             time: formatZnsDate(znsPreviewPayment.payment.ngayThanhToan),
-            so_luong: String(znsPreviewPayment.payment.soLuong || znsPreviewPayment.payment.slMay || 1),
+            so_luong: String((znsPreviewPayment.payment as any).soLuong || (znsPreviewPayment.payment as any).slMay || 1),
             phone: znsPreviewPayment.phone,
             sdt: znsPreviewPayment.phone
           }}
@@ -451,7 +451,7 @@ export default function PaymentsFeature() {
                   znsPhone: znsPreviewPayment.phone
                 };
                 try {
-                  await repositoryFactory.get('payments').update(currentP.id, {
+                  await repositoryFactory.get('payments').update(currentP.id!, {
                     cacDotThu: updatedCacDotThu,
                     trangThaiGuiTinThanhToan: 'THÀNH CÔNG'
                   } as any);

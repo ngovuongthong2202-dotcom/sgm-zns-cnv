@@ -104,9 +104,9 @@ export const getQuotationColumns = (
       // Gom toàn bộ số điện thoại từ Báo giá & Khách hàng liên kết & Danh bạ để đảm bảo có nút gửi ZNS di động
       const rawPhonesPool = [
         q.sdt,
-        q.phone,
+        (q as any).phone,
         liveCustomer?.sdt,
-        liveCustomer?.phone,
+        (liveCustomer as any)?.phone,
         ...(liveCustomer?.contacts?.map((c: any) => c.sdt) || []),
         ...(liveCustomer?.contacts?.flatMap((c: any) => c.danhSachSdt || []) || [])
       ].filter(Boolean).join(' , ');
@@ -154,8 +154,8 @@ export const getQuotationColumns = (
                   <span>☎️ {l.formatted}</span>
                 </span>
               ))}
-              {!telecom && rawPhone && (
-                <span className="text-2xs text-slate-500 font-mono">{rawPhone}</span>
+              {!telecom && rawPhonesPool && (
+                <span className="text-2xs text-slate-500 font-mono">{rawPhonesPool}</span>
               )}
             </div>
           </div>

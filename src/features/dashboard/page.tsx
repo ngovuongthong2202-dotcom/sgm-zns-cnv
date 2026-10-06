@@ -56,6 +56,7 @@ export default function DashboardPage() {
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
+  const [znsPreviewTarget, setZnsPreviewTarget] = useState<any | null>(null);
 
   const handleViewDoc = (type: 'customer' | 'quotation' | 'contract' | 'payment' | 'delivery', idOrCode: string) => {
     const clean = (idOrCode || '').toLowerCase().trim();
@@ -447,7 +448,7 @@ export default function DashboardPage() {
           onNavigateNext={() => {}}
           onEdit={() => {}}
           onSendZns={(c: Customer) => {
-            const rawPhones = [c.sdt, c.sdtPhu, c.soZaloMacDinh, ...(c.danhSachSdt || [])].filter(Boolean).join(' ');
+            const rawPhones = [c.sdt, (c as any).sdtPhu, (c as any).soZaloMacDinh, ...((c as any).danhSachSdt || [])].filter(Boolean).join(' ');
             const extracted = extractVietnamesePhones(rawPhones, c.diaChi);
             const targetPhone = c.sdt || extracted.mobilePhones[0]?.cleaned || '';
             setZnsPreviewTarget({
@@ -490,9 +491,10 @@ export default function DashboardPage() {
           onEdit={() => {}}
           onDelete={async () => {}}
           onUpdate={async () => {}}
-          onSendZns={(q: Quotation) => {
+          onSendZns={() => {
+            const q = selectedQuotation;
             const cust = customers.find(c => c.id === q.customerId);
-            const rawPhones = [q.sdt, cust?.sdt, cust?.sdtPhu, cust?.soZaloMacDinh].filter(Boolean).join(' ');
+            const rawPhones = [q.sdt, cust?.sdt, (cust as any)?.sdtPhu, (cust as any)?.soZaloMacDinh].filter(Boolean).join(' ');
             const extracted = extractVietnamesePhones(rawPhones, q.diaChiGiaoHang || cust?.diaChi);
             const targetPhone = q.sdt || extracted.mobilePhones[0]?.cleaned || '';
             setZnsPreviewTarget({
@@ -534,7 +536,7 @@ export default function DashboardPage() {
           onEdit={() => {}}
           onSendZns={(c: Contract) => {
             const rawPhones = [c.sdt, (c as any).phone].filter(Boolean).join(' ');
-            const extracted = extractVietnamesePhones(rawPhones, c.diaChi);
+            const extracted = extractVietnamesePhones(rawPhones, (c as any).diaChi);
             const targetPhone = c.sdt || extracted.mobilePhones[0]?.cleaned || '';
             setZnsPreviewTarget({
               entityType: 'CONTRACT',
@@ -626,7 +628,7 @@ export default function DashboardPage() {
                     znsPhone: targetPhone,
                   };
                   try {
-                    await repositoryFactory.get('payments').update(p.id, {
+                    await repositoryFactory.get('payments').update(p.id!, {
                       cacDotThu: updatedCacDotThu,
                       trangThaiGuiTinThanhToan: 'THÀNH CÔNG',
                     } as any);
@@ -670,15 +672,15 @@ export default function DashboardPage() {
                 So_hop_dong: d.soHopDong || '',
                 So_don_hang: d.soDonHang || d.soHopDong || '',
                 so_phieu_xuat: d.deliveryId || d.id || '',
-                ngay_giao_may: formatZnsDate(d.ngayGiaoThucTe || d.ngayGiaoHang),
+                ngay_giao_may: formatZnsDate(d.ngayGiaoThucTe || (d as any).ngayGiaoHang),
                 danh_sach_ma_may: Array.isArray(d.products) 
                   ? d.products.map((p: any) => p.serialNumber || p.maMay || p.productName).filter(Boolean).join(', ')
                   : '',
                 so_luong: String(d.slMay || (Array.isArray(d.products) ? d.products.length : 1)),
                 dvt: d.dvt || 'Máy',
                 ma_bao_hanh: isWarranty ? warrantyInfo.primarySerial : (d.deliveryId || d.id || 'BH-SGM'),
-                product: isWarranty ? warrantyInfo.contractReference : String(d.tenMay || (Array.isArray(d.products) && d.products[0]?.productName) || 'Máy cán tôn SGM').slice(0, 30),
-                date: isWarranty ? warrantyInfo.expiryDateFormatted : formatZnsDate(d.ngayGiaoThucTe || d.ngayGiaoHang),
+                product: isWarranty ? warrantyInfo.contractReference : String((d as any).tenMay || (Array.isArray(d.products) && d.products[0]?.productName) || 'Máy cán tôn SGM').slice(0, 30),
+                date: isWarranty ? warrantyInfo.expiryDateFormatted : formatZnsDate(d.ngayGiaoThucTe || (d as any).ngayGiaoHang),
                 phone: targetPhone,
                 sdt: targetPhone,
               },

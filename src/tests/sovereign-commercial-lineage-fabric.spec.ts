@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isSameCustomer, resolveCustomerIdentity } from '@/src/shared/utils/customerIdentityResolver';
+import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
 import { reconcileEnterpriseReceivables } from '@/src/domain/services/financial-reconciler';
 
 describe('Sovereign Commercial Lineage & Self-Healing Identity Fabric (Paradigm 10++)', () => {

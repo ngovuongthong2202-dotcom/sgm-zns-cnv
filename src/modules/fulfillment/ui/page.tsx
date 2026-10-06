@@ -537,15 +537,15 @@ export default function DeliveriesFeature() {
               So_hop_dong: znsPreviewDelivery.delivery.soHopDong || '',
               So_don_hang: znsPreviewDelivery.delivery.soDonHang || znsPreviewDelivery.delivery.soHopDong || '',
               so_phieu_xuat: znsPreviewDelivery.delivery.deliveryId || znsPreviewDelivery.delivery.id || '',
-              ngay_giao_may: formatZnsDate(znsPreviewDelivery.delivery.ngayGiaoThucTe || znsPreviewDelivery.delivery.ngayGiaoHang),
+              ngay_giao_may: formatZnsDate(znsPreviewDelivery.delivery.ngayGiaoThucTe || (znsPreviewDelivery.delivery as any).ngayGiaoHang),
               danh_sach_ma_may: Array.isArray(znsPreviewDelivery.delivery.products) 
                 ? znsPreviewDelivery.delivery.products.map((p: any) => p.serialNumber || p.maMay || p.productName).filter(Boolean).join(', ')
                 : '',
               so_luong: String(znsPreviewDelivery.delivery.slMay || (Array.isArray(znsPreviewDelivery.delivery.products) ? znsPreviewDelivery.delivery.products.length : 1)),
               dvt: znsPreviewDelivery.delivery.dvt || 'Máy',
               ma_bao_hanh: isWarranty ? warrantyInfo.primarySerial : (znsPreviewDelivery.delivery.deliveryId || znsPreviewDelivery.delivery.id || 'BH-SGM'),
-              product: isWarranty ? warrantyInfo.contractReference : String(znsPreviewDelivery.delivery.tenMay || (Array.isArray(znsPreviewDelivery.delivery.products) && znsPreviewDelivery.delivery.products[0]?.productName) || 'Máy cán tôn SGM').slice(0, 30),
-              date: isWarranty ? warrantyInfo.expiryDateFormatted : formatZnsDate(znsPreviewDelivery.delivery.ngayGiaoThucTe || znsPreviewDelivery.delivery.ngayGiaoHang),
+              product: isWarranty ? warrantyInfo.contractReference : String((znsPreviewDelivery.delivery as any).tenMay || (Array.isArray(znsPreviewDelivery.delivery.products) && znsPreviewDelivery.delivery.products[0]?.productName) || 'Máy cán tôn SGM').slice(0, 30),
+              date: isWarranty ? warrantyInfo.expiryDateFormatted : formatZnsDate(znsPreviewDelivery.delivery.ngayGiaoThucTe || (znsPreviewDelivery.delivery as any).ngayGiaoHang),
               phone: znsPreviewDelivery.phone,
               sdt: znsPreviewDelivery.phone
             };

@@ -41,7 +41,7 @@ export function usePaymentZns(
       ...(Array.isArray(cSnap?.contacts) ? cSnap.contacts.map((ct: any) => ct?.sdt) : [])
     ].filter(Boolean).join(' ');
 
-    const extracted = extractVietnamesePhones(rawPhonesPool, payment.diaChi || cSnap?.diaChi);
+    const extracted = extractVietnamesePhones(rawPhonesPool, (payment as any).diaChi || cSnap?.diaChi);
     const availableMobiles: Array<{ cleaned: string; formatted: string; carrier?: string }> = [];
     const seenMob = new Set<string>();
     extracted.mobilePhones.forEach(m => {

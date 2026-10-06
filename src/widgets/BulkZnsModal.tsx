@@ -438,7 +438,7 @@ export function BulkZnsModal({
             skipReason = 'Bỏ chọn thủ công';
           }
 
-          const resolvedCustName = q.tenKhachHang || parentCust?.tenKhachHang || parentCust?.ten_khach_hang || 'Khách hàng';
+          const resolvedCustName = q.tenKhachHang || parentCust?.tenKhachHang || (parentCust as any)?.ten_khach_hang || 'Khách hàng';
 
           const targetCustomerId = q.customerId || parentCust?.id || (q as any).customer_id || '';
 
@@ -465,7 +465,7 @@ export function BulkZnsModal({
               tenKhachHang: resolvedCustName !== 'Khách hàng' ? resolvedCustName : (q.tenKhachHang || ''),
               sdt: activeMob.cleaned,
               phone: activeMob.cleaned,
-              soPhieuBaoGia: q.soPhieuBaoGia || q.maBaoGia || q.id
+              soPhieuBaoGia: q.soPhieuBaoGia || (q as any).maBaoGia || q.id
             },
             amount,
             amountFormatted,

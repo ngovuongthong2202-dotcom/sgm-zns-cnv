@@ -206,10 +206,10 @@ export function useQuotationActions(
           (editingQuotation as any).trangThaiZns === EntityZnsStatus.THANH_CONG;
 
         if (wasSentZns && detectCommercialCoreDelta(editingQuotation, data)) {
-          data.trangThaiGuiTinBaoGia = EntityZnsStatus.CHO_GUI;
+          data.trangThaiGuiTinBaoGia = EntityZnsStatus.CAN_GUI_LAI;
           const userOfficer = userData?.name || userData?.displayName || userData?.email || 'Chuyên viên';
           const nowStr = new Date().toISOString();
-          const reasonNote = `Cập nhật nội dung thương mại báo giá sau khi đã gửi ZNS thành công bởi ${userOfficer}. Tự động chuyển về Chờ gửi ZNS để sẵn sàng gửi bản cập nhật mới nhất cho khách hàng.`;
+          const reasonNote = `Cập nhật nội dung thương mại báo giá sau khi đã gửi ZNS thành công bởi ${userOfficer}. Tự động chuyển về Cần gửi lại ZNS để sẵn sàng gửi bản cập nhật mới nhất cho khách hàng.`;
           data.logTomTat = reasonNote;
 
           // Ghi nhận nhật ký phiên bản revision

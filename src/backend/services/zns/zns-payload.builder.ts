@@ -183,11 +183,14 @@ export class ZnsPayloadBuilder {
     }
 
     if (requiredVarsSet.has('order_code')) {
-        // use combined string if both are present
-        if (p.soHopDong && p.soDonHang) {
-            rendered.order_code = `${p.soHopDong} | ${p.soDonHang}`;
+        if (!isEmp(p.order_code)) {
+            rendered.order_code = String(p.order_code).slice(0, 30);
         } else if (isEmp(rendered.order_code)) {
-            rendered.order_code = p.soHopDong || p.soDonHang || p.soPhieuBaoGia || (p.paymentId as string) || (p.maBaoGia as string) || 'TT-TUDONG';
+            if (templateKey === 'HOPDONG_SIGN_ZNS') {
+                rendered.order_code = String(p.soHopDong || (p as any).contractCode || p.soDonHang || 'HD-SGM').slice(0, 30);
+            } else {
+                rendered.order_code = String(p.soHopDong || p.soDonHang || p.soPhieuBaoGia || (p.paymentId as string) || (p.maBaoGia as string) || 'TT-TUDONG').slice(0, 30);
+            }
         }
     }
     

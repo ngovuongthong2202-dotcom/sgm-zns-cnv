@@ -282,7 +282,7 @@ export function useCustomerActions({
   const handleSendZns = useCallback(async (c: Customer) => {
     let resolvedCustomer = c;
     if (resolvedCustomer.id && resolvedCustomer.id.startsWith('temp-')) {
-      const realOne = localCustomers.find(item => item.maKh === resolvedCustomer.maKh && !item.id.startsWith('temp-'));
+      const realOne = localCustomers.find(item => item.maKh === resolvedCustomer.maKh && !item.id?.startsWith('temp-'));
       if (realOne) {
         resolvedCustomer = realOne;
       }

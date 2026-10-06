@@ -185,7 +185,7 @@ export function calculateMaxWarrantyExpiryDate(delivery: Partial<Delivery>): {
   contractProductLabel: string;
 } {
   // 1. Xác định ngày giao hàng mốc (Base Date)
-  const rawBase = delivery.ngayGiaoThucTe || delivery.ngayGiaoHang || new Date().toISOString();
+  const rawBase = delivery.ngayGiaoThucTe || (delivery as any).ngayGiaoHang || new Date().toISOString();
   let baseDate = new Date();
   if (typeof rawBase === 'string') {
     const dmyMatch = rawBase.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);

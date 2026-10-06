@@ -138,11 +138,11 @@ export default function QuotationsFeature() {
         ...q,
         tenKhachHang: resolvedName,
         sdt: resolvedPhone,
-        phone: q.phone || resolvedPhone,
+        phone: (q as any).phone || resolvedPhone,
         nguoiDaiDien: resolvedRep,
         diaChi: resolvedAddress,
         maKh: resolvedMaKh,
-        soPhieuBaoGia: q.soPhieuBaoGia || q.maBaoGia || q.id,
+        soPhieuBaoGia: q.soPhieuBaoGia || (q as any).maBaoGia || q.id,
         __customerInfo: liveCustomer || undefined
       };
     });
@@ -230,7 +230,7 @@ export default function QuotationsFeature() {
 
   const dataView = useDataView({
     viewId: 'quotations_list',
-    columns,
+    columns: columns as any,
     data: enhancedQuotationsWithStt,
     initialState: {
       grouping: [],
@@ -453,7 +453,7 @@ export default function QuotationsFeature() {
           messageType={ZnsMessageType.BAOGIA}
           entityType="QUOTATION"
           entityId={znsPreviewQuotation.quotation.id || ''}
-          documentCode={znsPreviewQuotation.quotation.soPhieuBaoGia || znsPreviewQuotation.quotation.maBaoGia || znsPreviewQuotation.quotation.id}
+          documentCode={znsPreviewQuotation.quotation.soPhieuBaoGia || (znsPreviewQuotation.quotation as any).maBaoGia || znsPreviewQuotation.quotation.id}
           customerName={znsPreviewQuotation.customer?.tenZns || znsPreviewQuotation.quotation.tenKhachHang}
           phone={znsPreviewQuotation.phone}
           payload={{

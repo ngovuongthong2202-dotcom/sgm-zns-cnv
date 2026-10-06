@@ -2,28 +2,27 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   X, 
   Send, 
-  CheckCircle2, 
-  AlertCircle, 
   ExternalLink, 
   Copy, 
   Check, 
   ShieldCheck, 
   Smartphone, 
   FileText, 
-  User, 
   Phone, 
-  BadgePercent, 
   Info,
-  Calendar,
-  Layers
+  RotateCcw,
+  Sparkles,
+  BookmarkCheck,
+  ChevronDown
 } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { notify } from '@/src/shared/utils/notify';
 import { formatZnsDate } from '@/src/shared/utils/formatDate';
 import { sendZnsAndToast, nextAttempt, checkZnsResendAllowed } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
-import { ZBS_TEMPLATE_REGISTRY, getZbsTemplateInfo, ZbsTemplateInfo } from '@/src/domain/constants/zbs-template.registry';
+import { getZbsTemplateInfo, ZbsTemplateInfo } from '@/src/domain/constants/zbs-template.registry';
 import { useAuth } from '@/src/modules/iam';
+import { ZnsOfficialPhonePreview } from './components/ZnsOfficialPhonePreview';
 
 export interface UniversalZnsPreviewModalProps {
   isOpen: boolean;
@@ -61,6 +60,11 @@ export function UniversalZnsPreviewModal({
   const [copiedId, setCopiedId] = useState(false);
   const [currentSubtype, setCurrentSubtype] = useState<string | undefined>(subtype);
 
+  // Smart Parameter Control Studio State
+  const [paramOverrides, setParamOverrides] = useState<Record<string, string>>({});
+  const [hoveredParam, setHoveredParam] = useState<string | null>(null);
+  const [isSavedDefault, setIsSavedDefault] = useState(false);
+
   // Sync selected phone
   useEffect(() => {
     if (initialPhone) {
@@ -75,33 +79,169 @@ export function UniversalZnsPreviewModal({
     return getZbsTemplateInfo(messageType, currentSubtype);
   }, [messageType, currentSubtype]);
 
-  if (!isOpen || !templateInfo) return null;
+  // Extract initial standard values
+  const resolvedCustomerName = useMemo(() => {
+    return (
+      payload.tenZns || 
+      payload.ten_zns || 
+      payload.customer_name || 
+      customerName || 
+      payload.tenKhachHang || 
+      'Quý khách hàng'
+    ).toString().slice(0, 30);
+  }, [payload, customerName]);
 
-  const targetPhone = selectedPhone || initialPhone || payload.phone || payload.sdt || '';
-
-  // Extract mapped values from payload
-  const resolvedCustomerName = (
-    payload.tenZns || 
-    payload.ten_zns || 
-    payload.customer_name || 
-    customerName || 
-    payload.tenKhachHang || 
-    'Quý khách hàng'
-  ).toString().slice(0, 30);
-
-  const officerName = (
-    payload.nguoiPhuTrach || 
-    payload.nhanVien || 
-    payload.nhan_vien || 
-    payload.officer_name || 
-    'Ngô Vương Thông'
-  ).toString().replace(/\s*\(.*?\)\s*/g, ' ').trim().slice(0, 30);
+  const officerName = useMemo(() => {
+    return (
+      payload.nguoiPhuTrach || 
+      payload.nhanVien || 
+      payload.nhan_vien || 
+      payload.officer_name || 
+      'Ngô Vương Thông'
+    ).toString().replace(/\s*\(.*?\)\s*/g, ' ').trim().slice(0, 30);
+  }, [payload]);
 
   const rawDateVal = payload.date || payload.ngayKy || payload.ngayBaoGia || payload.ngayThanhToan || payload.time || payload.ngayGiaoMay || payload.ngayGiaoThucTe;
   const dateValue = formatZnsDate(rawDateVal);
-  const codeValue = documentCode || payload.soPhieuBaoGia || payload.soHopDong || payload.order_code || payload.soPhieuThu || payload.soPhieuXuat || entityId;
+  const codeValue = documentCode || payload.soHopDong || payload.soPhieuBaoGia || payload.order_code || payload.soPhieuThu || payload.soPhieuXuat || entityId;
+  const targetPhone = selectedPhone || initialPhone || payload.phone || payload.sdt || '';
 
-  // Handle send ZNS
+  // Smart Initial Parameter Derivations (Ưu tiên logic đúng cho từng template)
+  const initialDefaultParams = useMemo<Record<string, string>>(() => {
+    if (!templateInfo) return {};
+    const defaults: Record<string, string> = {};
+
+    defaults.customer_name = resolvedCustomerName;
+    defaults.phone = targetPhone;
+
+    // Hợp đồng (533068): order_code BẮT BUỘC ưu tiên Số Hợp Đồng (HD-2026-xxxx)
+    if (templateInfo.templateId === '533068' || entityType === 'CONTRACT') {
+      defaults.order_code = String(payload.soHopDong || payload.maHopDong || documentCode || 'HD-2026-0002').slice(0, 30);
+      defaults.ngay_ky = formatZnsDate(payload.ngayKy || payload.ngay_ky || dateValue);
+      defaults.so_ngay = String(payload.thoiGianThucHien || payload.soNgay || payload.so_ngay || '30');
+      defaults.so_phieu = String(payload.soPhieuBaoGia || payload.soPhieu || payload.soHopDong || 'BGM-2026-1149').slice(0, 30);
+      defaults.nhan_vien = officerName;
+    }
+
+    // Báo giá (533064)
+    if (templateInfo.templateId === '533064' || entityType === 'QUOTATION') {
+      defaults.so_phieu_bao_gia = String(payload.soPhieuBaoGia || documentCode || 'BGM-2026-1149').slice(0, 30);
+      defaults.ngay_bao_gia = formatZnsDate(payload.ngayBaoGia || payload.ngay_bao_gia || dateValue);
+      defaults.ngay_het_han = formatZnsDate(payload.ngayHetHan || payload.ngay_het_han || dateValue);
+      defaults.sl_may = String(payload.slMay || payload.soLuong || '1');
+      defaults.nguoi_phu_trach = officerName;
+    }
+
+    // Thanh toán Tất toán (552490)
+    if (templateInfo.templateId === '552490') {
+      defaults.so_don_hang = String(payload.soDonHang || payload.So_don_hang || payload.soHopDong || 'DH-ERP-001-26').slice(0, 30);
+      defaults.so_hop_dong = String(payload.soHopDong || payload.So_hop_dong || payload.soDonHang || 'HD-2026-0002').slice(0, 30);
+      defaults.ngay_thanh_toan = formatZnsDate(payload.ngayThanhToan || payload.ngay_thanh_toan || dateValue);
+    }
+
+    // Thanh toán Công nợ (547381)
+    if (templateInfo.templateId === '547381') {
+      defaults.order_code = String(payload.soHopDong || payload.soDonHang || documentCode || 'HD-2026-0002').slice(0, 30);
+      defaults.time = formatZnsDate(payload.ngayThanhToan || payload.time || dateValue);
+      defaults.so_luong = String(payload.soLuong || payload.slMay || '1');
+    }
+
+    // Giao hàng (552545)
+    if (templateInfo.templateId === '552545' || entityType === 'DELIVERY') {
+      defaults.So_hop_dong = String(payload.soHopDong || payload.So_hop_dong || 'HD-2026-0002').slice(0, 30);
+      defaults.So_don_hang = String(payload.soDonHang || payload.So_don_hang || 'DH-ERP-001-26').slice(0, 30);
+      defaults.so_phieu_xuat = String(payload.soPhieuXuat || payload.deliveryId || documentCode || 'PX-2026-008').slice(0, 30);
+      defaults.ngay_giao_may = formatZnsDate(payload.ngayGiaoMay || payload.ngayGiaoThucTe || dateValue);
+      defaults.danh_sach_ma_may = String(
+        payload.danh_sach_ma_may || 
+        payload.danhSachMaMay || 
+        (Array.isArray(payload.products) ? payload.products.map((p: any) => p.serialNumber || p.maMay || p.productName).filter(Boolean).join(', ') : '') ||
+        'MC-2026-01'
+      ).slice(0, 200);
+      defaults.so_luong = String(payload.soLuong || payload.slMay || '1');
+      defaults.dvt = String(payload.dvt || 'Máy').slice(0, 30);
+    }
+
+    // Kích hoạt bảo hành (531052)
+    if (templateInfo.templateId === '531052') {
+      defaults.ma_bao_hanh = String(
+        payload.ma_bao_hanh || 
+        payload.serial || 
+        (Array.isArray(payload.danhSachMaMay) ? payload.danhSachMaMay[0] : null) || 
+        payload.soPhieuXuat || 
+        'BH-SGM-001'
+      ).slice(0, 30);
+      defaults.product = String(payload.product || (payload.soHopDong ? ('Căn cứ theo ' + payload.soHopDong) : 'Máy cán tôn SGM')).slice(0, 30);
+      defaults.date = formatZnsDate(payload.date || dateValue);
+    }
+
+    // CNV params
+    defaults.cnv_campaign_id = String(payload.cnv_campaign_id || 'SGM_CSKH_2026');
+    defaults.cnv_zns_template_id = String(templateInfo.templateId);
+
+    // Kiểm tra các trường đã lưu trong localStorage nếu có
+    try {
+      const storedKey = `sgm_zns_pref_${templateInfo.templateId}`;
+      const saved = localStorage.getItem(storedKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.order_code_source === 'soDonHang' && payload.soDonHang) {
+          defaults.order_code = String(payload.soDonHang).slice(0, 30);
+        }
+      }
+    } catch {}
+
+    return defaults;
+  }, [templateInfo, payload, entityType, documentCode, resolvedCustomerName, targetPhone, dateValue, officerName]);
+
+  // Reset paramOverrides khi đổi template hoặc mở modal
+  useEffect(() => {
+    setParamOverrides({});
+  }, [templateInfo?.templateId, isOpen]);
+
+  if (!isOpen || !templateInfo) return null;
+
+  // Active parameter values (Kết hợp Default + User Overrides)
+  const activeParams: Record<string, string> = {
+    ...initialDefaultParams,
+    ...paramOverrides,
+    customer_name: paramOverrides.customer_name || resolvedCustomerName,
+    phone: targetPhone
+  };
+
+  const handleParamChange = (key: string, val: string) => {
+    setParamOverrides(prev => ({
+      ...prev,
+      [key]: val
+    }));
+  };
+
+  const handleResetParam = (key: string) => {
+    setParamOverrides(prev => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const handleSaveDefault = () => {
+    try {
+      const prefKey = `sgm_zns_pref_${templateInfo.templateId}`;
+      const prefData = {
+        templateId: templateInfo.templateId,
+        savedAt: new Date().toISOString(),
+        order_code_source: activeParams.order_code === payload.soDonHang ? 'soDonHang' : 'soHopDong'
+      };
+      localStorage.setItem(prefKey, JSON.stringify(prefData));
+      setIsSavedDefault(true);
+      setTimeout(() => setIsSavedDefault(false), 3000);
+      notify.success(`Đã lưu quy tắc mapping làm mặc định cho Mẫu #${templateInfo.templateId}!`);
+    } catch (err: any) {
+      notify.error('Lỗi khi lưu cấu hình mặc định: ' + err.message);
+    }
+  };
+
+  // Handle confirm send ZNS
   const handleConfirmSend = async () => {
     if (!targetPhone) {
       notify.error('Vui lòng chọn hoặc nhập số điện thoại người nhận hợp lệ.');
@@ -118,15 +258,17 @@ export function UniversalZnsPreviewModal({
     try {
       const sanitizedPayload: Record<string, any> = {
         ...payload,
-        customer_name: resolvedCustomerName,
+        ...activeParams,
+        customer_name: activeParams.customer_name,
         phone: targetPhone,
         sdt: targetPhone,
-        nguoiPhuTrach: officerName,
-        nguoi_phu_trach: officerName,
-        nhan_vien: officerName
+        nguoiPhuTrach: activeParams.nguoi_phu_trach || activeParams.nhan_vien || officerName,
+        nguoi_phu_trach: activeParams.nguoi_phu_trach || activeParams.nhan_vien || officerName,
+        nhan_vien: activeParams.nhan_vien || activeParams.nguoi_phu_trach || officerName,
+        order_code: activeParams.order_code || payload.soHopDong || documentCode
       };
 
-      // Chuẩn hóa toàn bộ các trường ngày tháng sang dd/mm/yyyy
+      // Chuẩn hóa ngày tháng sang dd/MM/yyyy
       if (sanitizedPayload.ngay_bao_gia) sanitizedPayload.ngay_bao_gia = formatZnsDate(sanitizedPayload.ngay_bao_gia);
       if (sanitizedPayload.ngay_het_han) sanitizedPayload.ngay_het_han = formatZnsDate(sanitizedPayload.ngay_het_han);
       if (sanitizedPayload.ngay_ky) sanitizedPayload.ngay_ky = formatZnsDate(sanitizedPayload.ngay_ky);
@@ -137,8 +279,6 @@ export function UniversalZnsPreviewModal({
       if (sanitizedPayload.ngay_giao_may) sanitizedPayload.ngay_giao_may = formatZnsDate(sanitizedPayload.ngay_giao_may);
       if (sanitizedPayload.delivery_date) sanitizedPayload.delivery_date = formatZnsDate(sanitizedPayload.delivery_date);
       if (sanitizedPayload.date) sanitizedPayload.date = formatZnsDate(sanitizedPayload.date);
-      if (sanitizedPayload.ngay_du_kien_hoan_thanh) sanitizedPayload.ngay_du_kien_hoan_thanh = formatZnsDate(sanitizedPayload.ngay_du_kien_hoan_thanh);
-      if (sanitizedPayload.ngay_hoan_thanh) sanitizedPayload.ngay_hoan_thanh = formatZnsDate(sanitizedPayload.ngay_hoan_thanh);
 
       await sendZnsAndToast({
         entityId,
@@ -169,13 +309,13 @@ export function UniversalZnsPreviewModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-3 sm:p-4 bg-slate-900/75 backdrop-blur-sm animate-in fade-in duration-200 pointer-events-auto">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 pointer-events-auto">
       <div 
-        className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
+        className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* HEADER */}
-        <div className="px-5 py-4 bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white flex items-center justify-between shrink-0">
+        {/* 1. HEADER CHÍNH THỨC */}
+        <div className="px-5 py-3.5 bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white flex items-center justify-between shrink-0 shadow-md">
           <div className="min-w-0 pr-4">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-500/30 text-blue-300 border border-blue-400/30">
@@ -209,49 +349,49 @@ export function UniversalZnsPreviewModal({
           <button 
             type="button" 
             onClick={onClose} 
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors shrink-0"
+            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
             aria-label="Đóng"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* TABS SWITCHER */}
+        {/* 2. THANH TABS CHUYỂN ĐỔI PREVIEW & PHÂN LOẠI MẪU */}
         <div className="bg-slate-100 px-5 py-2 border-b border-slate-200 flex items-center justify-between text-xs shrink-0">
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setActiveTab('live')}
-              className={`px-3 py-1.5 font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'live' 
-                  ? 'bg-white text-blue-700 shadow-xs border border-slate-200' 
+                  ? 'bg-white text-blue-700 shadow-sm border border-slate-200' 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Smartphone className="w-3.5 h-3.5" />
-              Xem trước giao diện thực tế
+              <Smartphone className="w-4 h-4 text-blue-600" />
+              Xem trước giao diện thực tế (Smartphone)
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('zalo')}
-              className={`px-3 py-1.5 font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'zalo' 
-                  ? 'bg-white text-blue-700 shadow-xs border border-slate-200' 
+                  ? 'bg-white text-blue-700 shadow-sm border border-slate-200' 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <ExternalLink className="w-3.5 h-3.5" />
+              <ExternalLink className="w-4 h-4 text-blue-600" />
               Mẫu chuẩn Zalo Cloud (Official Preview)
             </button>
           </div>
 
-          {/* Subtype toggle if Delivery */}
+          {/* Subtype toggle nếu Delivery */}
           {entityType === 'DELIVERY' && (
-            <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200">
+            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200">
               <button
                 type="button"
                 onClick={() => setCurrentSubtype('GIAOHANG_ZNS')}
-                className={`px-2 py-1 text-3xs font-black rounded-md cursor-pointer transition-colors ${
+                className={`px-2.5 py-1 text-3xs font-black rounded-lg cursor-pointer transition-colors ${
                   currentSubtype !== 'GIAOHANG_BAOHANH' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -260,22 +400,22 @@ export function UniversalZnsPreviewModal({
               <button
                 type="button"
                 onClick={() => setCurrentSubtype('GIAOHANG_BAOHANH')}
-                className={`px-2 py-1 text-3xs font-black rounded-md cursor-pointer transition-colors ${
+                className={`px-2.5 py-1 text-3xs font-black rounded-lg cursor-pointer transition-colors ${
                   currentSubtype === 'GIAOHANG_BAOHANH' ? 'bg-purple-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                #531052 Bảo hành
+                #531052 Bảo hành (500đ)
               </button>
             </div>
           )}
 
-          {/* Subtype toggle if Payment */}
+          {/* Subtype toggle nếu Payment */}
           {entityType === 'PAYMENT' && (
-            <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200">
+            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200">
               <button
                 type="button"
                 onClick={() => setCurrentSubtype(ZnsMessageType.THANH_TOAN_TAT_TOAN)}
-                className={`px-2 py-1 text-3xs font-black rounded-md cursor-pointer transition-colors ${
+                className={`px-2.5 py-1 text-3xs font-black rounded-lg cursor-pointer transition-colors ${
                   templateInfo?.templateId === '552490' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -284,7 +424,7 @@ export function UniversalZnsPreviewModal({
               <button
                 type="button"
                 onClick={() => setCurrentSubtype(ZnsMessageType.THANH_TOAN_CONG_NO)}
-                className={`px-2 py-1 text-3xs font-black rounded-md cursor-pointer transition-colors ${
+                className={`px-2.5 py-1 text-3xs font-black rounded-lg cursor-pointer transition-colors ${
                   templateInfo?.templateId === '547381' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -294,150 +434,63 @@ export function UniversalZnsPreviewModal({
           )}
         </div>
 
-        {/* BODY */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 bg-slate-50/50">
-          {/* CỘT TRÁI: MÔ PHỎNG LIVE PREVIEW / ZALO IFRAME (7 COLS) */}
-          <div className="md:col-span-7 flex flex-col items-center justify-start">
+        {/* 3. THÂN CHÍNH: 2 CỘT TƯƠNG TÁC */}
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 bg-slate-50/60">
+          
+          {/* CỘT TRÁI: LIVE SMARTPHONE PREVIEW / IFRAME ZALO (6.5 COLS) */}
+          <div className="md:col-span-6 lg:col-span-6 flex flex-col items-center justify-start">
             {activeTab === 'live' ? (
-              /* MÔ PHỎNG SMARTPHONE FRAME */
-              <div className="w-full max-w-[360px] bg-white rounded-3xl shadow-xl border-4 border-slate-800 overflow-hidden flex flex-col">
-                {/* Phone Notch */}
-                <div className="bg-slate-800 text-white text-3xs px-4 py-1 flex items-center justify-between font-mono shrink-0">
-                  <span>9:41</span>
-                  <div className="w-16 h-2.5 bg-slate-900 rounded-full mx-auto" />
-                  <span>5G 100%</span>
-                </div>
-
-                {/* Zalo OA App Header */}
-                <div className="bg-blue-600 px-3 py-2.5 text-white flex items-center gap-2 shrink-0 shadow-xs">
-                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-blue-700 font-black text-xs shadow-xs shrink-0">
-                    SGM
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1">
-                      <span className="font-bold text-xs truncate">Cơ Khí Sài Gòn (SGM)</span>
-                      <ShieldCheck className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                    </div>
-                    <span className="text-3xs text-blue-100 block">Zalo Notification Service</span>
-                  </div>
-                </div>
-
-                {/* ZNS Message Card Body */}
-                <div className="p-3 bg-slate-100 flex-1 overflow-y-auto space-y-2 text-xs">
-                  <div className="bg-white rounded-xl p-3.5 shadow-xs border border-slate-200/80 space-y-2.5">
-                    {/* Header Notification Title */}
-                    <div className="border-b border-slate-100 pb-2">
-                      <span className="text-3xs font-black uppercase text-blue-600 tracking-wider block">
-                        THÔNG BÁO TỪ HỆ THỐNG SGM
-                      </span>
-                      <h4 className="font-black text-slate-800 text-xs sm:text-sm mt-0.5">
-                        {templateInfo.templateName}
-                      </h4>
-                    </div>
-
-                    {/* Parameter Values Rendered */}
-                    <div className="space-y-1.5 text-xs text-slate-600">
-                      <div className="flex justify-between items-start">
-                        <span className="text-slate-400 text-3xs">Kính gửi:</span>
-                        <strong className="text-slate-900 text-right font-bold max-w-[200px] truncate">
-                          {resolvedCustomerName}
-                        </strong>
-                      </div>
-
-                      {templateInfo.params.map(param => {
-                        if (param.name === 'customer_name' || param.name === 'phone') return null;
-                        if (param.name.startsWith('cnv_')) return null;
-
-                        let displayVal = payload[param.name] || payload[param.sourceKey || ''] || '---';
-                        if (param.name === 'sl_may' || param.name === 'so_luong') {
-                          displayVal = payload.slMay || payload.soLuong || payload.machine_count || '1';
-                        } else if (param.name === 'so_ngay') {
-                          displayVal = `${payload.soNgayDuKienHoanThanh || payload.soNgay || 30} ngày`;
-                        } else if (param.name === 'so_tien' || param.name === 'so_tien_thanh_toan') {
-                          displayVal = new Intl.NumberFormat('vi-VN').format(Number(payload.soTien || payload.totalAmount || 0)) + ' đ';
-                        } else if (param.name === 'nguoi_phu_trach' || param.name === 'nhan_vien') {
-                          displayVal = officerName;
-                        } else if (param.name === 'product') {
-                          displayVal = payload.product || ('Căn cứ theo ' + (payload.soHopDong || payload.soDonHang || 'HĐ SGM'));
-                        } else if (param.name === 'ma_bao_hanh') {
-                          displayVal = payload.ma_bao_hanh || payload.serial || (Array.isArray(payload.danhSachMaMay) ? payload.danhSachMaMay[0] : (payload.soPhieuXuat || payload.deliveryId || 'BH-SGM'));
-                        } else if (param.name === 'date' || param.name === 'time' || param.name.includes('ngay')) {
-                          displayVal = formatZnsDate(payload[param.name] || dateValue);
-                        }
-
-                        return (
-                          <div key={param.name} className="flex justify-between items-start text-3xs sm:text-xs">
-                            <span className="text-slate-400">{param.label || param.name}:</span>
-                            <span className="font-semibold text-slate-800 text-right max-w-[190px] truncate">
-                              {String(displayVal)}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* CTA Button */}
-                    <div className="pt-2 border-t border-slate-100">
-                      <button 
-                        type="button" 
-                        disabled 
-                        className="w-full py-1.5 px-3 bg-blue-50 text-blue-700 font-bold rounded-lg text-xs text-center border border-blue-200/60"
-                      >
-                        {templateInfo.ctaButton?.title || 'Quan tâm OA'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <p className="text-3xs text-center text-slate-400">
-                    Tin nhắn tự động được bảo vệ bởi Zalo Cloud Security
-                  </p>
-                </div>
-              </div>
+              <ZnsOfficialPhonePreview 
+                templateInfo={templateInfo}
+                values={activeParams}
+                hoveredFieldKey={hoveredParam}
+                targetPhone={targetPhone}
+              />
             ) : (
-              /* IFRAME CHÍNH THỨC TỪ ZALO CLOUD */
-              <div className="w-full h-full min-h-[440px] bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col">
-                <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-200 flex items-center justify-between text-3xs text-slate-500">
-                  <span>Trang Preview Zalo Cloud: #{templateInfo.templateId}</span>
+              <div className="w-full h-full min-h-[500px] bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col shadow-sm">
+                <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600">
+                  <span className="font-medium">Trang Preview Zalo Cloud: #{templateInfo.templateId}</span>
                   <a 
                     href={templateInfo.previewUrl} 
                     target="_blank" 
                     rel="noreferrer"
                     className="text-blue-600 hover:underline flex items-center gap-1 font-bold"
                   >
-                    Mở tab mới <ExternalLink className="w-3 h-3" />
+                    Mở tab mới <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 </div>
                 <iframe 
                   src={templateInfo.previewUrl} 
                   title={`Zalo Cloud Template Preview #${templateInfo.templateId}`} 
-                  className="w-full flex-1 border-0 min-h-[420px]"
+                  className="w-full flex-1 border-0 min-h-[480px]"
                 />
               </div>
             )}
           </div>
 
-          {/* CỘT PHẢI: ĐỐI SOÁT THAM SỐ & LỰA CHỌN SĐT (5 COLS) */}
-          <div className="md:col-span-5 space-y-4">
-            {/* LỰA CHỌN SỐ ĐIỆN THOẠI */}
-            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs space-y-3">
+          {/* CỘT PHẢI: SMART PARAMETER CONTROL STUDIO (6 COLS) */}
+          <div className="md:col-span-6 lg:col-span-6 space-y-4">
+            
+            {/* 1. LỰA CHỌN SỐ ĐIỆN THOẠI NHẬN TIN */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-2.5">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
                   <Phone className="w-4 h-4 text-blue-600" />
                   Số điện thoại nhận tin
                 </span>
-                <span className="text-3xs font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-bold">
+                <span className="text-3xs font-mono bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-bold">
                   {targetPhone ? `0${targetPhone.slice(-9)}` : 'Chưa có'}
                 </span>
               </div>
 
               {availablePhones.length > 1 ? (
-                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                  {availablePhones.map((p, idx) => (
+                <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                  {availablePhones.map((p) => (
                     <label 
                       key={p.phone} 
-                      className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
+                      className={`flex items-center justify-between p-2 rounded-xl border text-xs cursor-pointer transition-all ${
                         selectedPhone === p.phone.replace(/\D/g, '') 
-                          ? 'border-blue-500 bg-blue-50/50 font-bold text-blue-900' 
+                          ? 'border-blue-500 bg-blue-50/60 font-bold text-blue-900 shadow-2xs' 
                           : 'border-slate-200 hover:bg-slate-50 text-slate-700'
                       }`}
                     >
@@ -461,7 +514,7 @@ export function UniversalZnsPreviewModal({
                   ))}
                 </div>
               ) : (
-                <div className="text-xs text-slate-600 flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                <div className="text-xs text-slate-600 flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                   <span className="font-mono font-bold text-slate-800 text-sm">
                     {targetPhone ? `0${targetPhone.slice(-9)}` : 'Thiếu số điện thoại di động'}
                   </span>
@@ -470,58 +523,213 @@ export function UniversalZnsPreviewModal({
               )}
             </div>
 
-            {/* BẢNG ĐỐI SOÁT THAM SỐ (PARAMETER AUDIT TABLE) */}
-            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs space-y-3">
+            {/* 2. BẢNG ĐIỀU KHIỂN & TÙY BIẾN THAM SỐ (SMART PARAMETER STUDIO) */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs space-y-3">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <FileText className="w-4 h-4 text-emerald-600" />
-                  Đối soát tham số ZBS ({templateInfo.params.length} trường)
-                </span>
-                <span className="text-3xs text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full">
-                  Chuẩn Zalo ≤ 30 ký tự
-                </span>
+                <div>
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-emerald-600" />
+                    Tùy biến tham số ZBS ({templateInfo.params.length} trường)
+                  </span>
+                  <span className="text-4xs text-slate-400 block mt-0.5">
+                    Click sửa trực tiếp hoặc chọn nguồn dữ liệu tương thích
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleSaveDefault}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-3xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors cursor-pointer"
+                    title="Lưu cấu hình ánh xạ này làm mặc định cho doanh nghiệp"
+                  >
+                    {isSavedDefault ? <BookmarkCheck className="w-3 h-3 text-emerald-600" /> : <Sparkles className="w-3 h-3 text-blue-600" />}
+                    {isSavedDefault ? 'Đã lưu mặc định!' : 'Lưu mặc định'}
+                  </button>
+                  <span className="text-3xs text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full">
+                    ≤ 30 ký tự
+                  </span>
+                </div>
               </div>
 
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1 text-xs">
+              {/* Danh sách các tham số ZBS có khả năng chỉnh sửa trực tiếp */}
+              <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1 text-xs">
                 {templateInfo.params.map(param => {
-                  let val = payload[param.name] || payload[param.sourceKey || ''] || '';
-                  if (param.name === 'customer_name') val = resolvedCustomerName;
-                  if (param.name === 'nguoi_phu_trach' || param.name === 'nhan_vien') val = officerName;
-                  if (param.name === 'phone') val = targetPhone;
-                  if (param.name.startsWith('cnv_')) val = '(Auto CNV)';
+                  if (param.name === 'phone' || param.name.startsWith('cnv_')) return null;
 
-                  const valStr = String(val);
-                  const isOver = param.maxLength && valStr.length > param.maxLength;
+                  const currentVal = activeParams[param.name] ?? '';
+                  const initialVal = initialDefaultParams[param.name] ?? '';
+                  const isModified = currentVal !== initialVal;
+                  const maxLength = param.maxLength || 30;
+                  const isOverLimit = currentVal.length > maxLength;
 
                   return (
-                    <div key={param.name} className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-3xs font-bold text-slate-600">{param.name}</span>
-                          {param.require && <span className="text-red-500 text-3xs">*</span>}
+                    <div 
+                      key={param.name} 
+                      onMouseEnter={() => setHoveredParam(param.name)}
+                      onMouseLeave={() => setHoveredParam(null)}
+                      className={`p-2.5 rounded-xl border transition-all ${
+                        hoveredParam === param.name 
+                          ? 'border-emerald-400 bg-emerald-50/40 shadow-xs ring-1 ring-emerald-300' 
+                          : 'border-slate-200/90 bg-slate-50/80 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-mono text-3xs font-black text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                            {param.name}
+                          </span>
+                          <span className="text-3xs text-slate-500 font-medium truncate">
+                            {param.label}
+                          </span>
+                          {param.require && <span className="text-red-500 text-3xs font-bold">*</span>}
                         </div>
-                        <span className="text-slate-900 font-medium truncate block mt-0.5 text-xs">
-                          {valStr || <em className="text-slate-400">Chưa có</em>}
-                        </span>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          {isModified && (
+                            <button
+                              type="button"
+                              onClick={() => handleResetParam(param.name)}
+                              className="text-4xs text-amber-600 hover:text-amber-800 font-bold flex items-center gap-0.5 p-0.5 hover:bg-amber-50 rounded cursor-pointer"
+                              title="Khôi phục về giá trị gốc của chứng từ"
+                            >
+                              <RotateCcw className="w-2.5 h-2.5" /> Gốc
+                            </button>
+                          )}
+                          <span className={`text-3xs font-mono font-bold px-1.5 py-0.5 rounded-md ${
+                            isOverLimit 
+                              ? 'bg-red-100 text-red-700 ring-1 ring-red-400' 
+                              : isModified 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-slate-200/70 text-slate-700'
+                          }`}>
+                            {currentVal.length}/{maxLength}
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className={`text-3xs font-mono font-bold px-1.5 py-0.5 rounded-md ${
-                          isOver ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-800'
-                        }`}>
-                          {valStr.length}/{param.maxLength || 30}
+
+                      {/* NÚT CHỌN NHANH NGUỒN DỮ LIỆU (SOURCE PICKER) CHO CÁC BIẾN ĐA NGUỒN */}
+                      {param.name === 'order_code' && (
+                        <div className="mb-1.5 flex flex-wrap gap-1">
+                          {payload.soHopDong && (
+                            <button
+                              type="button"
+                              onClick={() => handleParamChange('order_code', String(payload.soHopDong).slice(0, 30))}
+                              className={`text-3xs px-2 py-0.5 rounded-md font-bold transition-colors cursor-pointer ${
+                                currentVal === String(payload.soHopDong).slice(0, 30)
+                                  ? 'bg-blue-600 text-white shadow-2xs'
+                                  : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                              }`}
+                            >
+                              Số HĐ: {String(payload.soHopDong).slice(0, 15)}
+                            </button>
+                          )}
+                          {payload.soDonHang && (
+                            <button
+                              type="button"
+                              onClick={() => handleParamChange('order_code', String(payload.soDonHang).slice(0, 30))}
+                              className={`text-3xs px-2 py-0.5 rounded-md font-bold transition-colors cursor-pointer ${
+                                currentVal === String(payload.soDonHang).slice(0, 30)
+                                  ? 'bg-blue-600 text-white shadow-2xs'
+                                  : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                              }`}
+                            >
+                              Số ĐH: {String(payload.soDonHang).slice(0, 15)}
+                            </button>
+                          )}
+                          {payload.soHopDong && payload.soDonHang && (
+                            <button
+                              type="button"
+                              onClick={() => handleParamChange('order_code', `${payload.soHopDong} | ${payload.soDonHang}`.slice(0, 30))}
+                              className="text-3xs px-1.5 py-0.5 rounded-md bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 font-medium cursor-pointer"
+                            >
+                              Kết hợp HĐ/ĐH
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {param.name === 'customer_name' && (
+                        <div className="mb-1.5 flex flex-wrap gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleParamChange('customer_name', resolvedCustomerName)}
+                            className={`text-3xs px-2 py-0.5 rounded-md font-bold transition-colors cursor-pointer ${
+                              currentVal === resolvedCustomerName
+                                ? 'bg-blue-600 text-white shadow-2xs'
+                                : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                            }`}
+                          >
+                            Tên ZNS: {resolvedCustomerName.slice(0, 18)}...
+                          </button>
+                          {payload.tenKhachHang && payload.tenKhachHang !== resolvedCustomerName && (
+                            <button
+                              type="button"
+                              onClick={() => handleParamChange('customer_name', String(payload.tenKhachHang).slice(0, 30))}
+                              className="text-3xs px-1.5 py-0.5 rounded-md bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 font-medium cursor-pointer"
+                            >
+                              Tên Pháp Lý
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {param.name === 'so_phieu' && (
+                        <div className="mb-1.5 flex flex-wrap gap-1">
+                          {payload.soPhieuBaoGia && (
+                            <button
+                              type="button"
+                              onClick={() => handleParamChange('so_phieu', String(payload.soPhieuBaoGia).slice(0, 30))}
+                              className={`text-3xs px-2 py-0.5 rounded-md font-bold transition-colors cursor-pointer ${
+                                currentVal === String(payload.soPhieuBaoGia).slice(0, 30)
+                                  ? 'bg-blue-600 text-white shadow-2xs'
+                                  : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                              }`}
+                            >
+                              Báo giá: {payload.soPhieuBaoGia}
+                            </button>
+                          )}
+                          {payload.soHopDong && (
+                            <button
+                              type="button"
+                              onClick={() => handleParamChange('so_phieu', String(payload.soHopDong).slice(0, 30))}
+                              className="text-3xs px-1.5 py-0.5 rounded-md bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 font-medium cursor-pointer"
+                            >
+                              Số HĐ: {payload.soHopDong}
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* INLINE EDITABLE INPUT */}
+                      <input 
+                        type="text"
+                        value={currentVal}
+                        onChange={(e) => handleParamChange(param.name, e.target.value)}
+                        placeholder={`Nhập ${param.label}...`}
+                        className={`w-full px-2.5 py-1.5 text-xs rounded-lg border bg-white focus:outline-hidden focus:ring-2 font-medium transition-all ${
+                          isOverLimit 
+                            ? 'border-red-400 focus:ring-red-400 text-red-900 bg-red-50/30' 
+                            : isModified
+                            ? 'border-blue-400 focus:ring-blue-500 text-blue-900'
+                            : 'border-slate-300 focus:ring-blue-500 text-slate-800'
+                        }`}
+                      />
+                      {isOverLimit && (
+                        <span className="text-4xs text-red-600 font-bold block mt-1">
+                          ⚠️ Cảnh báo: Vượt quá {maxLength} ký tự, Zalo sẽ từ chối tin nhắn này!
                         </span>
-                      </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            {/* BẢO VỆ CHI PHÍ & LƯU Ý */}
-            <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 text-3xs text-amber-900 space-y-1">
+            {/* 3. BẢO VỆ CHI PHÍ ZCA & LƯU Ý */}
+            <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3 text-3xs text-amber-900 space-y-1">
               <div className="flex items-center gap-1.5 font-bold text-xs text-amber-950">
-                <Info className="w-3.5 h-3.5 text-amber-600" />
-                Cơ chế bảo vệ chi phí ZCA
+                <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                Cơ chế bảo vệ chi phí ZCA & Bản quyền thương hiệu
               </div>
               <p>
                 Tin nhắn được bảo vệ chống gửi trùng. Chi phí <strong>{templateInfo.price} đ</strong> sẽ được trừ trực tiếp vào số dư Zalo Cloud Account (ZCA) của OA khi Zalo gửi thành công.
@@ -530,11 +738,11 @@ export function UniversalZnsPreviewModal({
           </div>
         </div>
 
-        {/* FOOTER */}
+        {/* 4. FOOTER ĐIỀU KHIỂN */}
         <div className="px-5 py-3.5 bg-slate-100 border-t border-slate-200 flex items-center justify-between shrink-0">
           <Button 
             type="button" 
-            variant="outline" 
+            variant="default" 
             onClick={onClose}
             disabled={isSending}
             className="text-xs font-bold"
@@ -548,7 +756,7 @@ export function UniversalZnsPreviewModal({
             onClick={handleConfirmSend}
             isLoading={isSending}
             disabled={isSending || !targetPhone}
-            className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 px-5 py-2 shadow-xs"
+            className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 px-6 py-2.5 shadow-sm rounded-xl cursor-pointer"
           >
             <Send className="w-4 h-4" />
             Xác nhận gửi ZNS (#{templateInfo.templateId})

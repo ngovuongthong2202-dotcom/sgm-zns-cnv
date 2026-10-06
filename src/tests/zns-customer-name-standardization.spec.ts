@@ -30,7 +30,7 @@ describe('ZNS Customer Name ("Chuẩn ZNS") Strict Compliance & Length Guardrail
       nguoiPhuTrach: 'Ngô Vương Thông'
     };
 
-    const rendered = await templateRendererService.render('BAOGIA', doc);
+    const rendered = await templateRendererService.render('BAOGIA', doc) as Record<string, string>;
     expect(rendered.customer_name).toBe('Cơ Khí Công Nghiệp Sài Gòn');
     expect(rendered.customer_name.length).toBeLessThanOrEqual(30);
   });
