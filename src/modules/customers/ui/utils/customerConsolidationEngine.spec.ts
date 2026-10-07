@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { 
   detectDuplicateCustomerGroups, 
   buildConsolidationMigrationPlan,
+  createManualDuplicateGroup,
   isBranchTaxCode,
   normalizeTaxCode 
 } from './customerConsolidationEngine';
@@ -129,5 +130,44 @@ describe('customerConsolidationEngine - Enterprise Master Data Management', () =
     // Khách hàng phụ KH0216 phải bị đánh dấu isArchived và trỏ mergedInto về KH0213
     expect(plan.archivedSecondaryCustomers[0].isArchived).toBe(true);
     expect(plan.archivedSecondaryCustomers[0].mergedInto).toBe('cust-213');
+  });
+
+  it('phát hiện chính xác nhóm trùng 13 số chi nhánh như KH0805 và KH0804 (Hoa Sen Cần Thơ)', () => {
+    const mockBranchCustomers = [
+      {
+        id: 'cust-805',
+        maKh: 'KH0805',
+        tenKhachHang: 'Công Ty Cổ Phần Tập Đoàn Hoa Sen - Chi Nhánh Cần Thơ',
+        maSoThue: '1801452294-001',
+        tinhThanh: 'Cần Thơ',
+        contacts: []
+      },
+      {
+        id: 'cust-804',
+        maKh: 'KH0804',
+        tenKhachHang: 'Tập Đoàn Hoa Sen Cần Thơ',
+        maSoThue: '1801452294-001',
+        tinhThanh: 'Cần Thơ',
+        contacts: []
+      }
+    ] as unknown as Customer[];
+
+    const duplicateGroups = detectDuplicateCustomerGroups(mockBranchCustomers);
+    expect(duplicateGroups.length).toBe(1);
+    expect(duplicateGroups[0].taxCode).toBe('1801452294001');
+    expect(duplicateGroups[0].allCustomersInGroup.length).toBe(2);
+    expect(duplicateGroups[0].allCustomersInGroup.map(c => c.maKh)).toContain('KH0805');
+    expect(duplicateGroups[0].allCustomersInGroup.map(c => c.maKh)).toContain('KH0804');
+  });
+
+  it('hỗ trợ tạo nhóm gộp thủ công từ 2 khách hàng bất kỳ được chọn', () => {
+    const cust1 = { id: 'c1', maKh: 'KH001', tenKhachHang: 'Khách A', contacts: [] } as unknown as Customer;
+    const cust2 = { id: 'c2', maKh: 'KH002', tenKhachHang: 'Khách B', contacts: [] } as unknown as Customer;
+    
+    const manualGroup = createManualDuplicateGroup([cust1, cust2]);
+    expect(manualGroup).not.toBeNull();
+    expect(manualGroup?.allCustomersInGroup.length).toBe(2);
+    expect(manualGroup?.masterCustomer.maKh).toBe('KH001');
+    expect(manualGroup?.secondaryCustomers[0].maKh).toBe('KH002');
   });
 });

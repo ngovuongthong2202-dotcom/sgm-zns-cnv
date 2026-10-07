@@ -74,7 +74,7 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
     }
 
     // Số ngày hoàn thành cho template Hợp đồng (yêu cầu kiểu NUMBER)
-    const rawSoNgay = parseInt(String(p.thoiGianThucHien || p.soNgayDuKienHoanThanh || p.soNgay || p.so_ngay || 30).replace(/\D/g, '') || '30', 10);
+    const rawSoNgay = parseInt(String(p.soNgayDuKienHoanThanh || p.thoiGianThucHien || p.soNgay || p.so_ngay || 30).replace(/\D/g, '') || '30', 10);
     const soNgayNum = isNaN(rawSoNgay) ? 30 : rawSoNgay;
 
     const templateData: Record<string, any> = {
@@ -132,7 +132,7 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
 
       // 6. Phân hệ Kích hoạt Bảo hành (Template 531052)
       ma_bao_hanh: String(p.ma_bao_hanh || p.serial || (Array.isArray(p.danhSachMaMay) ? p.danhSachMaMay[0] : null) || p.soPhieuXuat || p.deliveryId || 'BH-SGM').slice(0, 30),
-      product: String(p.product || (contractCode !== '---' ? ('Căn cứ theo ' + contractCode) : (orderCode !== '---' ? ('Căn cứ theo ' + orderCode) : (p.sanPham || p.tenMay || 'Căn cứ theo HĐ SGM')))).slice(0, 30),
+      product: String(p.product || (contractCode !== '---' ? ('Theo ' + contractCode) : (orderCode !== '---' ? ('Theo ' + orderCode) : (p.sanPham || p.tenMay || 'Theo HĐ SGM')))).slice(0, 30),
       date: formatZnsDate(p.date || p.expiryDateFormatted || p.ngayGiaoThucTe || p.ngayGiaoHang || dateFormatted),
 
       // 7. Nhận diện công ty (≤ 30 ký tự)
@@ -183,7 +183,17 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
 
     // 3. Chuẩn hóa SĐT và Dữ liệu template
     const zaloPhone = this.normalizePhoneForZalo(props.phone);
-    const templateData = this.extractTemplateData(props.payload || {}, props.messageType);
+    let templateData = this.extractTemplateData(props.payload || {}, props.messageType);
+
+    // Strict whitelisting for Template 531052 (Kích hoạt bảo hành) to avoid Zalo OpenAPI error -124
+    if (templateId === '531052' || props.messageType === 'GIAOHANG_HOANTAT' || props.messageType === 'GIAOHANG_BAOHANH') {
+      templateData = {
+        customer_name: templateData.customer_name,
+        ma_bao_hanh: templateData.ma_bao_hanh,
+        product: templateData.product,
+        date: templateData.date
+      };
+    }
 
     const zaloPayload = {
       phone: zaloPhone,

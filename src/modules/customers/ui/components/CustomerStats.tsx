@@ -160,7 +160,7 @@ export function CustomerStats({
                   setIsProvinceOpen(prev => !prev);
                 }
               }}
-              className={`group relative border rounded-xl py-2.5 px-3.5 flex items-center justify-between shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition-all select-none duration-150 cursor-pointer ${isProvinceOpen ? 'z-50 ring-2 ring-teal-500/40' : 'z-10'} ${activeBorders}`}
+              className={`group relative border rounded-xl py-2.5 px-3.5 flex items-center justify-between shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition-all select-none duration-150 cursor-pointer ${isProvinceOpen ? 'z-[100] ring-2 ring-teal-500/40' : 'z-20'} ${activeBorders}`}
             >
               <div 
                 className={`absolute left-0 top-[calc(100%+6px)] w-[260px] bg-white border border-slate-300 rounded-xl shadow-2xl p-2 z-[99999] transition-all duration-200 origin-top ${

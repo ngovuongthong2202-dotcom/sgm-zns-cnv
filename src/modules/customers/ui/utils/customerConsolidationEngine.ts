@@ -80,14 +80,25 @@ export function isBranchTaxCode(tax?: string): boolean {
 }
 
 /**
- * Kiểm tra tính hợp lệ của MST doanh nghiệp dùng trong MDM gom nhóm
+ * Kiểm tra tính hợp lệ của MST doanh nghiệp chuẩn 10 số (Trụ sở chính)
  */
 export function isValidEnterpriseTaxCode(tax?: string): boolean {
   const norm = normalizeTaxCode(tax);
-  if (!norm || norm.length < 8) return false;
-  if (isBranchTaxCode(norm)) return false; // Không gom nhầm chi nhánh 13 số
+  if (!norm || norm.length !== 10) return false;
   if (BLACKLISTED_DUMMY_TAX_CODES.has(norm)) return false; // Không gom nhầm MST rác/tạm
   if (/^(\d)\1+$/.test(norm)) return false; // Không gom chuỗi ký tự lặp vô nghĩa
+  return true;
+}
+
+/**
+ * Kiểm tra tính hợp lệ của MST doanh nghiệp dùng trong MDM gom nhóm
+ * Hỗ trợ cả MST 10 số (Pháp nhân) và MST 13 số (Chi nhánh phụ thuộc như KH0805 & KH0804)
+ */
+export function isValidConsolidationTaxCode(tax?: string): boolean {
+  const norm = normalizeTaxCode(tax);
+  if (!norm || (norm.length !== 10 && norm.length !== 13)) return false;
+  if (BLACKLISTED_DUMMY_TAX_CODES.has(norm)) return false;
+  if (/^(\d)\1+$/.test(norm)) return false;
   return true;
 }
 
@@ -110,6 +121,89 @@ export function calculateBusinessNameSimilarity(nameA?: string, nameB?: string):
   });
   const union = new Set([...tokensA, ...tokensB]).size;
   return union > 0 ? intersection / union : 0;
+}
+
+/**
+ * Tạo nhóm gộp thủ công từ danh sách khách hàng được chọn
+ */
+export function createManualDuplicateGroup(
+  selectedCustomers: Customer[],
+  quotations: Quotation[] = [],
+  contracts: any[] = [],
+  payments: any[] = [],
+  deliveries: any[] = []
+): DuplicateCustomerGroup | null {
+  if (!Array.isArray(selectedCustomers) || selectedCustomers.length < 2) return null;
+
+  const quoteCountByCustId = new Map<string, number>();
+  quotations.forEach(q => {
+    const id = q.customerId || q.maKh;
+    if (id) quoteCountByCustId.set(id, (quoteCountByCustId.get(id) || 0) + 1);
+  });
+
+  const contractCountByCustId = new Map<string, number>();
+  contracts.forEach(c => {
+    const id = c.customerId || c.maKh;
+    if (id) contractCountByCustId.set(id, (contractCountByCustId.get(id) || 0) + 1);
+  });
+
+  const deliveryCountByCustId = new Map<string, number>();
+  deliveries.forEach(d => {
+    const id = d.customerId || d.maKh;
+    if (id) deliveryCountByCustId.set(id, (deliveryCountByCustId.get(id) || 0) + 1);
+  });
+
+  const paymentCountByCustId = new Map<string, number>();
+  payments.forEach(p => {
+    const id = p.customerId || p.maKh;
+    if (id) paymentCountByCustId.set(id, (paymentCountByCustId.get(id) || 0) + 1);
+  });
+
+  const calculateCustomerScore = (cust: Customer): number => {
+    const idKey = cust.id || '';
+    const maKey = cust.maKh || '';
+    const contractsCount = (contractCountByCustId.get(idKey) || 0) + (contractCountByCustId.get(maKey) || 0);
+    const deliveriesCount = (deliveryCountByCustId.get(idKey) || 0) + (deliveryCountByCustId.get(maKey) || 0);
+    const paymentsCount = (paymentCountByCustId.get(idKey) || 0) + (paymentCountByCustId.get(maKey) || 0);
+    const quotesCount = (quoteCountByCustId.get(idKey) || 0) + (quoteCountByCustId.get(maKey) || 0);
+
+    return (contractsCount * 10) +
+           (deliveriesCount * 8) +
+           (paymentsCount * 6) +
+           (quotesCount * 2);
+  };
+
+  const sorted = [...selectedCustomers].sort((a, b) => {
+    const scoreA = calculateCustomerScore(a);
+    const scoreB = calculateCustomerScore(b);
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    return (a.maKh || '').localeCompare(b.maKh || '');
+  });
+
+  const master = sorted[0];
+  const secondaries = sorted.slice(1);
+
+  const totalQuotes = selectedCustomers.reduce((sum, c) => {
+    return sum + (quoteCountByCustId.get(c.id || '') || 0) + (quoteCountByCustId.get(c.maKh || '') || 0);
+  }, 0);
+
+  const allPhoneSet = new Set<string>();
+  selectedCustomers.forEach(c => {
+    if (c.sdt) allPhoneSet.add(c.sdt.replace(/\D/g, ''));
+    (c.contacts || []).forEach(ct => {
+      if (ct.sdt) allPhoneSet.add(ct.sdt.replace(/\D/g, ''));
+    });
+  });
+
+  return {
+    taxCode: master.maSoThue || 'MANUAL-MERGE',
+    normalizedName: normalizeBusinessName(master.tenKhachHang),
+    masterCustomer: master,
+    secondaryCustomers: secondaries,
+    allCustomersInGroup: selectedCustomers,
+    totalQuotationsCount: totalQuotes,
+    distinctContactsCount: allPhoneSet.size || 1,
+  };
 }
 
 /**
@@ -160,16 +254,17 @@ export function detectDuplicateCustomerGroups(
     }
   });
 
-  // Nhóm theo Mã Số Thuế (Chỉ nhóm MST 10 số pháp nhân hợp lệ, bỏ qua rác và chi nhánh)
+  // 1. Nhóm theo Mã Số Thuế (Bao gồm cả MST 10 số và MST 13 số chi nhánh)
   const groupsByTax = new Map<string, Customer[]>();
+  const processedCustomerIds = new Set<string>();
 
   customers.forEach(c => {
     // Bỏ qua các khách hàng đã bị gộp trước đó hoặc đã lưu trữ
     if (c.isArchived || c.mergedInto || (c as any).is_archived || (c as any).merged_into || c.tenKhachHang?.startsWith('[ĐÃ GỘP VÀO')) return;
 
     const normTax = normalizeTaxCode(c.maSoThue);
-    // Bỏ qua khách hàng cá nhân không có MST, MST < 8 số hoặc MST nằm trong Blacklist rác
-    if (isValidEnterpriseTaxCode(normTax)) {
+    // Bỏ qua khách hàng cá nhân không có MST, MST rác; hỗ trợ cả MST 10 số và 13 số chi nhánh
+    if (isValidConsolidationTaxCode(normTax)) {
       if (!groupsByTax.has(normTax)) {
         groupsByTax.set(normTax, []);
       }
@@ -179,26 +274,26 @@ export function detectDuplicateCustomerGroups(
 
   const duplicateGroups: DuplicateCustomerGroup[] = [];
 
+  const calculateCustomerScore = (cust: Customer): number => {
+    const idKey = cust.id || '';
+    const maKey = cust.maKh || '';
+    const contractsCount = (contractCountByCustId.get(idKey) || 0) + (contractCountByCustId.get(maKey) || 0);
+    const deliveriesCount = (deliveryCountByCustId.get(idKey) || 0) + (deliveryCountByCustId.get(maKey) || 0);
+    const paymentsCount = (paymentCountByCustId.get(idKey) || 0) + (paymentCountByCustId.get(maKey) || 0);
+    const quotesCount = (quoteCountByCustId.get(idKey) || 0) + (quoteCountByCustId.get(maKey) || 0);
+
+    return (contractsCount * 10) +
+           (deliveriesCount * 8) +
+           (paymentsCount * 6) +
+           (quotesCount * 2);
+  };
+
   groupsByTax.forEach((groupCustomers, taxCode) => {
     if (groupCustomers.length > 1) {
-
-      // Sovereign Multi-Dimensional Composite Scoring (MDSCS):
-      // Giai tầng 1: Điểm nghiệp vụ giao dịch trọng yếu
-      // Score = (Contracts * 10) + (Deliveries * 8) + (Payments * 6) + (Quotes * 2)
-      // Giai tầng 2: Nếu điểm giao dịch bằng nhau (hoặc = 0) -> Giữ nguyên hồ sơ nền tảng tạo trước (mã KH nhỏ hơn: KH-001 < KH-002)
-      const calculateCustomerScore = (cust: Customer): number => {
-        const idKey = cust.id || '';
-        const maKey = cust.maKh || '';
-        const contractsCount = (contractCountByCustId.get(idKey) || 0) + (contractCountByCustId.get(maKey) || 0);
-        const deliveriesCount = (deliveryCountByCustId.get(idKey) || 0) + (deliveryCountByCustId.get(maKey) || 0);
-        const paymentsCount = (paymentCountByCustId.get(idKey) || 0) + (paymentCountByCustId.get(maKey) || 0);
-        const quotesCount = (quoteCountByCustId.get(idKey) || 0) + (quoteCountByCustId.get(maKey) || 0);
-
-        return (contractsCount * 10) +
-               (deliveriesCount * 8) +
-               (paymentsCount * 6) +
-               (quotesCount * 2);
-      };
+      groupCustomers.forEach(c => {
+        if (c.id) processedCustomerIds.add(c.id);
+        if (c.maKh) processedCustomerIds.add(c.maKh);
+      });
 
       const sorted = [...groupCustomers].sort((a, b) => {
         const scoreA = calculateCustomerScore(a);

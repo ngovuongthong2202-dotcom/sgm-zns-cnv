@@ -1,5 +1,6 @@
 import { Button } from '@/src/design-system';
 import React, { useState, useRef, useEffect, useDeferredValue } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Check, Search, X } from 'lucide-react';
 
 export interface FilterOption {
@@ -24,18 +25,47 @@ export function FilterDropdown({
 }: FilterDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [coords, setCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const deferredSearch = useDeferredValue(search);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const clickedTrigger = containerRef.current && containerRef.current.contains(target);
+      const clickedDropdown = dropdownRef.current && dropdownRef.current.contains(target);
+      if (!clickedTrigger && !clickedDropdown) {
         setIsOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen || !containerRef.current) return;
+    const updatePosition = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const dropdownHeight = 280;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const top = spaceBelow < dropdownHeight && rect.top > dropdownHeight 
+        ? rect.top - dropdownHeight - 4 
+        : rect.bottom + 4;
+      
+      const left = Math.min(rect.left, window.innerWidth - 290);
+      setCoords({ top, left: Math.max(8, left) });
+    };
+
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [isOpen]);
 
   const handleSelect = (val: string) => {
     if (val === 'all') {
@@ -81,8 +111,12 @@ export function FilterDropdown({
         )}
       </Button>
 
-      {isOpen && (
-        <div className="absolute left-0 mt-1 z-[60] w-[280px] p-2 bg-white border border-slate-200 rounded-lg shadow-xl ring-1 ring-slate-900/5">
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <div 
+          ref={dropdownRef}
+          style={{ position: 'fixed', top: `${coords.top}px`, left: `${coords.left}px` }}
+          className="z-[99999] w-[280px] p-2 bg-white border border-slate-200 rounded-lg shadow-2xl ring-1 ring-slate-900/10 animate-in fade-in zoom-in-95 duration-100"
+        >
           {/* Internal Search if options > 5 */}
           {options.length > 5 && (
             <div className="relative flex items-center h-8 mb-1.5 border-b border-slate-100 pb-1.5 gap-1.5">
@@ -157,7 +191,8 @@ export function FilterDropdown({
               })
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

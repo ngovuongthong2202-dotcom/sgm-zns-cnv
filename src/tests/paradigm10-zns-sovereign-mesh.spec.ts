@@ -56,7 +56,7 @@ describe('Paradigm 10: Apex Sovereign Omni-Mesh Fabric & Sub-Entity Ledger Synch
       expect(result.maxMonths).toBe(24);
       expect(result.expiryDateFormatted).toBe('15/01/2028');
       expect(result.primarySerial).toBe('SER-CNC-9988');
-      expect(result.contractProductLabel).toBe('Căn cứ theo 062/VT-SGM/2026');
+      expect(result.contractProductLabel).toBe('Theo 062/VT-SGM/2026');
       expect(result.contractProductLabel.length).toBeLessThanOrEqual(30);
     });
 
@@ -73,7 +73,7 @@ describe('Paradigm 10: Apex Sovereign Omni-Mesh Fabric & Sub-Entity Ledger Synch
       const result = calculateMaxWarrantyExpiryDate(mockDelivery as Delivery);
       expect(result.maxMonths).toBe(12);
       expect(result.expiryDateFormatted).toBe('20/03/2027');
-      expect(result.contractProductLabel).toBe('Căn cứ theo 088/VT-SGM/2026');
+      expect(result.contractProductLabel).toBe('Theo 088/VT-SGM/2026');
     });
   });
 
@@ -139,7 +139,7 @@ describe('Paradigm 10: Apex Sovereign Omni-Mesh Fabric & Sub-Entity Ledger Synch
 
       const extracted = vendor.extractTemplateData(payload, 'GIAOHANG_BAOHANH');
       expect(extracted.ma_bao_hanh).toBe('SGM-CNC-2026001');
-      expect(extracted.product).toBe('Căn cứ theo 062/VT-SGM/2026');
+      expect(extracted.product).toBe('Theo 062/VT-SGM/2026');
       expect(extracted.date).toBe('15/10/2027');
       expect(extracted.customer_name.length).toBeLessThanOrEqual(30);
       expect(extracted.product.length).toBeLessThanOrEqual(30);
@@ -165,9 +165,43 @@ describe('Paradigm 10: Apex Sovereign Omni-Mesh Fabric & Sub-Entity Ledger Synch
       const templateData = result.template_data as Record<string, any>;
 
       expect(templateData.ma_bao_hanh).toBe('SN-889922');
-      expect(templateData.product).toBe('Căn cứ theo 062/VT-SGM/2026');
+      expect(templateData.product).toBe('Theo 062/VT-SGM/2026');
       expect(templateData.date).toBe('06/10/2026');
       expect(templateData.customer_name).toBe('Nguyễn Văn An');
+    });
+
+    it('prioritizes soNgayDuKienHoanThanh over legacy thoiGianThucHien', () => {
+      const vendor = new ZaloOfficialZnsVendor();
+      const payload = {
+        soNgayDuKienHoanThanh: 95,
+        thoiGianThucHien: '30 ngày',
+        soHopDong: '029/KD1-SGM/TN-CT/26',
+      };
+      const extracted = vendor.extractTemplateData(payload, 'HOPDONG_SIGN_ZNS');
+      expect(extracted.so_ngay).toBe(95);
+    });
+
+    it('strictly extracts serial numbers without falling back to product names', async () => {
+      const message: ZnsMessage = {
+        id: 'msg-deliv-001',
+        messageType: 'GIAOHANG_ZNS',
+        recipientPhone: '0901234567',
+        phone: '0901234567',
+        customerName: 'Khách hàng A',
+        payload: {
+          tenKhachHang: 'Khách hàng A',
+          soHopDong: '062/VT-SGM/2026',
+          products: [
+            { productName: 'Máy cán tôn sóng vuông', serial: 'SER-ROLL-01' },
+            { productName: 'Máy dập vòm', serials: ['SER-PRESS-02', 'SER-PRESS-03'] }
+          ],
+        },
+      } as any;
+
+      const result = await znsPayloadBuilder.buildPayload(message, 'test-key-123');
+      const templateData = result.template_data as Record<string, any>;
+      expect(templateData.danh_sach_ma_may).toBe('SER-ROLL-01 | SER-PRESS-02 | SER-PRESS-03');
+      expect(templateData.danh_sach_ma_may).not.toContain('Máy cán tôn sóng vuông');
     });
   });
 });

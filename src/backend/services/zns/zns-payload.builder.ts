@@ -176,7 +176,7 @@ export class ZnsPayloadBuilder {
     
     // Fallbacks cho customer_name & phone (áp dụng cho mọi template)
     if (requiredVarsSet.has('customer_name') && isEmp(rendered.customer_name)) {
-      rendered.customer_name = (p.tenZns as string) || (p.ten_zns as string) || (p.tenKhachHangZns as string) || (p.tenKhachHang as string) || (p.customer_name as string) || (p.customerName as string) || (p.name as string) || ((p.contacts as any)?.[0]?.nguoiDaiDien as string) || (p.nguoiDaiDien as string) || '';
+      rendered.customer_name = (p.tenZns as string) || (p.ten_zns as string) || (p.tenKhachHangZns as string) || (p.tenKhachHang as string) || (p.customer_name as string) || (p.customerName as string) || (p.name as string) || ((p.contacts as any)?.[0]?.nguoiDaiDien as string) || (p.nguoiDaiDien as string) || (message.customerName as string) || '';
     }
     if (requiredVarsSet.has('phone') && isEmp(rendered.phone)) {
       rendered.phone = message.phone || (p.sdt as string) || (p.phone as string) || (p.soDienThoai as string) || ((p.contacts as any)?.[0]?.sdt as string) || '';
@@ -243,23 +243,36 @@ export class ZnsPayloadBuilder {
     }
 
     if (requiredVarsSet.has('danh_sach_ma_may') && isEmp(rendered.danh_sach_ma_may)) {
-        // user requirement: danh_sach_ma_may = productId separated by |
-        if (p.products && p.products.length > 0) {
-            rendered.danh_sach_ma_may = p.products
-                .map((item: Record<string, unknown>) => item.productId || item.productName || item.productCode || item.model)
-                .filter(Boolean)
-                .map((s: any) => String(s).trim())
-                .join(' | ');
-        } else if (Array.isArray(p.danhSachMaMay) && p.danhSachMaMay.length > 0) {
+        // Strictly extract serial numbers; never fall back to productName
+        if (Array.isArray(p.danhSachMaMay) && p.danhSachMaMay.length > 0) {
             rendered.danh_sach_ma_may = p.danhSachMaMay
                 .map((s: any) => String(s).trim())
                 .filter(Boolean)
                 .join(' | ');
-        } else if (typeof p.danhSachMaMay === 'string') {
+        } else if (typeof p.danhSachMaMay === 'string' && p.danhSachMaMay.trim().length > 0) {
             rendered.danh_sach_ma_may = p.danhSachMaMay.trim();
+        } else if (Array.isArray((p as any).serials) && (p as any).serials.length > 0) {
+            rendered.danh_sach_ma_may = (p as any).serials
+                .map((s: any) => String(s).trim())
+                .filter(Boolean)
+                .join(' | ');
+        } else if (p.products && p.products.length > 0) {
+            rendered.danh_sach_ma_may = p.products
+                .flatMap((item: Record<string, unknown>) => {
+                    if (Array.isArray(item.serials) && item.serials.length > 0) return item.serials;
+                    if (item.serial) return [item.serial];
+                    if (item.serialNumber) return [item.serialNumber];
+                    if (item.productId) return [item.productId];
+                    if (item.productCode) return [item.productCode];
+                    if (item.model) return [item.model];
+                    return [];
+                })
+                .filter(Boolean)
+                .map((s: any) => String(s).trim())
+                .join(' | ');
         }
         if (isEmp(rendered.danh_sach_ma_may)) {
-            rendered.danh_sach_ma_may = (p as any).maMay || (p as any).serial || 'Theo phiếu xuất kho';
+            rendered.danh_sach_ma_may = (p as any).serial || (p as any).maMay || 'Theo phiếu xuất kho';
         }
     }
 
@@ -270,7 +283,7 @@ export class ZnsPayloadBuilder {
     }
     if (requiredVarsSet.has('product') && isEmp(rendered.product)) {
         const soHd = p.soHopDong || p.soDonHang || '';
-        rendered.product = String(p.product || ('Căn cứ theo ' + (soHd || 'HĐ SGM'))).slice(0, 30);
+        rendered.product = String(p.product || ('Theo ' + (soHd || 'HĐ SGM'))).slice(0, 30);
     }
     if (requiredVarsSet.has('date') && isEmp(rendered.date)) {
         const rawDate = p.date || p.expiryDateFormatted || p.ngayGiaoThucTe || p.ngayGiaoHang || p.ngayKy || new Date();

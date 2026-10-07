@@ -12,8 +12,8 @@ export function TemplatePreview({ template, variablesValueMock = {} }: Props) {
   
   const getLogo = () => (
     <div className="flex flex-col items-start gap-1 mb-4">
-      <div className="w-12 h-12 rounded-full border border-slate-300 flex items-center justify-center overflow-hidden bg-white">
-         <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-400 to-slate-600">S</span>
+      <div className="w-12 h-12 rounded-full border border-slate-300 flex items-center justify-center overflow-hidden bg-white p-1 shadow-2xs">
+         <img src="/sgm-logo.png" alt="SGM Logo" className="w-full h-full object-contain" />
       </div>
       <div className="text-3xs font-bold tracking-widest text-slate-800/80">SAIGONMACHINE</div>
     </div>

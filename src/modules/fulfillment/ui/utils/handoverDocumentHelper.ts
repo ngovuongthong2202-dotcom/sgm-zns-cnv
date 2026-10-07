@@ -255,7 +255,7 @@ export function calculateMaxWarrantyExpiryDate(delivery: Partial<Delivery>): {
 
   // 5. Căn cứ theo hợp đồng
   const soHd = delivery.soHopDong || delivery.soDonHang || '';
-  const contractReference = ('Căn cứ theo ' + (soHd || 'HĐ SGM')).slice(0, 30);
+  const contractReference = ('Theo ' + (soHd || 'HĐ SGM')).slice(0, 30);
 
   return {
     expiryDateFormatted,

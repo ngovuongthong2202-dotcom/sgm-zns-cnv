@@ -555,7 +555,8 @@ export default function DashboardPage() {
                 so_hop_dong: c.soHopDong || c.id,
                 ngay_ky: formatZnsDate(c.ngayKy || (c as any).createdAt),
                 sign_date: formatZnsDate(c.ngayKy || (c as any).createdAt),
-                so_ngay: c.soNgayDuKienHoanThanh || (c as any).thoiGianThucHien || 30,
+                soNgay: c.soNgayDuKienHoanThanh || (c as any).thoiGianThucHien || (c as any).soNgay || 30,
+                so_ngay: c.soNgayDuKienHoanThanh || (c as any).thoiGianThucHien || (c as any).soNgay || 30,
                 phone: targetPhone,
                 sdt: targetPhone,
               },
@@ -674,7 +675,7 @@ export default function DashboardPage() {
                 so_phieu_xuat: d.deliveryId || d.id || '',
                 ngay_giao_may: formatZnsDate(d.ngayGiaoThucTe || (d as any).ngayGiaoHang),
                 danh_sach_ma_may: Array.isArray(d.products) 
-                  ? d.products.map((p: any) => p.serialNumber || p.maMay || p.productName).filter(Boolean).join(', ')
+                  ? d.products.map((p: any) => p.serialNumber || p.maMay || p.serial).filter(Boolean).join(', ')
                   : '',
                 so_luong: String(d.slMay || (Array.isArray(d.products) ? d.products.length : 1)),
                 dvt: d.dvt || 'Máy',

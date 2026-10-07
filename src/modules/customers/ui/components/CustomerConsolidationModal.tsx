@@ -41,6 +41,7 @@ interface Props {
   payments?: any[];
   deliveries?: any[];
   onConsolidationSuccess?: () => void;
+  initialSelectedGroup?: DuplicateCustomerGroup | null;
 }
 
 export function CustomerConsolidationModal({
@@ -52,6 +53,7 @@ export function CustomerConsolidationModal({
   payments = [],
   deliveries = [],
   onConsolidationSuccess,
+  initialSelectedGroup = null,
 }: Props) {
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -64,8 +66,12 @@ export function CustomerConsolidationModal({
   const [customMasterId, setCustomMasterId] = useState<string | null>(null);
 
   const duplicateGroups = React.useMemo(() => {
-    return detectDuplicateCustomerGroups(customers, quotations, contracts, payments, deliveries);
-  }, [customers, quotations, contracts, payments, deliveries]);
+    const detected = detectDuplicateCustomerGroups(customers, quotations, contracts, payments, deliveries);
+    if (initialSelectedGroup) {
+      return [initialSelectedGroup, ...detected.filter(g => g.taxCode !== initialSelectedGroup.taxCode)];
+    }
+    return detected;
+  }, [customers, quotations, contracts, payments, deliveries, initialSelectedGroup]);
 
   // Load history when tab is activated
   const loadHistory = React.useCallback(async () => {

@@ -35,7 +35,7 @@ interface DeliveryDetailDrawerProps {
   onMarkDelivered?: (delivery: Delivery) => void;
   onRevertDelivered?: (delivery: Delivery) => Promise<void>;
   onViewConfirmation?: (delivery: Delivery) => void;
-  onSendZns: (delivery: Delivery, templateCode: 'GIAOHANG_ZNS' | 'GIAOHANG_HOANTAT') => void;
+  onSendZns: (delivery: Delivery, templateCode: 'GIAOHANG_ZNS' | 'GIAOHANG_HOANTAT' | 'GIAOHANG_BAOHANH') => void;
   onCancelDelivery: (delivery: Delivery, reason: string) => Promise<void>;
   onOpenRecordShipment?: (delivery: Delivery) => void;
   drawerContract: any | null;
@@ -1328,6 +1328,7 @@ export function DeliveryDetailDrawer({
           products: viewingShipmentConfirmation.products || drawerDelivery.products,
           danhSachMaMay: viewingShipmentConfirmation.danhSachMaMay || drawerDelivery.danhSachMaMay,
         }}
+        onSendZns={onSendZns}
         onClose={() => setViewingShipmentConfirmation(null)}
       />
     )}

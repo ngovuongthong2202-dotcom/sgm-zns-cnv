@@ -25,7 +25,7 @@ import { useAuth } from '@/src/modules/iam';
 import { CustomerZnsContactModal } from './components/CustomerZnsContactModal';
 import { CustomerConsolidationModal } from './components/CustomerConsolidationModal';
 import { BulkZnsModal } from '@/src/widgets/BulkZnsModal';
-import { detectDuplicateCustomerGroups } from './utils/customerConsolidationEngine';
+import { detectDuplicateCustomerGroups, createManualDuplicateGroup, DuplicateCustomerGroup } from './utils/customerConsolidationEngine';
 import { extractVietnamesePhones } from './utils/vietnameseTelecomExtractor';
 
 export default function CustomersFeature() {
@@ -75,6 +75,7 @@ export default function CustomersFeature() {
   const { data: deliveries = [] } = useRealtimeCollection<any>('deliveries');
   const [printingCustomer, setPrintingCustomer] = useState<Customer | null>(null);
   const [isConsolidationOpen, setIsConsolidationOpen] = useState(false);
+  const [manualGroupToConsolidate, setManualGroupToConsolidate] = useState<DuplicateCustomerGroup | null>(null);
   const [isBulkZnsOpen, setIsBulkZnsOpen] = useState(false);
 
   const activeCustomers = useMemo(() => {
@@ -225,7 +226,7 @@ export default function CustomersFeature() {
   return (
     <div className="flex flex-col h-full bg-slate-50">
       {/* Thống kê đài phát */}
-      <div className="px-6 pt-3 shrink-0 relative z-30">
+      <div className="px-6 pt-3 shrink-0 relative z-40">
         <CollapsibleStatsBanner
           storageKey="sgm_stats_pinned_customers"
           title="Chỉ số & Tổng quan Khách hàng"
@@ -289,6 +290,25 @@ export default function CustomersFeature() {
             hasActiveDomainFilters={hasActiveDomainFilters}
             extraActions={
               <div className="flex items-center gap-2">
+                {(_table.getSelectedRowModel().rows || []).length >= 2 && (
+                  <Button 
+                    variant="primary" 
+                    size="sm" 
+                    leftIcon={<GitMerge size={14} className="shrink-0 text-white" />}
+                    className="h-8 px-2.5 font-bold whitespace-nowrap shrink-0 inline-flex items-center shadow-xs bg-amber-600 hover:bg-amber-700 text-white border-none cursor-pointer"
+                    onClick={() => {
+                      const selectedCustomers = _table.getSelectedRowModel().rows.map(r => r.original);
+                      const manualGroup = createManualDuplicateGroup(selectedCustomers, quotations, contracts, payments, deliveries);
+                      if (manualGroup) {
+                        setManualGroupToConsolidate(manualGroup);
+                        setIsConsolidationOpen(true);
+                      }
+                    }}
+                    title="Gộp các khách hàng đã tích chọn trên bảng"
+                  >
+                    Gộp {(_table.getSelectedRowModel().rows || []).length} KH đã chọn
+                  </Button>
+                )}
                 <Button 
                   variant="secondary" 
                   size="sm" 
@@ -298,7 +318,10 @@ export default function CustomersFeature() {
                       ? 'border-amber-300 bg-amber-50/70 text-amber-900 hover:bg-amber-100' 
                       : 'text-slate-700 hover:text-slate-900 border-slate-200 bg-white hover:bg-slate-50'
                   }`}
-                  onClick={() => setIsConsolidationOpen(true)}
+                  onClick={() => {
+                    setManualGroupToConsolidate(null);
+                    setIsConsolidationOpen(true);
+                  }}
                   title="Kiểm tra và gộp khách hàng trùng mã số thuế hoặc quản lý nhật ký hoàn tác"
                 >
                   Gộp trùng MST {duplicateGroups.length > 0 ? `(${duplicateGroups.length})` : ''}
@@ -418,14 +441,19 @@ export default function CustomersFeature() {
       {isConsolidationOpen && (
         <CustomerConsolidationModal
           isOpen={isConsolidationOpen}
-          onClose={() => setIsConsolidationOpen(false)}
+          onClose={() => {
+            setIsConsolidationOpen(false);
+            setManualGroupToConsolidate(null);
+          }}
           customers={customers}
           quotations={quotations}
           contracts={contracts}
           payments={payments}
           deliveries={deliveries}
+          initialSelectedGroup={manualGroupToConsolidate}
           onConsolidationSuccess={() => {
             refresh();
+            setManualGroupToConsolidate(null);
           }}
         />
       )}

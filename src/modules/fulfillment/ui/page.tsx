@@ -539,7 +539,7 @@ export default function DeliveriesFeature() {
               so_phieu_xuat: znsPreviewDelivery.delivery.deliveryId || znsPreviewDelivery.delivery.id || '',
               ngay_giao_may: formatZnsDate(znsPreviewDelivery.delivery.ngayGiaoThucTe || (znsPreviewDelivery.delivery as any).ngayGiaoHang),
               danh_sach_ma_may: Array.isArray(znsPreviewDelivery.delivery.products) 
-                ? znsPreviewDelivery.delivery.products.map((p: any) => p.serialNumber || p.maMay || p.productName).filter(Boolean).join(', ')
+                ? znsPreviewDelivery.delivery.products.map((p: any) => p.serialNumber || p.maMay || p.serial).filter(Boolean).join(', ')
                 : '',
               so_luong: String(znsPreviewDelivery.delivery.slMay || (Array.isArray(znsPreviewDelivery.delivery.products) ? znsPreviewDelivery.delivery.products.length : 1)),
               dvt: znsPreviewDelivery.delivery.dvt || 'Máy',

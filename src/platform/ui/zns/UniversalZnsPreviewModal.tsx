@@ -118,7 +118,7 @@ export function UniversalZnsPreviewModal({
     if (templateInfo.templateId === '533068' || entityType === 'CONTRACT') {
       defaults.order_code = String(payload.soHopDong || payload.maHopDong || documentCode || 'HD-2026-0002').slice(0, 30);
       defaults.ngay_ky = formatZnsDate(payload.ngayKy || payload.ngay_ky || dateValue);
-      defaults.so_ngay = String(payload.thoiGianThucHien || payload.soNgay || payload.so_ngay || '30');
+      defaults.so_ngay = String(payload.soNgayDuKienHoanThanh || payload.thoiGianThucHien || payload.soNgay || payload.so_ngay || '30');
       defaults.so_phieu = String(payload.soPhieuBaoGia || payload.soPhieu || payload.soHopDong || 'BGM-2026-1149').slice(0, 30);
       defaults.nhan_vien = officerName;
     }
@@ -155,8 +155,8 @@ export function UniversalZnsPreviewModal({
       defaults.danh_sach_ma_may = String(
         payload.danh_sach_ma_may || 
         payload.danhSachMaMay || 
-        (Array.isArray(payload.products) ? payload.products.map((p: any) => p.serialNumber || p.maMay || p.productName).filter(Boolean).join(', ') : '') ||
-        'MC-2026-01'
+        (Array.isArray(payload.products) ? payload.products.map((p: any) => p.serialNumber || p.maMay || p.serial).filter(Boolean).join(', ') : '') ||
+        'Theo phiếu xuất kho'
       ).slice(0, 200);
       defaults.so_luong = String(payload.soLuong || payload.slMay || '1');
       defaults.dvt = String(payload.dvt || 'Máy').slice(0, 30);
@@ -171,7 +171,7 @@ export function UniversalZnsPreviewModal({
         payload.soPhieuXuat || 
         'BH-SGM-001'
       ).slice(0, 30);
-      defaults.product = String(payload.product || (payload.soHopDong ? ('Căn cứ theo ' + payload.soHopDong) : 'Máy cán tôn SGM')).slice(0, 30);
+      defaults.product = String(payload.product || (payload.soHopDong ? ('Theo ' + payload.soHopDong) : 'Theo HĐ SGM')).slice(0, 30);
       defaults.date = formatZnsDate(payload.date || dateValue);
     }
 

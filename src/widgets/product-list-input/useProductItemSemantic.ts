@@ -66,94 +66,60 @@ export function detectItemType(
   const normUnit = (resolvedUnit || '').trim().toLowerCase();
   const normCode = (itemCode || '').trim().toUpperCase();
 
+  // Fallback nhanh cho chuỗi rỗng
+  if (!normName) {
+    return resolvedDefault;
+  }
+
   // ----------------------------------------------------
-  // TẦNG 2: ĐƠN VỊ TÍNH ĐẶC THÙ (Unit-of-Measure Determinism)
+  // BẬC 2a: DỊCH VỤ / NHÂN CÔNG / CHI PHÍ ĐẶC THÙ
+  // Nếu bắt đầu bằng từ chỉ dịch vụ/chi phí hoặc mã 705/DV hoặc ĐVT dịch vụ
   // ----------------------------------------------------
-  // ĐVT thuần Dịch vụ: thời gian, lượt, công việc
-  if (/^(gói|goi|lần|lan|chuyến|chuyen|ngày|ngay|giờ|gio|ca|tháng|thang|năm|nam|buổi|buoi|đợt|dot|hợp đồng|hop dong|công|cong)$/i.test(normUnit)) {
+  const isServiceCode = /^(705|DV)/i.test(normCode);
+  const isServiceUnit = /^(gói|goi|lần|lan|chuyến|chuyen|ngày|ngay|giờ|gio|ca|tháng|thang|năm|nam|buổi|buoi|đợt|dot|hợp đồng|hop dong|công|cong)$/i.test(normUnit);
+  const isDedicatedServicePrefix = /^(dịch vụ|dich vu|chi phí|chi phi|cước|cuoc|nhân công|nhan cong|chuyển giao|chuyen giao|hướng dẫn|huong dan|bảo dưỡng|bao duong|bảo trì|bao tri|sửa chữa|sua chua|cải tạo|cai tao|lắp đặt|lap dat|cân chỉnh|can chinh|vận chuyển|van chuyen|bốc xếp|boc xep|phí ship|phi ship)/i.test(normName);
+
+  if (isServiceCode || isServiceUnit || isDedicatedServicePrefix || resolvedDefault === 'SERVICE') {
     return 'SERVICE';
   }
 
-  // ĐVT thuần Máy móc thiết bị hoàn chỉnh
-  if (/^(máy|may|dây chuyền|day chuyen|hệ thống|he thong|cụm máy|cum may)$/i.test(normUnit)) {
+  // ----------------------------------------------------
+  // BẬC 2b: VẬT TƯ / PHỤ TÙNG THEO MÃ ERP HOẶC TỪ KHÓA LINH KIỆN ĐỨNG ĐẦU
+  // Khấu trừ linh kiện (Dao cắt, Trục, Bánh răng, Lò xo, Bạc đạn...) để không bị nhận nhầm
+  // khi tên chứa tên máy lắp ráp (Ví dụ: "Dao cắt tôn máy xà gồ SKD11")
+  // ----------------------------------------------------
+  const isMaterialCode = /^(152|VT)/i.test(normCode);
+  const isSparePartPrefix = /^(dao|lưỡi dao|luoi dao|trục|truc|bánh răng|banh rang|lò xo|lo xo|bạc đạn|bac dan|vòng bi|vong bi|con lăn|con lan|phe cài|phe cai|cốc bi|coc bi|bản mã|ban ma|thép|thep|ốc|oc|bulong|bu lông|bu-long|ty ren|dầu|dau|nhớt|nhot|xích|xich|dây curoa|day curoa|puly|khớp nối|khop noi|khuôn|khuon)/i.test(normName);
+
+  if (isMaterialCode || isSparePartPrefix) {
+    return 'MATERIAL';
+  }
+
+  // ----------------------------------------------------
+  // BẬC 1: MÁY MÓC THIẾT BỊ HOÀN CHỈNH (MACHINE)
+  // Tên chứa từ "máy" (không phân biệt hoa/thường) hoặc cụm máy hoàn chỉnh SGM
+  // ----------------------------------------------------
+  const isMachineCode = /^(TP|MAY|M_|CT|XG|DVOM)/i.test(normCode);
+  const isMachineUnit = /^(máy|may|dây chuyền|day chuyen|dàn|dan|cụm máy|cum may)$/i.test(normUnit);
+  const isMachineName = /\bmáy\b|máy|dây chuyền|day chuyen|hệ thống|he thong|khung dập|khung dap|bộ cán|bo can|cụm máy|cum may/i.test(normName);
+
+  if (isMachineCode || isMachineUnit || isMachineName) {
     return 'MACHINE';
   }
 
-  // ĐVT thuần Vật tư / Phụ tùng / Kim loại / Tiêu hao
-  const isMaterialUnit = /^(kg|g|tấn|tan|tạ|ta|yến|yen|mét|met|m|m2|m3|lít|lit|cuộn|cuon|tấm|tam|cây|cay|thanh|bịch|bich|bao|hộp|hop|thùng|thung|ống|ong|lon|bình|binh|bộ|bo|cái|cai|chiếc|chiec)$/i.test(normUnit);
-
   // ----------------------------------------------------
-  // TẦNG 3: TAXONOMY MÃ HÀNG HÓA ERP (Item Code Prefix Pattern)
+  // BẬC 2c: CÁC TỪ KHÓA DỊCH VỤ CÒN LẠI TRONG TÊN
   // ----------------------------------------------------
-  if (normCode) {
-    // Mã đầu 705 hoặc DV: Dịch vụ nhân công / ăn ở / di chuyển
-    if (/^(705|DV)/i.test(normCode)) {
-      return 'SERVICE';
-    }
-    // Mã đầu 628, 152, 153, VT: Vật tư, phụ tùng, linh kiện
-    if (/^(628|152|153|156|VT)/i.test(normCode)) {
-      return 'MATERIAL';
-    }
-    // Mã đầu TP, MAY, CT, XG: Thành phẩm Máy cán tôn, máy xà gồ
-    if (/^(TP|MAY|M_|CT|XG|DVOM)/i.test(normCode)) {
-      return 'MACHINE';
-    }
-  }
+  const isServiceKeyword = /chi phí|chi phi|dịch vụ|dich vu|kiểm tra|kiem tra|vệ sinh|ve sinh|sửa chữa|sua chua|sữa chữa|cải tạo|cai tao|lắp đặt|lap dat|vận hành|van hanh|bảo dưỡng|bao duong|bảo trì|bao tri|cân chỉnh|can chinh|chuyển giao|chuyen giao|vận chuyển|van chuyen|cước xe|cuoc xe|xe cẩu|xe cau|xe tải|xe tai|đầu kéo|dau keo|bốc xếp|boc xep|giao nhận|giao nhan|phí ship|phi ship|chở hàng|cho hang|nhân công|nhan cong|thi công|thi cong|hướng dẫn|huong dan/i.test(normName);
 
-  // Từ khóa thuần Dịch vụ (ưu tiên cao nhất trong tên sản phẩm)
-  const isServiceWord = /chi phí|chi phi|dịch vụ|dich vu|kiểm tra|kiem tra|vệ sinh|ve sinh|sửa chữa|sua chua|sữa chữa|cải tạo|cai tao|lắp đặt|lap dat|vận hành|van hanh|bảo dưỡng|bao duong|bảo trì|bao tri|cân chỉnh|can chinh|chuyển giao|chuyen giao|vận chuyển|van chuyen|cước xe|cuoc xe|xe cẩu|xe cau|xe tải|xe tai|đầu kéo|dau keo|bốc xếp|boc xep|giao nhận|giao nhan|phí ship|phi ship|chở hàng|cho hang|nhân công|nhan cong|thi công|thi cong|hướng dẫn|huong dan/i.test(normName);
-  if (isServiceWord) {
+  if (isServiceKeyword) {
     return 'SERVICE';
   }
 
   // ----------------------------------------------------
-  // TẦNG 1: QUYỀN LỰC NGỮ CẢNH BÁO GIÁ (Context-First Axiom)
+  // BẬC 3: TẤT CẢ SẢN PHẨM CÒN LẠI -> VẬT TƯ (MATERIAL)
   // ----------------------------------------------------
-  // Nếu Báo giá là "BG Vật tư", mọi thứ (trừ dịch vụ) MẶC NHIÊN là MATERIAL!
-  if (resolvedDefault === 'MATERIAL') {
-    // Chỉ trừ trường hợp hiếm hoi người dùng nhập nguyên một cái máy cán tôn hoàn chỉnh vào báo giá vật tư
-    const isExplicitWholeMachine = /^(máy cán|day chuyen|dây chuyền cán|hệ thống cán|máy dập vòm|máy cán xà gồ)/i.test(normName) && !/lò xo|dao|trục|vòng bi|bạc đạn|ốc|vít|phụ tùng|linh kiện|thay thế/i.test(normName);
-    if (!isExplicitWholeMachine) {
-      return 'MATERIAL';
-    }
-  }
-
-  // Nếu Báo giá là "BG Dịch vụ", mọi thứ MẶC NHIÊN là SERVICE!
-  if (resolvedDefault === 'SERVICE') {
-    return 'SERVICE';
-  }
-
-  // ----------------------------------------------------
-  // TẦNG 4: NHẬN DIỆN MÁY MÓC THEO TẬP HỮU HẠN & KHẤU TRỪ LINH KIỆN
-  // ----------------------------------------------------
-  // Dấu hiệu nhận biết linh kiện / phụ tùng (kể cả khi tên có chữ "máy", ví dụ "Lò xo máy cán", "Dao cắt máy dập")
-  const isComponentWord = /lò xo|lo xo|lưỡi dao|dao cắt|dao cat|trục cán|truc can|con lăn|con lan|ốc vít|oc vit|bulong|bu lông|dầu nhớt|dau nhot|mỡ bò|mo bo|phụ kiện|phu kien|linh kiện|linh kien|khuôn cán|khuon can|bạc đạn|bac dan|vòng bi|vong bi|xích tải|xich tai|cao su|ron|gioăng|gioang|phốt|phot|phớt|sim|bánh răng|banh rang|khớp nối|khop noi|ty ren|thanh ren|curoa|dây đai|nhông|đĩa xích|van khí|van thủy lực|xi lanh|cút nối|co nối|ống khí|ống dầu|cảm biến|sensor|encoder|rơ le|relay|contactor|khởi động từ|aptomat|cb|cầu chì|bộ nguồn|nguồn tổ ong|biến tần|inverter|plc|hmi|đèn báo|nút nhấn|công tắc|dây cáp|dây điện|terminal|cầu đấu|que hàn|đá mài|đá cắt|mực in|tem nhãn|decal|thép vụn|thep vun|sắt vụn|sat vun|phôi|ton phế|tôn phế/i.test(normName);
-  
-  if (isComponentWord) {
-    return 'MATERIAL';
-  }
-
-  // Nhận diện Máy móc hoàn chỉnh của SGM
-  const isWholeMachine = !/phế liệu|phe lieu|vụn|vun|bavia|mạt sắt/i.test(normName) && 
-    /máy|may|dây chuyền|day chuyen|hệ thống|he thong|dập vòm|dap vom|cán tôn|can ton|xà gồ|xa go|chấn|chan|uốn|uon|k1200|c100|z200|khung dập|khung dap|bộ cán|bo can/i.test(normName);
-
-  if (isWholeMachine) {
-    return 'MACHINE';
-  }
-
-  // Nguyên vật liệu thô / tôn cuộn / thép tấm (khi không phải là cụm máy hoàn chỉnh)
-  const isRawMaterial = /tôn cuộn|ton cuon|thép tấm|thep tam|sắt thép|sat thep|nhôm|inox|đồng|kim loại|gang|phế liệu|phe lieu/i.test(normName);
-  if (isRawMaterial) {
-    return 'MATERIAL';
-  }
-
-  // Nếu có đơn vị tính vật tư thì là MATERIAL
-  if (isMaterialUnit) {
-    return 'MATERIAL';
-  }
-
-  // Fallback về defaultType theo ngữ cảnh
-  return resolvedDefault;
+  return 'MATERIAL';
 }
 
 /**

@@ -49,11 +49,8 @@ export function ZnsOfficialPhonePreview({
 
   const getLogo = () => (
     <div className="flex items-center gap-2 mb-3">
-      <div className="w-10 h-10 rounded-full border border-slate-600/40 flex items-center justify-center overflow-hidden bg-white/90 shadow-sm shrink-0">
-        <svg viewBox="0 0 100 100" className="w-8 h-8">
-          <path d="M50 15 C30 15 15 30 15 50 C15 70 30 85 50 85 C65 85 78 75 83 62 L68 62 C64 70 57 74 50 74 C37 74 27 63 27 50 C27 37 37 26 50 26 C60 26 67 32 70 40 L85 40 C81 25 67 15 50 15 Z" fill="#1e293b"/>
-          <path d="M50 35 C42 35 35 42 35 50 C35 58 42 65 50 65 C55 65 60 62 62 58 L76 58 C72 68 62 75 50 75 C36 75 25 64 25 50 C25 36 36 25 50 25 C60 25 68 31 73 39 L59 45 C57 40 54 35 50 35 Z" fill="#0284c7"/>
-        </svg>
+      <div className="w-10 h-10 rounded-full border border-slate-600/40 flex items-center justify-center overflow-hidden bg-white shadow-sm shrink-0 p-1">
+        <img src="/sgm-logo.png" alt="SGM Logo" className="w-full h-full object-contain" />
       </div>
       <div>
         <div className="text-3xs font-black tracking-widest uppercase opacity-80">SAIGONMACHINE</div>
@@ -306,7 +303,7 @@ export function ZnsOfficialPhonePreview({
               </tr>
               <tr>
                 <td className="py-1.5 opacity-60 align-top">Sản phẩm / Dòng máy:</td>
-                <td className="py-1.5 text-right font-medium">{renderHighlighted('product', values.product || values.tenMay, 'Căn cứ theo HĐ SGM')}</td>
+                <td className="py-1.5 text-right font-medium">{renderHighlighted('product', values.product || values.tenMay, 'Theo HĐ SGM')}</td>
               </tr>
               <tr>
                 <td className="py-1.5 opacity-60 align-top">Ngày kích hoạt:</td>
@@ -379,8 +376,8 @@ export function ZnsOfficialPhonePreview({
       }`}>
         <div className="flex items-center gap-2 min-w-0">
           <ChevronLeft className="w-5 h-5 shrink-0 opacity-80 cursor-pointer" />
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-xs shrink-0 shadow-xs">
-            SGM
+          <div className="w-8 h-8 rounded-full bg-white border border-slate-200/50 flex items-center justify-center overflow-hidden shrink-0 shadow-xs p-0.5">
+            <img src="/sgm-logo.png" alt="SGM Avatar" className="w-full h-full object-contain" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1">
