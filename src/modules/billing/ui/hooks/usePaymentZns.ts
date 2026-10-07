@@ -4,6 +4,8 @@ import { notify } from '@/src/shared/utils/notify';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
+import { calculateFormattedPaymentPoints, calculateFormattedCustomerCumulativePoints } from '@/src/modules/billing/domain/loyaltyEngine';
+import { formatZnsDate } from '@/src/shared/utils/formatDate';
 
 export function usePaymentZns(
   confirm: (opts: import('@/src/design-system/Confirm').ConfirmOptions) => Promise<boolean>, 
@@ -125,6 +127,46 @@ export function usePaymentZns(
       enrichedPayment.phuongThucThanhToan = inst.phuongThucThanhToan || enrichedPayment.phuongThucThanhToan;
       if (inst.nguoiNop) enrichedPayment.tenNguoiNop = inst.nguoiNop;
     }
+
+    // Enrich Loyalty & Payment Details for 2026 Template
+    const allPaymentsSnap = await repositoryFactory.get<any>('payments').list({ limit: 500 }).catch(() => []);
+    const mergedCodes = cSnap?.mergedCustomerCodes || [];
+    const customerId = payment.customerId || cSnap?.id || cSnap?.maKh || '';
+
+    const diemThanhToan = calculateFormattedPaymentPoints(Number(enrichedPayment.soTien || 0));
+    const diemKhachHang = calculateFormattedCustomerCumulativePoints(customerId, allPaymentsSnap, mergedCodes);
+
+    let loaiDon = 'Cung cấp Máy móc/Thiết Bị';
+    const rawLoai = (payment as any).loai || (payment as any).loaiBaoGia || '';
+    if (rawLoai.includes('Vật tư') || rawLoai.includes('VAT_TU')) {
+      loaiDon = 'Cung cấp Vật Tư';
+    } else if (rawLoai.includes('Dịch vụ') || rawLoai.includes('DICH_VU')) {
+      loaiDon = 'Cung cấp giải pháp/dịch vụ';
+    }
+
+    const currentGhiChu = (installmentIndex !== undefined && Array.isArray(payment.cacDotThu) && payment.cacDotThu[installmentIndex]?.ghiChu)
+      ? payment.cacDotThu[installmentIndex].ghiChu
+      : (payment.ghiChu || 'Thanh toán đợt hợp đồng');
+
+    enrichedPayment.loaiDon = loaiDon;
+    enrichedPayment.loai_don = loaiDon;
+    enrichedPayment.ghiChu = currentGhiChu;
+    enrichedPayment.ghi_chu = currentGhiChu;
+    enrichedPayment.diemThanhToan = diemThanhToan;
+    enrichedPayment.diem_thanh_toan = diemThanhToan;
+    enrichedPayment.diemKhachHang = diemKhachHang;
+    enrichedPayment.diem_khach_hang = diemKhachHang;
+    enrichedPayment.maBaoGia = enrichedPayment.soPhieuBaoGia || '---';
+    enrichedPayment.ma_bao_gia = enrichedPayment.maBaoGia;
+    enrichedPayment.soPhieu = enrichedPayment.soHopDong || enrichedPayment.soPhieuBaoGia || '---';
+    enrichedPayment.so_phieu = enrichedPayment.soPhieu;
+    enrichedPayment.orderCode = enrichedPayment.soDonHang || '---';
+    enrichedPayment.order_code = enrichedPayment.orderCode;
+    enrichedPayment.nhanVien = payment.nguoiPhuTrach || 'Bộ phận Kế toán';
+    enrichedPayment.nhan_vien = enrichedPayment.nhanVien;
+    enrichedPayment.date = enrichedPayment.ngayThanhToan || formatZnsDate(new Date().toISOString());
+    enrichedPayment.maTraCuu = enrichedPayment.soDonHang || enrichedPayment.soHopDong || enrichedPayment.soPhieuBaoGia || '';
+    enrichedPayment.ma_tra_cuu = enrichedPayment.maTraCuu;
 
     const isFullyPaid = payment.tinhTrangThanhToan === 'Tất toán' || 
                         payment.tinhTrangThanhToan === 'ĐÃ THANH TOÁN' ||

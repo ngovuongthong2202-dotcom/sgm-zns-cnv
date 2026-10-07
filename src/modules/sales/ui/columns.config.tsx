@@ -9,6 +9,7 @@ import { normalizeBusinessName, normalizePersonName } from '@/src/shared/utils/t
 import { QuotationHoverCard } from './components/QuotationHoverCard';
 import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 
+import { calculateActualMachineCount } from '@/src/widgets/product-list-input/useProductItemSemantic';
 import { CurrencyCell } from '@/src/design-system/dataview/cells/CurrencyCell';
 import { PicCell } from '@/src/design-system/dataview/cells/PicCell';
 import { ZnsStatusCell } from '@/src/widgets/ZnsStatusCell';
@@ -170,12 +171,37 @@ export const getQuotationColumns = (
     meta: { label: 'Trị giá', align: 'right' },
     aggregationFn: 'sum',
     size: 110,
-    cell: (info) => (
-      <CurrencyCell 
-        value={Number(info.getValue()) || 0} 
-        subText={`${info.row.original.slMay || (info.row.original.products?.length || 0)} SP/DV`} 
-      />
-    )
+    cell: (info) => {
+      const q = info.row.original;
+      const prods = q.products || [];
+      const norm = normalizeLoai(q.loai);
+      
+      let subText = '';
+      if (norm === QUOTATION_LOAI.VAT_TU) {
+        subText = `${prods.length} Mặt hàng`;
+      } else if (norm === QUOTATION_LOAI.DICH_VU) {
+        subText = `${prods.length} Gói DV`;
+      } else {
+        const actualMachines = typeof q.slMay === 'number' && q.slMay > 0 
+          ? q.slMay 
+          : calculateActualMachineCount(prods);
+        const nonMachines = Math.max(0, prods.length - (actualMachines > 0 ? 1 : 0));
+        if (actualMachines > 0 && nonMachines > 0) {
+          subText = `${actualMachines} Máy • ${nonMachines} Phụ kiện`;
+        } else if (actualMachines > 0) {
+          subText = `${actualMachines} Máy`;
+        } else {
+          subText = `${prods.length} Mặt hàng`;
+        }
+      }
+
+      return (
+        <CurrencyCell 
+          value={Number(info.getValue()) || 0} 
+          subText={subText} 
+        />
+      );
+    }
   },
   {
     accessorKey: 'ngayHetHan',

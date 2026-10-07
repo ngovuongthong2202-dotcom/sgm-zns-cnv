@@ -42,6 +42,7 @@ const TARGET_MAP: Record<string, { col: string, act: string, disp: string }> = {
   'HOPDONG_SIGN_ZNS':                 { col: 'Gửi ZNS Yêu Cầu Ký',           act: 'hanh_dong_gui_zns_ky_hop_dong', disp: 'Gửi tin ZNS ký hợp đồng' },
   'THANH_TOAN_TAT_TOAN':              { col: 'Gửi ZNS Thanh toán',           act: 'hanh_dong_gui_zns_thanh_toan', disp: 'Gửi tin ZNS (Thanh toán)' },
   'THANH_TOAN_CONG_NO':               { col: 'Gửi ZNS Thanh toán',           act: 'hanh_dong_gui_zns_thanh_toan', disp: 'Gửi tin ZNS (Thanh toán)' },
+  'THANH_TOAN_XAC_NHAN':              { col: 'Gửi ZNS Thanh toán',           act: 'hanh_dong_gui_zns_thanh_toan', disp: 'Gửi tin ZNS (Thanh toán)' },
   'THANH_TOAN_CONG_NO_DEN_HAN':       { col: 'Gửi ZNS Nhắc hạn (Đến hạn)',   act: 'hanh_dong_gui_zns_thanh_toan_den_han', disp: 'Gửi tin ZNS (Nhắc đến hạn)' },
   'GIAOHANG_ZNS':                     { col: 'Gửi ZNS Giao hàng',            act: 'hanh_dong_gui_zns_giao_hang', disp: 'Gửi tin ZNS (Giao hàng)' },
   'GIAOHANG_HOANTAT':                 { col: 'Gửi ZNS Giao hàng HT',         act: 'hanh_dong_gui_zns_giao_hang_ht', disp: 'Gửi tin ZNS (Giao hàng Hoàn tất)' },
@@ -58,6 +59,7 @@ const ZALO_REQUIRED_VARS: Record<string, string[]> = {
   HOPDONG_SIGN_ZNS:   ['customer_name', 'phone', 'order_code', 'So_don_hang', 'ngay_ky', 'so_ngay', 'so_phieu', 'nhan_vien'],
   THANH_TOAN_TAT_TOAN:['customer_name', 'phone', 'order_code', 'ngay_thanh_toan', 'so_luong', 'dvt', 'so_don_hang', 'so_hop_dong'],
   THANH_TOAN_CONG_NO: ['customer_name', 'phone', 'order_code', 'time', 'so_luong', 'dvt', 'so_don_hang', 'so_hop_dong'],
+  THANH_TOAN_XAC_NHAN:['customer_name', 'phone', 'so_phieu', 'order_code', 'ma_bao_gia', 'nhan_vien', 'date', 'ghi_chu', 'diem_thanh_toan'],
   GIAOHANG_ZNS:       ['customer_name', 'phone', 'So_hop_dong', 'So_don_hang', 'so_phieu_xuat', 'ngay_giao_may', 'danh_sach_ma_may', 'so_luong', 'dvt'],
   GIAOHANG_HOANTAT:   ['customer_name', 'phone', 'ma_bao_hanh', 'product', 'date'],
   GIAOHANG_BAOHANH:   ['customer_name', 'phone', 'ma_bao_hanh', 'product', 'date'],
@@ -493,6 +495,20 @@ export class ZnsPayloadBuilder {
       time: variables.time || p.time || p.ngayThanhToan || '',
       ...(variables.so_luong ? { so_luong: String(variables.so_luong), 'Số lượng': String(variables.so_luong) } : {}),
       ...(variables.dvt ? { dvt: String(variables.dvt), 'ĐVT': String(variables.dvt), 'Đơn vị tính': String(variables.dvt) } : {}),
+      
+      // 2026 Payment Loyalty & CTA Tracking Variables (Cách 1: ma_tra_cuu)
+      so_phieu: variables.so_phieu || (p as any).so_phieu || p.soHopDong || p.soPhieuBaoGia || '',
+      ma_bao_gia: variables.ma_bao_gia || (p as any).ma_bao_gia || p.soPhieuBaoGia || '',
+      nhan_vien: variables.nhan_vien || (p as any).nhan_vien || p.nguoiPhuTrach || '',
+      date: variables.date || (p as any).date || variables.time || p.ngayThanhToan || '',
+      loai_don: variables.loai_don || (p as any).loai_don || (p as any).loaiDon || 'Cung cấp Máy móc/Thiết Bị',
+      ghi_chu: variables.ghi_chu || (p as any).ghi_chu || (p as any).ghiChu || 'Thanh toán đợt hợp đồng',
+      diem_thanh_toan: String(variables.diem_thanh_toan || (p as any).diem_thanh_toan || (p as any).diemThanhToan || '0'),
+      diem_khach_hang: String(variables.diem_khach_hang || (p as any).diem_khach_hang || (p as any).diemKhachHang || '0'),
+      ma_tra_cuu: variables.ma_tra_cuu || (p as any).ma_tra_cuu || p.soDonHang || p.soHopDong || p.soPhieuBaoGia || '',
+      ma_don: variables.ma_don || p.soDonHang || '',
+      ma_hd: variables.ma_hd || p.soHopDong || '',
+      so_bg: variables.so_bg || p.soPhieuBaoGia || '',
       
       // CNV workflow was heavily mapped to camelCase fields directly from payload.
       // We explicitly map the truthy variables back to their legacy camelCase names

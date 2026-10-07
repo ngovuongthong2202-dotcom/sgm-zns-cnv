@@ -20,6 +20,8 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 
+import { detectItemType } from '@/src/widgets/product-list-input/useProductItemSemantic';
+
 export type ProductTaxonomyCategory = 'MAY' | 'VAT_TU' | 'DICH_VU';
 
 export type TimePeriodFilter = 
@@ -43,6 +45,7 @@ interface ProductAnalyticsTabProps {
 
 /**
  * Phân loại danh mục sản phẩm chuẩn 3 nhóm: MÁY, VẬT TƯ, DỊCH VỤ
+ * Sử dụng đồng bộ với 5-tier context semantic deduction engine của SGM OS
  */
 export function classifyProductCategory(item: { 
   productName?: string; 
@@ -51,39 +54,22 @@ export function classifyProductCategory(item: {
   name?: string; 
   model?: string;
   loai?: string;
+  unit?: string;
+  dvt?: string;
 }): ProductTaxonomyCategory {
   const explicitCat = (item.category || item.loai || '').toUpperCase();
-  if (explicitCat === 'MAY' || explicitCat === 'MAY_MOI' || explicitCat === 'MAY_CU' || explicitCat === 'MÁY') return 'MAY';
-  if (explicitCat === 'VAT_TU' || explicitCat === 'LINH_KIEN' || explicitCat === 'PHU_TUNG' || explicitCat === 'VẬT TƯ') return 'VAT_TU';
-  if (explicitCat === 'DICH_VU' || explicitCat === 'DỊCH VỤ' || explicitCat === 'VAN_CHUYEN' || explicitCat === 'CUOC' || explicitCat === 'NHAN_CONG') return 'DICH_VU';
+  if (explicitCat === 'MAY' || explicitCat === 'MAY_MOI' || explicitCat === 'MAY_CU' || explicitCat === 'MÁY' || explicitCat === 'MACHINE') return 'MAY';
+  if (explicitCat === 'VAT_TU' || explicitCat === 'LINH_KIEN' || explicitCat === 'PHU_TUNG' || explicitCat === 'VẬT TƯ' || explicitCat === 'MATERIAL') return 'VAT_TU';
+  if (explicitCat === 'DICH_VU' || explicitCat === 'DỊCH VỤ' || explicitCat === 'VAN_CHUYEN' || explicitCat === 'CUOC' || explicitCat === 'NHAN_CONG' || explicitCat === 'SERVICE') return 'DICH_VU';
 
-  const name = (item.productName || item.name || '').toLowerCase();
-  const code = (item.productId || item.model || '').toLowerCase();
-  const combined = `${name} ${code}`;
+  const name = item.productName || item.name || '';
+  const unit = item.unit || item.dvt || '';
+  const code = item.productId || item.model || '';
 
-  // 1. Phí Dịch vụ / Vận chuyển / Nhân công
-  const serviceKeywords = [
-    'vận chuyển', 'cước', 'phí vận chuyển', 'chi phí vận chuyển', 'nhân công',
-    'lắp đặt', 'chuyển giao', 'bảo dưỡng', 'bảo trì', 'sửa chữa', 'dịch vụ',
-    'phí dịch vụ', 'thuê chuyên gia', 'hướng dẫn', 'service', 'freight', 'shipping', 'delivery fee'
-  ];
-  if (serviceKeywords.some(kw => combined.includes(kw))) {
-    return 'DICH_VU';
-  }
-
-  // 2. Vật tư / Phụ tùng / Linh kiện tiêu hao
-  const partsKeywords = [
-    'linh kiện', 'phụ tùng', 'phụ kiện', 'dao cắt', 'dao', 'kim may', 'kim', 'ổ chao',
-    'cữ gá', 'cữ', 'gá', 'dầu máy', 'dầu', 'băng tải', 'dây curoa', 'curoa',
-    'bo mạch', 'motor', 'mô tơ', 'chân bàn', 'mặt bàn', 'bóng đèn', 'kẹp', 'thước',
-    'ốc', 'vít', 'spare', 'part', 'needle', 'blade', 'bộ phận'
-  ];
-  if (partsKeywords.some(kw => combined.includes(kw))) {
-    return 'VAT_TU';
-  }
-
-  // 3. Mặc định là MÁY (Máy may, máy cắt, máy tự động, thiết bị chính...)
-  return 'MAY';
+  const detected = detectItemType(name, unit, 'MATERIAL', code);
+  if (detected === 'MACHINE') return 'MAY';
+  if (detected === 'SERVICE') return 'DICH_VU';
+  return 'VAT_TU';
 }
 
 /**

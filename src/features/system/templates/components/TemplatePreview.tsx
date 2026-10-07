@@ -71,7 +71,44 @@ export function TemplatePreview({ template, variablesValueMock = {} }: Props) {
                <Button aria-label="CTA" className="w-full mt-2 bg-[#0068FF] text-white py-2.5 rounded-lg flex items-center justify-center font-semibold text-sm transition-opacity hover:opacity-90">Quan tâm OA</Button>
            </div>
         );
+      case 'THANH_TOAN_XAC_NHAN':
       case 'THANH_TOAN_TAT_TOAN':
+      case 'THANH_TOAN_CONG_NO':
+        if (template.templateKey === 'THANH_TOAN_XAC_NHAN' || variablesValueMock.diem_thanh_toan || variablesValueMock.so_phieu || variablesValueMock.ma_bao_gia) {
+          return (
+            <div className="text-xs text-slate-800 leading-relaxed font-sans space-y-3">
+              {getLogo()}
+              <h4 className="font-bold text-sm uppercase tracking-tight text-slate-800">Xác nhận thanh toán</h4>
+              <p>CÔNG TY TNHH CƠ KHÍ CÔNG NGHIỆP SÀI GÒN thông báo đến Quý khách <span className="font-semibold">{variablesValueMock.customer_name || '<customer_name>'}</span>, số điện thoại <span className="font-semibold">{variablesValueMock.phone || '<phone>'}</span>.</p>
+              <table className="w-full mt-2 text-xs">
+                <tbody>
+                  <tr><td className="py-1 text-slate-500 w-[110px] align-top">Số hợp đồng:</td><td className="py-1 font-medium">{variablesValueMock.so_phieu || '<so_phieu>'}</td></tr>
+                  <tr><td className="py-1 text-slate-500 align-top">Số đơn hàng:</td><td className="py-1 font-medium">{variablesValueMock.order_code || '<order_code>'}</td></tr>
+                  <tr><td className="py-1 text-slate-500 align-top">Số báo giá:</td><td className="py-1 font-medium">{variablesValueMock.ma_bao_gia || '<ma_bao_gia>'}</td></tr>
+                  <tr><td className="py-1 text-slate-500 align-top">Người phụ trách:</td><td className="py-1 font-medium">{variablesValueMock.nhan_vien || '<nhan_vien>'}</td></tr>
+                  <tr><td className="py-1 text-slate-500 align-top">Ngày thanh toán:</td><td className="py-1 font-medium">{variablesValueMock.date || '<date>'}</td></tr>
+                  <tr><td className="py-1 text-slate-500 align-top">Ghi chú:</td><td className="py-1 font-medium">{variablesValueMock.ghi_chu || '<ghi_chu>'}</td></tr>
+                  <tr><td className="py-1 text-slate-500 align-top">Điểm tích lũy:</td><td className="py-1 font-bold text-emerald-600">{variablesValueMock.diem_thanh_toan || '<diem_thanh_toan>'}</td></tr>
+                  <tr><td className="py-1 text-slate-500 align-top">Loại đơn:</td><td className="py-1 font-medium">{variablesValueMock.loai_don || '<loai_don>'}</td></tr>
+                </tbody>
+              </table>
+              <p className="text-2xs text-slate-600 leading-normal">
+                Khoản thanh toán đã được cập nhật vào hồ sơ hợp đồng. Quý khách vui lòng liên hệ nhân viên phụ trách hoặc Hotline 0932.000.999 khi cần hỗ trợ đối chiếu hoặc bổ sung chứng từ.
+              </p>
+              <p className="text-2xs text-slate-600 leading-normal">
+                Cảm ơn Quý khách đã tin tưởng và đồng hành cùng Công ty TNHH Cơ Khí Công Nghiệp Sài Gòn. Tổng số điểm tích lũy của Quý khách hàng: <span className="font-bold text-amber-600">{variablesValueMock.diem_khach_hang || '<diem_khach_hang>'}</span>
+              </p>
+              <div className="space-y-2 mt-3">
+                <Button aria-label="CTA 1" className="w-full bg-slate-100 border border-slate-300 text-slate-800 py-2 rounded-lg flex items-center justify-center font-semibold text-xs hover:bg-slate-200">
+                  Đến trang thông tin OA
+                </Button>
+                <Button aria-label="CTA 2" className="w-full bg-[#0068FF] text-white py-2 rounded-lg flex items-center justify-center font-semibold text-xs hover:opacity-90">
+                  Tra cứu đơn hàng
+                </Button>
+              </div>
+            </div>
+          );
+        }
         return (
            <div className="text-xs text-slate-800 leading-relaxed font-sans space-y-3">
                {getLogo()}
@@ -87,26 +124,10 @@ export function TemplatePreview({ template, variablesValueMock = {} }: Props) {
                <p>Việc thanh toán của Quý khách đã được hoàn tất theo đúng nội dung thỏa thuận trong hợp đồng và được xác nhận trên hệ thống quản lý của công ty. CÔNG TY TNHH CƠ KHÍ CÔNG NGHIỆP SÀI GÒN xin ghi nhận sự phối hợp và thiện chí hợp tác của Quý khách trong suốt quá trình thực hiện đơn hàng.</p>
                <p>Mọi nội dung cần trao đổi thêm, Quý khách vui lòng liên hệ bộ phận phụ trách để được hỗ trợ kịp thời.</p>
                <p>Trân trọng cảm ơn Quý khách đã tin tưởng lựa chọn.</p>
-               <Button aria-label="CTA" className="w-full mt-2 bg-[#0068FF] text-white py-2.5 rounded-lg flex items-center justify-center font-semibold text-sm transition-opacity hover:opacity-90">Quan tâm OA</Button>
-           </div>
-        );
-      case 'THANH_TOAN_CONG_NO':
-        return (
-           <div className="text-xs text-slate-800 leading-relaxed font-sans space-y-3">
-               {getLogo()}
-               <h4 className="font-bold text-sm uppercase tracking-tight text-slate-800">Xác nhận thanh toán thành công</h4>
-               <p>CÔNG TY TNHH CƠ KHÍ CÔNG NGHIỆP SÀI GÒN thông báo Quý khách <span className="font-semibold">{variablesValueMock.customer_name || '<customer_name>'}</span>, số điện thoại <span className="font-semibold">{variablesValueMock.phone || '<phone>'}</span>.</p>
-               <p>Ghi nhận thanh toán của Quý khách cho đơn hàng có thông tin:</p>
-               <table className="w-full mt-2 text-xs">
-                  <tbody>
-                     <tr><td className="py-1.5 text-slate-500 w-[90px]">Mã đơn hàng:</td><td className="py-1.5 font-medium">{variablesValueMock.order_code || '<order_code>'}</td></tr>
-                     <tr><td className="py-1.5 text-slate-500">Tại thời điểm:</td><td className="py-1.5 font-medium">{variablesValueMock.time || '<time>'}</td></tr>
-                     <tr><td className="py-1.5 text-slate-500">Số lượng máy:</td><td className="py-1.5 font-medium">{variablesValueMock.so_luong || '<so_luong>'}</td></tr>
-                  </tbody>
-               </table>
-               <p>Khoản thanh toán đã được cập nhật vào hệ thống quản lý hợp đồng của công ty. Mọi nội dung cần trao đổi thêm, Quý khách vui lòng liên hệ bộ phận phụ trách để được hỗ trợ kịp thời.</p>
-               <p>Trân trọng cảm ơn sự hợp tác của Quý khách.</p>
-               <Button aria-label="CTA" className="w-full mt-2 bg-[#0068FF] text-white py-2.5 rounded-lg flex items-center justify-center font-semibold text-sm transition-opacity hover:opacity-90">Quan tâm OA</Button>
+               <div className="space-y-2 mt-2">
+                 <Button aria-label="CTA 1" className="w-full bg-slate-100 border border-slate-300 text-slate-800 py-2 rounded-lg flex items-center justify-center font-semibold text-xs hover:bg-slate-200">Đến trang thông tin OA</Button>
+                 <Button aria-label="CTA 2" className="w-full bg-[#0068FF] text-white py-2 rounded-lg flex items-center justify-center font-semibold text-xs hover:opacity-90">Tra cứu đơn hàng</Button>
+               </div>
            </div>
         );
       case 'GIAOHANG_ZNS':

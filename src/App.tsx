@@ -13,6 +13,7 @@ import { logger } from '@/src/shared/lib/logger';
 // Eager loading default pages for offline high-availability and zero dynamic chunk fetch failures
 import DashboardPage from './features/dashboard/page';
 import ReportsPage from './features/reports/page';
+import PublicOrderTrackingPage from './features/tracking/PublicOrderTrackingPage';
 
 
 // Placeholder standard login screen
@@ -225,6 +226,29 @@ export default function App() {
     );
   }
 
+  // Public Zero-Trust Tracking Portal: Unblocked access for external customers arriving from ZNS
+  const isPublicTrackingRoute = 
+    typeof window !== 'undefined' && (
+      window.location.pathname.startsWith('/tra-cuu-don-hang') ||
+      window.location.pathname.startsWith('/tra-cuu') ||
+      window.location.pathname.startsWith('/tracking')
+    );
+
+  if (isPublicTrackingRoute) {
+    return (
+      <BrowserRouter>
+        <Suspense fallback={<PageSkeleton />}>
+          <Routes>
+            <Route path="/tra-cuu-don-hang" element={<PublicOrderTrackingPage />} />
+            <Route path="/tra-cuu" element={<PublicOrderTrackingPage />} />
+            <Route path="/tracking" element={<PublicOrderTrackingPage />} />
+            <Route path="*" element={<PublicOrderTrackingPage />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    );
+  }
+
   if (!user) {
     return <LoginScreen login={login} />;
   }
@@ -237,6 +261,9 @@ export default function App() {
               <DrawerStackProvider>
                 <Suspense fallback={<PageSkeleton />}>
                   <Routes>
+                  <Route path="/tra-cuu-don-hang" element={<PublicOrderTrackingPage />} />
+                  <Route path="/tra-cuu" element={<PublicOrderTrackingPage />} />
+                  <Route path="/tracking" element={<PublicOrderTrackingPage />} />
                   <Route path="/*" element={<AppLayout />}>
                     <Route index element={<DashboardPage />} />
                     <Route path="reports" element={<ReportsPage />} />

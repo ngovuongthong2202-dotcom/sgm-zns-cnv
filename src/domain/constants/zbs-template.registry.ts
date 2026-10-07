@@ -26,6 +26,11 @@ export interface ZbsTemplateInfo {
     title: string;
     content?: string;
   };
+  ctaButtons?: Array<{
+    type: number;
+    title: string;
+    content?: string;
+  }>;
 }
 
 export const ZBS_TEMPLATE_REGISTRY: Record<string, ZbsTemplateInfo> = {
@@ -126,9 +131,21 @@ export const ZBS_TEMPLATE_REGISTRY: Record<string, ZbsTemplateInfo> = {
     ],
     ctaButton: {
       type: 3,
-      title: 'Quan tâm OA',
+      title: 'Đến trang thông tin OA',
       content: 'https://oa.zalo.me/1336150047301360288'
-    }
+    },
+    ctaButtons: [
+      {
+        type: 3,
+        title: 'Đến trang thông tin OA',
+        content: 'https://oa.zalo.me/1336150047301360288'
+      },
+      {
+        type: 1,
+        title: 'Tra cứu đơn hàng',
+        content: 'https://saigonmachine.vn/tra-cuu-don-hang?code=<ma_tra_cuu>'
+      }
+    ]
   },
 
   // 5. THANH TOÁN (Chưa tất toán - Công nợ) - ID 547381
@@ -151,9 +168,63 @@ export const ZBS_TEMPLATE_REGISTRY: Record<string, ZbsTemplateInfo> = {
     ],
     ctaButton: {
       type: 3,
-      title: 'Quan tâm OA',
+      title: 'Đến trang thông tin OA',
       content: 'https://oa.zalo.me/1336150047301360288'
-    }
+    },
+    ctaButtons: [
+      {
+        type: 3,
+        title: 'Đến trang thông tin OA',
+        content: 'https://oa.zalo.me/1336150047301360288'
+      },
+      {
+        type: 1,
+        title: 'Tra cứu đơn hàng',
+        content: 'https://saigonmachine.vn/tra-cuu-don-hang?code=<ma_tra_cuu>'
+      }
+    ]
+  },
+
+  // 5b. THANH TOÁN & ĐIỂM TÍCH LŨY 2026 (Mẫu ZNS mới chuẩn Zalo Cloud OA)
+  'THANH_TOAN_XAC_NHAN': {
+    templateId: '556888',
+    messageType: 'THANH_TOAN_XAC_NHAN',
+    templateName: 'XÁC NHẬN THANH TOÁN & ĐIỂM TÍCH LŨY',
+    businessDomain: 'PAYMENT',
+    businessLabel: 'Xác nhận Thanh toán & Điểm VIP (2026)',
+    status: 'ENABLE',
+    previewUrl: 'https://saigonmachine.vn/tra-cuu-don-hang',
+    price: 300,
+    providerApp: 'Zalo OA',
+    params: [
+      { name: 'so_phieu', label: 'Số hợp đồng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'so_phieu' },
+      { name: 'order_code', label: 'Số đơn hàng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'order_code' },
+      { name: 'ma_bao_gia', label: 'Số báo giá', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ma_bao_gia' },
+      { name: 'nhan_vien', label: 'Người phụ trách', require: true, type: 'STRING', maxLength: 30, sourceKey: 'nhan_vien' },
+      { name: 'date', label: 'Ngày thanh toán', require: true, type: 'STRING', maxLength: 30, sourceKey: 'date' },
+      { name: 'ghi_chu', label: 'Ghi chú', require: true, type: 'STRING', maxLength: 100, sourceKey: 'ghi_chu' },
+      { name: 'diem_thanh_toan', label: 'Điểm tích lũy', require: true, type: 'STRING', maxLength: 30, sourceKey: 'diem_thanh_toan' },
+      { name: 'loai_don', label: 'Loại đơn', require: false, type: 'STRING', maxLength: 50, sourceKey: 'loai_don' },
+      { name: 'diem_khach_hang', label: 'Tổng điểm khách hàng', require: false, type: 'STRING', maxLength: 30, sourceKey: 'diem_khach_hang' },
+      { name: 'ma_tra_cuu', label: 'Mã tra cứu (Nút 2)', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ma_tra_cuu' }
+    ],
+    ctaButton: {
+      type: 3,
+      title: 'Đến trang thông tin OA',
+      content: 'https://oa.zalo.me/1336150047301360288'
+    },
+    ctaButtons: [
+      {
+        type: 3,
+        title: 'Đến trang thông tin OA',
+        content: 'https://oa.zalo.me/1336150047301360288'
+      },
+      {
+        type: 1,
+        title: 'Tra cứu đơn hàng',
+        content: 'https://saigonmachine.vn/tra-cuu-don-hang?code=<ma_tra_cuu>'
+      }
+    ]
   },
 
   // 6. GIAO HÀNG (Xác nhận giao hàng) - ID 552545

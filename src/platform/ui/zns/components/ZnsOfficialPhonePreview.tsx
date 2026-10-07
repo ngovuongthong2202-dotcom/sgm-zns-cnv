@@ -173,7 +173,65 @@ export function ZnsOfficialPhonePreview({
       );
     }
 
-    // 4. THANH TOÁN (Tất toán) - ID 552490
+    // 4. THANH TOÁN (Mẫu Xác Nhận Mới 2026 hoặc Mẫu Tất Toán/Công nợ có điểm thưởng)
+    const isNewPaymentTemplate = tId === '556888' || 
+                                  Boolean(values.diem_thanh_toan || values.ma_bao_gia || values.so_phieu || values.loai_don);
+
+    if (isNewPaymentTemplate && (templateInfo.businessDomain === 'PAYMENT' || templateInfo.messageType.includes('THANH_TOAN') || tId === '556888')) {
+      return (
+        <div className="space-y-3 leading-relaxed text-xs">
+          {getLogo()}
+          <h4 className="font-bold text-xs uppercase tracking-tight">Xác nhận thanh toán</h4>
+          <p>
+            CÔNG TY TNHH CƠ KHÍ CÔNG NGHIỆP SÀI GÒN thông báo đến Quý khách {renderHighlighted('customer_name', resolvedCustomer)}, số điện thoại {renderHighlighted('phone', resolvedPhone)}.
+          </p>
+          <table className="w-full text-xs border-collapse">
+            <tbody className="divide-y divide-white/5">
+              <tr>
+                <td className="py-1.5 opacity-60 w-[110px] align-top">Số hợp đồng:</td>
+                <td className="py-1.5 text-right font-medium">{renderHighlighted('so_phieu', values.so_phieu || values.soHopDong, 'HD-2026-0002')}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 opacity-60 align-top">Số đơn hàng:</td>
+                <td className="py-1.5 text-right font-medium">{renderHighlighted('order_code', values.order_code || values.soDonHang, 'DH-ERP-001-26')}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 opacity-60 align-top">Số báo giá:</td>
+                <td className="py-1.5 text-right font-medium">{renderHighlighted('ma_bao_gia', values.ma_bao_gia || values.soPhieuBaoGia, 'BG-2026-0038')}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 opacity-60 align-top">Người phụ trách:</td>
+                <td className="py-1.5 text-right font-medium">{renderHighlighted('nhan_vien', values.nhan_vien || values.nguoiPhuTrach, 'Ngô Vương Thông')}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 opacity-60 align-top">Ngày thanh toán:</td>
+                <td className="py-1.5 text-right font-medium">{renderHighlighted('date', values.date || values.ngayThanhToan || values.time, '07/10/2026')}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 opacity-60 align-top">Ghi chú:</td>
+                <td className="py-1.5 text-right font-medium">{renderHighlighted('ghi_chu', values.ghi_chu || values.ghiChu, 'Thanh toán đợt hợp đồng')}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 opacity-60 align-top">Điểm tích lũy:</td>
+                <td className="py-1.5 text-right font-bold text-emerald-400">{renderHighlighted('diem_thanh_toan', values.diem_thanh_toan || values.diemThanhToan, '2.200')}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 opacity-60 align-top">Loại đơn:</td>
+                <td className="py-1.5 text-right font-medium">{renderHighlighted('loai_don', values.loai_don || values.loaiDon, 'Cung cấp Máy móc/Thiết Bị')}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="text-3xs opacity-80 leading-normal">
+            Khoản thanh toán đã được cập nhật vào hồ sơ hợp đồng. Quý khách vui lòng liên hệ nhân viên phụ trách hoặc Hotline 0932.000.999 khi cần hỗ trợ đối chiếu hoặc bổ sung chứng từ.
+          </p>
+          <p className="text-3xs opacity-80 leading-normal">
+            Cảm ơn Quý khách đã tin tưởng và đồng hành cùng Công ty TNHH Cơ Khí Công Nghiệp SÀI GÒN. Tổng số điểm tích lũy của Quý khách hàng: <span className="font-bold text-amber-300">{values.diem_khach_hang || values.diemKhachHang || '15.000'}</span>
+          </p>
+        </div>
+      );
+    }
+
+    // 4b. THANH TOÁN (Tất toán legacy) - ID 552490
     if (tId === '552490' || templateInfo.messageType === ZnsMessageType.THANH_TOAN_TAT_TOAN) {
       return (
         <div className="space-y-3 leading-relaxed text-xs">
@@ -205,7 +263,7 @@ export function ZnsOfficialPhonePreview({
       );
     }
 
-    // 5. THANH TOÁN (Công nợ) - ID 547381
+    // 5. THANH TOÁN (Công nợ legacy) - ID 547381
     if (tId === '547381' || templateInfo.messageType === ZnsMessageType.THANH_TOAN_CONG_NO) {
       return (
         <div className="space-y-3 leading-relaxed text-xs">
@@ -422,14 +480,32 @@ export function ZnsOfficialPhonePreview({
           {/* Render Full Approved Template Content */}
           {renderMessageContent()}
 
-          {/* Primary CTA Button (Blue #0068FF) */}
-          <div className="mt-4 pt-2 border-t border-white/10">
-            <button
-              type="button"
-              className="w-full py-2.5 px-4 bg-[#0068FF] hover:bg-[#0057d9] text-white font-bold rounded-xl text-xs text-center transition-opacity shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <span>{templateInfo.ctaButton?.title || 'Quan tâm OA'}</span>
-            </button>
+          {/* CTA Buttons (Hỗ trợ 1 hoặc 2 Nút thao tác theo chuẩn Zalo Cloud) */}
+          <div className="mt-4 pt-2 border-t border-white/10 space-y-2">
+            {(templateInfo.ctaButtons && templateInfo.ctaButtons.length > 0) ? (
+              templateInfo.ctaButtons.map((btn, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  className={`w-full py-2.5 px-4 font-bold rounded-xl text-xs text-center transition-opacity shadow-sm flex items-center justify-center gap-1.5 cursor-pointer ${
+                    idx === 0
+                      ? isDarkMode 
+                        ? 'bg-white/10 hover:bg-white/15 text-white border border-white/10' 
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200'
+                      : 'bg-[#0068FF] hover:bg-[#0057d9] text-white'
+                  }`}
+                >
+                  <span>{btn.title}</span>
+                </button>
+              ))
+            ) : (
+              <button
+                type="button"
+                className="w-full py-2.5 px-4 bg-[#0068FF] hover:bg-[#0057d9] text-white font-bold rounded-xl text-xs text-center transition-opacity shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>{templateInfo.ctaButton?.title || 'Quan tâm OA'}</span>
+              </button>
+            )}
           </div>
         </div>
 

@@ -14,7 +14,7 @@ import { aggregateProducts, computeLineItem } from '@/src/domain/pricing/quotati
 import { formatUserOfficer } from '@/src/shared/utils/userProfile';
 import { zodResolver } from '@hookform/resolvers/zod';
 
-import { detectItemType } from '@/src/widgets/product-list-input/useProductItemSemantic';
+import { detectItemType, calculateActualMachineCount } from '@/src/widgets/product-list-input/useProductItemSemantic';
 
 interface UseQuotationFormProps {
   quotation: Quotation | null;
@@ -221,13 +221,17 @@ export function useQuotationForm({
     return () => clearInterval(interval);
   }, [isDirty, saveDraft, getValues]);
 
-  // Automatic calculation of slMay (total products count)
+  // Automatic calculation of slMay (strictly MACHINE items count only)
   useEffect(() => {
-    const total = products.reduce((sum: number, p: any) => sum + (Number(p.quantity) || 0), 0); 
-    if (getValues('slMay') !== total) {
-      setValue('slMay', total);
+    const norm = currentLoai ? normalizeLoai(currentLoai) : undefined;
+    let totalMachines = 0;
+    if (norm !== QUOTATION_LOAI.VAT_TU && norm !== QUOTATION_LOAI.DICH_VU) {
+      totalMachines = calculateActualMachineCount(products);
     }
-  }, [products, setValue, getValues]);
+    if (getValues('slMay') !== totalMachines) {
+      setValue('slMay', totalMachines);
+    }
+  }, [products, currentLoai, setValue, getValues]);
 
   // ANCHOR: D4 - Pure Financial Calculations (derived from Line Items)
   const aggs = useMemo(() => aggregateProducts(products), [products]);

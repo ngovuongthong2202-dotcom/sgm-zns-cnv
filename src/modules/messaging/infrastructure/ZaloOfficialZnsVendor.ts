@@ -7,6 +7,7 @@ import { adminDb } from '../../../backend/config/supabase.admin';
 import { translateZaloError } from '../../../backend/services/zns/zalo-error-dictionary';
 import { sanitizeZnsCustomerName, sanitizeZnsPersonName } from '../../../backend/services/zns/zns-payload.builder';
 import { formatZnsDate } from '../../../shared/utils/formatDate';
+import { calculateFormattedPaymentPoints } from '../../billing/domain/loyaltyEngine';
 
 /**
  * Ánh xạ chuẩn xác 7 loại tin nhắn SGM sang đúng 7 Template ID đã được duyệt trên Zalo OA
@@ -77,6 +78,28 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
     const rawSoNgay = parseInt(String(p.soNgayDuKienHoanThanh || p.thoiGianThucHien || p.soNgay || p.so_ngay || 30).replace(/\D/g, '') || '30', 10);
     const soNgayNum = isNaN(rawSoNgay) ? 30 : rawSoNgay;
 
+    // Phân loại Loại Đơn (loai_don)
+    let loaiDon = String(p.loai_don || p.loaiDon || '').trim();
+    if (!loaiDon) {
+      const loai = String(p.loai || p.loaiBaoGia || '').toUpperCase();
+      if (loai.includes('VAT_TU') || loai.includes('VẬT TƯ')) {
+        loaiDon = 'Cung cấp Vật Tư';
+      } else if (loai.includes('DICH_VU') || loai.includes('DỊCH VỤ')) {
+        loaiDon = 'Cung cấp giải pháp/dịch vụ';
+      } else {
+        loaiDon = 'Cung cấp Máy móc/Thiết Bị';
+      }
+    }
+
+    const ghiChu = String(p.ghi_chu || p.ghiChu || p.note || 'Thanh toán đợt hợp đồng').slice(0, 100);
+    const rawPaymentAmount = Number(p.so_tien || p.soTien || p.amount || 0);
+    const diemThanhToan = String(p.diem_thanh_toan || p.diemThanhToan || calculateFormattedPaymentPoints(rawPaymentAmount));
+    const diemKhachHang = String(p.diem_khach_hang || p.diemKhachHang || p.diemTichLuy || diemThanhToan);
+    const maTraCuu = String(
+      p.ma_tra_cuu || p.maTraCuu || 
+      (orderCode !== '---' ? orderCode : (contractCode !== '---' ? contractCode : (quotationCode !== '---' ? quotationCode : 'DH-SGM')))
+    ).trim();
+
     const templateData: Record<string, any> = {
       // 1. Nhận diện khách hàng (Bắt buộc theo chuẩn Zalo: tối đa 30 ký tự)
       customer_name: customerName,
@@ -109,7 +132,7 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       so_phieu: quotationCode || contractCode,
       nhan_vien: cleanOfficer,
 
-      // 4. Phân hệ Thanh toán (Tất toán: 552490, Công nợ: 547381)
+      // 4. Phân hệ Thanh toán & Điểm Thưởng Tích Hợp MDM (Template 2026 / 552490 / 547381)
       payment_code: paymentCode,
       so_tien: moneyFormatted,
       so_tien_thanh_toan: moneyFormatted,
@@ -118,6 +141,18 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       ngay_thanh_toan: formatZnsDate(p.ngay_thanh_toan || p.ngayThanhToan || dateFormatted),
       payment_date: formatZnsDate(p.payment_date || p.ngayThanhToan || dateFormatted),
       time: formatZnsDate(p.time || p.ngayThanhToan || dateFormatted),
+      date: formatZnsDate(p.date || p.ngayThanhToan || dateFormatted),
+      ma_bao_gia: quotationCode,
+      loai_don: loaiDon,
+      ghi_chu: ghiChu,
+      diem_thanh_toan: diemThanhToan,
+      diem_khach_hang: diemKhachHang,
+
+      // Tham số URL Tra Cứu Đơn Hàng (Cách 1: ma_tra_cuu; Cách 2 dự phòng: ma_don, ma_hd, so_bg)
+      ma_tra_cuu: maTraCuu,
+      ma_don: orderCode,
+      ma_hd: contractCode,
+      so_bg: quotationCode,
 
       // 5. Phân hệ Giao hàng (Xác nhận giao hàng: 552545)
       So_hop_dong: contractCode,
