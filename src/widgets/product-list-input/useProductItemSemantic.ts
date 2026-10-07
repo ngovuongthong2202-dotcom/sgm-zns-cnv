@@ -214,3 +214,193 @@ export function getAvailableRootSerials(
   }
   return cleanRootSerials.filter(sn => !assigned.has(sn));
 }
+
+/**
+ * Format single product item for ZNS display
+ * E.g. "Máy cán tôn sóng vuông 11 sóng" or "Lưỡi dao cắt SKD11 (SL: 2 Bộ)" or "Ốc vít (x5)"
+ */
+export function formatZnsProductItemTitle(
+  item: {
+    productName?: string;
+    tenSanPham?: string;
+    name?: string;
+    tenMay?: string;
+    title?: string;
+    quantity?: number;
+    soLuong?: number;
+    unit?: string;
+    dvt?: string;
+  }
+): string {
+  const name = String(item.productName || item.tenSanPham || item.name || item.tenMay || item.title || 'Thiết bị SGM').trim();
+  const qty = Number(item.quantity ?? item.soLuong) || 1;
+  const unit = String(item.unit || item.dvt || '').trim();
+
+  if (qty > 1) {
+    return unit ? `${name} (SL: ${qty} ${unit})` : `${name} (x${qty})`;
+  }
+  return name;
+}
+
+/**
+ * Packs an array of items into a single string within budget (default 200 chars),
+ * separated by " | ". If exceeding budget, preserves representative item and appends " | ......".
+ */
+export function packItemsWithBudget(
+  items: Array<{
+    productName?: string;
+    tenSanPham?: string;
+    name?: string;
+    tenMay?: string;
+    title?: string;
+    quantity?: number;
+    soLuong?: number;
+    unit?: string;
+    dvt?: string;
+  }>,
+  maxBudget: number = 200,
+  emptyFallback: string = '......'
+): string {
+  if (!items || items.length === 0) return emptyFallback;
+
+  const formattedItems = items.map(formatZnsProductItemTitle).filter(Boolean);
+  if (formattedItems.length === 0) return emptyFallback;
+
+  let result = '';
+
+  for (let i = 0; i < formattedItems.length; i++) {
+    const itemStr = formattedItems[i];
+
+    if (i === 0) {
+      if (itemStr.length <= maxBudget) {
+        result = itemStr;
+      } else {
+        // First item exceeds budget -> truncate first item to leave room for " | ......" (9 chars)
+        const safeLen = Math.max(1, maxBudget - 10);
+        return `${itemStr.slice(0, safeLen).trim()} | ......`;
+      }
+    } else {
+      const candidate = `${result} | ${itemStr}`;
+      if (candidate.length <= maxBudget) {
+        result = candidate;
+      } else {
+        // Exceeds budget -> stop adding and attach overflow indicator
+        const candidateWithOverflow = `${result} | ......`;
+        if (candidateWithOverflow.length <= maxBudget) {
+          result = candidateWithOverflow;
+        } else {
+          // If even adding " | ......" would exceed, truncate slightly to fit
+          const safePrefix = result.slice(0, Math.max(1, maxBudget - 10)).trim();
+          result = `${safePrefix} | ......`;
+        }
+        break;
+      }
+    }
+  }
+
+  return result || emptyFallback;
+}
+
+/**
+ * Enterprise Sovereign Adaptive Product Matrix 2026 (Phương án 10)
+ * Packs heterogeneous quotation products into two fixed ZBS slots: <product_1> and <product_2> (max 200 chars each).
+ *
+ * Scenarios:
+ * 1. Single item: product_1 = single item, product_2 = "......"
+ * 2. Mixed (Machines & Materials/Services): product_1 = all Machines, product_2 = all Materials & Services
+ * 3. Pure Machines (>= 2): product_1 = first machine, product_2 = remaining machines
+ * 4. Pure Materials/Services (>= 2, 0 machines): product_1 = first item, product_2 = remaining items
+ */
+export function formatZnsQuotationProducts(
+  products: Array<{
+    productName?: string;
+    tenSanPham?: string;
+    name?: string;
+    tenMay?: string;
+    title?: string;
+    quantity?: number;
+    soLuong?: number;
+    unit?: string;
+    dvt?: string;
+    itemType?: ItemSemanticType;
+    type?: string;
+    quyCach?: string;
+  }> = [],
+  maxBudget: number = 200
+): { product_1: string; product_2: string } {
+  if (!products || products.length === 0) {
+    return {
+      product_1: 'Thiết bị công nghiệp SGM',
+      product_2: '......'
+    };
+  }
+
+  // Filter valid products
+  const validProducts = products.filter(p => Boolean(p.productName || p.tenSanPham || p.name || p.tenMay || p.title));
+  if (validProducts.length === 0) {
+    return {
+      product_1: 'Thiết bị công nghiệp SGM',
+      product_2: '......'
+    };
+  }
+
+  // SCENARIO 1: Exactly 1 product item
+  if (validProducts.length === 1) {
+    const single = packItemsWithBudget([validProducts[0]], maxBudget, 'Thiết bị công nghiệp SGM');
+    return {
+      product_1: single,
+      product_2: '......'
+    };
+  }
+
+  // Categorize items
+  const machines = validProducts.filter(p => {
+    const rawType = p.itemType || p.type;
+    const pType = rawType 
+      ? (String(rawType).toUpperCase().includes('MAY') || String(rawType).toUpperCase().includes('MACHINE') ? 'MACHINE' : String(rawType).toUpperCase().includes('DICH_VU') || String(rawType).toUpperCase().includes('SERVICE') ? 'SERVICE' : 'MATERIAL') 
+      : detectItemType(p.productName || p.tenSanPham || p.name || p.tenMay || p.title, p.unit || p.dvt);
+    return pType === 'MACHINE';
+  });
+
+  const extras = validProducts.filter(p => {
+    const rawType = p.itemType || p.type;
+    const pType = rawType 
+      ? (String(rawType).toUpperCase().includes('MAY') || String(rawType).toUpperCase().includes('MACHINE') ? 'MACHINE' : String(rawType).toUpperCase().includes('DICH_VU') || String(rawType).toUpperCase().includes('SERVICE') ? 'SERVICE' : 'MATERIAL') 
+      : detectItemType(p.productName || p.tenSanPham || p.name || p.tenMay || p.title, p.unit || p.dvt);
+    return pType !== 'MACHINE';
+  });
+
+  // SCENARIO 2: Mixed items (at least 1 machine AND at least 1 extra)
+  if (machines.length > 0 && extras.length > 0) {
+    return {
+      product_1: packItemsWithBudget(machines, maxBudget, 'Thiết bị công nghiệp SGM'),
+      product_2: packItemsWithBudget(extras, maxBudget, '......')
+    };
+  }
+
+  // SCENARIO 3: Pure Machines (all >= 2 are machines, 0 extras)
+  if (machines.length >= 2 && extras.length === 0) {
+    const firstMachine = [machines[0]];
+    const remainingMachines = machines.slice(1);
+    return {
+      product_1: packItemsWithBudget(firstMachine, maxBudget, 'Thiết bị công nghiệp SGM'),
+      product_2: packItemsWithBudget(remainingMachines, maxBudget, '......')
+    };
+  }
+
+  // SCENARIO 4: Pure Materials / Services (0 machines, all >= 2 are extras)
+  if (machines.length === 0 && extras.length >= 2) {
+    const firstExtra = [extras[0]];
+    const remainingExtras = extras.slice(1);
+    return {
+      product_1: packItemsWithBudget(firstExtra, maxBudget, 'Vật tư & Thiết bị SGM'),
+      product_2: packItemsWithBudget(remainingExtras, maxBudget, '......')
+    };
+  }
+
+  // Default fallback
+  return {
+    product_1: packItemsWithBudget(validProducts.slice(0, 1), maxBudget, 'Thiết bị công nghiệp SGM'),
+    product_2: packItemsWithBudget(validProducts.slice(1), maxBudget, '......')
+  };
+}

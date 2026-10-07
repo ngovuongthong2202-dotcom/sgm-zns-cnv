@@ -58,30 +58,47 @@ export const ZBS_TEMPLATE_REGISTRY: Record<string, ZbsTemplateInfo> = {
     }
   },
 
-  // 2. BÁO GIÁ - ID 533064
+  // 2. BÁO GIÁ - ID 533064 (Chuẩn ZBS Zalo OA 2026 - Mẫu Sự Kiện 860đ)
   [ZnsMessageType.BAOGIA]: {
     templateId: '533064',
     messageType: ZnsMessageType.BAOGIA,
-    templateName: 'THÔNG BÁO BÁO GIÁ THÀNH CÔNG',
+    templateName: 'THÔNG BÁO HOÀN TẤT BÁO GIÁ',
     businessDomain: 'QUOTATION',
     businessLabel: 'Phát hành Báo giá',
     status: 'ENABLE',
     previewUrl: 'https://account.zalo.cloud/znspreview/pff4sPCAG3J9Q9jPWH7T_w==',
-    price: 300,
+    price: 860,
     providerApp: 'CNV CDP',
     params: [
       { name: 'customer_name', label: 'Tên khách hàng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'customer_name' },
-      { name: 'so_phieu_bao_gia', label: 'Số phiếu báo giá', require: true, type: 'STRING', maxLength: 30, sourceKey: 'so_phieu_bao_gia' },
-      { name: 'ngay_bao_gia', label: 'Ngày lập báo giá', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ngay_bao_gia' },
+      { name: 'phone', label: 'Số điện thoại', require: true, type: 'STRING', maxLength: 15, sourceKey: 'phone' },
+      { name: 'loai_don', label: 'Loại đơn', require: true, type: 'STRING', maxLength: 30, sourceKey: 'loai_don' },
+      { name: 'ma_bao_gia', label: 'Số báo giá', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ma_bao_gia' },
+      { name: 'ngay_bao_gia', label: 'Ngày báo giá', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ngay_bao_gia' },
       { name: 'ngay_het_han', label: 'Hạn hiệu lực', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ngay_het_han' },
-      { name: 'sl_may', label: 'Số lượng thiết bị', require: true, type: 'STRING', maxLength: 30, sourceKey: 'sl_may' },
-      { name: 'nguoi_phu_trach', label: 'Người phụ trách', require: true, type: 'STRING', maxLength: 30, sourceKey: 'nguoi_phu_trach' }
+      { name: 'product_1', label: 'Danh sách sản phẩm (1)', require: true, type: 'STRING', maxLength: 200, sourceKey: 'product_1' },
+      { name: 'product_2', label: 'Danh sách sản phẩm (2)', require: true, type: 'STRING', maxLength: 200, sourceKey: 'product_2' },
+      { name: 'sl_may', label: 'Tổng số lượng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'sl_may' },
+      { name: 'nhan_vien', label: 'Người phụ trách', require: true, type: 'STRING', maxLength: 30, sourceKey: 'nhan_vien' },
+      { name: 'ma_tra_cuu', label: 'Mã tra cứu', require: false, type: 'STRING', maxLength: 30, sourceKey: 'ma_tra_cuu' }
     ],
     ctaButton: {
       type: 3,
-      title: 'Quan tâm OA',
+      title: 'Đến trang thông tin OA',
       content: 'https://oa.zalo.me/1336150047301360288'
-    }
+    },
+    ctaButtons: [
+      {
+        type: 3,
+        title: 'Đến trang thông tin OA',
+        content: 'https://oa.zalo.me/1336150047301360288'
+      },
+      {
+        type: 1,
+        title: 'Tra cứu báo giá',
+        content: 'https://sgm-os.onrender.com/tra-cuu-don-hang?code=<ma_tra_cuu>'
+      }
+    ]
   },
 
   // 3. HỢP ĐỒNG - ID 533068

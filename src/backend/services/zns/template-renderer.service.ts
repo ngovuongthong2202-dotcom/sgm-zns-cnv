@@ -10,6 +10,7 @@ import { QuotationSchema } from '../../../domain/schema/quotation.schema';
 import { PaymentSchema } from '../../../domain/schema/payment.schema';
 import { DeliverySchema } from '../../../domain/schema/delivery.schema';
 import { sanitizeZnsCustomerName, sanitizeZnsPersonName } from './zns-payload.builder';
+import { formatZnsQuotationProducts } from '../../../widgets/product-list-input/useProductItemSemantic';
 
 export type AnyEntity = 
   | z.infer<typeof CustomerSchema>
@@ -45,11 +46,18 @@ const BUILTIN_DEFAULT_TEMPLATES: Record<string, ZnsTemplate> = {
     updatedBy: 'SYSTEM',
     variables: [
       { name: 'customer_name', label: 'Tên KH', sourceField: 'tenKhachHang', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'phone', label: 'SĐT', sourceField: 'sdt', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'loai_don', label: 'Loại đơn', sourceField: 'loai_don', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'ma_bao_gia', label: 'Số báo giá', sourceField: 'soPhieuBaoGia', sourceEntity: 'SELF', format: 'raw' },
       { name: 'so_phieu_bao_gia', label: 'Số phiếu BG', sourceField: 'soPhieuBaoGia', sourceEntity: 'SELF', format: 'raw' },
       { name: 'ngay_bao_gia', label: 'Ngày BG', sourceField: 'ngayBaoGia', format: 'date', sourceEntity: 'SELF' },
       { name: 'ngay_het_han', label: 'Ngày hết hạn', sourceField: 'ngayHetHan', format: 'date', sourceEntity: 'SELF' },
+      { name: 'product_1', label: 'Danh sách sản phẩm (1)', sourceField: 'product_1', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'product_2', label: 'Danh sách sản phẩm (2)', sourceField: 'product_2', sourceEntity: 'SELF', format: 'raw' },
       { name: 'sl_may', label: 'SL máy', sourceField: 'slMay', format: 'number', sourceEntity: 'SELF' },
+      { name: 'nhan_vien', label: 'Người phụ trách', sourceField: 'nguoiPhuTrach', sourceEntity: 'SELF', format: 'raw' },
       { name: 'nguoi_phu_trach', label: 'Người PT', sourceField: 'nguoiPhuTrach', sourceEntity: 'SELF', format: 'raw' },
+      { name: 'ma_tra_cuu', label: 'Mã tra cứu', sourceField: 'soPhieuBaoGia', sourceEntity: 'SELF', format: 'raw' },
     ],
   },
   HOPDONG_SIGN_ZNS: {
@@ -208,6 +216,15 @@ export class TemplateRendererService {
 
       if (!snapshot.empty) {
         const template = snapshot.docs[0].data() as ZnsTemplate;
+        const builtin = BUILTIN_DEFAULT_TEMPLATES[templateKey];
+        if (builtin && Array.isArray(builtin.variables) && Array.isArray(template.variables)) {
+          const existingVarNames = new Set(template.variables.map(v => v.name));
+          for (const bv of builtin.variables) {
+            if (!existingVarNames.has(bv.name)) {
+              template.variables.push(bv);
+            }
+          }
+        }
         this.cache.set(cacheKey, { tpl: template, ts: now });
         return template;
       }
@@ -219,6 +236,15 @@ export class TemplateRendererService {
           .orderBy('version', 'desc').limit(1).get();
         if (!fallbackSnapshot.empty) {
           const tpl = fallbackSnapshot.docs[0].data() as ZnsTemplate;
+          const builtin = BUILTIN_DEFAULT_TEMPLATES[templateKey];
+          if (builtin && Array.isArray(builtin.variables) && Array.isArray(tpl.variables)) {
+            const existingVarNames = new Set(tpl.variables.map(v => v.name));
+            for (const bv of builtin.variables) {
+              if (!existingVarNames.has(bv.name)) {
+                tpl.variables.push(bv);
+              }
+            }
+          }
           this.cache.set(cacheKey, { tpl, ts: now });
           return tpl;
         }
@@ -317,7 +343,14 @@ export class TemplateRendererService {
           if (formattedVal.length > 30) {
             formattedVal = formattedVal.slice(0, 30).trim();
           }
-        } else if (variable.name !== 'danh_sach_ma_may' && !variable.name.includes('link') && !variable.name.includes('url') && formattedVal.length > 30) {
+        } else if (
+          variable.name !== 'danh_sach_ma_may' && 
+          variable.name !== 'product_1' && 
+          variable.name !== 'product_2' && 
+          !variable.name.includes('link') && 
+          !variable.name.includes('url') && 
+          formattedVal.length > 30
+        ) {
           formattedVal = formattedVal.slice(0, 30).trim();
         }
         output[variable.name] = formattedVal;
@@ -446,8 +479,24 @@ export class TemplateRendererService {
         val = (doc as any).soHopDong || (doc as any).maHopDong || (doc as any).order_code;
       } else if (sourceField === 'soDonHang') {
         val = (doc as any).soDonHang || (doc as any).maDonHang;
-      } else if (sourceField === 'soPhieuBaoGia') {
-        val = (doc as any).soPhieuBaoGia || (doc as any).maBaoGia;
+      } else if (sourceField === 'soPhieuBaoGia' || sourceField === 'ma_bao_gia' || sourceField === 'maBaoGia') {
+        val = (doc as any).soPhieuBaoGia || (doc as any).maBaoGia || (doc as any).ma_bao_gia;
+      } else if (sourceField === 'loai_don') {
+        let loaiDonVal = String((doc as any).loai_don || (doc as any).loaiDon || '').trim();
+        if (!loaiDonVal) {
+          const loai = String((doc as any).loai || (doc as any).loaiBaoGia || '').toUpperCase();
+          if (loai.includes('VAT_TU') || loai.includes('VẬT TƯ')) {
+            loaiDonVal = 'Cung cấp Vật Tư';
+          } else if (loai.includes('DICH_VU') || loai.includes('DỊCH VỤ')) {
+            loaiDonVal = 'Cung cấp giải pháp/dịch vụ';
+          } else {
+            loaiDonVal = 'Cung cấp Máy móc/Thiết Bị';
+          }
+        }
+        val = loaiDonVal;
+      } else if (sourceField === 'product_1' || sourceField === 'product_2') {
+        const packaged = formatZnsQuotationProducts((doc as any).products || []);
+        val = sourceField === 'product_1' ? ((doc as any).product_1 || packaged.product_1) : ((doc as any).product_2 || packaged.product_2);
       }
     }
 

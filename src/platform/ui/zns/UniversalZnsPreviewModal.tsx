@@ -24,6 +24,7 @@ import { getZbsTemplateInfo, ZbsTemplateInfo } from '@/src/domain/constants/zbs-
 import { useAuth } from '@/src/modules/iam';
 import { ZnsOfficialPhonePreview } from './components/ZnsOfficialPhonePreview';
 import { calculateFormattedPaymentPoints } from '@/src/modules/billing/domain/loyaltyEngine';
+import { formatZnsQuotationProducts } from '@/src/widgets/product-list-input/useProductItemSemantic';
 
 export interface UniversalZnsPreviewModalProps {
   isOpen: boolean;
@@ -124,13 +125,40 @@ export function UniversalZnsPreviewModal({
       defaults.nhan_vien = officerName;
     }
 
-    // Báo giá (533064)
+    // Báo giá (533064 - Chuẩn ZBS Zalo OA 2026 Mẫu Sự Kiện 860đ)
     if (templateInfo.templateId === '533064' || entityType === 'QUOTATION') {
-      defaults.so_phieu_bao_gia = String(payload.soPhieuBaoGia || documentCode || 'BGM-2026-1149').slice(0, 30);
+      const codeBg = String(payload.maBaoGia || payload.ma_bao_gia || payload.soPhieuBaoGia || documentCode || 'BGM-2026-1149').slice(0, 30);
+      defaults.ma_bao_gia = codeBg;
+      defaults.so_phieu_bao_gia = codeBg; // Cho backward-compatibility
+
+      let loaiDonVal = String(payload.loai_don || payload.loaiDon || '').trim();
+      if (!loaiDonVal) {
+        const loai = String(payload.loai || payload.loaiBaoGia || '').toUpperCase();
+        if (loai.includes('VAT_TU') || loai.includes('VẬT TƯ')) {
+          loaiDonVal = 'Cung cấp Vật Tư';
+        } else if (loai.includes('DICH_VU') || loai.includes('DỊCH VỤ')) {
+          loaiDonVal = 'Cung cấp giải pháp/dịch vụ';
+        } else {
+          loaiDonVal = 'Cung cấp Máy móc/Thiết Bị';
+        }
+      }
+      defaults.loai_don = loaiDonVal.slice(0, 30);
+
       defaults.ngay_bao_gia = formatZnsDate(payload.ngayBaoGia || payload.ngay_bao_gia || dateValue);
       defaults.ngay_het_han = formatZnsDate(payload.ngayHetHan || payload.ngay_het_han || dateValue);
-      defaults.sl_may = String(payload.slMay || payload.soLuong || '1');
+
+      // Đóng gói thông minh Semantic 200 ký tự cho product_1 và product_2
+      const packaged = formatZnsQuotationProducts(payload.products || []);
+      defaults.product_1 = String(payload.product_1 || packaged.product_1 || '......').slice(0, 200);
+      defaults.product_2 = String(payload.product_2 || packaged.product_2 || '......').slice(0, 200);
+
+      const computedSl = Array.isArray(payload.products) && payload.products.length > 0
+        ? String(payload.products.reduce((acc: number, p: any) => acc + (Number(p.quantity || p.soLuong) || 1), 0))
+        : '1';
+      defaults.sl_may = String(payload.slMay || payload.soLuong || computedSl).slice(0, 30);
+      defaults.nhan_vien = officerName;
       defaults.nguoi_phu_trach = officerName;
+      defaults.ma_tra_cuu = String(payload.ma_tra_cuu || payload.maTraCuu || codeBg || '').slice(0, 30);
     }
 
     // Thanh toán Mẫu Hợp Nhất 646935 (Chuẩn 2026)
@@ -299,6 +327,9 @@ export function UniversalZnsPreviewModal({
         nguoiPhuTrach: activeParams.nguoi_phu_trach || activeParams.nhan_vien || officerName,
         nguoi_phu_trach: activeParams.nguoi_phu_trach || activeParams.nhan_vien || officerName,
         nhan_vien: activeParams.nhan_vien || activeParams.nguoi_phu_trach || officerName,
+        ma_bao_gia: activeParams.ma_bao_gia || payload.maBaoGia || payload.soPhieuBaoGia || documentCode,
+        product_1: activeParams.product_1,
+        product_2: activeParams.product_2,
         order_code: activeParams.order_code || payload.soHopDong || documentCode
       };
 
@@ -566,7 +597,7 @@ export function UniversalZnsPreviewModal({
                     {isSavedDefault ? 'Đã lưu mặc định!' : 'Lưu mặc định'}
                   </button>
                   <span className="text-3xs text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full">
-                    ≤ 30 ký tự
+                    {templateInfo.templateId === '533064' ? '≤ 30 ký tự (≤ 200 SP)' : '≤ 30 ký tự'}
                   </span>
                 </div>
               </div>

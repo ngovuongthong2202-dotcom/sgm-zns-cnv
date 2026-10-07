@@ -24,6 +24,7 @@ import { CreateQuotationFromSalesOrderModal } from './components/CreateQuotation
 import { BulkZnsModal } from '@/src/widgets/BulkZnsModal';
 import { UniversalZnsPreviewModal } from '@/src/platform/ui/zns/UniversalZnsPreviewModal';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
+import { repositoryFactory } from '@/src/data/repositories/factory';
 
 
 const QuotationFormModal = lazy(() => import('./components/QuotationFormModal').then(m => ({ default: m.QuotationFormModal })));
@@ -466,11 +467,41 @@ export default function QuotationsFeature() {
             nguoiPhuTrach: znsPreviewQuotation.quotation.nguoiPhuTrach,
             nguoi_phu_trach: znsPreviewQuotation.quotation.nguoiPhuTrach,
             soPhieuBaoGia: znsPreviewQuotation.quotation.soPhieuBaoGia || znsPreviewQuotation.quotation.id,
+            maBaoGia: (znsPreviewQuotation.quotation as any).maBaoGia || znsPreviewQuotation.quotation.soPhieuBaoGia || znsPreviewQuotation.quotation.id,
+            ma_bao_gia: (znsPreviewQuotation.quotation as any).maBaoGia || znsPreviewQuotation.quotation.soPhieuBaoGia || znsPreviewQuotation.quotation.id,
+            products: (znsPreviewQuotation.quotation as any).products || (znsPreviewQuotation.quotation as any).chiTietBaoGia || [],
+            loai: (znsPreviewQuotation.quotation as any).loai || (znsPreviewQuotation.quotation as any).loaiBaoGia,
+            loai_don: (znsPreviewQuotation.quotation as any).loaiDon || (znsPreviewQuotation.quotation as any).loai,
             phone: znsPreviewQuotation.phone,
             sdt: znsPreviewQuotation.phone
           }}
           availablePhones={znsPreviewQuotation.availablePhones}
-          onSuccess={() => {
+          onSuccess={async () => {
+            const qId = znsPreviewQuotation.quotation.id;
+            if (qId) {
+              const updatedFields = {
+                trangThaiGuiTinBaoGia: 'THÀNH CÔNG',
+                trangThaiZns: 'THÀNH CÔNG',
+                trangThaiGuiTin: 'THANH_CONG',
+                thongTinGuiZnsBaoGia: {
+                  ngayGui: new Date().toISOString(),
+                  sdt: znsPreviewQuotation.phone,
+                  trangThai: 'THÀNH CÔNG'
+                }
+              };
+              try {
+                const repo = repositoryFactory.get('quotations');
+                await repo.update(qId, updatedFields);
+                if (drawerQuotation && drawerQuotation.id === qId) {
+                  setDrawerQuotation({
+                    ...drawerQuotation,
+                    ...updatedFields
+                  } as Quotation);
+                }
+              } catch (err) {
+                console.error('Error updating quotation after ZNS send:', err);
+              }
+            }
             refresh?.();
           }}
         />

@@ -1,6 +1,6 @@
 /* eslint-disable max-lines */
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { swrDocFetcher, swrColFetcher } from '@/src/data/swr-fetchers';
 import type { Customer } from '@/src/domain/schema/customer.schema';
 import type { Quotation } from '@/src/domain/schema/quotation.schema';
@@ -377,10 +377,13 @@ function QuotationDrawerWrapper({ isOpen, onClose, entityId, className, modal, o
         ...q,
         customer_name: cust?.tenZns || q.tenKhachHang,
         tenZns: cust?.tenZns || q.tenKhachHang,
-        ten_zns: cust?.tenZns || q.tenKhachHang,
-        so_phieu_bao_gia: q.soPhieuBaoGia || q.id,
+        ma_bao_gia: q.soPhieuBaoGia || (q as any).maBaoGia || q.id,
+        so_phieu_bao_gia: q.soPhieuBaoGia || (q as any).maBaoGia || q.id,
         ngay_bao_gia: formatZnsDate(q.ngayBaoGia || (q as any).createdAt),
         ngay_het_han: formatZnsDate(q.ngayHetHan),
+        products: (q as any).products || (q as any).chiTietBaoGia || [],
+        loai: (q as any).loai || (q as any).loaiBaoGia,
+        loai_don: (q as any).loaiDon || (q as any).loai,
         phone: targetPhone,
         sdt: targetPhone,
       },
@@ -388,7 +391,26 @@ function QuotationDrawerWrapper({ isOpen, onClose, entityId, className, modal, o
         phone: m.cleaned,
         label: `${m.formatted} (${m.carrier || 'Di động'})`,
         isPrimary: idx === 0
-      }))
+      })),
+      onSuccessCallback: async () => {
+        try {
+          const repo = repositoryFactory.get('quotations');
+          await repo.update(q.id, {
+            trangThaiGuiTinBaoGia: 'THÀNH CÔNG',
+            trangThaiZns: 'THÀNH CÔNG',
+            trangThaiGuiTin: 'THANH_CONG',
+            thongTinGuiZnsBaoGia: {
+              ngayGui: new Date().toISOString(),
+              sdt: targetPhone,
+              trangThai: 'THÀNH CÔNG'
+            }
+          });
+          mutate(`quotations:${q.id}`);
+          mutate(`quotations:500`);
+        } catch (e) {
+          console.error('Failed to update quotation ZNS status in DrawerStack:', e);
+        }
+      }
     });
   };
 
@@ -459,7 +481,25 @@ function ContractDrawerWrapper({ isOpen, onClose, entityId, className, modal, on
         phone: m.cleaned,
         label: `${m.formatted} (${m.carrier || 'Di động'})`,
         isPrimary: idx === 0
-      }))
+      })),
+      onSuccessCallback: async () => {
+        try {
+          const repo = repositoryFactory.get('contracts');
+          await repo.update(c.id, {
+            trangThaiGuiTin: 'THANH_CONG',
+            trangThaiZns: 'THÀNH CÔNG',
+            thongTinGuiZns: {
+              ngayGui: new Date().toISOString(),
+              sdt: targetPhone,
+              trangThai: 'THÀNH CÔNG'
+            }
+          } as any);
+          mutate(`contracts:${c.id}`);
+          mutate(`contracts:500`);
+        } catch (e) {
+          console.error('Failed to update contract ZNS status in DrawerStack:', e);
+        }
+      }
     });
   };
 
@@ -656,7 +696,25 @@ function DeliveryDrawerWrapper({ isOpen, onClose, entityId, className, modal, on
         phone: m.cleaned,
         label: `${m.formatted} (${m.carrier || 'Di động'})`,
         isPrimary: idx === 0
-      }))
+      })),
+      onSuccessCallback: async () => {
+        try {
+          const repo = repositoryFactory.get('deliveries');
+          await repo.update(d.id, {
+            trangThaiGuiTin: 'THANH_CONG',
+            trangThaiZns: 'THÀNH CÔNG',
+            thongTinGuiZns: {
+              ngayGui: new Date().toISOString(),
+              sdt: targetPhone,
+              trangThai: 'THÀNH CÔNG'
+            }
+          } as any);
+          mutate(`deliveries:${d.id}`);
+          mutate(`deliveries:500`);
+        } catch (e) {
+          console.error('Failed to update delivery ZNS status in DrawerStack:', e);
+        }
+      }
     });
   };
 

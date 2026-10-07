@@ -6,6 +6,7 @@ import { formatDate, formatZnsDate } from '../../../shared/utils/formatDate';
 import { addVietnamWorkingDays } from '../../../shared/utils/vietnamBusinessDays';
 import { resolveDeliveryDisplayCode } from '../../../shared/utils/voucherResolver';
 import { extractVietnamesePhones } from '../../../modules/customers/ui/utils/vietnameseTelecomExtractor';
+import { formatZnsQuotationProducts } from '../../../widgets/product-list-input/useProductItemSemantic';
 
 export const ZnsBasePayloadSchema = z.object({
   tinhTrangThanhToan: z.string().optional(),
@@ -55,7 +56,7 @@ const TARGET_MAP: Record<string, { col: string, act: string, disp: string }> = {
  */
 const ZALO_REQUIRED_VARS: Record<string, string[]> = {
   CUSTOMER_PRE_QUOTE: ['customer_name', 'phone'],
-  BAOGIA:             ['customer_name', 'so_phieu_bao_gia', 'ngay_bao_gia', 'ngay_het_han', 'sl_may', 'nguoi_phu_trach'],
+  BAOGIA:             ['customer_name', 'phone', 'loai_don', 'ma_bao_gia', 'so_phieu_bao_gia', 'ngay_bao_gia', 'ngay_het_han', 'product_1', 'product_2', 'sl_may', 'nhan_vien', 'nguoi_phu_trach', 'ma_tra_cuu'],
   HOPDONG_SIGN_ZNS:   ['customer_name', 'phone', 'order_code', 'So_don_hang', 'ngay_ky', 'so_ngay', 'so_phieu', 'nhan_vien'],
   THANH_TOAN_TAT_TOAN:['customer_name', 'phone', 'so_phieu', 'order_code', 'ma_bao_gia', 'nhan_vien', 'date', 'ghi_chu', 'diem_thanh_toan'],
   THANH_TOAN_CONG_NO: ['customer_name', 'phone', 'so_phieu', 'order_code', 'ma_bao_gia', 'nhan_vien', 'date', 'ghi_chu', 'diem_thanh_toan'],
@@ -292,8 +293,11 @@ export class ZnsPayloadBuilder {
         rendered.date = formatZnsDate(rawDate);
     }
 
+    if (requiredVarsSet.has('ma_bao_gia') && isEmp(rendered.ma_bao_gia)) {
+      rendered.ma_bao_gia = String((p as any).ma_bao_gia || (p as any).maBaoGia || p.soPhieuBaoGia || 'BG-AUTO').slice(0, 30);
+    }
     if (requiredVarsSet.has('so_phieu_bao_gia') && isEmp(rendered.so_phieu_bao_gia)) {
-      rendered.so_phieu_bao_gia = (p.soPhieuBaoGia as string) || (p.maBaoGia as string) || 'BG-AUTO';
+      rendered.so_phieu_bao_gia = (p.soPhieuBaoGia as string) || (p.maBaoGia as string) || (rendered.ma_bao_gia as string) || 'BG-AUTO';
     }
     if (requiredVarsSet.has('ngay_bao_gia') && isEmp(rendered.ngay_bao_gia)) {
       const raw = (p.ngayBaoGia as string) || (p.createdAt as string) || new Date().toISOString();
@@ -304,6 +308,28 @@ export class ZnsPayloadBuilder {
     }
     if (requiredVarsSet.has('sl_may') && isEmp(rendered.sl_may)) {
       rendered.sl_may = String(p.slMay || p.soLuong || '1');
+    }
+    if (requiredVarsSet.has('loai_don') && isEmp(rendered.loai_don)) {
+      const rawLoai = String((p as any).loai || (p as any).loaiBaoGia || '').toUpperCase();
+      let loaiDon = 'Cung cấp Máy móc/Thiết Bị';
+      if (rawLoai.includes('VAT_TU') || rawLoai.includes('VẬT TƯ')) {
+        loaiDon = 'Cung cấp Vật Tư';
+      } else if (rawLoai.includes('DICH_VU') || rawLoai.includes('DỊCH VỤ')) {
+        loaiDon = 'Cung cấp giải pháp/dịch vụ';
+      }
+      rendered.loai_don = ((p as any).loai_don as string) || loaiDon;
+    }
+    if ((requiredVarsSet.has('product_1') || requiredVarsSet.has('product_2')) && (isEmp(rendered.product_1) || isEmp(rendered.product_2))) {
+      const formatted = formatZnsQuotationProducts(Array.isArray(p.products) ? p.products : [], 200);
+      if (requiredVarsSet.has('product_1') && isEmp(rendered.product_1)) {
+        rendered.product_1 = String((p as any).product_1 || formatted.product_1 || 'Thiết bị công nghiệp SGM').slice(0, 200).trim();
+      }
+      if (requiredVarsSet.has('product_2') && isEmp(rendered.product_2)) {
+        rendered.product_2 = String((p as any).product_2 || formatted.product_2 || '......').slice(0, 200).trim();
+      }
+    }
+    if (requiredVarsSet.has('ma_tra_cuu') && isEmp(rendered.ma_tra_cuu)) {
+      rendered.ma_tra_cuu = String((p as any).ma_tra_cuu || (p as any).maTraCuu || p.soPhieuBaoGia || (p as any).maBaoGia || p.soHopDong || p.soDonHang || 'BGM-2026-1149').slice(0, 30);
     }
     if (requiredVarsSet.has('nguoi_phu_trach') && isEmp(rendered.nguoi_phu_trach)) {
       let pic = (p.nguoiPhuTrach as string) || 'Ngô Vương Thông';

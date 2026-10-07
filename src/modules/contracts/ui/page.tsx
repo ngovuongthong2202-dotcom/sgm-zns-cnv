@@ -419,8 +419,30 @@ export default function ContractsFeature() {
             sdt: znsPreviewContract.phone
           }}
           availablePhones={znsPreviewContract.availablePhones}
-          onSuccess={() => {
-            // Success callback
+          onSuccess={async () => {
+            const cId = znsPreviewContract.contract.id;
+            if (cId) {
+              const updatedFields = {
+                trangThaiGuiTin: 'THANH_CONG',
+                trangThaiZns: 'THÀNH CÔNG',
+                thongTinGuiZns: {
+                  ngayGui: new Date().toISOString(),
+                  sdt: znsPreviewContract.phone,
+                  trangThai: 'THÀNH CÔNG'
+                }
+              };
+              try {
+                await updateContract(cId, updatedFields as any);
+                if (drawerContract && drawerContract.id === cId) {
+                  setDrawerContract({
+                    ...drawerContract,
+                    ...updatedFields
+                  } as Contract);
+                }
+              } catch (err) {
+                console.error('Error updating contract after ZNS send:', err);
+              }
+            }
           }}
         />
       )}

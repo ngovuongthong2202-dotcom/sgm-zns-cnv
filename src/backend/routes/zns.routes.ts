@@ -495,6 +495,42 @@ router.post('/send', async (req, res) => {
       });
     }
 
+    // TẦNG 1: DIRECT BACKEND PERSISTENCE
+    // Cập nhật ngay lập tức vào database Supabase để giải quyết triệt để lỗi "Chờ gửi ZNS"
+    if (result.status === 'SUCCESS' || result.status === 'SENT_WAITING') {
+      try {
+        const nowIso = new Date().toISOString();
+        const updateDoc: Record<string, any> = {
+          trangThaiZns: 'THÀNH CÔNG',
+          trangThaiGuiTin: 'THANH_CONG',
+          sentAt: nowIso
+        };
+        if (body.entityType === 'QUOTATION') {
+          updateDoc.trangThaiGuiTinBaoGia = 'THÀNH CÔNG';
+          updateDoc.thongTinGuiZnsBaoGia = {
+            status: 'THÀNH CÔNG',
+            ngayGui: nowIso,
+            soDienThoaiNhan: normalizedPhone
+          };
+        } else if (body.entityType === 'CONTRACT') {
+          updateDoc.trangThaiGuiTinHopDong = 'THÀNH CÔNG';
+        } else if (body.entityType === 'PAYMENT') {
+          updateDoc.trangThaiGuiTinThanhToan = 'THÀNH CÔNG';
+        } else if (body.entityType === 'DELIVERY') {
+          updateDoc.trangThaiGuiTinGiaoHang = 'THÀNH CÔNG';
+        } else if (body.entityType === 'CUSTOMER') {
+          updateDoc.trangThaiGuiTinQuangCao = 'THÀNH CÔNG';
+        }
+
+        const targetTable = collectionMap[body.entityType];
+        if (targetTable && body.entityId) {
+          await adminDb.collection(targetTable).doc(body.entityId).update(updateDoc);
+        }
+      } catch (dbErr) {
+        console.error('Failed to update entity status in DB after ZNS send:', dbErr);
+      }
+    }
+
     res.status(200).json({ success: true, messageId: result.messageId, status: result.status });
   } catch (error: unknown) { 
     const errMsg = error instanceof Error ? error.message : String(error);

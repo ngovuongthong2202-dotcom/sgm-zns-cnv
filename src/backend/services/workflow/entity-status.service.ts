@@ -131,11 +131,23 @@ export const entityStatusService = {
             : payload.entityType === 'DELIVERY' ? 'deliveries' : null;
 
           if (targetCol && entityId) {
-            await adminDb.collection(targetCol).doc(entityId).update({
+            const updates: Record<string, any> = {
               trangThaiGuiTin: 'THANH_CONG',
+              trangThaiZns: 'THÀNH CÔNG',
               znsStatus: 'DELIVERED',
               lastZnsDeliveredAt: new Date().toISOString()
-            });
+            };
+            if (payload.entityType === 'QUOTATION') {
+              updates.trangThaiGuiTinBaoGia = 'THÀNH CÔNG';
+            } else if (payload.entityType === 'CONTRACT') {
+              updates.trangThaiGuiTinHopDong = 'THÀNH CÔNG';
+            } else if (payload.entityType === 'PAYMENT') {
+              updates.trangThaiGuiTinThanhToan = 'THÀNH CÔNG';
+            } else if (payload.entityType === 'DELIVERY') {
+              updates.trangThaiGuiTinGiaoHang = 'THÀNH CÔNG';
+            }
+
+            await adminDb.collection(targetCol).doc(entityId).update(updates);
             logger.info(`[Entity Status] Cập nhật ZNS thành công cho ${targetCol}/${entityId}`);
           }
           break;

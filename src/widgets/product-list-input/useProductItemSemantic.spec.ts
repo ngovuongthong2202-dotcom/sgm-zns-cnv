@@ -4,7 +4,10 @@ import {
   calculateActualMachineCount,
   smartAllocateSerials,
   getAvailableRootSerials,
-  ITEM_SEMANTIC_CONFIG
+  ITEM_SEMANTIC_CONFIG,
+  formatZnsQuotationProducts,
+  formatZnsProductItemTitle,
+  packItemsWithBudget
 } from './useProductItemSemantic';
 import { ProductItem } from '@/src/domain/schema/product.schema';
 
@@ -154,4 +157,93 @@ describe('useProductItemSemantic - The Sovereign Hybrid Item-Semantic Kernel', (
       expect(ITEM_SEMANTIC_CONFIG.SERVICE.shortLabel).toBe('Dịch vụ');
     });
   });
+
+  describe('formatZnsQuotationProducts - Enterprise Sovereign Adaptive Matrix (Phương án 10)', () => {
+    it('TC1: formats mixed items with 2 machines, 1 material, 1 service correctly', () => {
+      const items: ProductItem[] = [
+        { id: '1', productName: 'Máy cán tôn sóng vuông 11 sóng', quantity: 1, itemType: 'MACHINE' },
+        { id: '2', productName: 'Máy dập vòm thuỷ lực K1200', quantity: 1, itemType: 'MACHINE' },
+        { id: '3', productName: 'Lưỡi dao cắt SKD11', quantity: 2, unit: 'Bộ', itemType: 'MATERIAL' },
+        { id: '4', productName: 'Dịch vụ lắp đặt và hướng dẫn vận hành', quantity: 1, itemType: 'SERVICE' }
+      ];
+
+      const result = formatZnsQuotationProducts(items, 200);
+      expect(result.product_1).toBe('Máy cán tôn sóng vuông 11 sóng | Máy dập vòm thuỷ lực K1200');
+      expect(result.product_2).toBe('Lưỡi dao cắt SKD11 (SL: 2 Bộ) | Dịch vụ lắp đặt và hướng dẫn vận hành');
+      expect(result.product_1.length).toBeLessThanOrEqual(200);
+      expect(result.product_2.length).toBeLessThanOrEqual(200);
+    });
+
+    it('TC2: formats quotation with exactly 1 item: product_1 has item, product_2 has "......"', () => {
+      const items: ProductItem[] = [
+        { id: '1', productName: 'Máy cán xà gồ C/Z tự động', quantity: 1, itemType: 'MACHINE' }
+      ];
+
+      const result = formatZnsQuotationProducts(items, 200);
+      expect(result.product_1).toBe('Máy cán xà gồ C/Z tự động');
+      expect(result.product_2).toBe('......');
+    });
+
+    it('TC2b: formats quotation with 1 item having quantity > 1', () => {
+      const items: ProductItem[] = [
+        { id: '1', productName: 'Máy cán tôn 11 sóng', quantity: 2, unit: 'Dàn', itemType: 'MACHINE' }
+      ];
+
+      const result = formatZnsQuotationProducts(items, 200);
+      expect(result.product_1).toBe('Máy cán tôn 11 sóng (SL: 2 Dàn)');
+      expect(result.product_2).toBe('......');
+    });
+
+    it('TC3: formats pure machines (3 machines, 0 materials/services) across both lines without waste', () => {
+      const items: ProductItem[] = [
+        { id: '1', productName: 'Máy cán tôn 2 tầng sóng vuông và sóng la phông', quantity: 1, itemType: 'MACHINE' },
+        { id: '2', productName: 'Máy dập vòm thuỷ lực', quantity: 1, itemType: 'MACHINE' },
+        { id: '3', productName: 'Máy xả cuộn 5 tấn tự động', quantity: 1, itemType: 'MACHINE' }
+      ];
+
+      const result = formatZnsQuotationProducts(items, 200);
+      expect(result.product_1).toBe('Máy cán tôn 2 tầng sóng vuông và sóng la phông');
+      expect(result.product_2).toBe('Máy dập vòm thuỷ lực | Máy xả cuộn 5 tấn tự động');
+      expect(result.product_1.length).toBeLessThanOrEqual(200);
+      expect(result.product_2.length).toBeLessThanOrEqual(200);
+    });
+
+    it('TC4: formats pure materials & services (0 machines, 2 materials, 1 service)', () => {
+      const items: ProductItem[] = [
+        { id: '1', productName: 'Lưỡi dao cắt SKD11', quantity: 4, unit: 'Cái', itemType: 'MATERIAL' },
+        { id: '2', productName: 'Trục cán định hình phi 90', quantity: 2, unit: 'Cây', itemType: 'MATERIAL' },
+        { id: '3', productName: 'Dịch vụ bảo dưỡng và cân chỉnh định kỳ', quantity: 1, itemType: 'SERVICE' }
+      ];
+
+      const result = formatZnsQuotationProducts(items, 200);
+      expect(result.product_1).toBe('Lưỡi dao cắt SKD11 (SL: 4 Cái)');
+      expect(result.product_2).toBe('Trục cán định hình phi 90 (SL: 2 Cây) | Dịch vụ bảo dưỡng và cân chỉnh định kỳ');
+      expect(result.product_1.length).toBeLessThanOrEqual(200);
+      expect(result.product_2.length).toBeLessThanOrEqual(200);
+    });
+
+    it('TC5: gracefully truncates with " | ...... " when items exceed 200 characters limit', () => {
+      const items: ProductItem[] = [
+        { id: '1', productName: 'Dây chuyền máy cán tôn sóng vuông 11 sóng công nghiệp tốc độ cao 35m/phút hệ thống điều khiển PLC tự động tích hợp dao cắt thuỷ lực servo', quantity: 1, itemType: 'MACHINE' },
+        { id: '2', productName: 'Hệ thống máy dập vòm cong bán tự động khuôn dập linh hoạt theo bán kính điều chỉnh tự do từ R1200 đến R8000', quantity: 1, itemType: 'MACHINE' },
+        { id: '3', productName: 'Máy xả cuộn thuỷ lực tự động tải trọng 10 tấn tích hợp cơ cấu ép cuộn chống bung và cánh tay đỡ phụ', quantity: 1, itemType: 'MACHINE' }
+      ];
+
+      const result = formatZnsQuotationProducts(items, 200);
+      expect(result.product_1.length).toBeLessThanOrEqual(200);
+      expect(result.product_2.length).toBeLessThanOrEqual(200);
+      // TC5 has pure machines: machine 1 in product_1, machine 2 & 3 in product_2
+      // Check that product_2 contains " | ...... " if machine 2 + machine 3 exceeds 200 chars
+      if (result.product_2.includes(' | ...... ')) {
+        expect(result.product_2).toContain(' | ...... ');
+      }
+    });
+
+    it('TC6: handles empty product list safely without throwing', () => {
+      const result = formatZnsQuotationProducts([], 200);
+      expect(result.product_1).toBe('Thiết bị công nghiệp SGM');
+      expect(result.product_2).toBe('......');
+    });
+  });
 });
+

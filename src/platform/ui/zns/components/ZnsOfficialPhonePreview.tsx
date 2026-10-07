@@ -87,43 +87,56 @@ export function ZnsOfficialPhonePreview({
       );
     }
 
-    // 2. BÁO GIÁ - ID 533064
+    // 2. BÁO GIÁ - ID 533064 (Chuẩn xác 100% theo ảnh media_1791366524462.png)
     if (tId === '533064' || templateInfo.messageType === ZnsMessageType.BAOGIA) {
       return (
         <div className="space-y-3 leading-relaxed text-xs">
           {getLogo()}
+          <h4 className="font-bold text-xs uppercase tracking-tight">THÔNG BÁO HOÀN TẤT BÁO GIÁ</h4>
           <p>
-            Kính chào Quý khách {renderHighlighted('customer_name', resolvedCustomer)},
-          </p>
-          <p>
-            CÔNG TY TNHH CƠ KHÍ CÔNG NGHIỆP SÀI GÒN đã lập báo giá thành công cho Quý khách với thông tin như sau:
+            CÔNG TY TNHH CƠ KHÍ CÔNG NGHIỆP SÀI GÒN thông báo đến Quý khách {renderHighlighted('customer_name', resolvedCustomer)}, số điện thoại {renderHighlighted('phone', resolvedPhone)}.
           </p>
           <table className="w-full text-xs border-collapse">
             <tbody className="divide-y divide-white/5">
               <tr>
-                <td className="py-1.5 opacity-60 w-[125px] align-top">Số phiếu báo giá:</td>
-                <td className="py-1.5 text-right font-medium">{renderHighlighted('so_phieu_bao_gia', values.so_phieu_bao_gia || values.soPhieuBaoGia, 'BGM-2026-1149')}</td>
+                <td className="py-1.5 opacity-60 w-[130px] align-top">Loại đơn:</td>
+                <td className="py-1.5 text-right font-medium">{renderHighlighted('loai_don', values.loai_don || values.loaiDon, 'Cung cấp Máy móc')}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 opacity-60 align-top">Số báo giá:</td>
+                <td className="py-1.5 text-right font-medium">{renderHighlighted('ma_bao_gia', values.ma_bao_gia || values.so_phieu_bao_gia || values.maBaoGia, 'BGM-2026-1149')}</td>
               </tr>
               <tr>
                 <td className="py-1.5 opacity-60 align-top">Ngày báo giá:</td>
                 <td className="py-1.5 text-right font-medium">{renderHighlighted('ngay_bao_gia', values.ngay_bao_gia || values.ngayBaoGia, '06/10/2026')}</td>
               </tr>
               <tr>
-                <td className="py-1.5 opacity-60 align-top">Hiệu lực đến:</td>
+                <td className="py-1.5 opacity-60 align-top">Hạn hiệu lực:</td>
                 <td className="py-1.5 text-right font-medium">{renderHighlighted('ngay_het_han', values.ngay_het_han || values.ngayHetHan, '06/11/2026')}</td>
               </tr>
               <tr>
-                <td className="py-1.5 opacity-60 align-top">SL máy:</td>
+                <td className="py-1.5 opacity-60 align-top">Danh sách sản phẩm (1):</td>
+                <td className="py-1.5 text-right font-medium break-words">{renderHighlighted('product_1', values.product_1, '1 Máy Hàn Laser Fiber 1500W | 1 Máy Cắt Laser Fiber')}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 opacity-60 align-top">Danh sách sản phẩm (2):</td>
+                <td className="py-1.5 text-right font-medium break-words">{renderHighlighted('product_2', values.product_2, '1 Kính bảo hộ Laser | 1 Đầu bép hàn laser')}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 opacity-60 align-top">Tổng số lượng:</td>
                 <td className="py-1.5 text-right font-medium">{renderHighlighted('sl_may', values.sl_may || values.slMay, '1')}</td>
               </tr>
               <tr>
                 <td className="py-1.5 opacity-60 align-top">Người phụ trách:</td>
-                <td className="py-1.5 text-right font-medium">{renderHighlighted('nguoi_phu_trach', values.nguoi_phu_trach || values.nguoiPhuTrach, 'Ngô Vương Thông')}</td>
+                <td className="py-1.5 text-right font-medium">{renderHighlighted('nhan_vien', values.nhan_vien || values.nguoi_phu_trach || values.nguoiPhuTrach, 'Ngô Vương Thông')}</td>
               </tr>
             </tbody>
           </table>
-          <p>
-            Trân trọng cảm ơn Quý khách đã quan tâm và hợp tác cùng CÔNG TY TNHH CƠ KHÍ CÔNG NGHIỆP SÀI GÒN.
+          <p className="text-3xs opacity-80 leading-normal">
+            Báo giá đã được gửi kèm thông tin chi tiết về sản phẩm và chính sách ưu đãi. Quý khách vui lòng kiểm tra và phản hồi sớm để chúng tôi kịp thời hỗ trợ.
+          </p>
+          <p className="text-3xs opacity-80 leading-normal">
+            Xin chân thành cảm ơn sự tin tưởng và hợp tác của Quý khách đối với CÔNG TY TNHH CƠ KHÍ CÔNG NGHIỆP SÀI GÒN.
           </p>
         </div>
       );
@@ -489,10 +502,10 @@ export function ZnsOfficialPhonePreview({
                   type="button"
                   className={`w-full py-2.5 px-4 font-bold rounded-xl text-xs text-center transition-opacity shadow-sm flex items-center justify-center gap-1.5 cursor-pointer ${
                     idx === 0
-                      ? isDarkMode 
+                      ? 'bg-[#0068FF] hover:bg-[#0057d9] text-white shadow-xs'
+                      : isDarkMode 
                         ? 'bg-white/10 hover:bg-white/15 text-white border border-white/10' 
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200'
-                      : 'bg-[#0068FF] hover:bg-[#0057d9] text-white'
+                        : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 shadow-2xs'
                   }`}
                 >
                   <span>{btn.title}</span>

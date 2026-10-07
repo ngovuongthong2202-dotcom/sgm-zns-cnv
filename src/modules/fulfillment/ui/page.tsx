@@ -551,8 +551,30 @@ export default function DeliveriesFeature() {
             };
           })()}
           availablePhones={znsPreviewDelivery.availablePhones}
-          onSuccess={() => {
-            // refresh
+          onSuccess={async () => {
+            const dId = znsPreviewDelivery.delivery.id;
+            if (dId) {
+              const updatedFields = {
+                trangThaiGuiTin: 'THANH_CONG',
+                trangThaiZns: 'THÀNH CÔNG',
+                thongTinGuiZns: {
+                  ngayGui: new Date().toISOString(),
+                  sdt: znsPreviewDelivery.phone,
+                  trangThai: 'THÀNH CÔNG'
+                }
+              };
+              try {
+                await updateDelivery(dId, updatedFields as any);
+                if (drawerDelivery && drawerDelivery.id === dId) {
+                  setDrawerDelivery({
+                    ...drawerDelivery,
+                    ...updatedFields
+                  } as Delivery);
+                }
+              } catch (err) {
+                console.error('Error updating delivery after ZNS send:', err);
+              }
+            }
           }}
         />
       )}

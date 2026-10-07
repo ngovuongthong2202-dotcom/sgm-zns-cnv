@@ -8,6 +8,7 @@ import { translateZaloError } from '../../../backend/services/zns/zalo-error-dic
 import { sanitizeZnsCustomerName, sanitizeZnsPersonName } from '../../../backend/services/zns/zns-payload.builder';
 import { formatZnsDate } from '../../../shared/utils/formatDate';
 import { calculateFormattedPaymentPoints } from '../../billing/domain/loyaltyEngine';
+import { formatZnsQuotationProducts } from '../../../widgets/product-list-input/useProductItemSemantic';
 
 /**
  * Ánh xạ chuẩn xác 7 loại tin nhắn SGM sang đúng 7 Template ID đã được duyệt trên Zalo OA
@@ -46,7 +47,10 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
     const rawDate = p.ngayKy || p.ngayThanhToan || p.ngayGiaoThucTe || p.ngayBaoGia || new Date();
     const dateFormatted = formatZnsDate(rawDate);
     const moneyFormatted = new Intl.NumberFormat('vi-VN').format(Number(p.soTien || p.totalAmount || p.giaTriHopDong || 0)) + ' đ';
-    const machineCountStr = String(p.slMay || p.machine_count || (Array.isArray(p.items) ? p.items.length : 1));
+    const totalCountFromProducts = Array.isArray(p.products) && p.products.length > 0
+      ? p.products.reduce((acc: number, item: any) => acc + (Number(item.quantity || item.soLuong) || 1), 0)
+      : (Array.isArray(p.items) ? p.items.length : 1);
+    const machineCountStr = String(p.sl_may || p.slMay || p.soLuong || p.machine_count || totalCountFromProducts || 1);
 
     // 1. Ưu tiên tuyệt đối trường "Chuẩn ZNS" (tenZns / ten_zns) để customer_name không vượt quá 30 ký tự
     const znsCandidate = p.tenZns || p.ten_zns || p.tenKhachHangZns || p.customer_name_zns;
@@ -114,11 +118,15 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       cnv_zns_template_id: String(p.cnv_zns_template_id || '533060'),
       cnv_tracking_id: String(p.cnv_tracking_id || p.trackingId || 'SGM_TRACK_01'),
 
-      // 2. Phân hệ Báo giá (Template 533064)
+      // 2. Phân hệ Báo giá (Template 533064 Chuẩn ZBS 2026)
+      loai_don: loaiDon,
+      ma_bao_gia: quotationCode,
       so_phieu_bao_gia: quotationCode,
       quotation_code: quotationCode,
       ngay_bao_gia: formatZnsDate(p.ngay_bao_gia || p.ngayBaoGia || dateFormatted),
       ngay_het_han: formatZnsDate(p.ngay_het_han || p.ngayHetHan || p.ngayHieuLuc || dateFormatted),
+      product_1: String(p.product_1 || (Array.isArray(p.products) ? formatZnsQuotationProducts(p.products, 200).product_1 : '') || 'Thiết bị công nghiệp SGM').slice(0, 200).trim(),
+      product_2: String(p.product_2 || (Array.isArray(p.products) ? formatZnsQuotationProducts(p.products, 200).product_2 : '') || '......').slice(0, 200).trim(),
       sl_may: machineCountStr,
       machine_count: machineCountStr,
       nguoi_phu_trach: cleanOfficer,
@@ -187,6 +195,8 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
         key !== 'cnv_campaign_id' &&
         key !== 'cnv_zns_template_id' &&
         key !== 'cnv_tracking_id' &&
+        key !== 'product_1' &&
+        key !== 'product_2' &&
         !key.includes('link') && 
         !key.includes('url') && 
         val.length > 30
@@ -232,6 +242,23 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
         ma_bao_hanh: templateData.ma_bao_hanh,
         product: templateData.product,
         date: templateData.date
+      };
+    }
+
+    // Strict whitelisting & safety guardrails for Template 533064 (Báo giá hoàn tất Chuẩn ZBS 2026)
+    if (templateId === '533064' || props.messageType === 'BAOGIA') {
+      templateData = {
+        customer_name: templateData.customer_name || 'Quý khách hàng',
+        phone: templateData.phone || zaloPhone,
+        loai_don: templateData.loai_don || 'Cung cấp Máy móc/Thiết Bị',
+        ma_bao_gia: templateData.ma_bao_gia || templateData.so_phieu_bao_gia || 'BGM-2026-1149',
+        ngay_bao_gia: templateData.ngay_bao_gia || formatZnsDate(new Date()),
+        ngay_het_han: templateData.ngay_het_han || formatZnsDate(new Date(Date.now() + 7 * 86400000)),
+        product_1: (templateData.product_1 || 'Thiết bị công nghiệp SGM').slice(0, 200).trim(),
+        product_2: (templateData.product_2 || '......').slice(0, 200).trim(),
+        sl_may: String(templateData.sl_may || 1),
+        nhan_vien: templateData.nhan_vien || templateData.nguoi_phu_trach || 'Ngô Vương Thông',
+        ...(templateData.ma_tra_cuu ? { ma_tra_cuu: templateData.ma_tra_cuu } : {})
       };
     }
 
