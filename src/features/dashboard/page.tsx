@@ -34,6 +34,7 @@ import { UniversalZnsPreviewModal } from '@/src/platform/ui/zns/UniversalZnsPrev
 import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 import { calculateMaxWarrantyExpiryDate } from '@/src/modules/fulfillment/ui/utils/handoverDocumentHelper';
 import { formatZnsDate } from '@/src/shared/utils/formatDate';
+import { calculateFormattedPaymentPoints } from '@/src/modules/billing/domain/loyaltyEngine';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 
 export default function DashboardPage() {
@@ -592,6 +593,28 @@ export default function DashboardPage() {
               if (inst.nguoiNop) enrichedPayload.tenNguoiNop = inst.nguoiNop;
             }
 
+            const rawPayAmt = Number(enrichedPayload.soTien || p.soTien || 0);
+            const diemThanhToan = calculateFormattedPaymentPoints(rawPayAmt);
+            let loaiDon = 'Cung cấp Máy móc/Thiết Bị';
+            const rawLoai = String((p as any).loai || (p as any).loaiBaoGia || '').toUpperCase();
+            if (rawLoai.includes('VAT_TU') || rawLoai.includes('VẬT TƯ')) {
+              loaiDon = 'Cung cấp Vật Tư';
+            } else if (rawLoai.includes('DICH_VU') || rawLoai.includes('DỊCH VỤ')) {
+              loaiDon = 'Cung cấp giải pháp/dịch vụ';
+            }
+
+            const defaultGhiChu = isFullyPaid 
+              ? 'Tất toán 100% hợp đồng - Hoàn tất thanh toán'
+              : (installmentIndex !== undefined ? `Thanh toán đợt ${installmentIndex + 1}` : 'Thanh toán đợt hợp đồng');
+
+            const currentGhiChu = (installmentIndex !== undefined && Array.isArray(p.cacDotThu) && p.cacDotThu[installmentIndex]?.ghiChu)
+              ? p.cacDotThu[installmentIndex].ghiChu
+              : (p.ghiChu || defaultGhiChu);
+
+            const soHopDongVal = p.soHopDong || p.soDonHang || '';
+            const soDonHangVal = p.soDonHang || p.soHopDong || '';
+            const maBaoGiaVal = (p as any).soPhieuBaoGia || (p as any).maBaoGia || '---';
+
             setZnsPreviewTarget({
               entityType: 'PAYMENT',
               entityId: p.id,
@@ -605,11 +628,20 @@ export default function DashboardPage() {
                 customer_name: (p as any).tenZns || p.tenKhachHang,
                 tenZns: (p as any).tenZns || p.tenKhachHang,
                 ten_zns: (p as any).tenZns || p.tenKhachHang,
-                order_code: p.soHopDong || p.soDonHang || p.paymentId || p.id,
-                so_hop_dong: p.soHopDong || p.soDonHang || '',
-                so_don_hang: p.soDonHang || p.soHopDong || '',
+                order_code: soDonHangVal || soHopDongVal || p.paymentId || p.id,
+                so_phieu: soHopDongVal || soDonHangVal || maBaoGiaVal,
+                so_hop_dong: soHopDongVal,
+                so_don_hang: soDonHangVal,
+                ma_bao_gia: maBaoGiaVal,
                 ngay_thanh_toan: formatZnsDate(enrichedPayload.ngayThanhToan),
+                date: formatZnsDate(enrichedPayload.ngayThanhToan),
                 time: formatZnsDate(enrichedPayload.ngayThanhToan),
+                ghi_chu: currentGhiChu,
+                loai_don: loaiDon,
+                diem_thanh_toan: diemThanhToan,
+                diem_khach_hang: diemThanhToan,
+                ma_tra_cuu: soDonHangVal || soHopDongVal || maBaoGiaVal,
+                nhan_vien: p.nguoiPhuTrach || 'Bộ phận Kế toán',
                 phone: targetPhone,
                 sdt: targetPhone,
               },

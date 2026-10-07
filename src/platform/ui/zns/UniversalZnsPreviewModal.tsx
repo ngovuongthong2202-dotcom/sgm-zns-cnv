@@ -23,6 +23,7 @@ import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { getZbsTemplateInfo, ZbsTemplateInfo } from '@/src/domain/constants/zbs-template.registry';
 import { useAuth } from '@/src/modules/iam';
 import { ZnsOfficialPhonePreview } from './components/ZnsOfficialPhonePreview';
+import { calculateFormattedPaymentPoints } from '@/src/modules/billing/domain/loyaltyEngine';
 
 export interface UniversalZnsPreviewModalProps {
   isOpen: boolean;
@@ -130,6 +131,39 @@ export function UniversalZnsPreviewModal({
       defaults.ngay_het_han = formatZnsDate(payload.ngayHetHan || payload.ngay_het_han || dateValue);
       defaults.sl_may = String(payload.slMay || payload.soLuong || '1');
       defaults.nguoi_phu_trach = officerName;
+    }
+
+    // Thanh toán Mẫu Hợp Nhất 646935 (Chuẩn 2026)
+    if (templateInfo.templateId === '646935' || templateInfo.messageType === 'THANH_TOAN_XAC_NHAN' || entityType === 'PAYMENT') {
+      const soHd = payload.soHopDong || payload.So_hop_dong || payload.maHopDong || '';
+      const soDh = payload.soDonHang || payload.So_don_hang || payload.orderCode || '';
+      const soBg = payload.soPhieuBaoGia || payload.maBaoGia || '';
+
+      defaults.so_phieu = String(payload.so_phieu || payload.soPhieu || soHd || soDh || soBg || documentCode || 'HD-2026-0002').slice(0, 30);
+      defaults.order_code = String(payload.order_code || payload.orderCode || soDh || soHd || documentCode || 'DH-ERP-001-26').slice(0, 30);
+      defaults.ma_bao_gia = String(payload.ma_bao_gia || payload.maBaoGia || soBg || 'BG-2026-0038').slice(0, 30);
+      defaults.nhan_vien = officerName;
+      defaults.date = formatZnsDate(payload.date || payload.ngayThanhToan || payload.time || dateValue);
+      defaults.ghi_chu = String(payload.ghi_chu || payload.ghiChu || 'Thanh toán đợt hợp đồng').slice(0, 100);
+
+      const rawPayAmt = Number(payload.soTien || payload.so_tien || payload.amount || 0);
+      defaults.diem_thanh_toan = String(payload.diem_thanh_toan || payload.diemThanhToan || calculateFormattedPaymentPoints(rawPayAmt) || '0');
+
+      let loaiDonVal = String(payload.loai_don || payload.loaiDon || '').trim();
+      if (!loaiDonVal) {
+        const loai = String(payload.loai || payload.loaiBaoGia || '').toUpperCase();
+        if (loai.includes('VAT_TU') || loai.includes('VẬT TƯ')) {
+          loaiDonVal = 'Cung cấp Vật Tư';
+        } else if (loai.includes('DICH_VU') || loai.includes('DỊCH VỤ')) {
+          loaiDonVal = 'Cung cấp giải pháp/dịch vụ';
+        } else {
+          loaiDonVal = 'Cung cấp Máy móc/Thiết Bị';
+        }
+      }
+      defaults.loai_don = loaiDonVal;
+      defaults.diem_khach_hang = String(payload.diem_khach_hang || payload.diemKhachHang || payload.diemTichLuy || defaults.diem_thanh_toan);
+      const fallbackCode = defaults.order_code && defaults.order_code !== '---' ? defaults.order_code : (defaults.so_phieu && defaults.so_phieu !== '---' ? defaults.so_phieu : defaults.ma_bao_gia);
+      defaults.ma_tra_cuu = String(payload.ma_tra_cuu || payload.maTraCuu || fallbackCode || '').slice(0, 30);
     }
 
     // Thanh toán Tất toán (552490)

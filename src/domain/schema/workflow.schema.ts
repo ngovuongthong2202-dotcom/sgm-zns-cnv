@@ -17,7 +17,8 @@ export const ZnsMessageSchema = z.object({
   messageType: z.enum([
     'CUSTOMER_PRE_QUOTE', 'BAOGIA', 'HOPDONG_SIGN_ZNS', 
     'THANH_TOAN_TAT_TOAN', 'THANH_TOAN_CONG_NO', 'THANH_TOAN_CONG_NO_DEN_HAN',
-    'GIAOHANG_ZNS', 'GIAOHANG_HOANTAT'
+    'THANH_TOAN_XAC_NHAN',
+    'GIAOHANG_ZNS', 'GIAOHANG_HOANTAT', 'GIAOHANG_BAOHANH'
   ]),
   entityId: z.string(),
   entityType: z.string(),

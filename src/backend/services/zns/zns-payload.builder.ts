@@ -343,24 +343,33 @@ export class ZnsPayloadBuilder {
       if (requiredVarsSet.has('ngay_hoan_thanh') && isEmp(rendered.ngay_hoan_thanh)) rendered.ngay_hoan_thanh = val;
     }
     if (requiredVarsSet.has('so_phieu') && isEmp(rendered.so_phieu)) {
-      rendered.so_phieu = (p.soPhieuBaoGia as string) || (p.soHopDong as string) || 'Không có';
+      rendered.so_phieu = (p.so_phieu as string) || (p.soPhieu as string) || (p.soHopDong as string) || (p.soPhieuBaoGia as string) || 'HD-SGM';
     }
     if (requiredVarsSet.has('ngay_thanh_toan') && isEmp(rendered.ngay_thanh_toan)) {
       const raw = (p.ngayThanhToan as string) || (p.time as string) || new Date().toISOString();
       rendered.ngay_thanh_toan = formatZnsDate(raw);
     }
     if (requiredVarsSet.has('ma_bao_gia') && isEmp(rendered.ma_bao_gia)) {
-      rendered.ma_bao_gia = (p.maBaoGia as string) || (p.soPhieuBaoGia as string) || (p.soHopDong as string) || 'BG-AUTO';
+      rendered.ma_bao_gia = (p.ma_bao_gia as string) || (p.maBaoGia as string) || (p.soPhieuBaoGia as string) || (p.soHopDong as string) || 'BG-AUTO';
     }
     if (requiredVarsSet.has('date') && isEmp(rendered.date)) {
       const raw = (p.date as string) || (p.ngayThanhToan as string) || (p.time as string) || new Date().toISOString();
       rendered.date = formatZnsDate(raw);
     }
     if (requiredVarsSet.has('ghi_chu') && isEmp(rendered.ghi_chu)) {
-      rendered.ghi_chu = (p.ghiChu as string) || 'Thanh toán đợt hợp đồng';
+      rendered.ghi_chu = (p.ghi_chu as string) || (p.ghiChu as string) || 'Thanh toán đợt hợp đồng';
     }
     if (requiredVarsSet.has('diem_thanh_toan') && isEmp(rendered.diem_thanh_toan)) {
       rendered.diem_thanh_toan = String((p as any).diemThanhToan || (p as any).diem_thanh_toan || '0');
+    }
+    if (requiredVarsSet.has('loai_don') && isEmp(rendered.loai_don)) {
+      rendered.loai_don = (p.loai_don as string) || (p.loaiDon as string) || 'Cung cấp Máy móc/Thiết Bị';
+    }
+    if (requiredVarsSet.has('diem_khach_hang') && isEmp(rendered.diem_khach_hang)) {
+      rendered.diem_khach_hang = String((p as any).diem_khach_hang || (p as any).diemKhachHang || rendered.diem_thanh_toan || '0');
+    }
+    if (requiredVarsSet.has('ma_tra_cuu') && isEmp(rendered.ma_tra_cuu)) {
+      rendered.ma_tra_cuu = (p.ma_tra_cuu as string) || (p.maTraCuu as string) || (rendered.order_code as string) || (rendered.so_phieu as string) || 'DH-SGM';
     }
 
     // 4. Strict mode check: nếu thiếu biến required → throw

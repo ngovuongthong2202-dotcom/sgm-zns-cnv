@@ -63,11 +63,13 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
     const cleanOfficer = sanitizeZnsPersonName(rawOfficer);
 
     // 3. Chuẩn hóa mã chứng từ (tối đa 30 ký tự)
-    const quotationCode = String(p.soPhieuBaoGia || p.maBaoGia || p.id || '---').slice(0, 30);
-    const contractCode = String(p.soHopDong || p.maHopDong || p.contractCode || '---').slice(0, 30);
-    const orderCode = String(p.soDonHang || p.orderCode || p.soHopDong || '---').slice(0, 30);
-    // Ưu tiên tuyệt đối: p.order_code (được chọn từ UI/Override) -> contractCode (Số Hợp đồng) -> orderCode (Số Đơn hàng)
-    const resolvedContractOrderCode = String(p.order_code || p.soHopDong || p.maHopDong || p.soDonHang || '---').slice(0, 30);
+    const quotationCode = String(p.ma_bao_gia || p.soPhieuBaoGia || p.maBaoGia || p.id || '---').slice(0, 30);
+    const contractCode = String(p.so_phieu || p.soHopDong || p.maHopDong || p.contractCode || '---').slice(0, 30);
+    const orderCode = String(p.order_code || p.soDonHang || p.orderCode || (contractCode !== '---' ? contractCode : '---')).slice(0, 30);
+    // Ưu tiên: Đối với Thanh toán (646935), order_code là Số Đơn Hàng; đối với Hợp đồng (533068), order_code ưu tiên Số Hợp Đồng
+    const resolvedContractOrderCode = messageType.includes('THANH_TOAN')
+      ? String(p.order_code || p.soDonHang || p.orderCode || (contractCode !== '---' ? contractCode : '---')).slice(0, 30)
+      : String(p.order_code || p.soHopDong || p.maHopDong || p.soDonHang || '---').slice(0, 30);
     const paymentCode = String(p.soPhieuThu || p.paymentId || p.maThanhToan || '---').slice(0, 30);
     const deliveryCode = String(p.soPhieuXuat || p.deliveryId || p.maGiaoHang || '---').slice(0, 30);
     let machineList = String(p.danhSachMaMay || p.maMay || 'Thiết bị tiêu chuẩn').trim();
@@ -130,7 +132,9 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       ngay_ky: formatZnsDate(p.ngay_ky || p.ngayKy || dateFormatted),
       sign_date: formatZnsDate(p.sign_date || p.ngayKy || dateFormatted),
       so_ngay: soNgayNum,
-      so_phieu: quotationCode || contractCode,
+      so_phieu: (messageType.includes('THANH_TOAN') || p.so_phieu) 
+        ? (contractCode !== '---' ? contractCode : quotationCode) 
+        : (quotationCode !== '---' ? quotationCode : contractCode),
       nhan_vien: cleanOfficer,
 
       // 4. Phân hệ Thanh toán & Điểm Thưởng Tích Hợp MDM (Template 2026 / 552490 / 547381)
@@ -228,6 +232,24 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
         ma_bao_hanh: templateData.ma_bao_hanh,
         product: templateData.product,
         date: templateData.date
+      };
+    }
+
+    // Strict whitelisting & safety guardrails for Template 646935 (Xác nhận thanh toán)
+    if (templateId === '646935' || props.messageType === 'THANH_TOAN_XAC_NHAN' || props.messageType === 'THANH_TOAN_TAT_TOAN' || props.messageType === 'THANH_TOAN_CONG_NO') {
+      templateData = {
+        customer_name: templateData.customer_name || 'Quý khách hàng',
+        phone: templateData.phone || zaloPhone,
+        so_phieu: templateData.so_phieu && templateData.so_phieu !== '---' ? templateData.so_phieu : (templateData.order_code !== '---' ? templateData.order_code : 'HD-SGM'),
+        order_code: templateData.order_code && templateData.order_code !== '---' ? templateData.order_code : (templateData.so_phieu !== '---' ? templateData.so_phieu : 'DH-SGM'),
+        ma_bao_gia: templateData.ma_bao_gia && templateData.ma_bao_gia !== '---' ? templateData.ma_bao_gia : 'BG-SGM',
+        nhan_vien: templateData.nhan_vien || 'Ngô Vương Thông',
+        date: templateData.date || formatZnsDate(new Date()),
+        ghi_chu: templateData.ghi_chu || 'Thanh toán đợt hợp đồng',
+        diem_thanh_toan: templateData.diem_thanh_toan || '0',
+        ...(templateData.loai_don ? { loai_don: templateData.loai_don } : {}),
+        ...(templateData.diem_khach_hang ? { diem_khach_hang: templateData.diem_khach_hang } : {}),
+        ...(templateData.ma_tra_cuu ? { ma_tra_cuu: templateData.ma_tra_cuu } : {})
       };
     }
 

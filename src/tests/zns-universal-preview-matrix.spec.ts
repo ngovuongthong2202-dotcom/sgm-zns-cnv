@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { ZBS_TEMPLATE_REGISTRY, getZbsTemplateInfo } from '@/src/domain/constants/zbs-template.registry';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { ZaloOfficialZnsVendor } from '@/src/modules/messaging/infrastructure/ZaloOfficialZnsVendor';
+import { ZnsMessageAggregate } from '@/src/modules/messaging/domain/ZnsMessage';
+import { resolveVendorUrl } from '@/src/backend/services/zns/outbound-helpers';
 
 describe('ZBS Universal Template Registry & Dispatch Matrix', () => {
   it('should define all 7 required business templates with correct official IDs', () => {
@@ -136,5 +138,71 @@ describe('ZBS Universal Template Registry & Dispatch Matrix', () => {
     const extracted = extractFn(longStringPayload, ZnsMessageType.BAOGIA);
     expect(extracted.customer_name.length).toBeLessThanOrEqual(30);
     expect(extracted.so_phieu_bao_gia.length).toBeLessThanOrEqual(30);
+  });
+
+  it('should validate and create ZnsMessageAggregate with THANH_TOAN_XAC_NHAN successfully', () => {
+    const aggregateResult = ZnsMessageAggregate.create({
+      entityId: 'pay-test-001',
+      entityType: 'PAYMENT',
+      messageType: ZnsMessageType.THANH_TOAN_XAC_NHAN,
+      phone: '0901234567',
+      payload: {
+        customer_name: 'Khách hàng SGM',
+        soHopDong: 'HD-2026-0002',
+        soDonHang: 'DH-ERP-001-26',
+        soTien: 5000000,
+        loai_don: 'Cung cấp Máy móc/Thiết Bị'
+      }
+    });
+
+    expect(aggregateResult.isSuccess).toBe(true);
+    const msg = aggregateResult.getValue();
+    expect(msg.props.messageType).toBe('THANH_TOAN_XAC_NHAN');
+    expect(msg.props.status).toBe('INIT');
+  });
+
+  it('should resolve webhook URL for THANH_TOAN_XAC_NHAN with fallback to THANH_TOAN_TAT_TOAN', () => {
+    // 1. With explicit vendorUrl_THANH_TOAN_XAC_NHAN
+    const url1 = resolveVendorUrl({ vendorUrl_THANH_TOAN_XAC_NHAN: 'https://hub.cnvcdp.com/webhook/test-xacnhan' }, 'THANH_TOAN_XAC_NHAN');
+    expect(url1).toBe('https://hub.cnvcdp.com/webhook/test-xacnhan');
+
+    // 2. With fallback to vendorUrl_THANH_TOAN_TAT_TOAN
+    const url2 = resolveVendorUrl({ vendorUrl_THANH_TOAN_TAT_TOAN: 'https://hub.cnvcdp.com/webhook/test-tattoan' }, 'THANH_TOAN_XAC_NHAN');
+    expect(url2).toBe('https://hub.cnvcdp.com/webhook/test-tattoan');
+
+    // 3. From default environment config
+    const url3 = resolveVendorUrl({}, 'THANH_TOAN_XAC_NHAN');
+    expect(url3).toBeDefined();
+    expect(url3).toContain('hub.cnvcdp.com/webhook');
+  });
+
+  it('should extract all 12 parameters required for Template 646935 (Xác nhận thanh toán)', () => {
+    const vendor = new ZaloOfficialZnsVendor();
+    const extractFn = (vendor as any).extractTemplateData.bind(vendor);
+
+    const paymentPayload = {
+      customer_name: 'Công ty Cơ Khí An Phát',
+      phone: '0912345678',
+      soHopDong: 'HD-2026-0002',
+      soDonHang: 'DH-ERP-001-26',
+      soPhieuBaoGia: 'BG-2026-0038',
+      nguoiPhuTrach: 'Ngô Vương Thông (SGM)',
+      ngayThanhToan: '07/10/2026',
+      soTien: 2200000,
+      ghiChu: 'Thanh toán đợt 2 theo tiến độ',
+      loai_don: 'Cung cấp Máy móc/Thiết Bị'
+    };
+
+    const extracted = extractFn(paymentPayload, ZnsMessageType.THANH_TOAN_XAC_NHAN);
+    expect(extracted.customer_name).toBe('Công ty Cơ Khí An Phát');
+    expect(extracted.so_phieu).toBe('HD-2026-0002');
+    expect(extracted.order_code).toBe('DH-ERP-001-26');
+    expect(extracted.ma_bao_gia).toBe('BG-2026-0038');
+    expect(extracted.nhan_vien).toBe('Ngô Vương Thông');
+    expect(extracted.date).toBe('07/10/2026');
+    expect(extracted.ghi_chu).toBe('Thanh toán đợt 2 theo tiến độ');
+    expect(extracted.diem_thanh_toan).toBe('2.200');
+    expect(extracted.loai_don).toBe('Cung cấp Máy móc/Thiết Bị');
+    expect(extracted.ma_tra_cuu).toBe('DH-ERP-001-26');
   });
 });

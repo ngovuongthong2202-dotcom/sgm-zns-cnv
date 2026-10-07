@@ -6,11 +6,18 @@ import { znsPayloadBuilder } from './zns-payload.builder';
 import { logger } from '../../lib/logger';
 
 export function resolveVendorUrl(configData: Record<string, unknown>, messageType: string): string | undefined {
-  const customUrl = configData[`vendorUrl_${messageType}`] || configData[`vendorUrl_DEFAULT`];
+  let customUrl = configData[`vendorUrl_${messageType}`];
+  if (!customUrl && (messageType === 'THANH_TOAN_XAC_NHAN' || messageType === 'THANH_TOAN_TAT_TOAN' || messageType === 'THANH_TOAN_CONG_NO')) {
+    customUrl = configData['vendorUrl_THANH_TOAN_XAC_NHAN'] || configData['vendorUrl_THANH_TOAN_TAT_TOAN'] || configData['vendorUrl_THANH_TOAN_CONG_NO'];
+  }
+  if (!customUrl) {
+    customUrl = configData[`vendorUrl_DEFAULT`];
+  }
   if (typeof customUrl === 'string' && customUrl.trim()) {
-    return customUrl;
+    return customUrl.trim();
   }
   return (znsConfig.webhooks as any)[messageType]
+    || ((messageType === 'THANH_TOAN_XAC_NHAN') ? ((znsConfig.webhooks as any).THANH_TOAN_TAT_TOAN || (znsConfig.webhooks as any).THANH_TOAN_CONG_NO) : undefined)
     || znsConfig.webhooks.DEFAULT
     || process.env.CNV_DEFAULT_WEBHOOK_URL;
 }
