@@ -24,16 +24,15 @@ describe('ZBS Universal Template Registry & Dispatch Matrix', () => {
     expect(contractTemplate.templateId).toBe('533068');
     expect(contractTemplate.businessDomain).toBe('CONTRACT');
 
-    // 4. Thanh Toán (Tất toán)
+    // 4 & 5. Thanh Toán Hợp Nhất 2026 (Mẫu 646935)
     const payFullTemplate = ZBS_TEMPLATE_REGISTRY[ZnsMessageType.THANH_TOAN_TAT_TOAN];
     expect(payFullTemplate).toBeDefined();
-    expect(payFullTemplate.templateId).toBe('552490');
+    expect(payFullTemplate.templateId).toBe('646935');
     expect(payFullTemplate.businessDomain).toBe('PAYMENT');
 
-    // 5. Thanh Toán (Công nợ / Một phần)
     const payDebtTemplate = ZBS_TEMPLATE_REGISTRY[ZnsMessageType.THANH_TOAN_CONG_NO];
     expect(payDebtTemplate).toBeDefined();
-    expect(payDebtTemplate.templateId).toBe('547381');
+    expect(payDebtTemplate.templateId).toBe('646935');
     expect(payDebtTemplate.businessDomain).toBe('PAYMENT');
 
     // 6. Giao Hàng (Xác nhận giao hàng)
@@ -50,12 +49,12 @@ describe('ZBS Universal Template Registry & Dispatch Matrix', () => {
   });
 
   it('should accurately resolve template info via getZbsTemplateInfo with subtypes and aliases', () => {
-    // Payment resolution
+    // Payment resolution (Hợp nhất về Mẫu 646935)
     const payFull = getZbsTemplateInfo('PAYMENT', 'TAT_TOAN');
-    expect(payFull?.templateId).toBe('552490');
+    expect(payFull?.templateId).toBe('646935');
 
     const payDebt = getZbsTemplateInfo('PAYMENT', 'CONG_NO');
-    expect(payDebt?.templateId).toBe('547381');
+    expect(payDebt?.templateId).toBe('646935');
 
     // Delivery resolution
     const deliveryRoute = getZbsTemplateInfo('DELIVERY', 'GIAOHANG_ZNS');

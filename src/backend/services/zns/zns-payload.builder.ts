@@ -57,8 +57,8 @@ const ZALO_REQUIRED_VARS: Record<string, string[]> = {
   CUSTOMER_PRE_QUOTE: ['customer_name', 'phone'],
   BAOGIA:             ['customer_name', 'so_phieu_bao_gia', 'ngay_bao_gia', 'ngay_het_han', 'sl_may', 'nguoi_phu_trach'],
   HOPDONG_SIGN_ZNS:   ['customer_name', 'phone', 'order_code', 'So_don_hang', 'ngay_ky', 'so_ngay', 'so_phieu', 'nhan_vien'],
-  THANH_TOAN_TAT_TOAN:['customer_name', 'phone', 'order_code', 'ngay_thanh_toan', 'so_luong', 'dvt', 'so_don_hang', 'so_hop_dong'],
-  THANH_TOAN_CONG_NO: ['customer_name', 'phone', 'order_code', 'time', 'so_luong', 'dvt', 'so_don_hang', 'so_hop_dong'],
+  THANH_TOAN_TAT_TOAN:['customer_name', 'phone', 'so_phieu', 'order_code', 'ma_bao_gia', 'nhan_vien', 'date', 'ghi_chu', 'diem_thanh_toan'],
+  THANH_TOAN_CONG_NO: ['customer_name', 'phone', 'so_phieu', 'order_code', 'ma_bao_gia', 'nhan_vien', 'date', 'ghi_chu', 'diem_thanh_toan'],
   THANH_TOAN_XAC_NHAN:['customer_name', 'phone', 'so_phieu', 'order_code', 'ma_bao_gia', 'nhan_vien', 'date', 'ghi_chu', 'diem_thanh_toan'],
   GIAOHANG_ZNS:       ['customer_name', 'phone', 'So_hop_dong', 'So_don_hang', 'so_phieu_xuat', 'ngay_giao_may', 'danh_sach_ma_may', 'so_luong', 'dvt'],
   GIAOHANG_HOANTAT:   ['customer_name', 'phone', 'ma_bao_hanh', 'product', 'date'],
@@ -348,6 +348,19 @@ export class ZnsPayloadBuilder {
     if (requiredVarsSet.has('ngay_thanh_toan') && isEmp(rendered.ngay_thanh_toan)) {
       const raw = (p.ngayThanhToan as string) || (p.time as string) || new Date().toISOString();
       rendered.ngay_thanh_toan = formatZnsDate(raw);
+    }
+    if (requiredVarsSet.has('ma_bao_gia') && isEmp(rendered.ma_bao_gia)) {
+      rendered.ma_bao_gia = (p.maBaoGia as string) || (p.soPhieuBaoGia as string) || (p.soHopDong as string) || 'BG-AUTO';
+    }
+    if (requiredVarsSet.has('date') && isEmp(rendered.date)) {
+      const raw = (p.date as string) || (p.ngayThanhToan as string) || (p.time as string) || new Date().toISOString();
+      rendered.date = formatZnsDate(raw);
+    }
+    if (requiredVarsSet.has('ghi_chu') && isEmp(rendered.ghi_chu)) {
+      rendered.ghi_chu = (p.ghiChu as string) || 'Thanh toán đợt hợp đồng';
+    }
+    if (requiredVarsSet.has('diem_thanh_toan') && isEmp(rendered.diem_thanh_toan)) {
+      rendered.diem_thanh_toan = String((p as any).diemThanhToan || (p as any).diem_thanh_toan || '0');
     }
 
     // 4. Strict mode check: nếu thiếu biến required → throw

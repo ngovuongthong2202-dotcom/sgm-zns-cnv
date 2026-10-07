@@ -173,11 +173,11 @@ export function ZnsOfficialPhonePreview({
       );
     }
 
-    // 4. THANH TOÁN (Mẫu Xác Nhận Mới 2026 hoặc Mẫu Tất Toán/Công nợ có điểm thưởng)
-    const isNewPaymentTemplate = tId === '556888' || 
+    // 4. THANH TOÁN (Mẫu Xác Nhận Hợp Nhất 646935 Chuẩn Zalo OA 2026)
+    const isNewPaymentTemplate = tId === '646935' || tId === '556888' || 
                                   Boolean(values.diem_thanh_toan || values.ma_bao_gia || values.so_phieu || values.loai_don);
 
-    if (isNewPaymentTemplate && (templateInfo.businessDomain === 'PAYMENT' || templateInfo.messageType.includes('THANH_TOAN') || tId === '556888')) {
+    if (isNewPaymentTemplate && (templateInfo.businessDomain === 'PAYMENT' || templateInfo.messageType.includes('THANH_TOAN') || tId === '646935')) {
       return (
         <div className="space-y-3 leading-relaxed text-xs">
           {getLogo()}

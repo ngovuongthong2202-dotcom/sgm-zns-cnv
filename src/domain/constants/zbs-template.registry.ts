@@ -112,91 +112,108 @@ export const ZBS_TEMPLATE_REGISTRY: Record<string, ZbsTemplateInfo> = {
   },
 
   // 4. THANH TOÁN (Tất toán) - ID 552490
+  // 4 & 5. MẪU XÁC NHẬN THANH TOÁN HỢP NHẤT 2026 (MẪU 646935 CHUẨN ZALO OA)
+  // Gom chung cả Tất toán và Công nợ / Đợt thu vào 1 mẫu duy nhất ID: 646935
   [ZnsMessageType.THANH_TOAN_TAT_TOAN]: {
-    templateId: '552490',
+    templateId: '646935',
     messageType: ZnsMessageType.THANH_TOAN_TAT_TOAN,
-    templateName: 'Copy of XÁC NHẬN HOÀN TẤT THANH TOÁN Ver2',
+    templateName: 'XÁC NHẬN THANH TOÁN (MẪU 646935)',
     businessDomain: 'PAYMENT',
-    businessLabel: 'Xác nhận Hoàn tất Thanh toán (Tất toán)',
-    status: 'ENABLE',
-    previewUrl: 'https://account.zalo.cloud/znspreview/K9RoUlGJ84MxA7ro2uFvSg==',
-    price: 300,
-    providerApp: 'CNV CDP',
-    params: [
-      { name: 'customer_name', label: 'Tên khách hàng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'customer_name' },
-      { name: 'phone', label: 'Số điện thoại', require: true, type: 'STRING', maxLength: 15, sourceKey: 'phone' },
-      { name: 'so_don_hang', label: 'Số đơn hàng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'so_don_hang' },
-      { name: 'so_hop_dong', label: 'Số hợp đồng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'so_hop_dong' },
-      { name: 'ngay_thanh_toan', label: 'Ngày thanh toán', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ngay_thanh_toan' }
-    ],
-    ctaButton: {
-      type: 3,
-      title: 'Đến trang thông tin OA',
-      content: 'https://oa.zalo.me/1336150047301360288'
-    },
-    ctaButtons: [
-      {
-        type: 3,
-        title: 'Đến trang thông tin OA',
-        content: 'https://oa.zalo.me/1336150047301360288'
-      },
-      {
-        type: 1,
-        title: 'Tra cứu đơn hàng',
-        content: 'https://saigonmachine.vn/tra-cuu-don-hang?code=<ma_tra_cuu>'
-      }
-    ]
-  },
-
-  // 5. THANH TOÁN (Chưa tất toán - Công nợ) - ID 547381
-  [ZnsMessageType.THANH_TOAN_CONG_NO]: {
-    templateId: '547381',
-    messageType: ZnsMessageType.THANH_TOAN_CONG_NO,
-    templateName: 'XÁC NHẬN THANH TOÁN THÀNH CÔNG ver2',
-    businessDomain: 'PAYMENT',
-    businessLabel: 'Xác nhận Thanh toán Công nợ (Một phần)',
-    status: 'ENABLE',
-    previewUrl: 'https://account.zalo.cloud/znspreview/G2X5E2KDV4mofu5AYE_31g==',
-    price: 300,
-    providerApp: 'CNV CDP',
-    params: [
-      { name: 'customer_name', label: 'Tên khách hàng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'customer_name' },
-      { name: 'phone', label: 'Số điện thoại', require: true, type: 'STRING', maxLength: 15, sourceKey: 'phone' },
-      { name: 'order_code', label: 'Mã hợp đồng/đơn hàng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'order_code' },
-      { name: 'time', label: 'Thời điểm thanh toán', require: true, type: 'STRING', maxLength: 30, sourceKey: 'time' },
-      { name: 'so_luong', label: 'Số lượng thiết bị', require: true, type: 'STRING', maxLength: 30, sourceKey: 'so_luong' }
-    ],
-    ctaButton: {
-      type: 3,
-      title: 'Đến trang thông tin OA',
-      content: 'https://oa.zalo.me/1336150047301360288'
-    },
-    ctaButtons: [
-      {
-        type: 3,
-        title: 'Đến trang thông tin OA',
-        content: 'https://oa.zalo.me/1336150047301360288'
-      },
-      {
-        type: 1,
-        title: 'Tra cứu đơn hàng',
-        content: 'https://saigonmachine.vn/tra-cuu-don-hang?code=<ma_tra_cuu>'
-      }
-    ]
-  },
-
-  // 5b. THANH TOÁN & ĐIỂM TÍCH LŨY 2026 (Mẫu ZNS mới chuẩn Zalo Cloud OA)
-  'THANH_TOAN_XAC_NHAN': {
-    templateId: '556888',
-    messageType: 'THANH_TOAN_XAC_NHAN',
-    templateName: 'XÁC NHẬN THANH TOÁN & ĐIỂM TÍCH LŨY',
-    businessDomain: 'PAYMENT',
-    businessLabel: 'Xác nhận Thanh toán & Điểm VIP (2026)',
+    businessLabel: 'Xác nhận Thanh toán & Điểm VIP (646935)',
     status: 'ENABLE',
     previewUrl: 'https://saigonmachine.vn/tra-cuu-don-hang',
     price: 300,
     providerApp: 'Zalo OA',
     params: [
+      { name: 'customer_name', label: 'Tên khách hàng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'customer_name' },
+      { name: 'phone', label: 'Số điện thoại', require: true, type: 'STRING', maxLength: 15, sourceKey: 'phone' },
+      { name: 'so_phieu', label: 'Số hợp đồng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'so_phieu' },
+      { name: 'order_code', label: 'Số đơn hàng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'order_code' },
+      { name: 'ma_bao_gia', label: 'Số báo giá', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ma_bao_gia' },
+      { name: 'nhan_vien', label: 'Người phụ trách', require: true, type: 'STRING', maxLength: 30, sourceKey: 'nhan_vien' },
+      { name: 'date', label: 'Ngày thanh toán', require: true, type: 'STRING', maxLength: 30, sourceKey: 'date' },
+      { name: 'ghi_chu', label: 'Ghi chú', require: true, type: 'STRING', maxLength: 100, sourceKey: 'ghi_chu' },
+      { name: 'diem_thanh_toan', label: 'Điểm tích lũy', require: true, type: 'STRING', maxLength: 30, sourceKey: 'diem_thanh_toan' },
+      { name: 'loai_don', label: 'Loại đơn', require: false, type: 'STRING', maxLength: 50, sourceKey: 'loai_don' },
+      { name: 'diem_khach_hang', label: 'Tổng điểm khách hàng', require: false, type: 'STRING', maxLength: 30, sourceKey: 'diem_khach_hang' },
+      { name: 'ma_tra_cuu', label: 'Mã tra cứu (Nút 2)', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ma_tra_cuu' }
+    ],
+    ctaButton: {
+      type: 3,
+      title: 'Đến trang thông tin OA',
+      content: 'https://oa.zalo.me/1336150047301360288'
+    },
+    ctaButtons: [
+      {
+        type: 3,
+        title: 'Đến trang thông tin OA',
+        content: 'https://oa.zalo.me/1336150047301360288'
+      },
+      {
+        type: 1,
+        title: 'Tra cứu đơn hàng',
+        content: 'https://saigonmachine.vn/tra-cuu-don-hang?code=<ma_tra_cuu>'
+      }
+    ]
+  },
+
+  [ZnsMessageType.THANH_TOAN_CONG_NO]: {
+    templateId: '646935',
+    messageType: ZnsMessageType.THANH_TOAN_CONG_NO,
+    templateName: 'XÁC NHẬN THANH TOÁN (MẪU 646935)',
+    businessDomain: 'PAYMENT',
+    businessLabel: 'Xác nhận Thanh toán & Điểm VIP (646935)',
+    status: 'ENABLE',
+    previewUrl: 'https://saigonmachine.vn/tra-cuu-don-hang',
+    price: 300,
+    providerApp: 'Zalo OA',
+    params: [
+      { name: 'customer_name', label: 'Tên khách hàng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'customer_name' },
+      { name: 'phone', label: 'Số điện thoại', require: true, type: 'STRING', maxLength: 15, sourceKey: 'phone' },
+      { name: 'so_phieu', label: 'Số hợp đồng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'so_phieu' },
+      { name: 'order_code', label: 'Số đơn hàng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'order_code' },
+      { name: 'ma_bao_gia', label: 'Số báo giá', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ma_bao_gia' },
+      { name: 'nhan_vien', label: 'Người phụ trách', require: true, type: 'STRING', maxLength: 30, sourceKey: 'nhan_vien' },
+      { name: 'date', label: 'Ngày thanh toán', require: true, type: 'STRING', maxLength: 30, sourceKey: 'date' },
+      { name: 'ghi_chu', label: 'Ghi chú', require: true, type: 'STRING', maxLength: 100, sourceKey: 'ghi_chu' },
+      { name: 'diem_thanh_toan', label: 'Điểm tích lũy', require: true, type: 'STRING', maxLength: 30, sourceKey: 'diem_thanh_toan' },
+      { name: 'loai_don', label: 'Loại đơn', require: false, type: 'STRING', maxLength: 50, sourceKey: 'loai_don' },
+      { name: 'diem_khach_hang', label: 'Tổng điểm khách hàng', require: false, type: 'STRING', maxLength: 30, sourceKey: 'diem_khach_hang' },
+      { name: 'ma_tra_cuu', label: 'Mã tra cứu (Nút 2)', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ma_tra_cuu' }
+    ],
+    ctaButton: {
+      type: 3,
+      title: 'Đến trang thông tin OA',
+      content: 'https://oa.zalo.me/1336150047301360288'
+    },
+    ctaButtons: [
+      {
+        type: 3,
+        title: 'Đến trang thông tin OA',
+        content: 'https://oa.zalo.me/1336150047301360288'
+      },
+      {
+        type: 1,
+        title: 'Tra cứu đơn hàng',
+        content: 'https://saigonmachine.vn/tra-cuu-don-hang?code=<ma_tra_cuu>'
+      }
+    ]
+  },
+
+  // 5b. THANH TOÁN HỢP NHẤT 2026 (Alias Key)
+  'THANH_TOAN_XAC_NHAN': {
+    templateId: '646935',
+    messageType: 'THANH_TOAN_XAC_NHAN',
+    templateName: 'XÁC NHẬN THANH TOÁN (MẪU 646935)',
+    businessDomain: 'PAYMENT',
+    businessLabel: 'Xác nhận Thanh toán & Điểm VIP (646935)',
+    status: 'ENABLE',
+    previewUrl: 'https://saigonmachine.vn/tra-cuu-don-hang',
+    price: 300,
+    providerApp: 'Zalo OA',
+    params: [
+      { name: 'customer_name', label: 'Tên khách hàng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'customer_name' },
+      { name: 'phone', label: 'Số điện thoại', require: true, type: 'STRING', maxLength: 15, sourceKey: 'phone' },
       { name: 'so_phieu', label: 'Số hợp đồng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'so_phieu' },
       { name: 'order_code', label: 'Số đơn hàng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'order_code' },
       { name: 'ma_bao_gia', label: 'Số báo giá', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ma_bao_gia' },
@@ -289,15 +306,11 @@ export function getZbsTemplateInfo(messageType: string, subtype?: string): ZbsTe
     messageType === 'PAYMENT' || 
     messageType === 'THANH_TOAN' || 
     messageType === ZnsMessageType.THANH_TOAN_TAT_TOAN || 
-    messageType === ZnsMessageType.THANH_TOAN_CONG_NO
+    messageType === ZnsMessageType.THANH_TOAN_CONG_NO ||
+    messageType === 'THANH_TOAN_XAC_NHAN' ||
+    subtype === '646935'
   ) {
-    if (subtype === 'TAT_TOAN' || subtype === 'Tất toán' || subtype === '552490' || subtype === ZnsMessageType.THANH_TOAN_TAT_TOAN) {
-      return ZBS_TEMPLATE_REGISTRY[ZnsMessageType.THANH_TOAN_TAT_TOAN];
-    }
-    if (subtype === 'CONG_NO' || subtype === 'Công nợ' || subtype === '547381' || subtype === ZnsMessageType.THANH_TOAN_CONG_NO) {
-      return ZBS_TEMPLATE_REGISTRY[ZnsMessageType.THANH_TOAN_CONG_NO];
-    }
-    return ZBS_TEMPLATE_REGISTRY[messageType] || ZBS_TEMPLATE_REGISTRY[ZnsMessageType.THANH_TOAN_CONG_NO];
+    return ZBS_TEMPLATE_REGISTRY['THANH_TOAN_XAC_NHAN'] || ZBS_TEMPLATE_REGISTRY[ZnsMessageType.THANH_TOAN_TAT_TOAN];
   }
 
   if (

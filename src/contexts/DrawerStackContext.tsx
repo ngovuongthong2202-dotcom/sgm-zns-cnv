@@ -491,7 +491,7 @@ function PaymentDrawerWrapper({ isOpen, onClose, entityId, className, modal, onO
     const extracted = extractVietnamesePhones(rawPhones, (p as any).diaChi);
     const targetPhone = p.sdt || extracted.mobilePhones[0]?.cleaned || '';
     const isFullyPaid = p.tinhTrangThanhToan === 'Tất toán' || p.tinhTrangThanhToan === 'ĐÃ THANH TOÁN' || Number(p.congNoConLai || 0) <= 0;
-    const messageType = isFullyPaid ? 'THANH_TOAN_TAT_TOAN' : 'THANH_TOAN_CONG_NO';
+    const messageType = 'THANH_TOAN_XAC_NHAN';
     
     const enrichedPayload: any = { ...p };
     if (installmentIndex !== undefined && Array.isArray(p.cacDotThu) && p.cacDotThu[installmentIndex]) {

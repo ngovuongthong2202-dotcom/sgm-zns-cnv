@@ -144,9 +144,24 @@ export function usePaymentZns(
       loaiDon = 'Cung cấp giải pháp/dịch vụ';
     }
 
+    const isFullyPaid = payment.tinhTrangThanhToan === 'Tất toán' || 
+                        payment.tinhTrangThanhToan === 'ĐÃ THANH TOÁN' ||
+                        payment.tinhTrangThanhToan === 'DA_THANH_TOAN' ||
+                        Number(payment.congNoConLai || 0) <= 0;
+
+    let defaultGhiChu = 'Thanh toán đợt hợp đồng';
+    if (isFullyPaid) {
+      defaultGhiChu = 'Tất toán 100% hợp đồng - Hoàn tất thanh toán';
+    } else if (installmentIndex !== undefined) {
+      const remainingDebt = Number(payment.congNoConLai || 0);
+      defaultGhiChu = remainingDebt > 0 
+        ? `Thanh toán đợt ${installmentIndex + 1} (Còn lại: ${new Intl.NumberFormat('vi-VN').format(remainingDebt)} đ)`
+        : `Thanh toán đợt ${installmentIndex + 1}`;
+    }
+
     const currentGhiChu = (installmentIndex !== undefined && Array.isArray(payment.cacDotThu) && payment.cacDotThu[installmentIndex]?.ghiChu)
       ? payment.cacDotThu[installmentIndex].ghiChu
-      : (payment.ghiChu || 'Thanh toán đợt hợp đồng');
+      : (payment.ghiChu || defaultGhiChu);
 
     enrichedPayment.loaiDon = loaiDon;
     enrichedPayment.loai_don = loaiDon;
@@ -168,14 +183,8 @@ export function usePaymentZns(
     enrichedPayment.maTraCuu = enrichedPayment.soDonHang || enrichedPayment.soHopDong || enrichedPayment.soPhieuBaoGia || '';
     enrichedPayment.ma_tra_cuu = enrichedPayment.maTraCuu;
 
-    const isFullyPaid = payment.tinhTrangThanhToan === 'Tất toán' || 
-                        payment.tinhTrangThanhToan === 'ĐÃ THANH TOÁN' ||
-                        payment.tinhTrangThanhToan === 'DA_THANH_TOAN' ||
-                        Number(payment.congNoConLai || 0) <= 0;
-
-    const messageType = isFullyPaid 
-      ? ZnsMessageType.THANH_TOAN_TAT_TOAN 
-      : ZnsMessageType.THANH_TOAN_CONG_NO;
+    // Hợp nhất toàn bộ thanh toán (Công nợ và Tất toán) vào Mẫu ZNS 646935 chuẩn Zalo OA 2026
+    const messageType = 'THANH_TOAN_XAC_NHAN';
 
     setZnsPreviewPayment({
       payment: enrichedPayment,

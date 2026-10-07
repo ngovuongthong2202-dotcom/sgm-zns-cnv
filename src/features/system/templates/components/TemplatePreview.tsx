@@ -74,7 +74,7 @@ export function TemplatePreview({ template, variablesValueMock = {} }: Props) {
       case 'THANH_TOAN_XAC_NHAN':
       case 'THANH_TOAN_TAT_TOAN':
       case 'THANH_TOAN_CONG_NO':
-        if (template.templateKey === 'THANH_TOAN_XAC_NHAN' || variablesValueMock.diem_thanh_toan || variablesValueMock.so_phieu || variablesValueMock.ma_bao_gia) {
+        if (template.templateKey === 'THANH_TOAN_XAC_NHAN' || template.templateId === '646935' || variablesValueMock.diem_thanh_toan || variablesValueMock.so_phieu || variablesValueMock.ma_bao_gia) {
           return (
             <div className="text-xs text-slate-800 leading-relaxed font-sans space-y-3">
               {getLogo()}

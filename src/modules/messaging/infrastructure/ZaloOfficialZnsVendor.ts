@@ -16,9 +16,10 @@ export const DEFAULT_ZALO_TEMPLATE_MAP: Record<string, string> = {
   CUSTOMER_PRE_QUOTE: '533060',         // 1. THÔNG TIN GIẢI PHÁP MÁY CÔNG NGHIỆP
   BAOGIA: '533064',                     // 2. THÔNG BÁO BÁO GIÁ THÀNH CÔNG
   HOPDONG_SIGN_ZNS: '533068',           // 3. XÁC NHẬN KÝ HỢP ĐỒNG THÀNH CÔNG
-  THANH_TOAN_TAT_TOAN: '552490',       // 4. XÁC NHẬN HOÀN TẤT THANH TOÁN (Tất toán)
-  THANH_TOAN_CONG_NO: '547381',         // 5. XÁC NHẬN THANH TOÁN THÀNH CÔNG ver2 (Công nợ)
-  THANH_TOAN_CONG_NO_DEN_HAN: '547381', // 5. XÁC NHẬN THANH TOÁN THÀNH CÔNG ver2 (Công nợ)
+  THANH_TOAN_TAT_TOAN: '646935',       // 4. XÁC NHẬN THANH TOÁN (Mẫu Hợp Nhất 646935)
+  THANH_TOAN_CONG_NO: '646935',         // 5. XÁC NHẬN THANH TOÁN (Mẫu Hợp Nhất 646935)
+  THANH_TOAN_CONG_NO_DEN_HAN: '646935', // 5. XÁC NHẬN THANH TOÁN (Mẫu Hợp Nhất 646935)
+  THANH_TOAN_XAC_NHAN: '646935',        // Mẫu Xác Nhận Thanh Toán 646935 (Chuẩn 2026)
   GIAOHANG_ZNS: '552545',               // 6. XÁC NHẬN GIAO HÀNG (Chính thức)
   GIAOHANG_HOANTAT: '531052',          // 7. XÁC NHẬN KÍCH HOẠT BẢO HÀNH THÀNH CÔNG
   GIAOHANG_BAOHANH: '531052'           // 7. XÁC NHẬN KÍCH HOẠT BẢO HÀNH THÀNH CÔNG

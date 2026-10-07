@@ -409,27 +409,13 @@ export function UniversalZnsPreviewModal({
             </div>
           )}
 
-          {/* Subtype toggle nếu Payment */}
+          {/* Badge Mẫu ZNS Thanh Toán Hợp Nhất 646935 */}
           {entityType === 'PAYMENT' && (
-            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200">
-              <button
-                type="button"
-                onClick={() => setCurrentSubtype(ZnsMessageType.THANH_TOAN_TAT_TOAN)}
-                className={`px-2.5 py-1 text-3xs font-black rounded-lg cursor-pointer transition-colors ${
-                  templateInfo?.templateId === '552490' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                #552490 Tất toán
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentSubtype(ZnsMessageType.THANH_TOAN_CONG_NO)}
-                className={`px-2.5 py-1 text-3xs font-black rounded-lg cursor-pointer transition-colors ${
-                  templateInfo?.templateId === '547381' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                #547381 Công nợ / Đợt
-              </button>
+            <div className="flex items-center gap-1.5 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-3xs font-black text-emerald-800 uppercase tracking-wider">
+                Mẫu ZNS #646935 (Xác nhận TT & Điểm VIP)
+              </span>
             </div>
           )}
         </div>
