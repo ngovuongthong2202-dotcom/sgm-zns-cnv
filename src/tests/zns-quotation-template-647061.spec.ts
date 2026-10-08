@@ -6,13 +6,13 @@ import { znsPayloadBuilder } from '../backend/services/zns/zns-payload.builder';
 import { templateRendererService } from '../backend/services/zns/template-renderer.service';
 import { formatZnsQuotationProducts } from '../widgets/product-list-input/useProductItemSemantic';
 
-describe('ZBS Quotation Template 533064 & Semantic Product Packaging Integration', () => {
-  it('verifies ZBS Template Registry for BAOGIA adheres strictly to 533064 specification', () => {
+describe('ZBS Quotation Template 647061 & Semantic Product Packaging Integration', () => {
+  it('verifies ZBS Template Registry for BAOGIA adheres strictly to 647061 specification', () => {
     const template = ZBS_TEMPLATE_REGISTRY[ZnsMessageType.BAOGIA];
     expect(template).toBeDefined();
-    expect(template.templateId).toBe('533064');
-    expect(template.templateName).toBe('THÔNG BÁO HOÀN TẤT BÁO GIÁ');
-    expect(template.price).toBe(860);
+    expect(template.templateId).toBe('647061');
+    expect(template.templateName).toBe('Xác nhận báo giá');
+    expect(template.price).toBe(800);
     expect(template.ctaButtons).toBeDefined();
     expect(template.ctaButtons?.length).toBe(2);
     expect(template.ctaButtons?.[0].title).toBe('Đến trang thông tin OA');
@@ -153,5 +153,12 @@ describe('ZBS Quotation Template 533064 & Semantic Product Packaging Integration
     expect(td.ma_bao_gia).toBe('BG-2026-0038');
     expect(td.product_1).toBe('Máy Chấn Thủy Lực CNC');
     expect(td.product_2).toBe('......');
+  });
+
+  it('correctly cleans tracking code from complex ZNS query formats', async () => {
+    const { extractCleanTrackingCode } = await import('../features/tracking/PublicOrderTrackingPage');
+    expect(extractCleanTrackingCode('BGM-2026-3014')).toBe('BGM-2026-3014');
+    expect(extractCleanTrackingCode('https://sgm-os.onrender.com/tra-cuu-bao-gia?code=BGM-2026-3014')).toBe('BGM-2026-3014');
+    expect(extractCleanTrackingCode('<BGM-2026-3014>')).toBe('BGM-2026-3014');
   });
 });

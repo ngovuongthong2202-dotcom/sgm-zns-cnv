@@ -83,10 +83,10 @@ describe('Phase 4: Public Order Tracking Portal & Phone-Gate Security', () => {
     expect(autoCalcResult.daysLeft).toBe(10);
   });
 
-  it('ensures official ZNS Quotation Template 533064 configures CTA Button 2 with /tra-cuu-bao-gia', () => {
+  it('ensures official ZNS Quotation Template 647061 configures CTA Button 2 with /tra-cuu-bao-gia', () => {
     const tpl = ZBS_TEMPLATE_REGISTRY[ZnsMessageType.BAOGIA];
     expect(tpl).toBeDefined();
-    expect(tpl.templateId).toBe('533064');
+    expect(tpl.templateId).toBe('647061');
     expect(tpl.ctaButtons).toBeDefined();
     expect(tpl.ctaButtons!.length).toBe(2);
 

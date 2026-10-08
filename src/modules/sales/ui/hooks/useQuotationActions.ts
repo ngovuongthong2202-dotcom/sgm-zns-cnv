@@ -132,7 +132,7 @@ export function useQuotationActions(
       return;
     }
 
-    // Mở giao diện Live Preview Mẫu ZBS Báo Giá (#533064) trực quan
+    // Mở giao diện Live Preview Mẫu ZBS Báo Giá (#647061) trực quan
     setZnsPreviewQuotation({
       quotation: q,
       customer: customerDoc,

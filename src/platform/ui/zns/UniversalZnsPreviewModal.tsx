@@ -125,8 +125,8 @@ export function UniversalZnsPreviewModal({
       defaults.nhan_vien = officerName;
     }
 
-    // Báo giá (533064 - Chuẩn ZBS Zalo OA 2026 Mẫu Sự Kiện 860đ)
-    if (templateInfo.templateId === '533064' || entityType === 'QUOTATION') {
+    // Báo giá (647061 - Chuẩn ZBS Zalo OA 2026 Mẫu Đã Duyệt 800đ)
+    if (templateInfo.templateId === '647061' || templateInfo.templateId === '533064' || entityType === 'QUOTATION') {
       const codeBg = String(payload.maBaoGia || payload.ma_bao_gia || payload.soPhieuBaoGia || documentCode || 'BGM-2026-1149').slice(0, 30);
       defaults.ma_bao_gia = codeBg;
       defaults.so_phieu_bao_gia = codeBg; // Cho backward-compatibility
@@ -597,7 +597,7 @@ export function UniversalZnsPreviewModal({
                     {isSavedDefault ? 'Đã lưu mặc định!' : 'Lưu mặc định'}
                   </button>
                   <span className="text-3xs text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full">
-                    {templateInfo.templateId === '533064' ? '≤ 30 ký tự (≤ 200 SP)' : '≤ 30 ký tự'}
+                    {templateInfo.templateId === '647061' || templateInfo.templateId === '533064' ? '≤ 30 ký tự (≤ 200 SP)' : '≤ 30 ký tự'}
                   </span>
                 </div>
               </div>

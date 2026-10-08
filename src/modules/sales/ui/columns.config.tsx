@@ -331,7 +331,7 @@ export const getQuotationColumns = (
           if (onSendZns) onSendZns(info.row.original);
         }}
         className="cursor-pointer hover:opacity-80 transition-opacity inline-block"
-        title="Bấm để mở xem trước & gửi ZNS báo giá (#533064)"
+        title="Bấm để mở xem trước & gửi ZNS báo giá (#647061)"
       >
         <ZnsStatusCell status={info.getValue() as EntityZnsStatus} />
       </div>

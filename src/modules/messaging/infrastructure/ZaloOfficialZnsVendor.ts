@@ -15,7 +15,7 @@ import { formatZnsQuotationProducts } from '../../../widgets/product-list-input/
  */
 export const DEFAULT_ZALO_TEMPLATE_MAP: Record<string, string> = {
   CUSTOMER_PRE_QUOTE: '533060',         // 1. THÔNG TIN GIẢI PHÁP MÁY CÔNG NGHIỆP
-  BAOGIA: '533064',                     // 2. THÔNG BÁO BÁO GIÁ THÀNH CÔNG
+  BAOGIA: '647061',                     // 2. THÔNG BÁO BÁO GIÁ THÀNH CÔNG (Mẫu 647061 Chuẩn ZBS 2026 - 800đ)
   HOPDONG_SIGN_ZNS: '533068',           // 3. XÁC NHẬN KÝ HỢP ĐỒNG THÀNH CÔNG
   THANH_TOAN_TAT_TOAN: '646935',       // 4. XÁC NHẬN THANH TOÁN (Mẫu Hợp Nhất 646935)
   THANH_TOAN_CONG_NO: '646935',         // 5. XÁC NHẬN THANH TOÁN (Mẫu Hợp Nhất 646935)
@@ -102,9 +102,12 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
     const rawPaymentAmount = Number(p.so_tien || p.soTien || p.amount || 0);
     const diemThanhToan = String(p.diem_thanh_toan || p.diemThanhToan || calculateFormattedPaymentPoints(rawPaymentAmount));
     const diemKhachHang = String(p.diem_khach_hang || p.diemKhachHang || p.diemTichLuy || diemThanhToan);
+    const isQuotationMsg = messageType.includes('BAOGIA') || (Boolean(p.soPhieuBaoGia) && !p.soHopDong);
     const maTraCuu = String(
       p.ma_tra_cuu || p.maTraCuu || 
-      (orderCode !== '---' ? orderCode : (contractCode !== '---' ? contractCode : (quotationCode !== '---' ? quotationCode : 'DH-SGM')))
+      (isQuotationMsg && quotationCode !== '---' 
+        ? quotationCode 
+        : (orderCode !== '---' ? orderCode : (contractCode !== '---' ? contractCode : (quotationCode !== '---' ? quotationCode : 'DH-SGM'))))
     ).trim();
 
     const templateData: Record<string, any> = {
@@ -154,9 +157,7 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       ngay_thanh_toan: formatZnsDate(p.ngay_thanh_toan || p.ngayThanhToan || dateFormatted),
       payment_date: formatZnsDate(p.payment_date || p.ngayThanhToan || dateFormatted),
       time: formatZnsDate(p.time || p.ngayThanhToan || dateFormatted),
-      date: formatZnsDate(p.date || p.ngayThanhToan || dateFormatted),
-      ma_bao_gia: quotationCode,
-      loai_don: loaiDon,
+      date: formatZnsDate(p.date || p.expiryDateFormatted || p.ngayGiaoThucTe || p.ngayGiaoHang || p.ngayThanhToan || dateFormatted),
       ghi_chu: ghiChu,
       diem_thanh_toan: diemThanhToan,
       diem_khach_hang: diemKhachHang,
@@ -181,7 +182,6 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       // 6. Phân hệ Kích hoạt Bảo hành (Template 531052)
       ma_bao_hanh: String(p.ma_bao_hanh || p.serial || (Array.isArray(p.danhSachMaMay) ? p.danhSachMaMay[0] : null) || p.soPhieuXuat || p.deliveryId || 'BH-SGM').slice(0, 30),
       product: String(p.product || (contractCode !== '---' ? ('Theo ' + contractCode) : (orderCode !== '---' ? ('Theo ' + orderCode) : (p.sanPham || p.tenMay || 'Theo HĐ SGM')))).slice(0, 30),
-      date: formatZnsDate(p.date || p.expiryDateFormatted || p.ngayGiaoThucTe || p.ngayGiaoHang || dateFormatted),
 
       // 7. Nhận diện công ty (≤ 30 ký tự)
       company_name: 'Cơ Khí Sài Gòn (SGM)'
@@ -245,8 +245,8 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       };
     }
 
-    // Strict whitelisting & safety guardrails for Template 533064 (Báo giá hoàn tất Chuẩn ZBS 2026)
-    if (templateId === '533064' || props.messageType === 'BAOGIA') {
+    // Strict whitelisting & safety guardrails for Template 647061 (Báo giá hoàn tất Chuẩn ZBS 2026)
+    if (templateId === '647061' || templateId === '533064' || props.messageType === 'BAOGIA') {
       templateData = {
         customer_name: templateData.customer_name || 'Quý khách hàng',
         phone: templateData.phone || zaloPhone,
@@ -258,7 +258,7 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
         product_2: (templateData.product_2 || '......').slice(0, 200).trim(),
         sl_may: String(templateData.sl_may || 1),
         nhan_vien: templateData.nhan_vien || templateData.nguoi_phu_trach || 'Ngô Vương Thông',
-        ...(templateData.ma_tra_cuu ? { ma_tra_cuu: templateData.ma_tra_cuu } : {})
+        ma_tra_cuu: templateData.ma_tra_cuu || templateData.ma_bao_gia || templateData.so_phieu_bao_gia || 'BGM-2026-1149'
       };
     }
 

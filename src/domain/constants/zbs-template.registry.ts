@@ -58,29 +58,29 @@ export const ZBS_TEMPLATE_REGISTRY: Record<string, ZbsTemplateInfo> = {
     }
   },
 
-  // 2. BÁO GIÁ - ID 533064 (Chuẩn ZBS Zalo OA 2026 - Mẫu Sự Kiện 860đ)
+  // 2. BÁO GIÁ - ID 647061 (Chuẩn ZBS Zalo OA 2026 - Mẫu Báo Giá Đã Duyệt 800đ)
   [ZnsMessageType.BAOGIA]: {
-    templateId: '533064',
+    templateId: '647061',
     messageType: ZnsMessageType.BAOGIA,
-    templateName: 'THÔNG BÁO HOÀN TẤT BÁO GIÁ',
+    templateName: 'Xác nhận báo giá',
     businessDomain: 'QUOTATION',
     businessLabel: 'Phát hành Báo giá',
     status: 'ENABLE',
     previewUrl: 'https://account.zalo.cloud/znspreview/pff4sPCAG3J9Q9jPWH7T_w==',
-    price: 860,
+    price: 800,
     providerApp: 'CNV CDP',
     params: [
       { name: 'customer_name', label: 'Tên khách hàng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'customer_name' },
       { name: 'phone', label: 'Số điện thoại', require: true, type: 'STRING', maxLength: 15, sourceKey: 'phone' },
       { name: 'loai_don', label: 'Loại đơn', require: true, type: 'STRING', maxLength: 30, sourceKey: 'loai_don' },
       { name: 'ma_bao_gia', label: 'Số báo giá', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ma_bao_gia' },
-      { name: 'ngay_bao_gia', label: 'Ngày báo giá', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ngay_bao_gia' },
-      { name: 'ngay_het_han', label: 'Hạn hiệu lực', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ngay_het_han' },
+      { name: 'ngay_bao_gia', label: 'Ngày báo giá', require: true, type: 'STRING', maxLength: 20, sourceKey: 'ngay_bao_gia' },
+      { name: 'ngay_het_han', label: 'Hạn hiệu lực', require: true, type: 'STRING', maxLength: 20, sourceKey: 'ngay_het_han' },
       { name: 'product_1', label: 'Danh sách sản phẩm (1)', require: true, type: 'STRING', maxLength: 200, sourceKey: 'product_1' },
       { name: 'product_2', label: 'Danh sách sản phẩm (2)', require: true, type: 'STRING', maxLength: 200, sourceKey: 'product_2' },
-      { name: 'sl_may', label: 'Tổng số lượng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'sl_may' },
+      { name: 'sl_may', label: 'Tổng số lượng', require: true, type: 'STRING', maxLength: 20, sourceKey: 'sl_may' },
       { name: 'nhan_vien', label: 'Người phụ trách', require: true, type: 'STRING', maxLength: 30, sourceKey: 'nhan_vien' },
-      { name: 'ma_tra_cuu', label: 'Mã tra cứu', require: false, type: 'STRING', maxLength: 30, sourceKey: 'ma_tra_cuu' }
+      { name: 'ma_tra_cuu', label: 'Mã tra cứu', require: false, type: 'STRING', maxLength: 200, sourceKey: 'ma_tra_cuu' }
     ],
     ctaButton: {
       type: 3,

@@ -17,7 +17,7 @@ describe('ZBS Universal Template Registry & Dispatch Matrix', () => {
     // 2. Báo Giá
     const quoteTemplate = ZBS_TEMPLATE_REGISTRY[ZnsMessageType.BAOGIA];
     expect(quoteTemplate).toBeDefined();
-    expect(quoteTemplate.templateId).toBe('533064');
+    expect(quoteTemplate.templateId).toBe('647061');
     expect(quoteTemplate.businessDomain).toBe('QUOTATION');
 
     // 3. Hợp Đồng

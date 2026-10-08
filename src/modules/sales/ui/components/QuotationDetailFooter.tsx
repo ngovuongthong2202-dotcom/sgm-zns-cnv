@@ -82,7 +82,7 @@ export function QuotationDetailFooter({
           leftIcon={<Send size={12} />}
         >
           <span>{isZnsLocked ? 'Đang gửi...' : 'Gửi ZNS'}</span>
-          <span className="text-3xs font-mono px-1.5 py-0.5 rounded-full bg-blue-500/30 text-blue-100 border border-blue-400/30">#533064</span>
+          <span className="text-3xs font-mono px-1.5 py-0.5 rounded-full bg-blue-500/30 text-blue-100 border border-blue-400/30">#647061</span>
         </Button>
 
         <span className="w-px h-4 bg-slate-200 mx-1"></span>
