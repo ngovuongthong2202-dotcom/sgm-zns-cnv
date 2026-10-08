@@ -29,6 +29,7 @@ export const QuotationSchema = z.object({
   lifecycleStatus: z.enum(['DRAFT', 'SENT', 'VIEWING', 'WON', 'LOST', 'EXPIRED']).optional().default('DRAFT'),
   lostReason: z.string().optional(),
   wonReason: z.string().optional(),
+  customerApprovedAt: z.string().optional(),
   kenhBaoGia: z.string().optional(),
   nguoiPhuTrach: z.string().optional(),
   

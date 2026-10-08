@@ -171,6 +171,48 @@ export function QuotationDetailOverview({
       {/* 1. Business Lock Warning (if applicable) */}
       <EntityBusinessLockWarning {...lockResult} />
 
+      {/* 2. Banner Thông Báo Khách Hàng Xác Nhận Đồng Ý Trực Tuyến Qua Cổng ZNS */}
+      {(currentQuotation.customerApprovedAt || currentQuotation.tinhTrangBaoGia === 'KH_DONG_Y') && (
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 rounded-xl p-4 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-emerald-500/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/30 shadow-2xs">
+              <CheckCircle2 className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-sm uppercase tracking-wide">
+                  Khách Hàng Đã Xác Nhận Đồng Ý Báo Giá Trực Tuyến!
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-white/20 text-white font-mono text-3xs font-bold border border-white/30">
+                  Cổng ZNS
+                </span>
+              </div>
+              <p className="text-xs text-emerald-100 mt-0.5">
+                {currentQuotation.customerApprovedAt 
+                  ? `Thời gian xác nhận: ${new Date(currentQuotation.customerApprovedAt).toLocaleString('vi-VN')}` 
+                  : 'Khách hàng đã chấp thuận các điều khoản thương mại.'} 
+                {' '}Vui lòng ưu tiên khởi tạo Hợp đồng kinh tế để chuẩn bị sản xuất!
+              </p>
+            </div>
+          </div>
+
+          {matchingContracts.length === 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose?.();
+                navigate(`/contracts?action=create&quotationId=${currentQuotation.id}&customerId=${currentQuotation.customerId || ''}`);
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-emerald-800 hover:bg-emerald-50 active:scale-98 font-bold text-xs shadow-sm transition-all shrink-0 cursor-pointer"
+            >
+              <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+              <span>Lập Hợp Đồng Ngay</span>
+              <ArrowUpRight className="w-4 h-4 text-emerald-800" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* 3. Main Workspace: Asymmetric 72% Matrix / 28% Inspector */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         

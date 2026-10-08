@@ -31,7 +31,13 @@ import {
   List,
   LayoutGrid,
   Filter,
-  Layers
+  Layers,
+  User,
+  Building2,
+  Maximize2,
+  Minimize2,
+  Info,
+  ChevronRight
 } from 'lucide-react';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
@@ -235,7 +241,6 @@ export default function PublicOrderTrackingPage() {
   const [allPaymentsForCustomer, setAllPaymentsForCustomer] = useState<any[]>([]);
 
   // Mobile Manifest Navigation State (Tối ưu hóa danh mục sản phẩm cho màn hình di động)
-  const [mobileManifestView, setMobileManifestView] = useState<'COMPACT' | 'DETAILED'>('COMPACT');
   const [selectedCategory, setSelectedCategory] = useState<'ALL' | string>('ALL');
   const [manifestSearch, setManifestSearch] = useState<string>('');
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
@@ -530,17 +535,39 @@ export default function PublicOrderTrackingPage() {
       return;
     }
 
-    const cleanTarget = activePhone.replace(/\D/g, '');
-    const last4Target = cleanTarget.slice(-4);
+    // Trích xuất toàn bộ ứng viên số điện thoại trong hồ sơ khách hàng để chống khóa oan
+    const candidatePhones = [
+      activePhone,
+      resolvedEntity?.sdt,
+      resolvedEntity?.phone,
+      resolvedEntity?.sdtPhu,
+      resolvedEntity?.soZaloMacDinh,
+      ...(Array.isArray(resolvedEntity?.danhSachSdt) ? resolvedEntity.danhSachSdt : []),
+      relatedContract?.sdt,
+      relatedContract?.sdtPhu,
+      ...(Array.isArray(relatedContract?.danhSachSdt) ? relatedContract.danhSachSdt : []),
+      relatedQuotation?.sdt,
+      relatedQuotation?.sdtPhu,
+      ...(Array.isArray(relatedQuotation?.danhSachSdt) ? relatedQuotation.danhSachSdt : []),
+      relatedPayment?.sdt,
+    ]
+      .filter(Boolean)
+      .map((ph: string) => String(ph).replace(/\D/g, ''))
+      .filter(p => p.length >= 4);
 
-    if (cleanInput === last4Target || cleanInput === '9999' || !cleanTarget) {
+    const isMatched = 
+      candidatePhones.length === 0 ||
+      cleanInput === '9999' ||
+      candidatePhones.some(p => p.endsWith(cleanInput));
+
+    if (isMatched) {
       setIsUnlocked(true);
       setPhoneError('');
       if (searchCode) {
         sessionStorage.setItem(`sgm_tracking_unlocked_${searchCode.toLowerCase()}`, 'true');
       }
     } else {
-      setPhoneError('4 số cuối SĐT chưa chính xác. Vui lòng kiểm tra lại tin nhắn Zalo ZNS đã nhận.');
+      setPhoneError('4 số cuối SĐT chưa chính xác. Quý khách vui lòng kiểm tra lại tin nhắn ZNS hoặc liên hệ hotline 0932.000.999 để được hỗ trợ.');
     }
   };
 
@@ -618,6 +645,21 @@ export default function PublicOrderTrackingPage() {
       return true;
     });
   }, [normalizedProducts, selectedCategory, manifestSearch]);
+
+  const allExpanded = useMemo(() => {
+    if (filteredProducts.length === 0) return false;
+    return filteredProducts.every(p => !!expandedItems[p.id]);
+  }, [filteredProducts, expandedItems]);
+
+  const toggleExpandAll = () => {
+    if (allExpanded) {
+      setExpandedItems({});
+    } else {
+      const next: Record<string, boolean> = {};
+      filteredProducts.forEach(p => { next[p.id] = true; });
+      setExpandedItems(next);
+    }
+  };
 
   // Sổ cái các đợt thanh toán (Universal Multi-Ledger Reconciliation)
   // Chuẩn hóa hỗ trợ cả cacDotThu lẫn dotThanhToan
@@ -708,6 +750,8 @@ export default function PublicOrderTrackingPage() {
 
   // Ngữ cảnh Báo Giá chuyên biệt
   const isQuotationMode = portalMode === 'QUOTATION' || (!relatedContract && Boolean(relatedQuotation));
+  const isContractMode = portalMode === 'CONTRACT' || Boolean(relatedContract);
+  const isPaymentMode = portalMode === 'PAYMENT' || Boolean(relatedPayment && !relatedContract && !relatedQuotation);
 
   // Phân tích trạng thái thời hạn của Báo giá
   const quotationValidity = useMemo(() => {
@@ -1048,9 +1092,273 @@ export default function PublicOrderTrackingPage() {
               )}
             </div>
 
-            {/* B. THANH TIẾN ĐỘ 4 BƯỚC THƯƠNG MẠI TRỰC QUAN */}
-            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
+            {/* B. THẺ HỒ SƠ NGHIỆP VỤ CHUYÊN BIỆT (BUSINESS DOCUMENT DOSSIER SHEET) */}
+            {isQuotationMode && (
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200/60 shadow-2xs">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight">
+                          Hồ Sơ Báo Giá Thương Mại
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full text-2xs font-bold bg-emerald-100 text-emerald-800">
+                          Chính Thức
+                        </span>
+                      </div>
+                      <p className="text-2xs text-slate-500">
+                        Saigon Machine Official Commercial Quotation Dossier
+                      </p>
+                    </div>
+                  </div>
+
+                  {hasCustomerApproved ? (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-2xs font-bold">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Đã Xác Nhận Đồng Ý Trực Tuyến</span>
+                    </div>
+                  ) : (
+                    quotationValidity && (
+                      <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl border text-2xs font-bold ${
+                        quotationValidity.isExpired
+                          ? 'bg-red-50 border-red-200 text-red-700'
+                          : quotationValidity.remainingDays <= 3
+                            ? 'bg-amber-50 border-amber-200 text-amber-800'
+                            : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      }`}>
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{quotationValidity.badgeText}</span>
+                      </div>
+                    )
+                  )}
+                </div>
+
+                {/* Grid chi tiết hồ sơ báo giá */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-2xs">
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Số Phiếu Báo Giá</span>
+                    <span className="text-xs font-bold font-mono text-emerald-800 block truncate">
+                      {relatedQuotation?.soPhieuBaoGia || resolvedEntity?.soPhieuBaoGia || '---'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Ngày Phát Hành</span>
+                    <span className="text-xs font-bold text-slate-800 block">
+                      {relatedQuotation?.ngayBaoGia || resolvedEntity?.ngayBaoGia || '---'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Hiệu Lực Báo Giá</span>
+                    <span className="text-xs font-bold text-slate-800 block">
+                      {relatedQuotation?.hieuLuc ? `${relatedQuotation.hieuLuc} ngày` : '30 ngày'} 
+                      {relatedQuotation?.ngayHetHan ? ` (đến ${relatedQuotation.ngayHetHan})` : ''}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Kỹ Sư Phụ Trách (PIC)</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 truncate">
+                        {relatedQuotation?.nguoiPhuTrach || 'Phòng Dự Án SGM'}
+                      </span>
+                      <a href="tel:0932000999" className="text-emerald-700 hover:text-emerald-800 font-bold shrink-0 ml-1">
+                        0932.000.999
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Điều khoản thương mại & Ghi chú */}
+                <div className="p-3 rounded-xl bg-emerald-50/40 border border-emerald-100/80 text-2xs space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-900 uppercase tracking-wider">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Điều Khoản Thương Mại & Cam Kết Kỹ Thuật</span>
+                  </div>
+                  <p className="text-slate-600 leading-relaxed">
+                    {relatedQuotation?.dieuKhoanThanhToan || relatedQuotation?.noiDungGhiChu || 
+                      'Giá xuất xưởng đã bao gồm chuyển giao công nghệ, hướng dẫn vận hành tại xưởng Saigon Machine. Bảo hành chính hãng 12 - 24 tháng theo tiêu chuẩn nhà sản xuất.'}
+                  </p>
+                </div>
+
+                {/* Banner trạng thái duyệt trực tuyến */}
+                {hasCustomerApproved && (
+                  <div className="p-3 rounded-xl bg-emerald-100/70 border border-emerald-300 text-emerald-900 text-2xs flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>
+                        Quý khách đã xác nhận <strong>ĐỒNG Ý Báo giá</strong> trực tuyến. Bộ phận Dự Án SGM đang chuẩn bị hồ sơ hợp đồng và kế hoạch chế tạo máy!
+                      </span>
+                    </div>
+                    <span className="font-mono text-2xs text-emerald-800 bg-white/80 px-2 py-0.5 rounded-md font-bold">
+                      Ưu tiên sản xuất
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* B.2 THẺ HỒ SƠ HỢP ĐỒNG KINH TẾ (KHI CÓ HỢP ĐỒNG) */}
+            {relatedContract && (
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-200/60 shadow-2xs">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight">
+                          Hồ Sơ Hợp Đồng Kinh Tế & Sản Xuất
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full text-2xs font-bold bg-blue-100 text-blue-800">
+                          Hiệu Lực Sản Xuất
+                        </span>
+                      </div>
+                      <p className="text-2xs text-slate-500">
+                        Saigon Machine Manufacturing & Commercial Agreement Dossier
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-2xs font-bold">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Hợp Đồng Đang Triển Khai</span>
+                  </div>
+                </div>
+
+                {/* Grid 4 thông số chính của Hợp đồng */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-2xs">
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Số Hợp Đồng Kinh Tế</span>
+                    <span className="text-xs font-bold font-mono text-blue-900 block truncate" title={relatedContract.soHopDong}>
+                      {relatedContract.soHopDong || '---'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Số Đơn Hàng (PO)</span>
+                    <span className="text-xs font-bold font-mono text-slate-800 block truncate">
+                      {relatedContract.soDonHang || relatedQuotation?.soDonHang || '---'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Ngày Ký / Hiệu Lực</span>
+                    <span className="text-xs font-bold text-slate-800 block">
+                      {relatedContract.ngayKy || relatedContract.ngayBatDau || '---'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Cam Kết Thời Gian Chế Tạo</span>
+                    <span className="text-xs font-bold text-emerald-800 block">
+                      {relatedContract.thoiGianGiaoHang || '45 ngày làm việc'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Hàng thông số thứ 2: Căn cứ báo giá, Địa điểm bàn giao, Phụ trách, Bảo hành */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-2xs">
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Căn Cứ Báo Giá Gốc</span>
+                    <span className="text-xs font-bold font-mono text-slate-700 block truncate">
+                      {relatedContract.soPhieuBaoGia || relatedQuotation?.soPhieuBaoGia || 'Theo thỏa thuận'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Địa Điểm Bàn Giao</span>
+                    <span className="text-xs font-bold text-slate-800 block truncate" title={relatedContract.diaDiemGiaoHang || relatedContract.diaChi || resolvedEntity?.diaChi}>
+                      {relatedContract.diaDiemGiaoHang || relatedContract.diaChi || resolvedEntity?.diaChi || 'Xưởng khách hàng'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Quản Lý Dự Án SGM</span>
+                    <span className="text-xs font-bold text-slate-800 block truncate">
+                      {relatedContract.nguoiPhuTrach || 'Ban Quản Lý Dự Án SGM'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Thời Hạn Bảo Hành Máy</span>
+                    <span className="text-xs font-bold text-slate-800 block">
+                      {relatedContract.baoHanh || '12 - 24 tháng chính hãng'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* B.3 THẺ HỒ SƠ PHIẾU THU & TÀI CHÍNH (KHI CHỈ CÓ GIAO DỊCH THANH TOÁN) */}
+            {isPaymentMode && !relatedContract && relatedPayment && (
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0 border border-purple-200/60 shadow-2xs">
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight">
+                          Hồ Sơ Giao Dịch & Phiếu Thu
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full text-2xs font-bold bg-purple-100 text-purple-800">
+                          Xác Thực Tài Chính
+                        </span>
+                      </div>
+                      <p className="text-2xs text-slate-500">
+                        Saigon Machine Official Payment Voucher Dossier
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-50 border border-purple-200 text-purple-800 text-2xs font-bold">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Đã Xác Nhận Thu Tiền</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-2xs">
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Mã Phiếu Thu</span>
+                    <span className="text-xs font-bold font-mono text-purple-900 block truncate">
+                      {relatedPayment.paymentId || relatedPayment.id || '---'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Ngày Giao Dịch</span>
+                    <span className="text-xs font-bold text-slate-800 block">
+                      {relatedPayment.ngayThanhToan || relatedPayment.time || '---'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Phương Thức</span>
+                    <span className="text-xs font-bold text-slate-800 block">
+                      {relatedPayment.phuongThucThanhToan || 'Chuyển khoản'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider block mb-1">Nội Dung Thu</span>
+                    <span className="text-xs font-bold text-slate-800 block truncate">
+                      {relatedPayment.ghiChu || 'Thanh toán tiền hàng SGM'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* C. THANH TIẾN ĐỘ 4 BƯỚC THƯƠNG MẠI CHUẨN HÓA (STANDARDIZED COMMERCIAL STEPPER) */}
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3.5 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-emerald-600" />
                 <span>{isQuotationMode ? 'Tiến Độ Báo Giá & Chuẩn Bị Triển Khai' : 'Tiến Độ Thực Hiện Đơn Hàng'}</span>
               </h3>
@@ -1061,13 +1369,13 @@ export default function PublicOrderTrackingPage() {
                   isQuotationMode ? 'bg-emerald-50/70 border-emerald-400 ring-1 ring-emerald-300' : (relatedQuotation ? 'bg-emerald-50/40 border-emerald-200' : 'bg-slate-50 border-slate-200')
                 }`}>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-3xs uppercase font-bold text-emerald-700">Bước 1: Báo Giá</span>
+                    <span className="text-2xs uppercase font-bold text-emerald-700">Bước 1: Báo Giá</span>
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   </div>
                   <div className="text-xs font-bold text-slate-800 font-mono truncate">
                     {relatedQuotation?.soPhieuBaoGia || resolvedEntity?.soPhieuBaoGia || 'Đã lập báo giá'}
                   </div>
-                  <div className="text-3xs text-slate-500 mt-1">
+                  <div className="text-2xs text-slate-500 mt-1">
                     Ngày: {relatedQuotation?.ngayBaoGia || '---'}
                   </div>
                 </div>
@@ -1077,13 +1385,13 @@ export default function PublicOrderTrackingPage() {
                   relatedContract ? 'bg-emerald-50/40 border-emerald-200' : (isQuotationMode ? 'bg-amber-50/30 border-amber-200' : 'bg-slate-50 border-slate-200')
                 }`}>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-3xs uppercase font-bold text-emerald-700">Bước 2: Hợp Đồng</span>
+                    <span className="text-2xs uppercase font-bold text-emerald-700">Bước 2: Hợp Đồng</span>
                     {relatedContract ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Clock className="w-4 h-4 text-amber-500" />}
                   </div>
                   <div className="text-xs font-bold text-slate-800 font-mono truncate">
                     {relatedContract?.soHopDong || (isQuotationMode ? 'Sẵn sàng soạn thảo' : 'Đang chuẩn bị ký')}
                   </div>
-                  <div className="text-3xs text-slate-500 mt-1">
+                  <div className="text-2xs text-slate-500 mt-1">
                     {relatedContract ? `Đơn hàng: ${relatedContract.soDonHang || '---'}` : (isQuotationMode ? 'Khởi tạo sau khi đồng ý' : 'Theo quy trình')}
                   </div>
                 </div>
@@ -1093,7 +1401,7 @@ export default function PublicOrderTrackingPage() {
                   financials.totalPaid > 0 ? 'bg-emerald-50/50 border-emerald-300 ring-1 ring-emerald-200' : 'bg-slate-50 border-slate-200'
                 }`}>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-3xs uppercase font-bold text-emerald-700">Bước 3: Thanh Toán</span>
+                    <span className="text-2xs uppercase font-bold text-emerald-700">Bước 3: Thanh Toán</span>
                     {financials.remainingDebt <= 0 && financials.totalPaid > 0 ? (
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     ) : (
@@ -1103,7 +1411,7 @@ export default function PublicOrderTrackingPage() {
                   <div className="text-xs font-bold text-slate-800 font-mono">
                     {financials.totalPaid > 0 ? (isUnlocked ? formatCurrency(financials.totalPaid) : '•••••••• đ') : 'Theo thỏa thuận'}
                   </div>
-                  <div className="text-3xs text-slate-500 mt-1">
+                  <div className="text-2xs text-slate-500 mt-1">
                     {financials.remainingDebt <= 0 && financials.totalPaid > 0 ? 'Đã hoàn tất thanh toán' : (isQuotationMode ? 'Tạm ứng & Nghiệm thu' : 'Đang thanh toán theo tiến độ')}
                   </div>
                 </div>
@@ -1113,35 +1421,35 @@ export default function PublicOrderTrackingPage() {
                   relatedDelivery ? 'bg-emerald-50/40 border-emerald-200' : 'bg-slate-50 border-slate-200'
                 }`}>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-3xs uppercase font-bold text-emerald-700">Bước 4: Bàn Giao</span>
+                    <span className="text-2xs uppercase font-bold text-emerald-700">Bước 4: Bàn Giao</span>
                     {relatedDelivery ? <Truck className="w-4 h-4 text-emerald-600" /> : <Clock className="w-4 h-4 text-slate-400" />}
                   </div>
                   <div className="text-xs font-bold text-slate-800 font-mono truncate">
                     {relatedDelivery?.soPhieuXuat || 'Chế tạo theo quy cách'}
                   </div>
-                  <div className="text-3xs text-slate-500 mt-1">
+                  <div className="text-2xs text-slate-500 mt-1">
                     {relatedDelivery?.ngayGiaoThucTe ? `Đã giao: ${relatedDelivery.ngayGiaoThucTe}` : 'Tiêu chuẩn SGM'}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* C. DANH MỤC THIẾT BỊ / MÁY MÓC / VẬT TƯ (MULTI-TIER INDUSTRIAL MANIFEST HUB) */}
-            <div className="bg-white border border-slate-200/90 rounded-2xl p-3.5 sm:p-5 shadow-xs space-y-3.5">
+            {/* D. DANH MỤC THIẾT BỊ & QUY CÁCH KỸ THUẬT (SINGLE-STREAM ADAPTIVE MANIFEST MESH) */}
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
               {/* Header: Tiêu đề + Thống kê + Tổng tiền */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                    <Package className="w-4 h-4" />
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3.5 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200/60 shadow-2xs">
+                    <Package className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight flex items-center gap-2">
                       <span>Danh Mục Thiết Bị & Quy Cách Kỹ Thuật</span>
-                      <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono text-3xs font-bold">
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono text-2xs font-bold">
                         {normalizedProducts.length} mục
                       </span>
                     </h3>
-                    <p className="text-4xs sm:text-3xs text-slate-500">
+                    <p className="text-2xs text-slate-500">
                       Quy cách chế tạo & cấu hình máy đồng bộ theo tiêu chuẩn Saigon Machine
                     </p>
                   </div>
@@ -1150,7 +1458,7 @@ export default function PublicOrderTrackingPage() {
                 <div className="flex items-center gap-2 self-end sm:self-auto">
                   {isUnlocked && (
                     <div className="text-right">
-                      <span className="text-4xs uppercase font-bold text-slate-400 block">Tổng giá trị</span>
+                      <span className="text-2xs uppercase font-bold text-slate-400 block">Tổng giá trị</span>
                       <span className="text-xs sm:text-sm font-black font-mono text-emerald-700 block">
                         {formatCurrency(financials.totalContractVal)}
                       </span>
@@ -1159,15 +1467,15 @@ export default function PublicOrderTrackingPage() {
                 </div>
               </div>
 
-              {/* INDUSTRIAL CONTROLS: Category Pills + Quick Search + Mobile View Mode Toggle */}
-              <div className="space-y-2.5">
+              {/* UNIFIED CONTROLS: Category Pills + Quick Search + Expand All Toggle */}
+              <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   {/* Category Filter Pills */}
                   <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar">
                     <button
                       type="button"
                       onClick={() => setSelectedCategory('ALL')}
-                      className={`px-2.5 py-1 rounded-lg text-3xs font-bold transition-all shrink-0 cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-xl text-2xs font-bold transition-all shrink-0 cursor-pointer ${
                         selectedCategory === 'ALL'
                           ? 'bg-slate-900 text-white shadow-2xs'
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -1179,7 +1487,7 @@ export default function PublicOrderTrackingPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedCategory('MACHINE')}
-                        className={`px-2.5 py-1 rounded-lg text-3xs font-bold transition-all shrink-0 cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl text-2xs font-bold transition-all shrink-0 cursor-pointer ${
                           selectedCategory === 'MACHINE'
                             ? 'bg-blue-600 text-white shadow-2xs'
                             : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
@@ -1192,7 +1500,7 @@ export default function PublicOrderTrackingPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedCategory('ACCESSORY')}
-                        className={`px-2.5 py-1 rounded-lg text-3xs font-bold transition-all shrink-0 cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl text-2xs font-bold transition-all shrink-0 cursor-pointer ${
                           selectedCategory === 'ACCESSORY'
                             ? 'bg-purple-600 text-white shadow-2xs'
                             : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'
@@ -1205,7 +1513,7 @@ export default function PublicOrderTrackingPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedCategory('SERVICE')}
-                        className={`px-2.5 py-1 rounded-lg text-3xs font-bold transition-all shrink-0 cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl text-2xs font-bold transition-all shrink-0 cursor-pointer ${
                           selectedCategory === 'SERVICE'
                             ? 'bg-amber-600 text-white shadow-2xs'
                             : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
@@ -1216,53 +1524,36 @@ export default function PublicOrderTrackingPage() {
                     )}
                   </div>
 
-                  {/* Mobile Mode Switcher (Thu gọn vs Chi tiết) */}
-                  <div className="flex md:hidden items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0 ml-auto">
+                  {/* Expand All / Collapse All Toggle Button */}
+                  {filteredProducts.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => setMobileManifestView('COMPACT')}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-md text-4xs font-bold transition-all cursor-pointer ${
-                        mobileManifestView === 'COMPACT'
-                          ? 'bg-white text-slate-900 shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-800'
-                      }`}
-                      title="Chế độ danh mục thu gọn (dễ quét nhanh)"
+                      onClick={toggleExpandAll}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-2xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer shrink-0 ml-auto"
+                      title={allExpanded ? 'Thu gọn tất cả chi tiết kỹ thuật' : 'Mở rộng xem toàn bộ quy cách kỹ thuật'}
                     >
-                      <List className="w-3 h-3" />
-                      <span>Thu gọn</span>
+                      {allExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                      <span>{allExpanded ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setMobileManifestView('DETAILED')}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-md text-4xs font-bold transition-all cursor-pointer ${
-                        mobileManifestView === 'DETAILED'
-                          ? 'bg-white text-slate-900 shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-800'
-                      }`}
-                      title="Chế độ thẻ chi tiết"
-                    >
-                      <LayoutGrid className="w-3 h-3" />
-                      <span>Chi tiết</span>
-                    </button>
-                  </div>
+                  )}
                 </div>
 
                 {/* Inline Fast Filter Search (Hiển thị khi có trên 3 sản phẩm) */}
                 {normalizedProducts.length > 3 && (
                   <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       value={manifestSearch}
                       onChange={(e) => setManifestSearch(e.target.value)}
                       placeholder="Tìm nhanh theo tên thiết bị, quy cách kỹ thuật, serial..."
-                      className="w-full pl-8 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-500 focus:bg-white transition-all shadow-2xs"
+                      className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-500 focus:bg-white transition-all shadow-2xs"
                     />
                     {manifestSearch && (
                       <button
                         type="button"
                         onClick={() => setManifestSearch('')}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
                       >
                         ✕
                       </button>
@@ -1271,214 +1562,169 @@ export default function PublicOrderTrackingPage() {
                 )}
               </div>
 
-              {/* C.1: MOBILE VIEW (< md) */}
+              {/* D.1: MOBILE VIEW (< md) - SINGLE-STREAM ADAPTIVE MANIFEST MESH */}
               <div className="md:hidden">
                 {filteredProducts.length > 0 ? (
-                  mobileManifestView === 'COMPACT' ? (
-                    /* DENSE COMPACT MANIFEST: Rows ~52px with expandable specs accordion */
-                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
-                      {filteredProducts.map((p, idx) => {
-                        const semantic = ITEM_SEMANTIC_CONFIG[p.itemType] || ITEM_SEMANTIC_CONFIG.MACHINE;
-                        const isExpanded = !!expandedItems[p.id || String(idx)];
-                        return (
-                          <div key={p.id || idx} className="transition-colors hover:bg-slate-50/60">
-                            {/* Dense Header Row */}
-                            <div 
-                              onClick={() => toggleItemExpanded(p.id || String(idx))}
-                              className="p-3 flex items-start gap-2.5 cursor-pointer active:bg-slate-100/70"
-                            >
-                              <span className="w-6 h-6 rounded-md bg-slate-100 text-slate-600 font-mono text-3xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                                {String(idx + 1).padStart(2, '0')}
-                              </span>
-
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-4xs font-bold border ${semantic.badgeClass}`}>
-                                    <span>{semantic.icon}</span>
-                                    <span>{semantic.shortLabel}</span>
-                                  </span>
-                                  <span className="font-bold text-slate-900 text-xs leading-snug line-clamp-2">
-                                    {p.name}
-                                  </span>
-                                </div>
-
-                                <div className="flex items-center gap-2 mt-1 text-3xs text-slate-500">
-                                  <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded">
-                                    {p.quantity} {p.unit}
-                                  </span>
-                                  {p.serials.length > 0 ? (
-                                    <span className="font-mono text-emerald-700 truncate max-w-[140px]">
-                                      SN: {p.serials.join(', ')}
-                                    </span>
-                                  ) : (
-                                    <span className="text-slate-400 italic">Theo chuẩn SGM</span>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="text-right shrink-0 flex items-center gap-1.5">
-                                <div>
-                                  {isUnlocked ? (
-                                    <span className="text-xs font-black font-mono text-emerald-700 block">
-                                      {formatCurrency(p.amount)}
-                                    </span>
-                                  ) : (
-                                    <span className="text-3xs text-slate-400 font-mono flex items-center justify-end gap-1">
-                                      <Lock className="w-2.5 h-2.5 text-slate-400" />
-                                      <span>••••••</span>
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-slate-400 mt-0.5">
-                                  {isExpanded ? <ChevronUp className="w-4 h-4 text-emerald-600" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Expandable Accordion Drawer */}
-                            {isExpanded && (
-                              <div className="px-3 pb-3 pt-1 bg-slate-50/70 border-t border-slate-100 space-y-2 text-2xs">
-                                {p.specifications && (
-                                  <div className="p-2.5 rounded-lg bg-white border border-slate-200 text-slate-700 leading-relaxed">
-                                    <div className="font-bold text-3xs uppercase text-slate-500 flex items-center gap-1 mb-1">
-                                      <Wrench className="w-3 h-3 text-slate-400" />
-                                      <span>Quy cách kỹ thuật chi tiết:</span>
-                                    </div>
-                                    <div className="whitespace-pre-wrap">{p.specifications}</div>
-                                  </div>
-                                )}
-
-                                <div className="grid grid-cols-2 gap-2 text-3xs">
-                                  <div className="bg-white p-2 rounded-lg border border-slate-100">
-                                    <span className="text-slate-400 block">Đơn giá:</span>
-                                    <span className="font-mono font-bold text-slate-800">
-                                      {isUnlocked ? formatCurrency(p.price) : '•••••••• đ'}
-                                    </span>
-                                  </div>
-                                  <div className="bg-white p-2 rounded-lg border border-slate-100">
-                                    <span className="text-slate-400 block">Bảo hành:</span>
-                                    <span className="font-semibold text-slate-800">{p.warranty || '12 tháng'}</span>
-                                  </div>
-                                </div>
-
-                                {p.serials.length > 0 && (
-                                  <div className="bg-white p-2 rounded-lg border border-slate-100">
-                                    <span className="text-slate-400 block mb-1">Mã máy / Serial sản phẩm:</span>
-                                    <div className="flex flex-wrap gap-1">
-                                      {p.serials.map((sn: string, sIdx: number) => (
-                                        <span key={sIdx} className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-3xs font-bold">
-                                          {sn}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    /* DETAILED CARD VIEW */
-                    <div className="space-y-3">
-                      {filteredProducts.map((p, idx) => {
-                        const semantic = ITEM_SEMANTIC_CONFIG[p.itemType] || ITEM_SEMANTIC_CONFIG.MACHINE;
-                        return (
+                  <div className="divide-y divide-slate-100 border border-slate-200/90 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                    {filteredProducts.map((p, idx) => {
+                      const semantic = ITEM_SEMANTIC_CONFIG[p.itemType] || ITEM_SEMANTIC_CONFIG.MACHINE;
+                      const isExpanded = !!expandedItems[p.id || String(idx)];
+                      return (
+                        <div key={p.id || idx} className="transition-colors hover:bg-slate-50/70">
+                          {/* Master Compact Row (~56px) */}
                           <div 
-                            key={p.id || idx}
-                            className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3 relative overflow-hidden"
+                            onClick={() => toggleItemExpanded(p.id || String(idx))}
+                            className="p-3.5 flex items-center gap-3 cursor-pointer select-none active:bg-slate-100/80 transition-colors"
                           >
-                            <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-3xs font-black">
-                                Mục #{String(idx + 1).padStart(2, '0')}
-                              </span>
-                              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-4xs font-bold border ${semantic.badgeClass}`}>
-                                <span>{semantic.icon}</span>
-                                <span>{semantic.label}</span>
-                              </span>
-                            </div>
+                            {/* Index Number */}
+                            <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 font-mono text-2xs font-bold flex items-center justify-center shrink-0">
+                              {String(idx + 1).padStart(2, '0')}
+                            </span>
 
-                            <div>
-                              <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                            {/* Center: Title & Integrated Subtitle */}
+                            <div className="flex-1 min-w-0 pr-1">
+                              <h4 className="font-bold text-slate-900 text-xs leading-snug truncate">
                                 {p.name}
                               </h4>
+                              <div className="flex items-center gap-1.5 mt-0.5 text-2xs text-slate-500 truncate">
+                                <span className="font-semibold text-slate-700">
+                                  {p.quantity} {p.unit}
+                                </span>
+                                <span>•</span>
+                                <span className={p.itemType === 'MACHINE' ? 'text-blue-700 font-medium' : (p.itemType === 'SERVICE' ? 'text-amber-700 font-medium' : 'text-purple-700 font-medium')}>
+                                  {semantic.label}
+                                </span>
+                                {p.serials.length > 0 ? (
+                                  <>
+                                    <span>•</span>
+                                    <span className="font-mono text-emerald-700 font-medium truncate">
+                                      SN: {p.serials.join(', ')}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-slate-400">Chuẩn SGM</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Right: Price & Smooth Chevron */}
+                            <div className="text-right shrink-0 flex items-center gap-2">
+                              <div>
+                                {isUnlocked ? (
+                                  <span className="text-xs font-black font-mono text-emerald-700 block">
+                                    {formatCurrency(p.amount)}
+                                  </span>
+                                ) : (
+                                  <span className="text-2xs text-slate-400 font-mono flex items-center justify-end gap-1">
+                                    <Lock className="w-3 h-3 text-slate-400" />
+                                    <span>••••••</span>
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-slate-400 w-4 h-4 flex items-center justify-center">
+                                {isExpanded ? (
+                                  <ChevronUp className="w-4 h-4 text-emerald-600" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Expandable Technical Specification Accordion Drawer */}
+                          {isExpanded && (
+                            <div className="px-3.5 pb-3.5 pt-1 bg-slate-50/70 border-t border-slate-100 space-y-2.5 text-2xs">
+                              {/* Specs description */}
                               {p.specifications && (
-                                <div className="mt-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-2xs text-slate-600 leading-relaxed flex items-start gap-2">
-                                  <Wrench className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                                  <div className="flex-1 whitespace-pre-wrap">{p.specifications}</div>
+                                <div className="p-3 rounded-xl bg-white border border-slate-200/90 text-slate-700 leading-relaxed shadow-2xs">
+                                  <div className="font-bold text-2xs uppercase tracking-wider text-slate-500 flex items-center gap-1.5 mb-1.5">
+                                    <Wrench className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>Quy Cách Kỹ Thuật Chi Tiết:</span>
+                                  </div>
+                                  <div className="whitespace-pre-wrap leading-relaxed text-slate-700">{p.specifications}</div>
+                                </div>
+                              )}
+
+                              {/* 4-col micro spec bar */}
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-2xs">
+                                <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                                  <span className="text-slate-400 uppercase tracking-wider font-semibold block mb-0.5">Đơn Vị Tính</span>
+                                  <span className="font-bold text-slate-800">{p.unit}</span>
+                                </div>
+                                <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                                  <span className="text-slate-400 uppercase tracking-wider font-semibold block mb-0.5">Số Lượng</span>
+                                  <span className="font-mono font-black text-emerald-700">{p.quantity}</span>
+                                </div>
+                                <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                                  <span className="text-slate-400 uppercase tracking-wider font-semibold block mb-0.5">Bảo Hành</span>
+                                  <span className="font-semibold text-slate-800">{p.warranty || '12 tháng'}</span>
+                                </div>
+                                <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                                  <span className="text-slate-400 uppercase tracking-wider font-semibold block mb-0.5">Phân Loại</span>
+                                  <span className="font-semibold text-slate-800">{semantic.label}</span>
+                                </div>
+                              </div>
+
+                              {/* Serial / Mã Máy */}
+                              {p.serials.length > 0 && (
+                                <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                                  <span className="text-slate-400 uppercase tracking-wider font-semibold block mb-1">Mã Máy / Serial Sản Phẩm:</span>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {p.serials.map((sn: string, sIdx: number) => (
+                                      <span key={sIdx} className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-2xs font-bold">
+                                        {sn}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Price breakdown bar */}
+                              {isUnlocked ? (
+                                <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between">
+                                  <div>
+                                    <span className="text-slate-500 uppercase tracking-wider font-semibold block">Đơn Giá</span>
+                                    <span className="font-mono font-bold text-slate-800 text-xs">
+                                      {formatCurrency(p.price)}
+                                    </span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-emerald-800 uppercase tracking-wider font-semibold block">Thành Tiền</span>
+                                    <span className="font-mono font-black text-emerald-700 text-sm">
+                                      {formatCurrency(p.amount)}
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-between text-slate-400">
+                                  <span className="flex items-center gap-1.5 italic">
+                                    <Lock className="w-3.5 h-3.5" />
+                                    <span>Nhập 4 số cuối SĐT để xem giá</span>
+                                  </span>
+                                  <span className="font-mono">•••••••• đ</span>
                                 </div>
                               )}
                             </div>
-
-                            <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-50/80 border border-slate-100 text-center">
-                              <div>
-                                <span className="text-4xs uppercase font-bold text-slate-400 block">ĐVT</span>
-                                <span className="text-xs font-bold text-slate-800 mt-0.5 block">{p.unit}</span>
-                              </div>
-                              <div className="border-x border-slate-200">
-                                <span className="text-4xs uppercase font-bold text-slate-400 block">Số lượng</span>
-                                <span className="text-xs font-black font-mono text-emerald-700 mt-0.5 block">{p.quantity}</span>
-                              </div>
-                              <div>
-                                <span className="text-4xs uppercase font-bold text-slate-400 block">Serial / Mã máy</span>
-                                <div className="mt-0.5">
-                                  {p.serials.length > 0 ? (
-                                    <div className="flex flex-wrap justify-center gap-1">
-                                      {p.serials.map((sn: string, sIdx: number) => (
-                                        <span key={sIdx} className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-4xs font-bold">
-                                          {sn}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <span className="text-3xs text-slate-400 italic">Theo chuẩn SGM</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            {isUnlocked ? (
-                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100">
-                                <div>
-                                  <span className="text-4xs uppercase font-bold text-slate-500 block">Đơn giá</span>
-                                  <span className="text-xs font-bold font-mono text-slate-800 mt-0.5 block">
-                                    {formatCurrency(p.price)}
-                                  </span>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-4xs uppercase font-bold text-emerald-800 block">Thành tiền</span>
-                                  <span className="text-sm font-black font-mono text-emerald-700 mt-0.5 block">
-                                    {formatCurrency(p.amount)}
-                                  </span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-2xs text-slate-400">
-                                <span className="flex items-center gap-1 italic">
-                                  <Lock className="w-3 h-3 text-slate-400" />
-                                  <span>Mở khóa SĐT để xem giá</span>
-                                </span>
-                                <span className="font-mono text-slate-300">•••••••• đ</span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : (
-                  <div className="py-8 text-center text-slate-400 italic bg-slate-50 rounded-xl border border-slate-100 text-xs">
+                  <div className="py-8 text-center text-slate-400 italic bg-slate-50 rounded-2xl border border-slate-100 text-xs">
                     Không tìm thấy thiết bị phù hợp với bộ lọc tìm kiếm
                   </div>
                 )}
               </div>
 
-              {/* C.2: DESKTOP VIEW (>= md) */}
-              <div className="hidden md:block overflow-x-auto border border-slate-100 rounded-xl">
+              {/* D.2: DESKTOP VIEW (>= md) */}
+              <div className="hidden md:block overflow-x-auto border border-slate-200/90 rounded-2xl">
                 <table className="w-full text-xs text-left border-collapse min-w-[720px]">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold text-3xs uppercase">
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold text-2xs uppercase">
                       <th className="py-3 px-3.5 w-12 text-center">STT</th>
                       <th className="py-3 px-3.5">Tên Sản Phẩm / Thiết Bị & Quy Cách</th>
                       <th className="py-3 px-3.5 text-center w-20">ĐVT</th>
@@ -1497,14 +1743,14 @@ export default function PublicOrderTrackingPage() {
                             <td className="py-3.5 px-3.5 text-center text-slate-400 font-mono font-bold">{idx + 1}</td>
                             <td className="py-3.5 px-3.5">
                               <div className="flex items-center gap-1.5 mb-1">
-                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-4xs font-bold border ${semantic.badgeClass}`}>
+                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs font-bold border ${semantic.badgeClass}`}>
                                   <span>{semantic.icon}</span>
                                   <span>{semantic.shortLabel}</span>
                                 </span>
                                 <span className="font-bold text-slate-900 text-xs">{p.name}</span>
                               </div>
                               {p.specifications && (
-                                <div className="text-3xs text-slate-500 pl-1 border-l-2 border-emerald-400/50 mt-1 leading-relaxed whitespace-pre-wrap">
+                                <div className="text-2xs text-slate-500 pl-1 border-l-2 border-emerald-400/50 mt-1 leading-relaxed whitespace-pre-wrap">
                                   {p.specifications}
                                 </div>
                               )}
@@ -1515,13 +1761,13 @@ export default function PublicOrderTrackingPage() {
                               {p.serials.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
                                   {p.serials.map((sn: string, sIdx: number) => (
-                                    <span key={sIdx} className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-3xs font-bold">
+                                    <span key={sIdx} className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-2xs font-bold">
                                       {sn}
                                     </span>
                                   ))}
                                 </div>
                               ) : (
-                                <span className="text-3xs text-slate-400 italic">Theo tiêu chuẩn SGM</span>
+                                <span className="text-2xs text-slate-400 italic">Theo tiêu chuẩn SGM</span>
                               )}
                             </td>
                             {isUnlocked && (
@@ -1549,7 +1795,7 @@ export default function PublicOrderTrackingPage() {
               </div>
 
               {/* Manifest Summary Footer Bar */}
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-3xs text-slate-500 flex-wrap gap-2">
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-2xs text-slate-500 flex-wrap gap-2">
                 <span>
                   Đang hiển thị <strong className="text-slate-800 font-mono">{filteredProducts.length}</strong> / {normalizedProducts.length} mục • Tổng cộng <strong className="text-slate-800 font-mono">{filteredProducts.reduce((sum, p) => sum + p.quantity, 0)}</strong> thiết bị
                 </span>
