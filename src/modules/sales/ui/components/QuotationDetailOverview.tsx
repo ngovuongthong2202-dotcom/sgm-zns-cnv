@@ -172,7 +172,7 @@ export function QuotationDetailOverview({
       <EntityBusinessLockWarning {...lockResult} />
 
       {/* 2. Banner Thông Báo Khách Hàng Xác Nhận Đồng Ý Trực Tuyến Qua Cổng ZNS */}
-      {(currentQuotation.customerApprovedAt || currentQuotation.tinhTrangBaoGia === 'KH_DONG_Y') && (
+      {(currentQuotation.customerApprovedAt || currentQuotation.tinhTrangBaoGia === 'KH_DONG_Y' || currentQuotation.lifecycleStatus === 'WON') && (
         <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 rounded-xl p-4 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-emerald-500/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/30 shadow-2xs">
@@ -183,7 +183,7 @@ export function QuotationDetailOverview({
                 <span className="font-black text-sm uppercase tracking-wide">
                   Khách Hàng Đã Xác Nhận Đồng Ý Báo Giá Trực Tuyến!
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-white/20 text-white font-mono text-3xs font-bold border border-white/30">
+                <span className="px-2 py-0.5 rounded-full bg-white/20 text-white font-sans tabular-nums text-3xs font-bold border border-white/30">
                   Cổng ZNS
                 </span>
               </div>
