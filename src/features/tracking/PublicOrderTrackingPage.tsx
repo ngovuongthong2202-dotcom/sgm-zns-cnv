@@ -739,8 +739,21 @@ export default function PublicOrderTrackingPage() {
       cumulativePaidAcrossAll > 0 ? cumulativePaidAcrossAll : (totalPaid || totalContractVal)
     );
 
+    const subTotal = Number(
+      relatedContract?.subTotal || 
+      relatedQuotation?.subTotal || 
+      productsList.reduce((sum: number, p: any) => sum + ((Number(p.price) || 0) * (Number(p.quantity) || 1)), 0)
+    );
+    const vatAmount = Number(
+      relatedContract?.vatAmount || 
+      relatedQuotation?.vatAmount || 
+      (totalContractVal > subTotal ? totalContractVal - subTotal : 0)
+    );
+
     return {
       totalContractVal,
+      subTotal,
+      vatAmount,
       totalPaid,
       remainingDebt,
       paymentPoints,
@@ -1462,6 +1475,11 @@ export default function PublicOrderTrackingPage() {
                       <span className="text-xs sm:text-sm font-black font-mono text-emerald-700 block">
                         {formatCurrency(financials.totalContractVal)}
                       </span>
+                      {financials.vatAmount > 0 && (
+                        <span className="text-[10px] text-slate-500 font-medium block">
+                          (Hàng: {formatCurrency(financials.subTotal)} + VAT: {formatCurrency(financials.vatAmount)})
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1493,7 +1511,7 @@ export default function PublicOrderTrackingPage() {
                             : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
                         }`}
                       >
-                        ⚙️ Máy móc ({categoryCounts.MACHINE})
+                        ⚙️ Máy móc/Thiết bị ({categoryCounts.MACHINE})
                       </button>
                     )}
                     {categoryCounts.ACCESSORY > 0 && (
@@ -1571,140 +1589,127 @@ export default function PublicOrderTrackingPage() {
                       const isExpanded = !!expandedItems[p.id || String(idx)];
                       return (
                         <div key={p.id || idx} className="transition-colors hover:bg-slate-50/70">
-                          {/* Master Compact Row (~56px) */}
+                          {/* Master Precision Row: 2-Tier Architecture (Zero cut title + Compact Data Ribbon) */}
                           <div 
                             onClick={() => toggleItemExpanded(p.id || String(idx))}
-                            className="p-3.5 flex items-center gap-3 cursor-pointer select-none active:bg-slate-100/80 transition-colors"
+                            className="p-3 cursor-pointer select-none active:bg-slate-100/80 transition-colors"
                           >
-                            {/* Index Number */}
-                            <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 font-mono text-2xs font-bold flex items-center justify-center shrink-0">
-                              {String(idx + 1).padStart(2, '0')}
-                            </span>
+                            {/* Tier 1: Full Uncut Title Header */}
+                            <div className="flex items-start gap-2.5">
+                              {/* Index Badge */}
+                              <span className="w-5.5 h-5.5 rounded-md bg-slate-100 text-slate-600 font-mono text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                                {String(idx + 1).padStart(2, '0')}
+                              </span>
 
-                            {/* Center: Title & Integrated Subtitle */}
-                            <div className="flex-1 min-w-0 pr-1">
-                              <h4 className="font-bold text-slate-900 text-xs leading-snug truncate">
+                              {/* Title - 100% Full Uncut Name */}
+                              <h4 className="flex-1 font-bold text-slate-900 text-xs sm:text-sm leading-snug break-words">
                                 {p.name}
                               </h4>
-                              <div className="flex items-center gap-1.5 mt-0.5 text-2xs text-slate-500 truncate">
-                                <span className="font-semibold text-slate-700">
-                                  {p.quantity} {p.unit}
-                                </span>
-                                <span>•</span>
-                                <span className={p.itemType === 'MACHINE' ? 'text-blue-700 font-medium' : (p.itemType === 'SERVICE' ? 'text-amber-700 font-medium' : 'text-purple-700 font-medium')}>
-                                  {semantic.label}
-                                </span>
-                                {p.serials.length > 0 ? (
-                                  <>
-                                    <span>•</span>
-                                    <span className="font-mono text-emerald-700 font-medium truncate">
-                                      SN: {p.serials.join(', ')}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span>•</span>
-                                    <span className="text-slate-400">Chuẩn SGM</span>
-                                  </>
-                                )}
-                              </div>
                             </div>
 
-                            {/* Right: Price & Smooth Chevron */}
-                            <div className="text-right shrink-0 flex items-center gap-2">
-                              <div>
-                                {isUnlocked ? (
-                                  <span className="text-xs font-black font-mono text-emerald-700 block">
-                                    {formatCurrency(p.amount)}
-                                  </span>
-                                ) : (
-                                  <span className="text-2xs text-slate-400 font-mono flex items-center justify-end gap-1">
-                                    <Lock className="w-3 h-3 text-slate-400" />
-                                    <span>••••••</span>
-                                  </span>
-                                )}
+                            {/* Tier 2: Precision Data Ribbon + Price & Chevron */}
+                            <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-slate-100/80 pl-8">
+                              {/* Spec Quick Ribbon */}
+                              <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-600">
+                                <span className="font-semibold text-slate-900">
+                                  {p.quantity} {p.unit}
+                                </span>
+                                <span className="text-slate-300">•</span>
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${semantic.badgeClass}`}>
+                                  {semantic.icon} {semantic.label}
+                                </span>
+                                <span className="text-slate-300">•</span>
+                                <span className="text-slate-500 font-medium">
+                                  BH: {p.warranty || '12 tháng'}
+                                </span>
                               </div>
-                              <div className="text-slate-400 w-4 h-4 flex items-center justify-center">
-                                {isExpanded ? (
-                                  <ChevronUp className="w-4 h-4 text-emerald-600" />
-                                ) : (
-                                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                                )}
+
+                              {/* Price & Expand Chevron */}
+                              <div className="flex items-center gap-2 shrink-0">
+                                <div>
+                                  {isUnlocked ? (
+                                    <span className="text-xs sm:text-sm font-black font-mono text-emerald-700 block">
+                                      {formatCurrency(p.amount)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
+                                      <Lock className="w-3 h-3 text-slate-400" />
+                                      <span>••••••</span>
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-slate-400 w-4 h-4 flex items-center justify-center">
+                                  {isExpanded ? (
+                                    <ChevronUp className="w-4 h-4 text-emerald-600" />
+                                  ) : (
+                                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
 
                           {/* Expandable Technical Specification Accordion Drawer */}
                           {isExpanded && (
-                            <div className="px-3.5 pb-3.5 pt-1 bg-slate-50/70 border-t border-slate-100 space-y-2.5 text-2xs">
-                              {/* Specs description */}
+                            <div className="px-3 pb-3 pt-1 bg-slate-50/70 border-t border-slate-100 space-y-2 text-2xs">
+                              {/* High-Density Precision Spec Strip (Chỉ ~34px, thay thế 5 card to cồng kềnh) */}
+                              <div className="p-2.5 rounded-xl bg-white border border-slate-200/90 flex flex-wrap items-center justify-between gap-2 text-[11px] shadow-2xs">
+                                {/* Left: Thông số cốt lõi */}
+                                <div className="flex items-center gap-2 flex-wrap text-slate-600">
+                                  <span><span className="text-slate-400 font-medium">Phân loại:</span> <strong className="text-slate-800">{semantic.label}</strong></span>
+                                  <span className="text-slate-300">•</span>
+                                  <span><span className="text-slate-400 font-medium">ĐVT:</span> <strong className="text-slate-800">{p.unit}</strong></span>
+                                  <span className="text-slate-300">•</span>
+                                  <span><span className="text-slate-400 font-medium">SL:</span> <strong className="text-slate-900 font-mono font-black">{p.quantity}</strong></span>
+                                  <span className="text-slate-300">•</span>
+                                  <span><span className="text-slate-400 font-medium">Bảo hành:</span> <strong className="text-slate-800">{p.warranty || '12 tháng'}</strong></span>
+                                </div>
+
+                                {/* Right: Phân tách Đơn giá & Thành tiền */}
+                                {isUnlocked ? (
+                                  <div className="flex items-center gap-1.5 font-mono text-right ml-auto">
+                                    {p.quantity > 1 ? (
+                                      <>
+                                        <span className="text-slate-500 font-medium">{formatCurrency(p.price)} × {p.quantity} =</span>
+                                        <span className="font-black text-emerald-700">{formatCurrency(p.amount)}</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span className="text-slate-400 font-medium">Thành tiền:</span>
+                                        <span className="font-black text-emerald-700">{formatCurrency(p.amount)}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1 text-slate-400 italic text-[11px] ml-auto">
+                                    <Lock className="w-3 h-3" />
+                                    <span>Nhập SĐT để xem giá</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Specs description (chỉ hiện khi có quy cách chi tiết) */}
                               {p.specifications && (
                                 <div className="p-3 rounded-xl bg-white border border-slate-200/90 text-slate-700 leading-relaxed shadow-2xs">
-                                  <div className="font-bold text-2xs uppercase tracking-wider text-slate-500 flex items-center gap-1.5 mb-1.5">
+                                  <div className="font-bold text-[10px] uppercase tracking-wider text-slate-500 flex items-center gap-1.5 mb-1.5">
                                     <Wrench className="w-3.5 h-3.5 text-slate-400" />
                                     <span>Quy Cách Kỹ Thuật Chi Tiết:</span>
                                   </div>
-                                  <div className="whitespace-pre-wrap leading-relaxed text-slate-700">{p.specifications}</div>
+                                  <div className="whitespace-pre-wrap leading-relaxed text-slate-700 text-[11px]">{p.specifications}</div>
                                 </div>
                               )}
 
-                              {/* 4-col micro spec bar */}
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-2xs">
-                                <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
-                                  <span className="text-slate-400 uppercase tracking-wider font-semibold block mb-0.5">Đơn Vị Tính</span>
-                                  <span className="font-bold text-slate-800">{p.unit}</span>
-                                </div>
-                                <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
-                                  <span className="text-slate-400 uppercase tracking-wider font-semibold block mb-0.5">Số Lượng</span>
-                                  <span className="font-mono font-black text-emerald-700">{p.quantity}</span>
-                                </div>
-                                <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
-                                  <span className="text-slate-400 uppercase tracking-wider font-semibold block mb-0.5">Bảo Hành</span>
-                                  <span className="font-semibold text-slate-800">{p.warranty || '12 tháng'}</span>
-                                </div>
-                                <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
-                                  <span className="text-slate-400 uppercase tracking-wider font-semibold block mb-0.5">Phân Loại</span>
-                                  <span className="font-semibold text-slate-800">{semantic.label}</span>
-                                </div>
-                              </div>
-
-                              {/* Serial / Mã Máy */}
+                              {/* Serial / Mã Máy (chỉ hiện khi có serial) */}
                               {p.serials.length > 0 && (
-                                <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
-                                  <span className="text-slate-400 uppercase tracking-wider font-semibold block mb-1">Mã Máy / Serial Sản Phẩm:</span>
+                                <div className="p-2.5 rounded-xl bg-white border border-slate-200/90 flex items-center gap-2 flex-wrap shadow-2xs">
+                                  <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 shrink-0">Mã Máy / Serial:</span>
                                   <div className="flex flex-wrap gap-1.5">
                                     {p.serials.map((sn: string, sIdx: number) => (
-                                      <span key={sIdx} className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-2xs font-bold">
+                                      <span key={sIdx} className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-[11px] font-bold">
                                         {sn}
                                       </span>
                                     ))}
                                   </div>
-                                </div>
-                              )}
-
-                              {/* Price breakdown bar */}
-                              {isUnlocked ? (
-                                <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between">
-                                  <div>
-                                    <span className="text-slate-500 uppercase tracking-wider font-semibold block">Đơn Giá</span>
-                                    <span className="font-mono font-bold text-slate-800 text-xs">
-                                      {formatCurrency(p.price)}
-                                    </span>
-                                  </div>
-                                  <div className="text-right">
-                                    <span className="text-emerald-800 uppercase tracking-wider font-semibold block">Thành Tiền</span>
-                                    <span className="font-mono font-black text-emerald-700 text-sm">
-                                      {formatCurrency(p.amount)}
-                                    </span>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-between text-slate-400">
-                                  <span className="flex items-center gap-1.5 italic">
-                                    <Lock className="w-3.5 h-3.5" />
-                                    <span>Nhập 4 số cuối SĐT để xem giá</span>
-                                  </span>
-                                  <span className="font-mono">•••••••• đ</span>
                                 </div>
                               )}
                             </div>

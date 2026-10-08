@@ -201,7 +201,7 @@ export function QuotationDetailOverview({
               type="button"
               onClick={() => {
                 onClose?.();
-                navigate(`/contracts?action=create&quotationId=${currentQuotation.id}&customerId=${currentQuotation.customerId || ''}`);
+                navigate(`/contracts?fromQuotation=${currentQuotation.id}&quotationId=${currentQuotation.id}&customerId=${currentQuotation.customerId || ''}`);
               }}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-emerald-800 hover:bg-emerald-50 active:scale-98 font-bold text-xs shadow-sm transition-all shrink-0 cursor-pointer"
             >

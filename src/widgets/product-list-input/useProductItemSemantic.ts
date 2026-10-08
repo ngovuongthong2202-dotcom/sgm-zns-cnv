@@ -14,7 +14,7 @@ export interface SemanticConfig {
 export const ITEM_SEMANTIC_CONFIG: Record<ItemSemanticType, SemanticConfig> = {
   MACHINE: {
     type: 'MACHINE',
-    label: 'Máy móc / Dây chuyền',
+    label: 'Máy móc/Thiết bị',
     shortLabel: 'Máy',
     icon: '⚙️',
     badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100',

@@ -129,8 +129,8 @@ export function DrawerProductList({
                                   className={`inline-flex items-center gap-1 pl-1.5 pr-4 py-0.5 rounded text-3xs font-extrabold border cursor-pointer appearance-none outline-none ${semConfig.badgeClass} hover:opacity-90 transition-opacity`}
                                   title="Bấm để đổi loại sản phẩm và tự động đồng bộ liên kết (Admin)"
                                 >
-                                  <option value="MACHINE">📜 Máy & TB</option>
-                                  <option value="MATERIAL">📦 Vật tư</option>
+                                  <option value="MACHINE">⚙️ Máy móc/Thiết bị</option>
+                                  <option value="MATERIAL">📦 Vật tư/Phụ tùng</option>
                                   <option value="SERVICE">🛠️ Dịch vụ</option>
                                 </select>
                                 <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] pointer-events-none opacity-60">▼</span>

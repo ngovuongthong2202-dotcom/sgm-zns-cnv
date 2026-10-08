@@ -62,7 +62,7 @@ const ContractRouteSync = React.memo(function ContractRouteSync({
 
   useEffect(() => {
     if (!location.pathname.startsWith('/contracts')) return;
-    const fromQuoId = searchParams.get('fromQuotation');
+    const fromQuoId = searchParams.get('fromQuotation') || searchParams.get('quotationId');
     if (fromQuoId && quotations.length > 0) {
       const foundQuo = quotations.find((q: any) => q.id === fromQuoId);
       if (foundQuo) {
@@ -75,6 +75,7 @@ const ContractRouteSync = React.memo(function ContractRouteSync({
         }
         const nextParams = new URLSearchParams(searchParams);
         nextParams.delete('fromQuotation');
+        nextParams.delete('quotationId');
         setSearchParams(nextParams, { replace: true });
       }
     }
