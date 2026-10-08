@@ -16,7 +16,13 @@ import {
   AlertCircle,
   HelpCircle,
   Sparkles,
-  Check
+  Check,
+  Calendar,
+  Printer,
+  ThumbsUp,
+  ArrowRight,
+  UserCheck,
+  RefreshCw
 } from 'lucide-react';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
@@ -71,6 +77,109 @@ export function maskPhone(phone: string): string {
   return phone.slice(0, 3) + '****' + phone.slice(-3);
 }
 
+export type PortalContextType = 'QUOTATION' | 'ORDER' | 'PAYMENT';
+
+/**
+ * Thuật toán nhận diện ngữ cảnh hiển thị cổng tra cứu (Context-Morphing Detection):
+ * - Ưu tiên 1: Tuyến đường URL chuyên biệt (/tra-cuu-bao-gia -> QUOTATION, /tra-cuu-thanh-toan -> PAYMENT).
+ * - Ưu tiên 2: Tiền tố mã chứng từ (BG-*, BGM-* -> QUOTATION; PT-*, TT-* -> PAYMENT).
+ * - Ưu tiên 3: Thực thể tìm thấy trong cơ sở dữ liệu.
+ */
+export function detectPortalContext(pathname: string, code?: string, entity?: any): PortalContextType {
+  const normPath = (pathname || '').toLowerCase();
+  const normCode = (code || '').trim().toUpperCase();
+
+  // 1. Explicit Path Routing
+  if (normPath.startsWith('/tra-cuu-bao-gia')) return 'QUOTATION';
+  if (normPath.startsWith('/tra-cuu-thanh-toan')) return 'PAYMENT';
+  if (normPath.startsWith('/tra-cuu-don-hang')) {
+    // Nếu vào link don-hang nhưng chứng từ là báo giá độc lập
+    if ((normCode.startsWith('BG-') || normCode.startsWith('BGM-')) && entity && !entity.soHopDong) {
+      return 'QUOTATION';
+    }
+    return 'ORDER';
+  }
+
+  // 2. Code prefix heuristics
+  if (normCode.startsWith('BG-') || normCode.startsWith('BGM-')) return 'QUOTATION';
+  if (normCode.startsWith('PT-') || normCode.startsWith('TT-')) return 'PAYMENT';
+
+  // 3. Entity heuristic
+  if (entity) {
+    if (entity.soPhieuBaoGia && !entity.soHopDong && !entity.paymentId) return 'QUOTATION';
+    if (entity.paymentId || entity.soTien) return 'PAYMENT';
+  }
+
+  return 'ORDER';
+}
+
+/**
+ * Tính toán trạng thái hiệu lực của Báo Giá:
+ * - Hạn hiệu lực ngày hết hạn
+ * - Số ngày còn lại (countdown)
+ * - Tình trạng hết hạn hay còn hiệu lực
+ */
+export function calculateQuotationValidity(
+  ngayBaoGia?: string,
+  ngayHetHan?: string,
+  hieuLucDays = 7,
+  referenceDate: Date = new Date()
+): {
+  ngayBaoGiaStr: string;
+  ngayHetHanStr: string;
+  daysLeft: number;
+  isExpired: boolean;
+  isValid: boolean;
+} {
+  const hDays = Number(hieuLucDays) || 7;
+  let expiryDate: Date | null = null;
+
+  if (ngayHetHan && typeof ngayHetHan === 'string') {
+    if (ngayHetHan.includes('/')) {
+      const parts = ngayHetHan.split('/');
+      if (parts.length === 3) {
+        expiryDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]), 23, 59, 59);
+      }
+    } else {
+      const parsed = new Date(ngayHetHan);
+      if (!isNaN(parsed.getTime())) expiryDate = parsed;
+    }
+  }
+
+  if (!expiryDate || isNaN(expiryDate.getTime())) {
+    if (ngayBaoGia && typeof ngayBaoGia === 'string') {
+      if (ngayBaoGia.includes('/')) {
+        const parts = ngayBaoGia.split('/');
+        if (parts.length === 3) {
+          const bgDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+          expiryDate = new Date(bgDate.getTime() + hDays * 86400000);
+        }
+      } else {
+        const parsed = new Date(ngayBaoGia);
+        if (!isNaN(parsed.getTime())) {
+          expiryDate = new Date(parsed.getTime() + hDays * 86400000);
+        }
+      }
+    }
+  }
+
+  if (!expiryDate || isNaN(expiryDate.getTime())) {
+    expiryDate = new Date(referenceDate.getTime() + hDays * 86400000);
+  }
+
+  const diffMs = expiryDate.getTime() - referenceDate.getTime();
+  const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const isExpired = daysLeft < 0;
+
+  return {
+    ngayBaoGiaStr: ngayBaoGia || referenceDate.toLocaleDateString('vi-VN'),
+    ngayHetHanStr: ngayHetHan || expiryDate.toLocaleDateString('vi-VN'),
+    daysLeft,
+    isExpired,
+    isValid: !isExpired
+  };
+}
+
 export default function PublicOrderTrackingPage() {
   const [searchCode, setSearchCode] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -81,6 +190,18 @@ export default function PublicOrderTrackingPage() {
   const [relatedPayment, setRelatedPayment] = useState<any>(null);
   const [relatedDelivery, setRelatedDelivery] = useState<any>(null);
   const [allPaymentsForCustomer, setAllPaymentsForCustomer] = useState<any[]>([]);
+
+  // Context-Morphing Portal Mode ('QUOTATION' | 'ORDER' | 'PAYMENT')
+  const [portalMode, setPortalMode] = useState<PortalContextType>(() => {
+    if (typeof window !== 'undefined') {
+      return detectPortalContext(window.location.pathname, window.location.search);
+    }
+    return 'ORDER';
+  });
+
+  // Quotation Online Approval State
+  const [hasCustomerApproved, setHasCustomerApproved] = useState<boolean>(false);
+  const [approvalSubmitting, setApprovalSubmitting] = useState<boolean>(false);
 
   // Phone-Gate State
   const [phoneDigits, setPhoneDigits] = useState<string>('');
@@ -103,6 +224,12 @@ export default function PublicOrderTrackingPage() {
     if (code) {
       setSearchCode(code);
       setIsAutoRecognized(true);
+
+      const initialMode = detectPortalContext(
+        typeof window !== 'undefined' ? window.location.pathname : '',
+        code
+      );
+      setPortalMode(initialMode);
 
       // Phục hồi trạng thái mở khóa từ SessionStorage nếu đã xác thực trước đó
       const sessionKey = `sgm_tracking_unlocked_${code.toLowerCase()}`;
@@ -202,6 +329,34 @@ export default function PublicOrderTrackingPage() {
       setRelatedQuotation(quotation || null);
       setRelatedPayment(payment || null);
       setRelatedDelivery(delivery || null);
+
+      // Auto Morph Context
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+      const detectedMode = detectPortalContext(currentPath, query, primary);
+      setPortalMode(detectedMode);
+
+      // Graceful address bar update if it's a quotation arriving on generic URL
+      if (detectedMode === 'QUOTATION' && typeof window !== 'undefined') {
+        if (
+          window.location.pathname.startsWith('/tra-cuu-don-hang') || 
+          window.location.pathname.startsWith('/tra-cuu') ||
+          window.location.pathname.startsWith('/tracking')
+        ) {
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', '/tra-cuu-bao-gia' + window.location.search);
+          }
+        }
+      }
+
+      if (quotation) {
+        const isApproved = 
+          quotation.lifecycleStatus === 'WON' || 
+          String(quotation.tinhTrangBaoGia || '').toLowerCase().includes('đồng ý') ||
+          String(quotation.noiDungGhiChu || '').toLowerCase().includes('đồng ý');
+        if (isApproved) {
+          setHasCustomerApproved(true);
+        }
+      }
 
       if (primary) {
         const cId = primary.customerId || primary.maKh || '';
@@ -310,9 +465,15 @@ export default function PublicOrderTrackingPage() {
 
   // Tính toán số liệu tài chính & Điểm thưởng tích lũy
   const financials = useMemo(() => {
+    const quotationVal = Number(
+      relatedQuotation?.totalAmount || 
+      relatedQuotation?.subTotal || 
+      relatedQuotation?.giaTri || 
+      0
+    );
     const totalContractVal = Number(
       relatedContract?.giaTriHopDong || 
-      relatedQuotation?.giaTri || 
+      quotationVal || 
       relatedPayment?.totalAmount || 
       productsList.reduce((sum: number, p: any) => sum + ((Number(p.price) || 0) * (Number(p.quantity) || 1)), 0)
     );
@@ -352,9 +513,40 @@ export default function PublicOrderTrackingPage() {
     };
   }, [relatedContract, relatedQuotation, relatedPayment, productsList, installmentsList, allPaymentsForCustomer]);
 
+  // Ngữ cảnh Báo Giá chuyên biệt
+  const isQuotationMode = portalMode === 'QUOTATION' || (!relatedContract && Boolean(relatedQuotation));
+
+  // Phân tích trạng thái thời hạn của Báo giá
+  const quotationValidity = useMemo(() => {
+    if (!relatedQuotation) return null;
+    return calculateQuotationValidity(
+      relatedQuotation.ngayBaoGia,
+      relatedQuotation.ngayHetHan,
+      relatedQuotation.hieuLuc
+    );
+  }, [relatedQuotation]);
+
+  // Hành động khách hàng trực tuyến: Đồng ý báo giá & Chốt hợp đồng
+  const handleApproveQuotation = async () => {
+    if (!relatedQuotation?.id) return;
+    setApprovalSubmitting(true);
+    try {
+      await repositoryFactory.get<any>('quotations').update(relatedQuotation.id, {
+        lifecycleStatus: 'WON',
+        tinhTrangBaoGia: 'Khách hàng đồng ý qua Cổng Báo Giá',
+        noiDungGhiChu: `${relatedQuotation.noiDungGhiChu || ''}\n[${new Date().toLocaleString('vi-VN')}] Khách hàng đã xác nhận đồng ý báo giá qua Cổng Tra Cứu`.trim()
+      });
+      setHasCustomerApproved(true);
+    } catch (err) {
+      console.error('Error approving quotation:', err);
+    } finally {
+      setApprovalSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-emerald-600 selection:text-white">
-      {/* 1. TOP BRAND HEADER - LIGHT THEME SGM OS */}
+      {/* 1. TOP BRAND HEADER - ADAPTIVE SGM OS */}
       <header className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md sticky top-0 z-50 shadow-2xs">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -362,8 +554,12 @@ export default function PublicOrderTrackingPage() {
               <img src="/sgm-logo.png" alt="SGM Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <div className="text-2xs font-black tracking-wider text-emerald-700 uppercase">CƠ KHÍ CÔNG NGHIỆP SÀI GÒN</div>
-              <h1 className="text-sm font-bold text-slate-900 leading-tight">Cổng Tra Cứu Đơn Hàng & Bảo Hành</h1>
+              <div className="text-2xs font-black tracking-wider text-emerald-700 uppercase">
+                {isQuotationMode ? 'CƠ KHÍ CÔNG NGHIỆP SÀI GÒN • BÁO GIÁ ĐIỆN TỬ' : 'CƠ KHÍ CÔNG NGHIỆP SÀI GÒN'}
+              </div>
+              <h1 className="text-sm font-bold text-slate-900 leading-tight">
+                {isQuotationMode ? 'Cổng Tra Cứu & Xác Nhận Báo Giá' : 'Cổng Tra Cứu Đơn Hàng & Bảo Hành'}
+              </h1>
             </div>
           </div>
 
@@ -389,12 +585,57 @@ export default function PublicOrderTrackingPage() {
               </div>
               <div>
                 <span className="font-bold">Đã tự động nhận diện từ Zalo ZNS:</span>{' '}
-                <span>Mã đơn <strong className="font-mono text-emerald-800">{searchCode}</strong> đã được đồng bộ với tiến độ thanh toán thực tế.</span>
+                {isQuotationMode ? (
+                  <span>
+                    Phiếu báo giá <strong className="font-mono text-emerald-800">{relatedQuotation?.soPhieuBaoGia || searchCode}</strong> đã được đồng bộ trực tuyến. Người phụ trách: <strong className="text-emerald-800">{relatedQuotation?.nguoiPhuTrach || 'Ngô Vương Thông'}</strong>.
+                  </span>
+                ) : (
+                  <span>Mã đơn <strong className="font-mono text-emerald-800">{searchCode}</strong> đã được đồng bộ với tiến độ thanh toán thực tế.</span>
+                )}
               </div>
             </div>
             <span className="hidden sm:inline-flex items-center gap-1 text-2xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-full border border-emerald-300">
               <Check className="w-3 h-3" /> Tự động nhận diện
             </span>
+          </div>
+        )}
+
+        {/* THÔNG BÁO LIÊN KẾT HỢP ĐỒNG ĐÃ ĐƯỢC THIẾT LẬP */}
+        {isQuotationMode && relatedContract && (
+          <div className="bg-blue-50/90 border border-blue-200 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-xs text-blue-900 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <div>
+                <span>Báo giá này đã được nâng cấp thành <strong>Hợp đồng kinh tế {relatedContract.soHopDong}</strong>.</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPortalMode('ORDER')}
+              className="inline-flex items-center gap-1 text-2xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs"
+            >
+              <span>Xem tiến độ Đơn hàng</span>
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+
+        {/* NẾU ĐANG Ở CHẾ ĐỘ ĐƠN HÀNG NHƯNG CÓ BÁO GIÁ LIÊN KẾT */}
+        {!isQuotationMode && relatedQuotation && (
+          <div className="bg-slate-100 border border-slate-200 rounded-2xl p-3 flex items-center justify-between gap-3 text-2xs text-slate-700">
+            <div className="flex items-center gap-2">
+              <FileText className="w-3.5 h-3.5 text-slate-500" />
+              <span>Chứng từ khởi tạo: Báo giá gốc <strong>{relatedQuotation.soPhieuBaoGia}</strong></span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPortalMode('QUOTATION')}
+              className="text-emerald-700 hover:text-emerald-800 font-bold hover:underline cursor-pointer"
+            >
+              Xem lại Báo giá gốc →
+            </button>
           </div>
         )}
 
@@ -410,7 +651,7 @@ export default function PublicOrderTrackingPage() {
                 type="text"
                 value={searchCode}
                 onChange={(e) => setSearchCode(e.target.value)}
-                placeholder="Nhập Mã đơn hàng, Số Hợp đồng hoặc Số Báo giá (VD: DH-ERP, HD-2026, BG-2026...)"
+                placeholder={isQuotationMode ? "Nhập Số Báo giá (VD: BG-2026-..., BGM-2026-...) hoặc Mã đơn hàng..." : "Nhập Mã đơn hàng, Số Hợp đồng hoặc Số Báo giá (VD: DH-ERP, HD-2026, BG-2026...)"}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-hidden focus:bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-all font-mono"
               />
             </div>
@@ -467,16 +708,18 @@ export default function PublicOrderTrackingPage() {
         {!loading && resolvedEntity && (
           <div className="space-y-5">
 
-            {/* A. THẺ TỔNG QUAN ĐƠN HÀNG & BẢO MẬT PHONE-GATE */}
+            {/* A. THẺ TỔNG QUAN ĐƠN HÀNG / BÁO GIÁ & BẢO MẬT PHONE-GATE */}
             <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs relative overflow-hidden">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-2xs font-bold uppercase tracking-wider">
-                      Đơn hàng hợp lệ
+                      {isQuotationMode ? 'Báo giá chính thức SGM' : 'Đơn hàng hợp lệ'}
                     </span>
                     <span className="text-2xs text-slate-400 font-mono">
-                      Khởi tạo: {resolvedEntity.ngayKy || resolvedEntity.ngayBaoGia || 'Hệ thống SGM OS'}
+                      {isQuotationMode 
+                        ? `Ngày lập: ${relatedQuotation?.ngayBaoGia || resolvedEntity.ngayBaoGia || '---'}`
+                        : `Khởi tạo: ${resolvedEntity.ngayKy || resolvedEntity.ngayBaoGia || 'Hệ thống SGM OS'}`}
                     </span>
                   </div>
                   <h2 className="text-lg font-black text-slate-900 mt-1">
@@ -490,22 +733,62 @@ export default function PublicOrderTrackingPage() {
                   </p>
                 </div>
 
-                {/* VIP Points Card (SGM Loyalty Tích Lũy 1.000đ = 1 điểm) */}
-                <div className="bg-gradient-to-br from-amber-50/90 via-amber-100/40 to-white border border-amber-200 rounded-xl p-3 min-w-[190px] flex items-center gap-3 shadow-2xs">
-                  <div className="w-10 h-10 rounded-full bg-amber-500/15 border border-amber-300 text-amber-600 flex items-center justify-center shrink-0">
-                    <Award className="w-5 h-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <div className="text-3xs uppercase font-black tracking-wider text-amber-800 flex items-center gap-1">
-                      <span>Điểm Thưởng VIP</span>
-                      <Sparkles className="w-3 h-3 text-amber-500" />
+                {/* THẺ HIỆU LỰC BÁO GIÁ (CHO BÁO GIÁ) HOẶC VIP POINTS CARD (CHO ĐƠN HÀNG) */}
+                {isQuotationMode && quotationValidity ? (
+                  <div className={`border rounded-xl p-3 min-w-[210px] flex items-center gap-3 shadow-2xs ${
+                    hasCustomerApproved
+                      ? 'bg-emerald-50/90 border-emerald-300'
+                      : quotationValidity.isExpired
+                      ? 'bg-red-50/90 border-red-200'
+                      : 'bg-gradient-to-br from-emerald-50/90 via-teal-100/40 to-white border-emerald-200'
+                  }`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border ${
+                      hasCustomerApproved
+                        ? 'bg-emerald-500/20 text-emerald-700 border-emerald-300'
+                        : quotationValidity.isExpired
+                        ? 'bg-red-500/20 text-red-700 border-red-300'
+                        : 'bg-emerald-500/15 text-emerald-600 border-emerald-300'
+                    }`}>
+                      {hasCustomerApproved ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Calendar className="w-5 h-5" />}
                     </div>
-                    <div className="text-lg font-black text-amber-700 font-mono leading-tight">
-                      {formatPoints(financials.cumulativePoints)} <span className="text-2xs font-normal">điểm</span>
+                    <div>
+                      <div className="text-3xs uppercase font-black tracking-wider text-emerald-800 flex items-center gap-1">
+                        <span>{hasCustomerApproved ? 'Đã Đồng Ý' : quotationValidity.isExpired ? 'Hết Hiệu Lực' : 'Hiệu Lực Báo Giá'}</span>
+                        <Clock className="w-3 h-3 text-emerald-600" />
+                      </div>
+                      <div className={`text-base font-black font-mono leading-tight ${
+                        hasCustomerApproved ? 'text-emerald-700' : quotationValidity.isExpired ? 'text-red-700' : 'text-emerald-700'
+                      }`}>
+                        {hasCustomerApproved ? (
+                          <span>Chờ Lên HĐ</span>
+                        ) : quotationValidity.isExpired ? (
+                          <span>Đã Hết Hạn</span>
+                        ) : (
+                          <span>Còn {quotationValidity.daysLeft} ngày</span>
+                        )}
+                      </div>
+                      <div className="text-4xs text-slate-500">
+                        Hạn đến: {quotationValidity.ngayHetHanStr}
+                      </div>
                     </div>
-                    <div className="text-4xs text-amber-700/80">1.000đ = 1 điểm tích lũy</div>
                   </div>
-                </div>
+                ) : (
+                  <div className="bg-gradient-to-br from-amber-50/90 via-amber-100/40 to-white border border-amber-200 rounded-xl p-3 min-w-[190px] flex items-center gap-3 shadow-2xs">
+                    <div className="w-10 h-10 rounded-full bg-amber-500/15 border border-amber-300 text-amber-600 flex items-center justify-center shrink-0">
+                      <Award className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <div className="text-3xs uppercase font-black tracking-wider text-amber-800 flex items-center gap-1">
+                        <span>Điểm Thưởng VIP</span>
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                      </div>
+                      <div className="text-lg font-black text-amber-700 font-mono leading-tight">
+                        {formatPoints(financials.cumulativePoints)} <span className="text-2xs font-normal">điểm</span>
+                      </div>
+                      <div className="text-4xs text-amber-700/80">1.000đ = 1 điểm tích lũy</div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* BẢO MẬT PHONE-GATE UNLOCK BOX */}
@@ -516,9 +799,13 @@ export default function PublicOrderTrackingPage() {
                       <Lock className="w-4 h-4" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-emerald-950">Bảo mật thông tin đơn hàng (Zero-Trust Phone-Gate)</h4>
+                      <h4 className="text-xs font-bold text-emerald-950">
+                        {isQuotationMode ? 'Bảo mật bảng giá thiết bị (Zero-Trust Phone-Gate)' : 'Bảo mật thông tin đơn hàng (Zero-Trust Phone-Gate)'}
+                      </h4>
                       <p className="text-2xs text-slate-600 mt-0.5 leading-relaxed">
-                        Để bảo vệ bí mật kinh doanh và hiển thị đầy đủ Đơn giá, Lịch sử các đợt thu, Hợp đồng và Serial máy, vui lòng nhập 4 số cuối của SĐT nhận thông báo ZNS.
+                        {isQuotationMode
+                          ? 'Để bảo vệ bí mật kinh doanh và hiển thị đầy đủ Đơn giá kỹ thuật và Thành tiền của Báo giá, vui lòng nhập 4 số cuối của SĐT nhận thông báo ZNS.'
+                          : 'Để bảo vệ bí mật kinh doanh và hiển thị đầy đủ Đơn giá, Lịch sử các đợt thu, Hợp đồng và Serial máy, vui lòng nhập 4 số cuối của SĐT nhận thông báo ZNS.'}
                       </p>
                     </div>
                   </div>
@@ -555,13 +842,13 @@ export default function PublicOrderTrackingPage() {
             <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-emerald-600" />
-                <span>Tiến Độ Thực Hiện Đơn Hàng</span>
+                <span>{isQuotationMode ? 'Tiến Độ Báo Giá & Chuẩn Bị Triển Khai' : 'Tiến Độ Thực Hiện Đơn Hàng'}</span>
               </h3>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {/* 1. Báo Giá */}
                 <div className={`p-3.5 rounded-xl border transition-all ${
-                  relatedQuotation ? 'bg-emerald-50/40 border-emerald-200' : 'bg-slate-50 border-slate-200'
+                  isQuotationMode ? 'bg-emerald-50/70 border-emerald-400 ring-1 ring-emerald-300' : (relatedQuotation ? 'bg-emerald-50/40 border-emerald-200' : 'bg-slate-50 border-slate-200')
                 }`}>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-3xs uppercase font-bold text-emerald-700">Bước 1: Báo Giá</span>
@@ -577,17 +864,17 @@ export default function PublicOrderTrackingPage() {
 
                 {/* 2. Hợp Đồng */}
                 <div className={`p-3.5 rounded-xl border transition-all ${
-                  relatedContract ? 'bg-emerald-50/40 border-emerald-200' : 'bg-slate-50 border-slate-200'
+                  relatedContract ? 'bg-emerald-50/40 border-emerald-200' : (isQuotationMode ? 'bg-amber-50/30 border-amber-200' : 'bg-slate-50 border-slate-200')
                 }`}>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-3xs uppercase font-bold text-emerald-700">Bước 2: Hợp Đồng</span>
-                    {relatedContract ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Clock className="w-4 h-4 text-slate-400" />}
+                    {relatedContract ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Clock className="w-4 h-4 text-amber-500" />}
                   </div>
                   <div className="text-xs font-bold text-slate-800 font-mono truncate">
-                    {relatedContract?.soHopDong || 'Đang chuẩn bị ký'}
+                    {relatedContract?.soHopDong || (isQuotationMode ? 'Sẵn sàng soạn thảo' : 'Đang chuẩn bị ký')}
                   </div>
                   <div className="text-3xs text-slate-500 mt-1">
-                    Đơn hàng: {relatedContract?.soDonHang || relatedQuotation?.soDonHang || '---'}
+                    {relatedContract ? `Đơn hàng: ${relatedContract.soDonHang || '---'}` : (isQuotationMode ? 'Khởi tạo sau khi đồng ý' : 'Theo quy trình')}
                   </div>
                 </div>
 
@@ -600,14 +887,14 @@ export default function PublicOrderTrackingPage() {
                     {financials.remainingDebt <= 0 && financials.totalPaid > 0 ? (
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     ) : (
-                      <Clock className="w-4 h-4 text-amber-500" />
+                      <Clock className="w-4 h-4 text-slate-400" />
                     )}
                   </div>
                   <div className="text-xs font-bold text-slate-800 font-mono">
-                    {isUnlocked ? formatCurrency(financials.totalPaid) : '•••••••• đ'}
+                    {financials.totalPaid > 0 ? (isUnlocked ? formatCurrency(financials.totalPaid) : '•••••••• đ') : 'Theo thỏa thuận'}
                   </div>
                   <div className="text-3xs text-slate-500 mt-1">
-                    {financials.remainingDebt <= 0 && financials.totalPaid > 0 ? 'Đã hoàn tất thanh toán' : 'Đang thanh toán theo tiến độ'}
+                    {financials.remainingDebt <= 0 && financials.totalPaid > 0 ? 'Đã hoàn tất thanh toán' : (isQuotationMode ? 'Tạm ứng & Nghiệm thu' : 'Đang thanh toán theo tiến độ')}
                   </div>
                 </div>
 
@@ -620,10 +907,10 @@ export default function PublicOrderTrackingPage() {
                     {relatedDelivery ? <Truck className="w-4 h-4 text-emerald-600" /> : <Clock className="w-4 h-4 text-slate-400" />}
                   </div>
                   <div className="text-xs font-bold text-slate-800 font-mono truncate">
-                    {relatedDelivery?.soPhieuXuat || 'Kế hoạch xuất kho'}
+                    {relatedDelivery?.soPhieuXuat || 'Chế tạo theo quy cách'}
                   </div>
                   <div className="text-3xs text-slate-500 mt-1">
-                    {relatedDelivery?.ngayGiaoThucTe ? `Đã giao: ${relatedDelivery.ngayGiaoThucTe}` : 'Chế tạo theo hợp đồng'}
+                    {relatedDelivery?.ngayGiaoThucTe ? `Đã giao: ${relatedDelivery.ngayGiaoThucTe}` : 'Tiêu chuẩn SGM'}
                   </div>
                 </div>
               </div>
@@ -708,6 +995,73 @@ export default function PublicOrderTrackingPage() {
                 </table>
               </div>
             </div>
+
+            {/* C.2. BỘ NÚT HÀNH ĐỘNG CHỐT BÁO GIÁ TRỰC TUYẾN (QUOTATION CONVERSION ACTION SUITE) */}
+            {isQuotationMode && (
+              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/90 rounded-2xl p-5 shadow-xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-emerald-600" />
+                      <span>Phản Hồi & Xác Nhận Báo Giá Trực Tuyến</span>
+                    </h3>
+                    <p className="text-2xs text-slate-600 mt-0.5">
+                      Quý khách có thể xác nhận đồng ý với báo giá trên để SGM ưu tiên soạn thảo Hợp đồng kinh tế và lên kế hoạch bố trí sản xuất.
+                    </p>
+                  </div>
+
+                  {hasCustomerApproved ? (
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-xs">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Đã ghi nhận Quý khách đồng ý báo giá!</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleApproveQuotation}
+                      disabled={approvalSubmitting}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {approvalSubmitting ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Đồng Ý Báo Giá & Yêu Cầu Lập Hợp Đồng</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-emerald-200/60 flex flex-wrap items-center gap-2">
+                  <a
+                    href="https://oa.zalo.me/1336150047301360288"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-100/50 text-2xs font-semibold transition-all shadow-2xs"
+                  >
+                    <ExternalLink className="w-3 h-3 text-[#0068FF]" />
+                    <span>Yêu cầu tư vấn điều chỉnh thông số qua Zalo OA</span>
+                  </a>
+                  <a
+                    href="tel:0932000999"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-100/50 text-2xs font-semibold transition-all shadow-2xs"
+                  >
+                    <Phone className="w-3 h-3 text-emerald-600" />
+                    <span>Gọi chuyên viên: {relatedQuotation?.nguoiPhuTrach || 'Ngô Vương Thông'} (0932.000.999)</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 text-2xs font-semibold transition-all shadow-2xs cursor-pointer sm:ml-auto"
+                  >
+                    <Printer className="w-3 h-3 text-slate-500" />
+                    <span>In / Tải Báo Giá</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* D. TIẾN ĐỘ THANH TOÁN & ĐỢT THU CHI TIẾT (KHI UNLOCKED) */}
             {isUnlocked && relatedPayment && (

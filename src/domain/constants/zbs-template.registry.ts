@@ -96,7 +96,7 @@ export const ZBS_TEMPLATE_REGISTRY: Record<string, ZbsTemplateInfo> = {
       {
         type: 1,
         title: 'Tra cứu báo giá',
-        content: 'https://sgm-os.onrender.com/tra-cuu-don-hang?code=<ma_tra_cuu>'
+        content: 'https://sgm-os.onrender.com/tra-cuu-bao-gia?code=<ma_tra_cuu>'
       }
     ]
   },

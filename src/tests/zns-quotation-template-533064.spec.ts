@@ -17,6 +17,7 @@ describe('ZBS Quotation Template 533064 & Semantic Product Packaging Integration
     expect(template.ctaButtons?.length).toBe(2);
     expect(template.ctaButtons?.[0].title).toBe('Đến trang thông tin OA');
     expect(template.ctaButtons?.[1].title).toBe('Tra cứu báo giá');
+    expect(template.ctaButtons?.[1].content).toBe('https://sgm-os.onrender.com/tra-cuu-bao-gia?code=<ma_tra_cuu>');
 
     // Check parameters
     const paramNames = template.params.map(p => p.name);
