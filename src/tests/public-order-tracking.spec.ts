@@ -3,7 +3,8 @@ import {
   maskName, 
   maskPhone, 
   detectPortalContext, 
-  calculateQuotationValidity 
+  calculateQuotationValidity,
+  extractCleanTrackingCode
 } from '@/src/features/tracking/PublicOrderTrackingPage';
 import { ZBS_TEMPLATE_REGISTRY } from '@/src/domain/constants/zbs-template.registry';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
@@ -93,6 +94,47 @@ describe('Phase 4: Public Order Tracking Portal & Phone-Gate Security', () => {
     const cta2 = tpl.ctaButtons![1];
     expect(cta2.title).toBe('Tra cứu báo giá');
     expect(cta2.content).toBe('https://sgm-os.onrender.com/tra-cuu-bao-gia?code=<ma_tra_cuu>');
+  });
+
+  it('ensures official ZNS Contract Template 647737 configures CTA Button 2 with /tra-cuu-hop-dong', () => {
+    const tpl = ZBS_TEMPLATE_REGISTRY[ZnsMessageType.HOPDONG_SIGN_ZNS];
+    expect(tpl).toBeDefined();
+    expect(tpl.templateId).toBe('647737');
+    expect(tpl.price).toBe(800);
+    expect(tpl.ctaButtons).toBeDefined();
+    expect(tpl.ctaButtons!.length).toBe(2);
+
+    const cta2 = tpl.ctaButtons![1];
+    expect(cta2.title).toBe('Tra cứu hợp đồng');
+    expect(cta2.content).toBe('https://sgm-os.onrender.com/tra-cuu-hop-dong?code=<ma_tra_cuu>');
+
+    // 11 parameters required
+    expect(tpl.params.map(p => p.name)).toEqual([
+      'customer_name',
+      'phone',
+      'loai_don',
+      'so_phieu',
+      'order_code',
+      'ma_bao_gia',
+      'ngay_ky',
+      'so_ngay',
+      'nhan_vien',
+      'so_luong',
+      'ma_tra_cuu'
+    ]);
+  });
+
+  it('preserves complex contract codes with slashes like 015/KD1-SGM/TN-CT/26 intact', () => {
+    const rawContract = '015/KD1-SGM/TN-CT/26';
+    expect(extractCleanTrackingCode(rawContract)).toBe('015/KD1-SGM/TN-CT/26');
+
+    // From full URL
+    const urlFormat = 'https://sgm-os.onrender.com/tra-cuu-hop-dong?code=015/KD1-SGM/TN-CT/26';
+    expect(extractCleanTrackingCode(urlFormat)).toBe('015/KD1-SGM/TN-CT/26');
+
+    // Pathname and code detection
+    expect(detectPortalContext('/tra-cuu-hop-dong')).toBe('ORDER');
+    expect(detectPortalContext('/tra-cuu', '015/KD1-SGM/TN-CT/26')).toBe('ORDER');
   });
 });
 

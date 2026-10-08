@@ -456,7 +456,7 @@ export const getContractColumns = (
              }
            }}
            className={onSendZns ? "cursor-pointer hover:opacity-80 transition-opacity inline-flex" : "inline-flex"}
-           title={onSendZns ? "Nhấn để xem trước & gửi tin ZNS Hợp Đồng #533068" : undefined}
+           title={onSendZns ? "Nhấn để xem trước & gửi tin ZNS Hợp Đồng #647737" : undefined}
          >
            <StatusPill statusStr={status as keyof typeof EntityZnsStatus} />
          </div>

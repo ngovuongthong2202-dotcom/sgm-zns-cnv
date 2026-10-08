@@ -229,6 +229,7 @@ export default function App() {
   // Public Zero-Trust Tracking Portal: Unblocked access for external customers arriving from ZNS
   const isPublicTrackingRoute = 
     typeof window !== 'undefined' && (
+      window.location.pathname.startsWith('/tra-cuu-hop-dong') ||
       window.location.pathname.startsWith('/tra-cuu-bao-gia') ||
       window.location.pathname.startsWith('/tra-cuu-don-hang') ||
       window.location.pathname.startsWith('/tra-cuu-thanh-toan') ||
@@ -241,6 +242,7 @@ export default function App() {
       <BrowserRouter>
         <Suspense fallback={<PageSkeleton />}>
           <Routes>
+            <Route path="/tra-cuu-hop-dong" element={<PublicOrderTrackingPage />} />
             <Route path="/tra-cuu-bao-gia" element={<PublicOrderTrackingPage />} />
             <Route path="/tra-cuu-don-hang" element={<PublicOrderTrackingPage />} />
             <Route path="/tra-cuu-thanh-toan" element={<PublicOrderTrackingPage />} />
@@ -265,6 +267,7 @@ export default function App() {
               <DrawerStackProvider>
                 <Suspense fallback={<PageSkeleton />}>
                   <Routes>
+                  <Route path="/tra-cuu-hop-dong" element={<PublicOrderTrackingPage />} />
                   <Route path="/tra-cuu-bao-gia" element={<PublicOrderTrackingPage />} />
                   <Route path="/tra-cuu-don-hang" element={<PublicOrderTrackingPage />} />
                   <Route path="/tra-cuu-thanh-toan" element={<PublicOrderTrackingPage />} />

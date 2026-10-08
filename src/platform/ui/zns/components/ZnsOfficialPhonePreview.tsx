@@ -144,45 +144,63 @@ export function ZnsOfficialPhonePreview({
       );
     }
 
-    // 3. HỢP ĐỒNG - ID 533068 (Chuẩn xác 100% theo ảnh 4 & 5 từ iPhone)
-    if (tId === '533068' || templateInfo.messageType === ZnsMessageType.HOPDONG_SIGN_ZNS) {
+    // 3. HỢP ĐỒNG - ID 647737 (Chuẩn xác 100% theo ZBS Template 647737 Đã duyệt)
+    if (tId === '647737' || tId === '533068' || templateInfo.messageType === ZnsMessageType.HOPDONG_SIGN_ZNS) {
       return (
         <div className="space-y-3 leading-relaxed text-xs">
           {getLogo()}
+          <h4 className="font-bold text-xs uppercase tracking-tight text-neutral-800 dark:text-neutral-100">
+            XÁC NHẬN KÝ KẾT HỢP ĐỒNG THÀNH CÔNG
+          </h4>
           <p>
-            Kính gửi Quý khách hàng {renderHighlighted('customer_name', resolvedCustomer)}, số điện thoại {renderHighlighted('phone', resolvedPhone)}.
+            Kính gửi Quý khách {renderHighlighted('customer_name', resolvedCustomer)}, mã khách hàng {renderHighlighted('phone', resolvedPhone)}.
           </p>
-          <p>
-            CÔNG TY TNHH CƠ KHÍ CÔNG NGHIỆP SÀI GÒN trân trọng thông báo: Đơn hàng có Mã hợp đồng {renderHighlighted('order_code', values.order_code || values.soHopDong, 'HD-2026-0002')} đã được ký kết thành công.
+          <p className="text-3xs opacity-90 leading-normal">
+            Công Ty TNHH Cơ Khí Công Nghiệp Sài Gòn xin trân trọng xác nhận hợp đồng giữa hai bên đã được ký kết với thông tin như sau:
           </p>
           <div className="pt-1">
-            <span className="font-bold opacity-80 block mb-1">Thông tin:</span>
             <table className="w-full text-xs border-collapse">
               <tbody className="divide-y divide-white/5">
                 <tr>
-                  <td className="py-1.5 opacity-60 w-[140px] align-top">Ngày ký hợp đồng:</td>
-                  <td className="py-1.5 text-right font-medium">{renderHighlighted('ngay_ky', values.ngay_ky || values.ngayKy, '06/10/2026')}</td>
+                  <td className="py-1 opacity-60 w-[125px] align-top">Loại đơn:</td>
+                  <td className="py-1 text-right font-medium">{renderHighlighted('loai_don', values.loai_don, 'Cung cấp Máy Móc/Thiết Bị')}</td>
                 </tr>
                 <tr>
-                  <td className="py-1.5 opacity-60 align-top">Số ngày dự kiến hoàn thành:</td>
-                  <td className="py-1.5 text-right font-medium">{renderHighlighted('so_ngay', values.so_ngay || values.soNgay, '30')}</td>
+                  <td className="py-1 opacity-60 align-top">Số hợp đồng:</td>
+                  <td className="py-1 text-right font-semibold text-blue-600 dark:text-blue-400">{renderHighlighted('so_phieu', values.so_phieu || values.soHopDong, '015/KD1-SGM/TN-CT/26')}</td>
                 </tr>
                 <tr>
-                  <td className="py-1.5 opacity-60 align-top">Theo số phiếu báo giá:</td>
-                  <td className="py-1.5 text-right font-medium">{renderHighlighted('so_phieu', values.so_phieu || values.soPhieuBaoGia, 'BGM-2026-1149')}</td>
+                  <td className="py-1 opacity-60 align-top">Số đơn hàng:</td>
+                  <td className="py-1 text-right font-medium">{renderHighlighted('order_code', values.order_code || values.soDonHang, '11-KDDH2604-014')}</td>
                 </tr>
                 <tr>
-                  <td className="py-1.5 opacity-60 align-top">Kinh doanh phụ trách:</td>
-                  <td className="py-1.5 text-right font-medium">{renderHighlighted('nhan_vien', values.nhan_vien || values.nguoiPhuTrach, 'Ngô Vương Thông')}</td>
+                  <td className="py-1 opacity-60 align-top">Số báo giá:</td>
+                  <td className="py-1 text-right font-medium">{renderHighlighted('ma_bao_gia', values.ma_bao_gia || values.soPhieuBaoGia, 'BGM-2026-0812')}</td>
+                </tr>
+                <tr>
+                  <td className="py-1 opacity-60 align-top">Ngày ký:</td>
+                  <td className="py-1 text-right font-medium">{renderHighlighted('ngay_ky', values.ngay_ky || values.ngayKy, '08/10/2026')}</td>
+                </tr>
+                <tr>
+                  <td className="py-1 opacity-60 align-top">Số ngày thực hiện:</td>
+                  <td className="py-1 text-right font-medium">{renderHighlighted('so_ngay', values.so_ngay || values.soNgay, '50')}</td>
+                </tr>
+                <tr>
+                  <td className="py-1 opacity-60 align-top">Tổng số sản phẩm:</td>
+                  <td className="py-1 text-right font-bold text-emerald-600 dark:text-emerald-400">{renderHighlighted('so_luong', values.so_luong || values.soLuong || values.sl_may, '3')}</td>
+                </tr>
+                <tr>
+                  <td className="py-1 opacity-60 align-top">Người phụ trách:</td>
+                  <td className="py-1 text-right font-medium">{renderHighlighted('nhan_vien', values.nhan_vien || values.nguoiPhuTrach, 'Trần Thị Huyền Trang')}</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <p className="text-3xs opacity-80 leading-normal">
-            Chúng tôi cam kết đảm bảo chất lượng sản phẩm và dịch vụ theo nội dung đã thỏa thuận trong hợp đồng. Mọi thông tin cần hỗ trợ thêm, kính mong Quý khách vui lòng liên hệ bộ phận phụ trách để được phục vụ kịp thời.
+            Kính mời Quý khách xem hợp đồng tại nút bên dưới. Nhân viên phụ trách sẽ phối hợp cùng Quý khách thực hiện các bước tiếp theo theo nội dung đã thống nhất.
           </p>
           <p className="text-3xs opacity-80 leading-normal">
-            Xin chân thành cảm ơn sự tin tưởng và hợp tác của Quý khách đối với.
+            Cảm ơn Quý khách đã tin tưởng và lựa chọn Công Ty TNHH Cơ Khí Công Nghiệp Sài Gòn - Saigon Machine. Chúng tôi trân trọng sự hợp tác và cam kết thực hiện đúng các điều khoản trong hợp đồng.
           </p>
         </div>
       );

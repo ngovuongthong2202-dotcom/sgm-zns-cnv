@@ -25,7 +25,13 @@ import {
   RefreshCw,
   MapPin,
   Globe,
-  Wrench
+  Wrench,
+  ChevronDown,
+  ChevronUp,
+  List,
+  LayoutGrid,
+  Filter,
+  Layers
 } from 'lucide-react';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
@@ -45,10 +51,18 @@ export function extractCleanTrackingCode(raw: string): string {
     if (match && match[1]) {
       cleaned = decodeURIComponent(match[1]).trim();
     }
-  } else if (cleaned.includes('/')) {
-    const lastPart = cleaned.split('/').pop() || '';
-    if (lastPart && !lastPart.includes('?')) {
-      cleaned = lastPart.trim();
+  } else if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) {
+    try {
+      const url = new URL(cleaned);
+      const urlCode = url.searchParams.get('code');
+      if (urlCode) {
+        cleaned = urlCode.trim();
+      } else {
+        const lastPart = url.pathname.split('/').filter(Boolean).pop() || '';
+        if (lastPart) cleaned = lastPart.trim();
+      }
+    } catch {
+      // Giữ nguyên nếu không parse được URL
     }
   }
   return cleaned.replace(/[<>]/g, '').trim();
@@ -116,6 +130,7 @@ export function detectPortalContext(pathname: string, code?: string, entity?: an
   const normCode = (code || '').trim().toUpperCase();
 
   // 1. Explicit Path Routing
+  if (normPath.startsWith('/tra-cuu-hop-dong')) return 'ORDER';
   if (normPath.startsWith('/tra-cuu-bao-gia')) return 'QUOTATION';
   if (normPath.startsWith('/tra-cuu-thanh-toan')) return 'PAYMENT';
   if (normPath.startsWith('/tra-cuu-don-hang')) {
@@ -129,9 +144,11 @@ export function detectPortalContext(pathname: string, code?: string, entity?: an
   // 2. Code prefix heuristics
   if (normCode.startsWith('BG-') || normCode.startsWith('BGM-')) return 'QUOTATION';
   if (normCode.startsWith('PT-') || normCode.startsWith('TT-')) return 'PAYMENT';
+  if (normCode.startsWith('HD') || normCode.includes('/KD') || normCode.includes('CT/')) return 'ORDER';
 
   // 3. Entity heuristic
   if (entity) {
+    if (entity.soHopDong) return 'ORDER';
     if (entity.soPhieuBaoGia && !entity.soHopDong && !entity.paymentId) return 'QUOTATION';
     if (entity.paymentId || entity.soTien) return 'PAYMENT';
   }
@@ -217,6 +234,16 @@ export default function PublicOrderTrackingPage() {
   const [relatedDelivery, setRelatedDelivery] = useState<any>(null);
   const [allPaymentsForCustomer, setAllPaymentsForCustomer] = useState<any[]>([]);
 
+  // Mobile Manifest Navigation State (Tối ưu hóa danh mục sản phẩm cho màn hình di động)
+  const [mobileManifestView, setMobileManifestView] = useState<'COMPACT' | 'DETAILED'>('COMPACT');
+  const [selectedCategory, setSelectedCategory] = useState<'ALL' | string>('ALL');
+  const [manifestSearch, setManifestSearch] = useState<string>('');
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+
+  const toggleItemExpanded = (id: string) => {
+    setExpandedItems(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   // Context-Morphing Portal Mode ('QUOTATION' | 'ORDER' | 'PAYMENT')
   const [portalMode, setPortalMode] = useState<PortalContextType>(() => {
     if (typeof window !== 'undefined') {
@@ -280,44 +307,76 @@ export default function PublicOrderTrackingPage() {
       const cleanQ = extractCleanTrackingCode(query);
       const qNorm = cleanQ.trim().toLowerCase();
 
-      // Truy vấn đồng thời các kho dữ liệu chứng từ
+      // Truy vấn đồng thời các kho dữ liệu chứng từ với limit mở rộng để không bỏ sót chứng từ
       const [contracts, quotations, payments, deliveries] = await Promise.all([
-        repositoryFactory.get<any>('contracts').list({ limit: 100 }).catch(() => []),
-        repositoryFactory.get<any>('quotations').list({ limit: 100 }).catch(() => []),
-        repositoryFactory.get<any>('payments').list({ limit: 200 }).catch(() => []),
-        repositoryFactory.get<any>('deliveries').list({ limit: 100 }).catch(() => [])
+        repositoryFactory.get<any>('contracts').list({ limit: 500 }).catch(() => []),
+        repositoryFactory.get<any>('quotations').list({ limit: 500 }).catch(() => []),
+        repositoryFactory.get<any>('payments').list({ limit: 500 }).catch(() => []),
+        repositoryFactory.get<any>('deliveries').list({ limit: 200 }).catch(() => [])
       ]);
 
-      // 1. Tìm Hợp đồng phù hợp
+      // 1. Tìm Hợp đồng phù hợp (Ưu tiên Exact Match trước để tránh match nhầm)
       let contract = contracts.find((c: any) => 
-        (c.soHopDong && c.soHopDong.toLowerCase().includes(qNorm)) ||
-        (c.soDonHang && c.soDonHang.toLowerCase().includes(qNorm)) ||
+        (c.soHopDong && c.soHopDong.trim().toLowerCase() === qNorm) ||
+        (c.soDonHang && c.soDonHang.trim().toLowerCase() === qNorm) ||
+        (c.maHopDong && c.maHopDong.trim().toLowerCase() === qNorm) ||
         (c.id && c.id.toLowerCase() === qNorm)
       );
+      if (!contract) {
+        contract = contracts.find((c: any) => 
+          (c.soHopDong && c.soHopDong.toLowerCase().includes(qNorm)) ||
+          (c.soDonHang && c.soDonHang.toLowerCase().includes(qNorm)) ||
+          (c.maHopDong && c.maHopDong.toLowerCase().includes(qNorm))
+        );
+      }
 
-      // 2. Tìm Báo giá phù hợp
+      // 2. Tìm Báo giá phù hợp (Ưu tiên Exact Match trước)
       let quotation = quotations.find((q: any) => 
-        (q.soPhieuBaoGia && q.soPhieuBaoGia.toLowerCase().includes(qNorm)) ||
-        (q.soDonHang && q.soDonHang.toLowerCase().includes(qNorm)) ||
+        (q.soPhieuBaoGia && q.soPhieuBaoGia.trim().toLowerCase() === qNorm) ||
+        (q.soDonHang && q.soDonHang.trim().toLowerCase() === qNorm) ||
+        (q.maBaoGia && q.maBaoGia.trim().toLowerCase() === qNorm) ||
         (q.id && q.id.toLowerCase() === qNorm)
       );
+      if (!quotation) {
+        quotation = quotations.find((q: any) => 
+          (q.soPhieuBaoGia && q.soPhieuBaoGia.toLowerCase().includes(qNorm)) ||
+          (q.soDonHang && q.soDonHang.toLowerCase().includes(qNorm)) ||
+          (q.maBaoGia && q.maBaoGia.toLowerCase().includes(qNorm))
+        );
+      }
 
-      // 3. Tìm Phiếu thanh toán phù hợp
+      // 3. Tìm Phiếu thanh toán phù hợp (Ưu tiên Exact Match trước)
       let payment = payments.find((p: any) => 
-        (p.soDonHang && p.soDonHang.toLowerCase().includes(qNorm)) ||
-        (p.soHopDong && p.soHopDong.toLowerCase().includes(qNorm)) ||
-        (p.soPhieuBaoGia && p.soPhieuBaoGia.toLowerCase().includes(qNorm)) ||
-        (p.paymentId && p.paymentId.toLowerCase() === qNorm) ||
+        (p.paymentId && p.paymentId.trim().toLowerCase() === qNorm) ||
+        (p.soHopDong && p.soHopDong.trim().toLowerCase() === qNorm) ||
+        (p.soDonHang && p.soDonHang.trim().toLowerCase() === qNorm) ||
+        (p.soPhieuBaoGia && p.soPhieuBaoGia.trim().toLowerCase() === qNorm) ||
         (p.id && p.id.toLowerCase() === qNorm)
       );
+      if (!payment) {
+        payment = payments.find((p: any) => 
+          (p.soDonHang && p.soDonHang.toLowerCase().includes(qNorm)) ||
+          (p.soHopDong && p.soHopDong.toLowerCase().includes(qNorm)) ||
+          (p.soPhieuBaoGia && p.soPhieuBaoGia.toLowerCase().includes(qNorm)) ||
+          (p.paymentId && p.paymentId.toLowerCase().includes(qNorm))
+        );
+      }
 
       // 4. Tìm Phiếu giao hàng phù hợp
       let delivery = deliveries.find((d: any) => 
-        (d.soDonHang && d.soDonHang.toLowerCase().includes(qNorm)) ||
-        (d.soHopDong && d.soHopDong.toLowerCase().includes(qNorm)) ||
-        (d.soPhieuXuat && d.soPhieuXuat.toLowerCase().includes(qNorm)) ||
-        (d.deliveryId && d.deliveryId.toLowerCase() === qNorm)
+        (d.deliveryId && d.deliveryId.trim().toLowerCase() === qNorm) ||
+        (d.soPhieuXuat && d.soPhieuXuat.trim().toLowerCase() === qNorm) ||
+        (d.soHopDong && d.soHopDong.trim().toLowerCase() === qNorm) ||
+        (d.soDonHang && d.soDonHang.trim().toLowerCase() === qNorm)
       );
+      if (!delivery) {
+        delivery = deliveries.find((d: any) => 
+          (d.soDonHang && d.soDonHang.toLowerCase().includes(qNorm)) ||
+          (d.soHopDong && d.soHopDong.toLowerCase().includes(qNorm)) ||
+          (d.soPhieuXuat && d.soPhieuXuat.toLowerCase().includes(qNorm)) ||
+          (d.deliveryId && d.deliveryId.toLowerCase() === qNorm)
+        );
+      }
 
       // Liên kết chéo đa tầng 2 chiều (Bi-Directional Deep Mesh Binding)
       // Khi tìm thấy Payment trước: Truy vết tìm Contract & Quotation
@@ -346,12 +405,19 @@ export default function PublicOrderTrackingPage() {
         );
       }
 
-      // Khi tìm thấy Contract: Truy vết tìm Quotation
+      // Khi tìm thấy Contract: Truy vết tìm Quotation (Kể cả gọi trực tiếp từ DB nếu ngoài range)
       if (contract && !quotation) {
         quotation = quotations.find((q: any) => 
           (contract.quotationId && q.id === contract.quotationId) ||
           (contract.soPhieuBaoGia && q.soPhieuBaoGia === contract.soPhieuBaoGia)
         );
+        if (!quotation && contract.quotationId) {
+          try {
+            quotation = await repositoryFactory.get<any>('quotations').getById(contract.quotationId);
+          } catch {
+            // fallback
+          }
+        }
       }
 
       // Khi tìm thấy Quotation: Truy vết tìm Contract
@@ -524,6 +590,35 @@ export default function PublicOrderTrackingPage() {
   // Backward compatibility alias cho các thành phần khác
   const productsList = normalizedProducts;
 
+  // Thống kê phân loại & Bộ lọc thiết bị đa tầng cho Manifest Hub
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { ALL: normalizedProducts.length, MACHINE: 0, ACCESSORY: 0, SERVICE: 0, RAW_MATERIAL: 0 };
+    normalizedProducts.forEach(p => {
+      if (p.itemType in counts) {
+        counts[p.itemType]++;
+      } else {
+        counts.ACCESSORY = (counts.ACCESSORY || 0) + 1;
+      }
+    });
+    return counts;
+  }, [normalizedProducts]);
+
+  const filteredProducts = useMemo(() => {
+    return normalizedProducts.filter(p => {
+      if (selectedCategory !== 'ALL' && p.itemType !== selectedCategory) {
+        return false;
+      }
+      if (manifestSearch.trim()) {
+        const s = manifestSearch.trim().toLowerCase();
+        const matchName = p.name.toLowerCase().includes(s);
+        const matchSpecs = p.specifications?.toLowerCase().includes(s);
+        const matchSerials = p.serials.some((sn: string) => sn.toLowerCase().includes(s));
+        if (!matchName && !matchSpecs && !matchSerials) return false;
+      }
+      return true;
+    });
+  }, [normalizedProducts, selectedCategory, manifestSearch]);
+
   // Sổ cái các đợt thanh toán (Universal Multi-Ledger Reconciliation)
   // Chuẩn hóa hỗ trợ cả cacDotThu lẫn dotThanhToan
   const installmentsList = useMemo(() => {
@@ -569,6 +664,7 @@ export default function PublicOrderTrackingPage() {
       0
     );
     const totalContractVal = Number(
+      relatedContract?.totalAmount || 
       relatedContract?.giaTriHopDong || 
       quotationVal || 
       relatedPayment?.totalAmount || 
@@ -628,11 +724,30 @@ export default function PublicOrderTrackingPage() {
     if (!relatedQuotation?.id) return;
     setApprovalSubmitting(true);
     try {
+      const nowIso = new Date().toISOString();
+      const nowVn = new Date().toLocaleString('vi-VN');
       await repositoryFactory.get<any>('quotations').update(relatedQuotation.id, {
         lifecycleStatus: 'WON',
-        tinhTrangBaoGia: 'Khách hàng đồng ý qua Cổng Báo Giá',
-        noiDungGhiChu: `${relatedQuotation.noiDungGhiChu || ''}\n[${new Date().toLocaleString('vi-VN')}] Khách hàng đã xác nhận đồng ý báo giá qua Cổng Tra Cứu`.trim()
+        tinhTrangBaoGia: 'KH_DONG_Y',
+        customerApprovedAt: nowIso,
+        noiDungGhiChu: `${relatedQuotation.noiDungGhiChu || ''}\n[${nowVn}] Khách hàng đã xác nhận ĐỒNG Ý Báo giá qua Cổng Tra Cứu ZNS`.trim()
       });
+
+      // Ghi nhận nhật ký tương tác khách hàng vào customerNotes để Sale Rep & BGĐ nhận thông báo tức thì trong SGM OS ERP
+      const custId = relatedQuotation.customerId || resolvedEntity?.customerId;
+      if (custId) {
+        try {
+          await repositoryFactory.get<any>('customerNotes').create({
+            customerId: custId,
+            content: `[CỔNG TRA CỨU ZNS] Khách hàng ${activeCustomerName} đã xác nhận ĐỒNG Ý Báo giá ${relatedQuotation.soPhieuBaoGia || relatedQuotation.id} lúc ${nowVn}. Vui lòng ưu tiên lập Hợp đồng kinh tế và triển khai sản xuất!`,
+            authorName: 'Khách hàng (Cổng Tra Cứu ZNS)',
+            createdAt: nowIso
+          });
+        } catch (e) {
+          console.warn('customerNotes creation fallback:', e);
+        }
+      }
+
       setHasCustomerApproved(true);
     } catch (err) {
       console.error('Error approving quotation:', err);
@@ -897,10 +1012,10 @@ export default function PublicOrderTrackingPage() {
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-emerald-950">
-                        {isQuotationMode ? 'Bảo Mật Bảng Giá Thiết Bị' : 'Bảo Mật Chi Tiết Đơn Hàng'}
+                        {isQuotationMode ? 'Xem Đầy Đủ Bảng Giá & Thông Số' : 'Xem Đầy Đủ Chi Tiết Đơn Hàng'}
                       </h4>
                       <p className="text-2xs text-slate-600 mt-0.5 leading-relaxed">
-                        Nhập 4 số cuối điện thoại nhận tin ZNS (số đuôi của <span className="font-mono font-bold text-slate-700">{maskPhone(activePhone)}</span>) để xem đơn giá và toàn bộ chi tiết kỹ thuật.
+                        Nhập 4 số đuôi điện thoại của Quý khách (<span className="font-mono font-bold text-slate-800">{maskPhone(activePhone)}</span>) để mở khóa xem giá và thông số kỹ thuật.
                       </p>
                     </div>
                   </div>
@@ -1011,119 +1126,355 @@ export default function PublicOrderTrackingPage() {
               </div>
             </div>
 
-            {/* C. DANH MỤC THIẾT BỊ / MÁY MÓC / VẬT TƯ */}
-            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                  <Package className="w-4 h-4 text-emerald-600" />
-                  <span>Danh Mục Thiết Bị & Quy Cách Kỹ Thuật ({normalizedProducts.length} Mục)</span>
-                </h3>
-                {isUnlocked && (
-                  <span className="text-xs font-mono font-bold text-emerald-700">
-                    Tổng: {formatCurrency(financials.totalContractVal)}
-                  </span>
-                )}
+            {/* C. DANH MỤC THIẾT BỊ / MÁY MÓC / VẬT TƯ (MULTI-TIER INDUSTRIAL MANIFEST HUB) */}
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-3.5 sm:p-5 shadow-xs space-y-3.5">
+              {/* Header: Tiêu đề + Thống kê + Tổng tiền */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                    <Package className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                      <span>Danh Mục Thiết Bị & Quy Cách Kỹ Thuật</span>
+                      <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono text-3xs font-bold">
+                        {normalizedProducts.length} mục
+                      </span>
+                    </h3>
+                    <p className="text-4xs sm:text-3xs text-slate-500">
+                      Quy cách chế tạo & cấu hình máy đồng bộ theo tiêu chuẩn Saigon Machine
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  {isUnlocked && (
+                    <div className="text-right">
+                      <span className="text-4xs uppercase font-bold text-slate-400 block">Tổng giá trị</span>
+                      <span className="text-xs sm:text-sm font-black font-mono text-emerald-700 block">
+                        {formatCurrency(financials.totalContractVal)}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* C.1: MOBILE VIEW (< md) - THẺ SẢN PHẨM CÔNG NGHIỆP TINH TẾ */}
-              <div className="md:hidden space-y-3.5">
-                {normalizedProducts.length > 0 ? (
-                  normalizedProducts.map((p, idx) => {
-                    const semantic = ITEM_SEMANTIC_CONFIG[p.itemType] || ITEM_SEMANTIC_CONFIG.MACHINE;
-                    return (
-                      <div 
-                        key={p.id || idx}
-                        className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3 relative overflow-hidden"
+              {/* INDUSTRIAL CONTROLS: Category Pills + Quick Search + Mobile View Mode Toggle */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  {/* Category Filter Pills */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCategory('ALL')}
+                      className={`px-2.5 py-1 rounded-lg text-3xs font-bold transition-all shrink-0 cursor-pointer ${
+                        selectedCategory === 'ALL'
+                          ? 'bg-slate-900 text-white shadow-2xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      Tất cả ({categoryCounts.ALL})
+                    </button>
+                    {categoryCounts.MACHINE > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCategory('MACHINE')}
+                        className={`px-2.5 py-1 rounded-lg text-3xs font-bold transition-all shrink-0 cursor-pointer ${
+                          selectedCategory === 'MACHINE'
+                            ? 'bg-blue-600 text-white shadow-2xs'
+                            : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                        }`}
                       >
-                        {/* Header của thẻ: STT + Huy hiệu loại mặt hàng */}
-                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-3xs font-black">
-                            Mục #{String(idx + 1).padStart(2, '0')}
-                          </span>
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-4xs font-bold border ${semantic.badgeClass}`}>
-                            <span>{semantic.icon}</span>
-                            <span>{semantic.label}</span>
-                          </span>
-                        </div>
+                        ⚙️ Máy móc ({categoryCounts.MACHINE})
+                      </button>
+                    )}
+                    {categoryCounts.ACCESSORY > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCategory('ACCESSORY')}
+                        className={`px-2.5 py-1 rounded-lg text-3xs font-bold transition-all shrink-0 cursor-pointer ${
+                          selectedCategory === 'ACCESSORY'
+                            ? 'bg-purple-600 text-white shadow-2xs'
+                            : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'
+                        }`}
+                      >
+                        🔧 Vật tư / Phụ tùng ({categoryCounts.ACCESSORY})
+                      </button>
+                    )}
+                    {categoryCounts.SERVICE > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCategory('SERVICE')}
+                        className={`px-2.5 py-1 rounded-lg text-3xs font-bold transition-all shrink-0 cursor-pointer ${
+                          selectedCategory === 'SERVICE'
+                            ? 'bg-amber-600 text-white shadow-2xs'
+                            : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                        }`}
+                      >
+                        🛠️ Dịch vụ ({categoryCounts.SERVICE})
+                      </button>
+                    )}
+                  </div>
 
-                        {/* Tên Thiết Bị / Máy Móc / Vật Tư (To rõ, không bị co cụm) */}
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900 leading-snug">
-                            {p.name}
-                          </h4>
-                          {/* Quy cách kỹ thuật nếu có */}
-                          {p.specifications && (
-                            <div className="mt-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-2xs text-slate-600 leading-relaxed flex items-start gap-2">
-                              <Wrench className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                              <div className="flex-1 whitespace-pre-wrap">{p.specifications}</div>
-                            </div>
-                          )}
-                        </div>
+                  {/* Mobile Mode Switcher (Thu gọn vs Chi tiết) */}
+                  <div className="flex md:hidden items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0 ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => setMobileManifestView('COMPACT')}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-md text-4xs font-bold transition-all cursor-pointer ${
+                        mobileManifestView === 'COMPACT'
+                          ? 'bg-white text-slate-900 shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                      title="Chế độ danh mục thu gọn (dễ quét nhanh)"
+                    >
+                      <List className="w-3 h-3" />
+                      <span>Thu gọn</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMobileManifestView('DETAILED')}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-md text-4xs font-bold transition-all cursor-pointer ${
+                        mobileManifestView === 'DETAILED'
+                          ? 'bg-white text-slate-900 shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                      title="Chế độ thẻ chi tiết"
+                    >
+                      <LayoutGrid className="w-3 h-3" />
+                      <span>Chi tiết</span>
+                    </button>
+                  </div>
+                </div>
 
-                        {/* Thông số kỹ thuật nhanh: ĐVT, Số Lượng, Serial */}
-                        <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-50/80 border border-slate-100 text-center">
-                          <div>
-                            <span className="text-4xs uppercase font-bold text-slate-400 block">ĐVT</span>
-                            <span className="text-xs font-bold text-slate-800 mt-0.5 block">{p.unit}</span>
-                          </div>
-                          <div className="border-x border-slate-200">
-                            <span className="text-4xs uppercase font-bold text-slate-400 block">Số lượng</span>
-                            <span className="text-xs font-black font-mono text-emerald-700 mt-0.5 block">{p.quantity}</span>
-                          </div>
-                          <div>
-                            <span className="text-4xs uppercase font-bold text-slate-400 block">Serial / Mã máy</span>
-                            <div className="mt-0.5">
-                              {p.serials.length > 0 ? (
-                                <div className="flex flex-wrap justify-center gap-1">
-                                  {p.serials.map((sn: string, sIdx: number) => (
-                                    <span key={sIdx} className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-4xs font-bold">
-                                      {sn}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span className="text-3xs text-slate-400 italic">Theo chuẩn SGM</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Vùng hiển thị tài chính khi mở khóa Phone-Gate */}
-                        {isUnlocked ? (
-                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100">
-                            <div>
-                              <span className="text-4xs uppercase font-bold text-slate-500 block">Đơn giá</span>
-                              <span className="text-xs font-bold font-mono text-slate-800 mt-0.5 block">
-                                {formatCurrency(p.price)}
-                              </span>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-4xs uppercase font-bold text-emerald-800 block">Thành tiền</span>
-                              <span className="text-sm font-black font-mono text-emerald-700 mt-0.5 block">
-                                {formatCurrency(p.amount)}
-                              </span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-2xs text-slate-400">
-                            <span className="flex items-center gap-1 italic">
-                              <Lock className="w-3 h-3 text-slate-400" />
-                              <span>Mở khóa SĐT để xem giá</span>
-                            </span>
-                            <span className="font-mono text-slate-300">•••••••• đ</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="py-8 text-center text-slate-400 italic bg-slate-50 rounded-xl border border-slate-100 text-xs">
-                    Chưa có dữ liệu danh mục thiết bị
+                {/* Inline Fast Filter Search (Hiển thị khi có trên 3 sản phẩm) */}
+                {normalizedProducts.length > 3 && (
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={manifestSearch}
+                      onChange={(e) => setManifestSearch(e.target.value)}
+                      placeholder="Tìm nhanh theo tên thiết bị, quy cách kỹ thuật, serial..."
+                      className="w-full pl-8 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-500 focus:bg-white transition-all shadow-2xs"
+                    />
+                    {manifestSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setManifestSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* C.2: DESKTOP VIEW (>= md) - BẢNG DỮ LIỆU CHUẨN MỰC RỘNG RÃI */}
+              {/* C.1: MOBILE VIEW (< md) */}
+              <div className="md:hidden">
+                {filteredProducts.length > 0 ? (
+                  mobileManifestView === 'COMPACT' ? (
+                    /* DENSE COMPACT MANIFEST: Rows ~52px with expandable specs accordion */
+                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                      {filteredProducts.map((p, idx) => {
+                        const semantic = ITEM_SEMANTIC_CONFIG[p.itemType] || ITEM_SEMANTIC_CONFIG.MACHINE;
+                        const isExpanded = !!expandedItems[p.id || String(idx)];
+                        return (
+                          <div key={p.id || idx} className="transition-colors hover:bg-slate-50/60">
+                            {/* Dense Header Row */}
+                            <div 
+                              onClick={() => toggleItemExpanded(p.id || String(idx))}
+                              className="p-3 flex items-start gap-2.5 cursor-pointer active:bg-slate-100/70"
+                            >
+                              <span className="w-6 h-6 rounded-md bg-slate-100 text-slate-600 font-mono text-3xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                                {String(idx + 1).padStart(2, '0')}
+                              </span>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-4xs font-bold border ${semantic.badgeClass}`}>
+                                    <span>{semantic.icon}</span>
+                                    <span>{semantic.shortLabel}</span>
+                                  </span>
+                                  <span className="font-bold text-slate-900 text-xs leading-snug line-clamp-2">
+                                    {p.name}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-2 mt-1 text-3xs text-slate-500">
+                                  <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded">
+                                    {p.quantity} {p.unit}
+                                  </span>
+                                  {p.serials.length > 0 ? (
+                                    <span className="font-mono text-emerald-700 truncate max-w-[140px]">
+                                      SN: {p.serials.join(', ')}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 italic">Theo chuẩn SGM</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="text-right shrink-0 flex items-center gap-1.5">
+                                <div>
+                                  {isUnlocked ? (
+                                    <span className="text-xs font-black font-mono text-emerald-700 block">
+                                      {formatCurrency(p.amount)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-3xs text-slate-400 font-mono flex items-center justify-end gap-1">
+                                      <Lock className="w-2.5 h-2.5 text-slate-400" />
+                                      <span>••••••</span>
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-slate-400 mt-0.5">
+                                  {isExpanded ? <ChevronUp className="w-4 h-4 text-emerald-600" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Expandable Accordion Drawer */}
+                            {isExpanded && (
+                              <div className="px-3 pb-3 pt-1 bg-slate-50/70 border-t border-slate-100 space-y-2 text-2xs">
+                                {p.specifications && (
+                                  <div className="p-2.5 rounded-lg bg-white border border-slate-200 text-slate-700 leading-relaxed">
+                                    <div className="font-bold text-3xs uppercase text-slate-500 flex items-center gap-1 mb-1">
+                                      <Wrench className="w-3 h-3 text-slate-400" />
+                                      <span>Quy cách kỹ thuật chi tiết:</span>
+                                    </div>
+                                    <div className="whitespace-pre-wrap">{p.specifications}</div>
+                                  </div>
+                                )}
+
+                                <div className="grid grid-cols-2 gap-2 text-3xs">
+                                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                                    <span className="text-slate-400 block">Đơn giá:</span>
+                                    <span className="font-mono font-bold text-slate-800">
+                                      {isUnlocked ? formatCurrency(p.price) : '•••••••• đ'}
+                                    </span>
+                                  </div>
+                                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                                    <span className="text-slate-400 block">Bảo hành:</span>
+                                    <span className="font-semibold text-slate-800">{p.warranty || '12 tháng'}</span>
+                                  </div>
+                                </div>
+
+                                {p.serials.length > 0 && (
+                                  <div className="bg-white p-2 rounded-lg border border-slate-100">
+                                    <span className="text-slate-400 block mb-1">Mã máy / Serial sản phẩm:</span>
+                                    <div className="flex flex-wrap gap-1">
+                                      {p.serials.map((sn: string, sIdx: number) => (
+                                        <span key={sIdx} className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-3xs font-bold">
+                                          {sn}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* DETAILED CARD VIEW */
+                    <div className="space-y-3">
+                      {filteredProducts.map((p, idx) => {
+                        const semantic = ITEM_SEMANTIC_CONFIG[p.itemType] || ITEM_SEMANTIC_CONFIG.MACHINE;
+                        return (
+                          <div 
+                            key={p.id || idx}
+                            className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3 relative overflow-hidden"
+                          >
+                            <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-3xs font-black">
+                                Mục #{String(idx + 1).padStart(2, '0')}
+                              </span>
+                              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-4xs font-bold border ${semantic.badgeClass}`}>
+                                <span>{semantic.icon}</span>
+                                <span>{semantic.label}</span>
+                              </span>
+                            </div>
+
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                                {p.name}
+                              </h4>
+                              {p.specifications && (
+                                <div className="mt-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-2xs text-slate-600 leading-relaxed flex items-start gap-2">
+                                  <Wrench className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                                  <div className="flex-1 whitespace-pre-wrap">{p.specifications}</div>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-50/80 border border-slate-100 text-center">
+                              <div>
+                                <span className="text-4xs uppercase font-bold text-slate-400 block">ĐVT</span>
+                                <span className="text-xs font-bold text-slate-800 mt-0.5 block">{p.unit}</span>
+                              </div>
+                              <div className="border-x border-slate-200">
+                                <span className="text-4xs uppercase font-bold text-slate-400 block">Số lượng</span>
+                                <span className="text-xs font-black font-mono text-emerald-700 mt-0.5 block">{p.quantity}</span>
+                              </div>
+                              <div>
+                                <span className="text-4xs uppercase font-bold text-slate-400 block">Serial / Mã máy</span>
+                                <div className="mt-0.5">
+                                  {p.serials.length > 0 ? (
+                                    <div className="flex flex-wrap justify-center gap-1">
+                                      {p.serials.map((sn: string, sIdx: number) => (
+                                        <span key={sIdx} className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-4xs font-bold">
+                                          {sn}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-3xs text-slate-400 italic">Theo chuẩn SGM</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {isUnlocked ? (
+                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100">
+                                <div>
+                                  <span className="text-4xs uppercase font-bold text-slate-500 block">Đơn giá</span>
+                                  <span className="text-xs font-bold font-mono text-slate-800 mt-0.5 block">
+                                    {formatCurrency(p.price)}
+                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-4xs uppercase font-bold text-emerald-800 block">Thành tiền</span>
+                                  <span className="text-sm font-black font-mono text-emerald-700 mt-0.5 block">
+                                    {formatCurrency(p.amount)}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-2xs text-slate-400">
+                                <span className="flex items-center gap-1 italic">
+                                  <Lock className="w-3 h-3 text-slate-400" />
+                                  <span>Mở khóa SĐT để xem giá</span>
+                                </span>
+                                <span className="font-mono text-slate-300">•••••••• đ</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )
+                ) : (
+                  <div className="py-8 text-center text-slate-400 italic bg-slate-50 rounded-xl border border-slate-100 text-xs">
+                    Không tìm thấy thiết bị phù hợp với bộ lọc tìm kiếm
+                  </div>
+                )}
+              </div>
+
+              {/* C.2: DESKTOP VIEW (>= md) */}
               <div className="hidden md:block overflow-x-auto border border-slate-100 rounded-xl">
                 <table className="w-full text-xs text-left border-collapse min-w-[720px]">
                   <thead>
@@ -1138,8 +1489,8 @@ export default function PublicOrderTrackingPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
-                    {normalizedProducts.length > 0 ? (
-                      normalizedProducts.map((p, idx) => {
+                    {filteredProducts.length > 0 ? (
+                      filteredProducts.map((p, idx) => {
                         const semantic = ITEM_SEMANTIC_CONFIG[p.itemType] || ITEM_SEMANTIC_CONFIG.MACHINE;
                         return (
                           <tr key={p.id || idx} className="hover:bg-slate-50/80 transition-colors">
@@ -1153,7 +1504,7 @@ export default function PublicOrderTrackingPage() {
                                 <span className="font-bold text-slate-900 text-xs">{p.name}</span>
                               </div>
                               {p.specifications && (
-                                <div className="text-3xs text-slate-500 pl-1 border-l-2 border-emerald-400/50 mt-1 leading-relaxed">
+                                <div className="text-3xs text-slate-500 pl-1 border-l-2 border-emerald-400/50 mt-1 leading-relaxed whitespace-pre-wrap">
                                   {p.specifications}
                                 </div>
                               )}
@@ -1189,12 +1540,28 @@ export default function PublicOrderTrackingPage() {
                     ) : (
                       <tr>
                         <td colSpan={isUnlocked ? 7 : 5} className="py-8 text-center text-slate-400 italic">
-                          Chưa có dữ liệu danh mục thiết bị
+                          Không tìm thấy thiết bị phù hợp với bộ lọc tìm kiếm
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Manifest Summary Footer Bar */}
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-3xs text-slate-500 flex-wrap gap-2">
+                <span>
+                  Đang hiển thị <strong className="text-slate-800 font-mono">{filteredProducts.length}</strong> / {normalizedProducts.length} mục • Tổng cộng <strong className="text-slate-800 font-mono">{filteredProducts.reduce((sum, p) => sum + p.quantity, 0)}</strong> thiết bị
+                </span>
+                {(manifestSearch || selectedCategory !== 'ALL') && (
+                  <button
+                    type="button"
+                    onClick={() => { setManifestSearch(''); setSelectedCategory('ALL'); }}
+                    className="text-emerald-700 hover:underline font-semibold cursor-pointer"
+                  >
+                    Xóa bộ lọc tìm kiếm
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1356,128 +1723,113 @@ export default function PublicOrderTrackingPage() {
               </div>
             )}
 
-            {/* E. FOOTER DOANH NGHIỆP & HYBRID QR CONNECT HUB */}
-            <div className="bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-8 space-y-6 shadow-xs">
-              {/* Thông tin pháp lý & thương hiệu */}
-              <div className="max-w-2xl mx-auto text-center space-y-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-3xs font-bold uppercase tracking-wider border border-emerald-200">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Cổng Tra Cứu Thương Mại Chính Thức • Saigon Machine (SGM OS)</span>
-                </div>
-                <h4 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
-                  CÔNG TY TNHH CƠ KHÍ CÔNG NGHIỆP SÀI GÒN
-                </h4>
-                <p className="text-2xs sm:text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  SAIGON INDUSTRIAL METALLIC CO.,LTD • SAIGON MACHINE
-                </p>
-                <div className="pt-2 text-2xs text-slate-600 space-y-1">
-                  <p className="flex items-center justify-center gap-1.5 flex-wrap">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span className="font-medium">ĐỊA CHỈ:</span>
-                    <span>Lô 12A Đường số 09, Khu Công Nghiệp Tân Tạo, Phường Tân Tạo, Thành Phố Hồ Chí Minh</span>
-                  </p>
-                  <p className="flex items-center justify-center gap-3 flex-wrap">
-                    <span>Hotline kỹ thuật & Bảo hành: <a href="tel:0932000999" className="text-emerald-700 font-bold hover:underline">0932.000.999</a></span>
-                    <span className="text-slate-300">•</span>
-                    <span>Email: <a href="mailto:info@saigonmachine.vn" className="text-slate-700 font-medium hover:underline">info@saigonmachine.vn</a></span>
-                  </p>
-                </div>
-              </div>
-
-              {/* KHU VỰC HYBRID QR CONNECT HUB (2 MÃ QR FACEBOOK & ZALO) */}
-              <div className="pt-4 border-t border-slate-100">
-                <div className="text-center mb-4">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center justify-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Kết Nối Trực Tiếp Qua Mạng Xã Hội & Zalo Official Account</span>
-                  </h5>
-                  <p className="text-3xs text-slate-400 mt-0.5">
-                    Quét mã QR bằng camera điện thoại hoặc bấm nút để truy cập ngay lập tức
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
-                  {/* Card 1: Facebook QR */}
-                  <div className="p-4 rounded-2xl bg-gradient-to-b from-blue-50/50 via-white to-slate-50/50 border border-blue-100 text-center space-y-3 shadow-2xs hover:shadow-xs transition-shadow">
-                    <div className="relative inline-block mx-auto">
-                      <img 
-                        src="/qr-facebook.png" 
-                        alt="Mã QR Facebook Saigon Machine" 
-                        className="w-28 h-28 sm:w-32 sm:h-32 object-contain mx-auto rounded-xl shadow-2xs border border-blue-200 bg-white p-1 hover:scale-102 transition-transform"
-                      />
-                    </div>
-                    <div>
-                      <h6 className="text-xs font-bold text-slate-900">Facebook Saigon Machine</h6>
-                      <p className="text-4xs text-slate-500 mt-0.5">Fanpage chính thức cập nhật máy mới</p>
-                    </div>
-                    <a
-                      href="https://facebook.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-[#1877F2] hover:bg-[#166fe5] text-white text-2xs font-bold transition-all shadow-2xs cursor-pointer"
-                    >
-                      <span>Mở Trang Facebook</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
+            {/* E. FOOTER DOANH NGHIỆP & COMPACT ENTERPRISE MICRO-HUB */}
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
+              <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-5">
+                {/* Cột Trái: Pháp lý, Địa chỉ & Phím tắt hành động */}
+                <div className="space-y-2 text-center md:text-left flex-1">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-3xs font-bold uppercase tracking-wider border border-emerald-200">
+                    <ShieldCheck className="w-3 h-3 text-emerald-600 shrink-0" />
+                    <span>Cổng Tra Cứu Thương Mại Chính Thức • Saigon Machine (SGM OS)</span>
+                  </div>
+                  
+                  <h4 className="text-sm sm:text-base font-black text-slate-900 leading-snug">
+                    CÔNG TY TNHH CƠ KHÍ CÔNG NGHIỆP SÀI GÒN
+                  </h4>
+                  <div className="text-3xs sm:text-2xs font-semibold text-slate-500 uppercase tracking-wide">
+                    SAIGON INDUSTRIAL METALLIC CO.,LTD • SAIGON MACHINE
                   </div>
 
-                  {/* Card 2: Zalo OA QR */}
-                  <div className="p-4 rounded-2xl bg-gradient-to-b from-sky-50/50 via-white to-slate-50/50 border border-sky-100 text-center space-y-3 shadow-2xs hover:shadow-xs transition-shadow">
-                    <div className="relative inline-block mx-auto">
-                      <img 
-                        src="/qr-zalo.png" 
-                        alt="Mã QR Zalo OA Saigon Machine" 
-                        className="w-28 h-28 sm:w-32 sm:h-32 object-contain mx-auto rounded-xl shadow-2xs border border-sky-200 bg-white p-1 hover:scale-102 transition-transform"
-                      />
-                    </div>
-                    <div>
-                      <h6 className="text-xs font-bold text-slate-900">Zalo OA Saigon Machine</h6>
-                      <p className="text-4xs text-slate-500 mt-0.5">Kênh tiếp nhận & phản hồi 24/7</p>
-                    </div>
+                  <div className="text-2xs text-slate-600 space-y-1 pt-1">
+                    <p className="flex items-center justify-center md:justify-start gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span><strong>ĐỊA CHỈ:</strong> Lô 12A Đường số 09, Khu Công Nghiệp Tân Tạo, P. Tân Tạo, TP. Hồ Chí Minh</span>
+                    </p>
+                    <p className="flex items-center justify-center md:justify-start gap-3 text-3xs sm:text-2xs">
+                      <span>Hotline: <a href="tel:0932000999" className="text-emerald-700 font-bold hover:underline">0932.000.999</a></span>
+                      <span className="text-slate-300">•</span>
+                      <span>Email: <a href="mailto:info@saigonmachine.vn" className="text-slate-700 font-medium hover:underline">info@saigonmachine.vn</a></span>
+                    </p>
+                  </div>
+
+                  {/* Nút tác vụ nhanh */}
+                  <div className="pt-2 flex flex-wrap items-center justify-center md:justify-start gap-2">
+                    <a
+                      href="https://maps.app.goo.gl/3fiZGV9W5t4StrT2A"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 text-3xs sm:text-2xs font-bold transition-all flex items-center gap-1 shadow-2xs"
+                    >
+                      <MapPin className="w-3 h-3 text-red-500" />
+                      <span>Google Maps (KCN Tân Tạo)</span>
+                      <ExternalLink className="w-2.5 h-2.5 text-slate-400" />
+                    </a>
+
+                    <a
+                      href="https://saigonmachine.vn"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 text-3xs sm:text-2xs font-bold transition-all flex items-center gap-1 shadow-2xs"
+                    >
+                      <Globe className="w-3 h-3 text-emerald-600" />
+                      <span>Website: saigonmachine.vn</span>
+                      <ExternalLink className="w-2.5 h-2.5 text-slate-400" />
+                    </a>
+
+                    <a
+                      href="tel:0932000999"
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-3xs sm:text-2xs font-bold transition-all flex items-center gap-1 shadow-2xs"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span>Hotline 0932.000.999</span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* Cột Phải: Bộ đôi QR Code Zalo & Facebook Siêu Gọn */}
+                <div className="flex flex-col items-center justify-center shrink-0 border-t md:border-t-0 md:border-l border-slate-100 pt-3 md:pt-0 md:pl-5">
+                  <div className="text-3xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-blue-600" />
+                    <span>Quét QR Kết Nối 24/7</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {/* QR Zalo */}
                     <a
                       href="https://oa.zalo.me/1336150047301360288"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-[#0068FF] hover:bg-[#0057d9] text-white text-2xs font-bold transition-all shadow-2xs cursor-pointer"
+                      title="Mở Zalo OA Saigon Machine"
+                      className="group flex flex-col items-center p-2 rounded-xl bg-sky-50/70 hover:bg-sky-100/70 border border-sky-200 transition-all text-center"
                     >
-                      <span>Quan Tâm Zalo OA</span>
-                      <ExternalLink className="w-3 h-3" />
+                      <img 
+                        src="/qr-zalo.png" 
+                        alt="QR Zalo OA" 
+                        className="w-14 h-14 sm:w-16 sm:h-16 object-contain rounded-lg bg-white p-0.5 border border-sky-300 shadow-2xs group-hover:scale-105 transition-transform"
+                      />
+                      <span className="mt-1 text-4xs font-bold text-sky-800 flex items-center gap-0.5">
+                        Zalo OA <ExternalLink className="w-2 h-2 text-sky-600" />
+                      </span>
+                    </a>
+
+                    {/* QR Facebook */}
+                    <a
+                      href="https://facebook.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Mở Facebook Saigon Machine"
+                      className="group flex flex-col items-center p-2 rounded-xl bg-blue-50/70 hover:bg-blue-100/70 border border-blue-200 transition-all text-center"
+                    >
+                      <img 
+                        src="/qr-facebook.png" 
+                        alt="QR Facebook" 
+                        className="w-14 h-14 sm:w-16 sm:h-16 object-contain rounded-lg bg-white p-0.5 border border-blue-300 shadow-2xs group-hover:scale-105 transition-transform"
+                      />
+                      <span className="mt-1 text-4xs font-bold text-blue-800 flex items-center gap-0.5">
+                        Facebook <ExternalLink className="w-2 h-2 text-blue-600" />
+                      </span>
                     </a>
                   </div>
                 </div>
-              </div>
-
-              {/* BỘ NÚT CHẠM 1 LẦN DẪN ĐƯỜNG & WEBSITE */}
-              <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5">
-                <a
-                  href="https://maps.app.goo.gl/3fiZGV9W5t4StrT2A"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 text-2xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
-                >
-                  <MapPin className="w-3.5 h-3.5 text-red-500" />
-                  <span>Chỉ Đường Google Maps (KCN Tân Tạo)</span>
-                  <ExternalLink className="w-3 h-3 text-slate-400" />
-                </a>
-
-                <a
-                  href="https://saigonmachine.vn"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 text-2xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
-                >
-                  <Globe className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Website: saigonmachine.vn</span>
-                  <ExternalLink className="w-3 h-3 text-slate-400" />
-                </a>
-
-                <a
-                  href="tel:0932000999"
-                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-2xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
-                >
-                  <Phone className="w-3.5 h-3.5" />
-                  <span>Hotline: 0932.000.999</span>
-                </a>
               </div>
             </div>
 

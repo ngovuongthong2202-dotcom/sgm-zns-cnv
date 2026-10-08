@@ -116,13 +116,35 @@ export function UniversalZnsPreviewModal({
     defaults.customer_name = resolvedCustomerName;
     defaults.phone = targetPhone;
 
-    // Hợp đồng (533068): order_code BẮT BUỘC ưu tiên Số Hợp Đồng (HD-2026-xxxx)
-    if (templateInfo.templateId === '533068' || entityType === 'CONTRACT') {
-      defaults.order_code = String(payload.soHopDong || payload.maHopDong || documentCode || 'HD-2026-0002').slice(0, 30);
+    // Hợp đồng (647737 - Chuẩn ZBS Zalo OA 2026 Mẫu Ký Hợp Đồng Thành Công 800đ)
+    if (templateInfo.templateId === '647737' || templateInfo.templateId === '533068' || entityType === 'CONTRACT') {
+      const contractNum = String(payload.soHopDong || payload.maHopDong || payload.so_phieu || documentCode || '015/KD1-SGM/TN-CT/26').slice(0, 30);
+      const orderNum = String(payload.soDonHang || payload.order_code || payload.orderCode || '11-KDDH2604-014').slice(0, 30);
+      const quoteNum = String(payload.soPhieuBaoGia || payload.ma_bao_gia || payload.quotationCode || 'BGM-2026-0812').slice(0, 30);
+      defaults.so_phieu = contractNum;
+      defaults.order_code = orderNum;
+      defaults.ma_bao_gia = quoteNum;
+
+      let loaiDonVal = String(payload.loai_don || payload.loaiDon || '').trim();
+      if (!loaiDonVal) {
+        const loai = String(payload.loai || payload.loaiBaoGia || '').toUpperCase();
+        if (loai.includes('VAT_TU') || loai.includes('VẬT TƯ')) {
+          loaiDonVal = 'Cung cấp Vật Tư';
+        } else if (loai.includes('DICH_VU') || loai.includes('DỊCH VỤ')) {
+          loaiDonVal = 'Cung cấp giải pháp/dịch vụ';
+        } else {
+          loaiDonVal = 'Cung cấp Máy móc/Thiết Bị';
+        }
+      }
+      defaults.loai_don = loaiDonVal.slice(0, 30);
       defaults.ngay_ky = formatZnsDate(payload.ngayKy || payload.ngay_ky || dateValue);
       defaults.so_ngay = String(payload.soNgayDuKienHoanThanh || payload.thoiGianThucHien || payload.soNgay || payload.so_ngay || '30');
-      defaults.so_phieu = String(payload.soPhieuBaoGia || payload.soPhieu || payload.soHopDong || 'BGM-2026-1149').slice(0, 30);
+      const computedSl = Array.isArray(payload.products) && payload.products.length > 0
+        ? String(payload.products.reduce((acc: number, p: any) => acc + (Number(p.quantity || p.soLuong) || 1), 0))
+        : String(payload.so_luong || payload.soLuong || payload.sl_may || payload.slMay || '1');
+      defaults.so_luong = computedSl;
       defaults.nhan_vien = officerName;
+      defaults.ma_tra_cuu = String(payload.ma_tra_cuu || payload.maTraCuu || contractNum || '').slice(0, 30);
     }
 
     // Báo giá (647061 - Chuẩn ZBS Zalo OA 2026 Mẫu Đã Duyệt 800đ)

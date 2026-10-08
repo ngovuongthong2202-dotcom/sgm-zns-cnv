@@ -16,7 +16,7 @@ import { formatZnsQuotationProducts } from '../../../widgets/product-list-input/
 export const DEFAULT_ZALO_TEMPLATE_MAP: Record<string, string> = {
   CUSTOMER_PRE_QUOTE: '533060',         // 1. THÔNG TIN GIẢI PHÁP MÁY CÔNG NGHIỆP
   BAOGIA: '647061',                     // 2. THÔNG BÁO BÁO GIÁ THÀNH CÔNG (Mẫu 647061 Chuẩn ZBS 2026 - 800đ)
-  HOPDONG_SIGN_ZNS: '533068',           // 3. XÁC NHẬN KÝ HỢP ĐỒNG THÀNH CÔNG
+  HOPDONG_SIGN_ZNS: '647737',           // 3. XÁC NHẬN KÝ HỢP ĐỒNG THÀNH CÔNG (Mẫu 647737 Chuẩn ZBS 2026 - 800đ)
   THANH_TOAN_TAT_TOAN: '646935',       // 4. XÁC NHẬN THANH TOÁN (Mẫu Hợp Nhất 646935)
   THANH_TOAN_CONG_NO: '646935',         // 5. XÁC NHẬN THANH TOÁN (Mẫu Hợp Nhất 646935)
   THANH_TOAN_CONG_NO_DEN_HAN: '646935', // 5. XÁC NHẬN THANH TOÁN (Mẫu Hợp Nhất 646935)
@@ -135,17 +135,19 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
       nguoi_phu_trach: cleanOfficer,
       officer_name: cleanOfficer,
 
-      // 3. Phân hệ Hợp đồng (Template 533068)
+      // 3. Phân hệ Hợp đồng (Template 647737 Chuẩn ZBS 2026)
       so_hop_dong: contractCode,
       contract_code: contractCode,
-      order_code: resolvedContractOrderCode,
+      order_code: (messageType.includes('HOPDONG') && orderCode !== '---') ? orderCode : resolvedContractOrderCode,
       so_don_hang: orderCode,
       ngay_ky: formatZnsDate(p.ngay_ky || p.ngayKy || dateFormatted),
       sign_date: formatZnsDate(p.sign_date || p.ngayKy || dateFormatted),
       so_ngay: soNgayNum,
-      so_phieu: (messageType.includes('THANH_TOAN') || p.so_phieu) 
-        ? (contractCode !== '---' ? contractCode : quotationCode) 
-        : (quotationCode !== '---' ? quotationCode : contractCode),
+      so_phieu: (messageType.includes('HOPDONG') || p.soHopDong) 
+        ? (contractCode !== '---' ? contractCode : (p.so_phieu || quotationCode)) 
+        : ((messageType.includes('THANH_TOAN') || p.so_phieu) 
+          ? (contractCode !== '---' ? contractCode : quotationCode) 
+          : (quotationCode !== '---' ? quotationCode : contractCode)),
       nhan_vien: cleanOfficer,
 
       // 4. Phân hệ Thanh toán & Điểm Thưởng Tích Hợp MDM (Template 2026 / 552490 / 547381)
@@ -259,6 +261,27 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
         sl_may: String(templateData.sl_may || 1),
         nhan_vien: templateData.nhan_vien || templateData.nguoi_phu_trach || 'Ngô Vương Thông',
         ma_tra_cuu: templateData.ma_tra_cuu || templateData.ma_bao_gia || templateData.so_phieu_bao_gia || 'BGM-2026-1149'
+      };
+    }
+
+    // Strict whitelisting & safety guardrails for Template 647737 (Xác nhận ký hợp đồng thành công Chuẩn ZBS 2026 - 800đ)
+    if (templateId === '647737' || templateId === '533068' || props.messageType === 'HOPDONG_SIGN_ZNS') {
+      const parsedSoNgay = typeof templateData.so_ngay === 'number' ? templateData.so_ngay : (parseInt(String(templateData.so_ngay || 30).replace(/\D/g, ''), 10) || 30);
+      const rawSoLuong = props.payload?.so_luong ?? props.payload?.soLuong ?? props.payload?.sl_may ?? templateData.sl_may ?? 1;
+      const parsedSoLuong = typeof rawSoLuong === 'number' ? rawSoLuong : (parseInt(String(rawSoLuong).replace(/\D/g, ''), 10) || 1);
+
+      templateData = {
+        customer_name: templateData.customer_name || 'Quý khách hàng',
+        phone: templateData.phone || zaloPhone,
+        loai_don: templateData.loai_don || 'Cung cấp Máy móc/Thiết Bị',
+        so_phieu: templateData.so_hop_dong && templateData.so_hop_dong !== '---' ? templateData.so_hop_dong : (templateData.so_phieu !== '---' ? templateData.so_phieu : 'HD-SGM'),
+        order_code: templateData.so_don_hang && templateData.so_don_hang !== '---' ? templateData.so_don_hang : (templateData.order_code !== '---' ? templateData.order_code : 'DH-SGM'),
+        ma_bao_gia: templateData.ma_bao_gia && templateData.ma_bao_gia !== '---' ? templateData.ma_bao_gia : 'BG-SGM',
+        ngay_ky: templateData.ngay_ky || formatZnsDate(new Date()),
+        so_ngay: parsedSoNgay,
+        nhan_vien: templateData.nhan_vien || templateData.nguoi_phu_trach || 'Ngô Vương Thông',
+        so_luong: parsedSoLuong,
+        ma_tra_cuu: templateData.ma_tra_cuu || templateData.so_hop_dong || templateData.order_code || 'HD-SGM'
       };
     }
 

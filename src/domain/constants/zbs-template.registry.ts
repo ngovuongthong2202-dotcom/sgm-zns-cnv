@@ -101,31 +101,47 @@ export const ZBS_TEMPLATE_REGISTRY: Record<string, ZbsTemplateInfo> = {
     ]
   },
 
-  // 3. HỢP ĐỒNG - ID 533068
+  // 3. HỢP ĐỒNG - ID 647737 (Chuẩn ZBS Zalo OA 2026 - Mẫu Ký Hợp Đồng Thành Công 800đ)
   [ZnsMessageType.HOPDONG_SIGN_ZNS]: {
-    templateId: '533068',
+    templateId: '647737',
     messageType: ZnsMessageType.HOPDONG_SIGN_ZNS,
     templateName: 'XÁC NHẬN KÝ HỢP ĐỒNG THÀNH CÔNG',
     businessDomain: 'CONTRACT',
     businessLabel: 'Xác nhận ký kết Hợp đồng',
     status: 'ENABLE',
-    previewUrl: 'https://account.zalo.cloud/znspreview/SknOFLCi9zQ50l8HDUMjxg==',
-    price: 300,
+    previewUrl: 'https://account.zalo.cloud/znspreview/647737',
+    price: 800,
     providerApp: 'CNV CDP',
     params: [
       { name: 'customer_name', label: 'Tên khách hàng', require: true, type: 'STRING', maxLength: 30, sourceKey: 'customer_name' },
       { name: 'phone', label: 'Số điện thoại', require: true, type: 'STRING', maxLength: 15, sourceKey: 'phone' },
-      { name: 'order_code', label: 'Mã hợp đồng (order_code)', require: true, type: 'STRING', maxLength: 30, sourceKey: 'order_code' },
-      { name: 'ngay_ky', label: 'Ngày ký', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ngay_ky' },
-      { name: 'so_ngay', label: 'Số ngày hoàn thành', require: true, type: 'NUMBER', maxLength: 30, sourceKey: 'so_ngay' },
-      { name: 'so_phieu', label: 'Số phiếu nguồn (Báo giá)', require: true, type: 'STRING', maxLength: 30, sourceKey: 'so_phieu' },
-      { name: 'nhan_vien', label: 'Nhân viên phụ trách', require: true, type: 'STRING', maxLength: 30, sourceKey: 'nhan_vien' }
+      { name: 'loai_don', label: 'Loại đơn', require: true, type: 'STRING', maxLength: 30, sourceKey: 'loai_don' },
+      { name: 'so_phieu', label: 'Số hợp đồng (so_phieu)', require: true, type: 'STRING', maxLength: 30, sourceKey: 'so_phieu' },
+      { name: 'order_code', label: 'Số đơn hàng (order_code)', require: true, type: 'STRING', maxLength: 30, sourceKey: 'order_code' },
+      { name: 'ma_bao_gia', label: 'Số báo giá liên kết', require: true, type: 'STRING', maxLength: 30, sourceKey: 'ma_bao_gia' },
+      { name: 'ngay_ky', label: 'Ngày ký', require: true, type: 'STRING', maxLength: 20, sourceKey: 'ngay_ky' },
+      { name: 'so_ngay', label: 'Số ngày thực hiện', require: true, type: 'NUMBER', maxLength: 20, sourceKey: 'so_ngay' },
+      { name: 'nhan_vien', label: 'Người phụ trách', require: true, type: 'STRING', maxLength: 30, sourceKey: 'nhan_vien' },
+      { name: 'so_luong', label: 'Tổng số sản phẩm', require: true, type: 'NUMBER', maxLength: 20, sourceKey: 'so_luong' },
+      { name: 'ma_tra_cuu', label: 'Mã tra cứu', require: true, type: 'STRING', maxLength: 200, sourceKey: 'ma_tra_cuu' }
     ],
     ctaButton: {
       type: 3,
-      title: 'Quan tâm OA',
+      title: 'Đến trang thông tin OA',
       content: 'https://oa.zalo.me/1336150047301360288'
-    }
+    },
+    ctaButtons: [
+      {
+        type: 3,
+        title: 'Đến trang thông tin OA',
+        content: 'https://oa.zalo.me/1336150047301360288'
+      },
+      {
+        type: 1,
+        title: 'Tra cứu hợp đồng',
+        content: 'https://sgm-os.onrender.com/tra-cuu-hop-dong?code=<ma_tra_cuu>'
+      }
+    ]
   },
 
   // 4. THANH TOÁN (Tất toán) - ID 552490

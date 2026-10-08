@@ -507,7 +507,7 @@ export function ContractDetailDrawer({
                 }}
               >
                 <span>Gửi ZNS</span>
-                <span className="text-3xs font-mono px-1 py-0.2 bg-blue-100 text-blue-800 rounded font-black">#533068</span>
+                <span className="text-3xs font-mono px-1 py-0.2 bg-blue-100 text-blue-800 rounded font-black">#647737</span>
               </Button>
             </div>
 
@@ -729,7 +729,7 @@ export function ContractDetailDrawer({
             >
               <Send size={13} className="text-blue-600" />
               <span>Gửi tin Zalo</span>
-              <span className="text-3xs font-mono px-1 py-0.2 bg-blue-100 text-blue-800 rounded font-black">#533068</span>
+              <span className="text-3xs font-mono px-1 py-0.2 bg-blue-100 text-blue-800 rounded font-black">#647737</span>
             </Button>
           )}
           <Button aria-label="Chỉnh sửa" variant="primary" size="sm" className="h-9 font-bold" onClick={() => onEdit(drawerContract)}>Chỉnh sửa</Button>

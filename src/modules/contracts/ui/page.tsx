@@ -404,17 +404,22 @@ export default function ContractsFeature() {
             tenZns: znsPreviewContract.customer?.tenZns || znsPreviewContract.contract.tenKhachHang,
             ten_zns: znsPreviewContract.customer?.tenZns || znsPreviewContract.contract.tenKhachHang,
             customer_name: znsPreviewContract.customer?.tenZns || znsPreviewContract.contract.tenKhachHang,
-            order_code: znsPreviewContract.contract.soHopDong || znsPreviewContract.contract.id,
+            loai_don: 'Cung cấp Máy móc/Thiết Bị',
+            so_phieu: znsPreviewContract.contract.soHopDong || znsPreviewContract.contract.id || '',
+            order_code: znsPreviewContract.contract.soDonHang || (znsPreviewContract.contract as any).orderCode || 'DH-SGM',
+            ma_bao_gia: znsPreviewContract.contract.soPhieuBaoGia || (znsPreviewContract.contract as any).quotationCode || 'BG-SGM',
             soHopDong: znsPreviewContract.contract.soHopDong || znsPreviewContract.contract.id,
             so_hop_dong: znsPreviewContract.contract.soHopDong || znsPreviewContract.contract.id,
             ngayKy: znsPreviewContract.contract.ngayKy,
             ngay_ky: znsPreviewContract.contract.ngayKy,
             soNgay: znsPreviewContract.contract.soNgayDuKienHoanThanh || (znsPreviewContract.contract as any).thoiGianThucHien || (znsPreviewContract.contract as any).soNgay || 30,
             so_ngay: znsPreviewContract.contract.soNgayDuKienHoanThanh || (znsPreviewContract.contract as any).thoiGianThucHien || (znsPreviewContract.contract as any).soNgay || 30,
-            soPhieu: znsPreviewContract.contract.soPhieuBaoGia || znsPreviewContract.contract.soHopDong || '',
-            so_phieu: znsPreviewContract.contract.soPhieuBaoGia || znsPreviewContract.contract.soHopDong || '',
+            so_luong: Array.isArray(znsPreviewContract.contract.products) && znsPreviewContract.contract.products.length > 0
+              ? znsPreviewContract.contract.products.reduce((acc: number, p: any) => acc + (Number(p.quantity || p.soLuong) || 1), 0)
+              : 1,
             nhanVien: znsPreviewContract.contract.nguoiPhuTrach || 'Ngô Vương Thông',
             nhan_vien: znsPreviewContract.contract.nguoiPhuTrach || 'Ngô Vương Thông',
+            ma_tra_cuu: znsPreviewContract.contract.soHopDong || znsPreviewContract.contract.id || '',
             phone: znsPreviewContract.phone,
             sdt: znsPreviewContract.phone
           }}

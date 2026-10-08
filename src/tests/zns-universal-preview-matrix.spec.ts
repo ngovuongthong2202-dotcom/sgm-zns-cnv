@@ -23,7 +23,7 @@ describe('ZBS Universal Template Registry & Dispatch Matrix', () => {
     // 3. Hợp Đồng
     const contractTemplate = ZBS_TEMPLATE_REGISTRY[ZnsMessageType.HOPDONG_SIGN_ZNS];
     expect(contractTemplate).toBeDefined();
-    expect(contractTemplate.templateId).toBe('533068');
+    expect(contractTemplate.templateId).toBe('647737');
     expect(contractTemplate.businessDomain).toBe('CONTRACT');
 
     // 4 & 5. Thanh Toán Hợp Nhất 2026 (Mẫu 646935)
