@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Globe, Database, User, HardDrive, Info, Settings, ShieldAlert, Send, Search, ChevronRight } from 'lucide-react';
+import { Globe, Database, User, HardDrive, Info, Settings, ShieldAlert, Send, Search, ChevronRight, Landmark } from 'lucide-react';
 import { PageHeader, ErrorBoundary, tokens } from '@/src/design-system';
 import { t } from '@/src/i18n/vi';
 
@@ -15,6 +15,7 @@ import TelegramPage from './pages/TelegramPage';
 import HealthScorePage from './pages/HealthScorePage';
 import ProductCatalogPage from './pages/ProductCatalogPage';
 import IntegrationsPage from './pages/IntegrationsPage';
+import BankingPage from './pages/BankingPage';
 
 type SettingGroup = {
   id: string;
@@ -36,6 +37,7 @@ const settingGroups: SettingGroup[] = [
     id: 'data_integration',
     titleKey: 'settings.groups.data_integration',
     items: [
+      { path: '/settings/banking', label: 'Tài khoản ngân hàng', icon: Landmark, description: 'Cấu hình ngân hàng thụ hưởng SGM & VietQR API' },
       { path: '/settings/integrations', label: 'Liên kết API & ERP', icon: Globe, description: 'Cấu hình endpoint ERP SGM, Kho & Báo giá' },
       { path: '/settings/fields', label: 'Trường thông tin', icon: Database, description: 'Cấu hình thuộc tính chung' },
       { path: '/settings/catalog', label: 'Thư viện sản phẩm', icon: Database, description: 'Quản lý bảng giá & mẫu hàng' },
@@ -162,6 +164,7 @@ export default function SettingsFeature() {
 
             <ErrorBoundary>
               {(() => {
+                if (activePath.includes('/settings/banking')) return <BankingPage />;
                 if (activePath.includes('/settings/integrations')) return <IntegrationsPage />;
                 if (activePath.includes('/settings/fields')) return <FieldsPage />;
                 if (activePath.includes('/settings/gates')) return <GatePage />;

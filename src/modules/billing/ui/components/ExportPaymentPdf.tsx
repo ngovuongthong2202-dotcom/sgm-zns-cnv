@@ -61,16 +61,16 @@ export function ExportPaymentPdf({
                 <h1 className="text-xs font-black tracking-tight text-slate-900 uppercase">{SGM_COMPANY_INFO.name}</h1>
                 <p className="text-3xs text-slate-500 font-medium mt-0.5 leading-tight">
                   {SGM_COMPANY_INFO.address}<br />
-                  MST: <span className="font-mono font-bold">{SGM_COMPANY_INFO.taxCode}</span> | Hotline: <span className="font-mono font-bold">{SGM_COMPANY_INFO.hotline}</span>
+                  MST: <span className="font-sans tabular-nums font-bold">{SGM_COMPANY_INFO.taxCode}</span> | Hotline: <span className="font-sans tabular-nums font-bold">{SGM_COMPANY_INFO.hotline}</span>
                 </p>
               </div>
             </div>
             <div className="text-right shrink-0">
-              <span className="font-mono text-xs font-black text-emerald-900 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 block">
+              <span className="font-sans tabular-nums text-xs font-black text-emerald-900 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 block">
                 Mã PT: {payment.paymentId || 'PT-CHUA-LUU'}
               </span>
               <p className="text-3xs text-slate-500 font-semibold mt-1">
-                Ngày thu: <span className="font-mono text-slate-900">{formatDate(payment.ngayThanhToan || payment.createdAt || new Date())}</span>
+                Ngày thu: <span className="font-sans tabular-nums text-slate-900">{formatDate(payment.ngayThanhToan || payment.createdAt || new Date())}</span>
               </p>
             </div>
           </div>
@@ -97,15 +97,15 @@ export function ExportPaymentPdf({
 
             <div className="flex justify-between border-b border-slate-200 pb-2">
               <span className="text-slate-600">Số điện thoại liên hệ:</span>
-              <span className="font-mono font-bold text-slate-900">{payment.sdt || '---'}</span>
+              <span className="font-sans tabular-nums font-bold text-slate-900">{payment.sdt || '---'}</span>
             </div>
 
             <div className="flex justify-between border-b border-slate-200 pb-2">
               <span className="text-slate-600">Căn cứ chứng từ:</span>
               <div className="text-right">
-                {payment.soHopDong && <span className="font-mono font-bold text-blue-900 mr-3">HĐ: {payment.soHopDong}</span>}
-                {payment.soDonHang && <span className="font-mono font-bold text-slate-800 mr-3">ĐH: {payment.soDonHang}</span>}
-                {payment.soPhieuBaoGia && <span className="font-mono font-bold text-emerald-800">BG: {payment.soPhieuBaoGia}</span>}
+                {payment.soHopDong && <span className="font-sans tabular-nums font-bold text-blue-900 mr-3">HĐ: {payment.soHopDong}</span>}
+                {payment.soDonHang && <span className="font-sans tabular-nums font-bold text-slate-800 mr-3">ĐH: {payment.soDonHang}</span>}
+                {payment.soPhieuBaoGia && <span className="font-sans tabular-nums font-bold text-emerald-800">BG: {payment.soPhieuBaoGia}</span>}
               </div>
             </div>
 
@@ -117,13 +117,13 @@ export function ExportPaymentPdf({
             {payment.soChungTu && (
               <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-slate-600">Số Ủy Nhiệm Chi / Chứng từ ngân hàng:</span>
-                <span className="font-mono font-bold text-blue-800">{payment.soChungTu}</span>
+                <span className="font-sans tabular-nums font-bold text-blue-800">{payment.soChungTu}</span>
               </div>
             )}
 
             <div className="flex justify-between border-b border-slate-200 pb-2 bg-emerald-50/60 p-2.5 rounded-lg border border-emerald-200">
               <span className="font-bold text-emerald-950 uppercase text-xs">SỐ TIỀN THỰC THU:</span>
-              <strong className="font-mono font-black text-emerald-900 text-sm">{formatCurrency(soTien)}</strong>
+              <strong className="font-sans tabular-nums font-black text-emerald-900 text-sm">{formatCurrency(soTien)}</strong>
             </div>
 
             <p className="text-2xs text-slate-700 italic">
@@ -132,8 +132,8 @@ export function ExportPaymentPdf({
 
             {totalAmount > 0 && (
               <div className="pt-2 text-2xs flex justify-between text-slate-600">
-                <span>Tổng giá trị đơn hàng: <strong className="font-mono">{formatCurrency(totalAmount)}</strong></span>
-                <span>Công nợ còn lại sau đợt này: <strong className="font-mono text-amber-800">{formatCurrency(remaining)}</strong></span>
+                <span>Tổng giá trị đơn hàng: <strong className="font-sans tabular-nums">{formatCurrency(totalAmount)}</strong></span>
+                <span>Công nợ còn lại sau đợt này: <strong className="font-sans tabular-nums text-amber-800">{formatCurrency(remaining)}</strong></span>
               </div>
             )}
 

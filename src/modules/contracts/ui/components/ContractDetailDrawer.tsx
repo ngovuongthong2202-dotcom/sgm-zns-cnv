@@ -30,7 +30,8 @@ import {
   FileText, 
   Trash2,
   Layers,
-  Send
+  Send,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { QuotationHoverCard } from '@/src/modules/sales/ui/components/QuotationHoverCard';
@@ -718,6 +719,21 @@ export function ContractDetailDrawer({
             )
           )}
 
+          <Button
+            aria-label="Cổng Hợp Đồng"
+            variant="subtle"
+            size="sm"
+            onClick={() => {
+              const code = String(drawerContract.soHopDong || drawerContract.id || '');
+              window.open(`/tra-cuu-hop-dong?code=${encodeURIComponent(code)}`, '_blank');
+            }}
+            className="h-9 font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-300 flex items-center gap-1.5"
+            title="Mở Cổng Tra Cứu Hợp Đồng Khách Hàng"
+            leftIcon={<ExternalLink size={13} className="text-blue-700" />}
+          >
+            Cổng Hợp Đồng
+          </Button>
+
           <Button aria-label="Đóng" variant="secondary" size="sm" className="h-9 font-bold" onClick={onClose}>Đóng</Button>
           {onSendZns && (
             <Button
@@ -729,7 +745,7 @@ export function ContractDetailDrawer({
             >
               <Send size={13} className="text-blue-600" />
               <span>Gửi tin Zalo</span>
-              <span className="text-3xs font-mono px-1 py-0.2 bg-blue-100 text-blue-800 rounded font-black">#647737</span>
+              <span className="text-3xs font-sans font-bold tabular-nums px-1 py-0.2 bg-blue-100 text-blue-800 rounded">#647737</span>
             </Button>
           )}
           <Button aria-label="Chỉnh sửa" variant="primary" size="sm" className="h-9 font-bold" onClick={() => onEdit(drawerContract)}>Chỉnh sửa</Button>

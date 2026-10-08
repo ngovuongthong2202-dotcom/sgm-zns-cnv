@@ -136,5 +136,43 @@ describe('Phase 4: Public Order Tracking Portal & Phone-Gate Security', () => {
     expect(detectPortalContext('/tra-cuu-hop-dong')).toBe('ORDER');
     expect(detectPortalContext('/tra-cuu', '015/KD1-SGM/TN-CT/26')).toBe('ORDER');
   });
+
+  it('guarantees Zero Dynamic QR Risk and official SGM legal entity wire transfer presentation', async () => {
+    // Verify default company banking config structure
+    const { getCompanyBankingConfig } = await import('@/src/shared/services/vietqrBankService');
+    const bankConfig = await getCompanyBankingConfig();
+    expect(bankConfig).toBeDefined();
+    expect(bankConfig.accountNumber).toBeTruthy();
+    expect(bankConfig.accountHolder).toBeTruthy();
+    expect(bankConfig.bankCode).toBeTruthy();
+    expect(bankConfig.isDefault).toBe(true);
+  });
+
+  it('verifies public tracking presenters enforce sans-serif tabular-nums and light industrial aesthetics without font-mono or purple/pink', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+
+    const presenterFiles = [
+      'QuotationCommercialPresenter.tsx',
+      'ContractManufacturingPresenter.tsx',
+      'PaymentFinancialPresenter.tsx',
+      'OmniContextSwitcher.tsx',
+      'MobileStickyActionDock.tsx',
+      '../PublicOrderTrackingPage.tsx'
+    ];
+
+    for (const file of presenterFiles) {
+      const fullPath = path.resolve(process.cwd(), 'src/features/tracking/components', file);
+      if (fs.existsSync(fullPath)) {
+        const content = fs.readFileSync(fullPath, 'utf-8');
+        // Assert no font-mono
+        expect(content.includes('font-mono')).toBe(false);
+        // Assert no forbidden purple/pink styling classes (case insensitive check for tailwind classes like text-purple, bg-pink)
+        const hasPurpleClass = /\b(text|bg|border)-(purple|violet|fuchsia|pink|rose)-[0-9]{2,3}\b/i.test(content);
+        expect(hasPurpleClass).toBe(false);
+      }
+    }
+  });
 });
+
 

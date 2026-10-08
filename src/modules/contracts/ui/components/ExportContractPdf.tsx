@@ -100,16 +100,16 @@ export function ExportContractPdf({
                 <h1 className="text-xs font-black tracking-tight text-slate-900 uppercase">{SGM_COMPANY_INFO.name}</h1>
                 <p className="text-3xs text-slate-500 font-medium mt-0.5 leading-tight">
                   {SGM_COMPANY_INFO.address}<br />
-                  MST: <span className="font-mono font-bold">{SGM_COMPANY_INFO.taxCode}</span> | Hotline: <span className="font-mono font-bold">{SGM_COMPANY_INFO.hotline}</span>
+                  MST: <span className="font-sans tabular-nums font-bold">{SGM_COMPANY_INFO.taxCode}</span> | Hotline: <span className="font-sans tabular-nums font-bold">{SGM_COMPANY_INFO.hotline}</span>
                 </p>
               </div>
             </div>
             <div className="text-right shrink-0">
-              <span className="font-mono text-xs font-black text-blue-900 bg-blue-50 px-2.5 py-1 rounded border border-blue-200 block">
+              <span className="font-sans tabular-nums text-xs font-black text-blue-900 bg-blue-50 px-2.5 py-1 rounded border border-blue-200 block">
                 Số: {contract.soHopDong || 'HD-CHUA-LUU'}
               </span>
               <p className="text-3xs text-slate-500 font-semibold mt-1">
-                Ngày: <span className="font-mono text-slate-900">{formatDate(contract.ngayKy || (contract as any).ngayTao || new Date())}</span>
+                Ngày: <span className="font-sans tabular-nums text-slate-900">{formatDate(contract.ngayKy || (contract as any).ngayTao || new Date())}</span>
               </p>
             </div>
           </div>
@@ -128,9 +128,9 @@ export function ExportContractPdf({
               <h4 className="font-black text-blue-900 uppercase border-b border-slate-200 pb-1">BÊN A (BÊN BÁN):</h4>
               <p className="font-bold text-slate-900">{SGM_COMPANY_INFO.name}</p>
               <p><span className="text-slate-500">Địa chỉ:</span> {SGM_COMPANY_INFO.address}</p>
-              <p><span className="text-slate-500">MST:</span> <strong className="font-mono">{SGM_COMPANY_INFO.taxCode}</strong></p>
+              <p><span className="text-slate-500">MST:</span> <strong className="font-sans tabular-nums">{SGM_COMPANY_INFO.taxCode}</strong></p>
               <p><span className="text-slate-500">Đại diện:</span> <strong>{SGM_COMPANY_INFO.legalRepresentative}</strong> - Chức vụ: {SGM_COMPANY_INFO.position}</p>
-              <p><span className="text-slate-500">Tài khoản:</span> <span className="font-mono font-bold">{SGM_COMPANY_INFO.bankAccount.accountNumber}</span> tại {SGM_COMPANY_INFO.bankAccount.bankName}</p>
+              <p><span className="text-slate-500">Tài khoản:</span> <span className="font-sans tabular-nums font-bold">{SGM_COMPANY_INFO.bankAccount.accountNumber}</span> tại {SGM_COMPANY_INFO.bankAccount.bankName}</p>
             </div>
 
             {/* BÊN B (BÊN MUA) */}
@@ -138,11 +138,11 @@ export function ExportContractPdf({
               <h4 className="font-black text-slate-900 uppercase border-b border-slate-200 pb-1">BÊN B (BÊN MUA):</h4>
               <p className="font-bold text-slate-900">{contract.tenKhachHang || 'Chưa cập nhật tên bên mua'}</p>
               <p><span className="text-slate-500">Địa chỉ:</span> {(contract as any).diaChiGiaoHang || (contract as any).diaChi || 'Theo đăng ký kinh doanh'}</p>
-              <p><span className="text-slate-500">MST / CCCD:</span> <strong className="font-mono">{(contract as any).maSoThue || (contract as any).cccd || '---'}</strong></p>
+              <p><span className="text-slate-500">MST / CCCD:</span> <strong className="font-sans tabular-nums">{(contract as any).maSoThue || (contract as any).cccd || '---'}</strong></p>
               <p><span className="text-slate-500">Đại diện:</span> <strong>{contract.nguoiDaiDien || 'Theo ủy quyền'}</strong> - Chức vụ: {(contract as any).chucVu || 'Đại diện hợp pháp'}</p>
               <p>
                 <span className="text-slate-500">Điện thoại:</span>{' '}
-                <span className="font-mono font-bold">
+                <span className="font-sans tabular-nums font-bold">
                   {(() => {
                     if (!contract.sdt) return '---';
                     const ext = extractVietnamesePhones(contract.sdt);
@@ -176,15 +176,15 @@ export function ExportContractPdf({
                     const lineTotal = line.subtotalAfterDiscount ?? (line.quantity * rowPrice);
                     return (
                       <tr key={idx}>
-                        <td className="p-2 text-center text-slate-500 font-mono">{idx + 1}</td>
+                        <td className="p-2 text-center text-slate-500 font-sans tabular-nums">{idx + 1}</td>
                         <td className="p-2 font-medium">
                           <span className="font-bold text-slate-900">{line.productName || item.productName}</span>
                           {(item as any).description && <p className="text-3xs text-slate-500 mt-0.5">{(item as any).description}</p>}
                         </td>
                         <td className="p-2 text-center text-slate-600">{line.unit || item.unit || 'Máy'}</td>
-                        <td className="p-2 text-center font-bold font-mono">{line.quantity}</td>
-                        <td className="p-2 text-right font-mono">{formatCurrency(rowPrice)}</td>
-                        <td className="p-2 text-right font-bold font-mono text-slate-900">
+                        <td className="p-2 text-center font-bold font-sans tabular-nums">{line.quantity}</td>
+                        <td className="p-2 text-right font-sans tabular-nums">{formatCurrency(rowPrice)}</td>
+                        <td className="p-2 text-right font-bold font-sans tabular-nums text-slate-900">
                           {formatCurrency(lineTotal)}
                         </td>
                       </tr>
@@ -193,24 +193,24 @@ export function ExportContractPdf({
                   {totalDiscount > 0 && (
                     <tr className="bg-slate-50 text-slate-700 font-medium border-t border-slate-200">
                       <td colSpan={5} className="p-2 text-right">Cộng tiền hàng (Tạm tính):</td>
-                      <td className="p-2 text-right font-mono font-medium">{formatCurrency(subtotalGross || 0)}</td>
+                      <td className="p-2 text-right font-sans tabular-nums font-medium">{formatCurrency(subtotalGross || 0)}</td>
                     </tr>
                   )}
                   {totalDiscount > 0 && (
                     <tr className="bg-amber-50/50 text-amber-800 font-medium">
                       <td colSpan={5} className="p-2 text-right">Chiết khấu thương mại:</td>
-                      <td className="p-2 text-right font-mono font-bold">-{formatCurrency(totalDiscount)}</td>
+                      <td className="p-2 text-right font-sans tabular-nums font-bold">-{formatCurrency(totalDiscount)}</td>
                     </tr>
                   )}
                   {totalVat > 0 && (
                     <tr className="bg-slate-50 text-slate-700 font-medium">
                       <td colSpan={5} className="p-2 text-right">Thuế giá trị gia tăng ({effectiveVatRate > 0 ? `${effectiveVatRate}%` : 'VAT'}):</td>
-                      <td className="p-2 text-right font-mono font-medium">+{formatCurrency(totalVat)}</td>
+                      <td className="p-2 text-right font-sans tabular-nums font-medium">+{formatCurrency(totalVat)}</td>
                     </tr>
                   )}
                   <tr className="bg-slate-100 font-bold border-t-2 border-slate-300">
                     <td colSpan={5} className="p-2 text-right uppercase text-slate-900">Tổng Giá Trị Hợp Đồng (Đã bao gồm VAT & Bàn Giao):</td>
-                    <td className="p-2 text-right font-black font-mono text-emerald-900 text-xs">
+                    <td className="p-2 text-right font-black font-sans tabular-nums text-emerald-900 text-xs">
                       {formatCurrency(totalAmount)}
                     </td>
                   </tr>

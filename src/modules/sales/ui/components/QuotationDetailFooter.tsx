@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { Button } from '@/src/design-system/Button';
-import { FileText, Copy, Send, Trash2, Zap } from 'lucide-react';
+import { FileText, Copy, Send, Trash2, Zap, ExternalLink } from 'lucide-react';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 const ExportQuotationPdf = React.lazy(() => import('./ExportQuotationPdf').then(m => ({ default: m.ExportQuotationPdf })));
 
@@ -28,6 +28,19 @@ export function QuotationDetailFooter({
   return (
     <div className="flex items-center justify-between w-full relative z-30 px-2">
       <div className="flex items-center gap-2">
+        <Button 
+          aria-label="Cổng Báo Giá" 
+          variant="ghost"
+          onClick={() => {
+            const code = String(quotation.soPhieuBaoGia || quotation.id || '');
+            window.open(`/tra-cuu-bao-gia?code=${encodeURIComponent(code)}`, '_blank');
+          }} 
+          className="text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 h-9 rounded-lg font-bold text-xs flex items-center gap-1.5"
+          title="Mở Cổng Tra Cứu Báo Giá Khách Hàng"
+        >
+          <ExternalLink size={13} className="text-amber-700" /> Cổng Báo Giá
+        </Button>
+
         <Button 
           aria-label="Edit" 
           variant="ghost"
@@ -82,7 +95,7 @@ export function QuotationDetailFooter({
           leftIcon={<Send size={12} />}
         >
           <span>{isZnsLocked ? 'Đang gửi...' : 'Gửi ZNS'}</span>
-          <span className="text-3xs font-mono px-1.5 py-0.5 rounded-full bg-blue-500/30 text-blue-100 border border-blue-400/30">#647061</span>
+          <span className="text-3xs font-sans font-bold tabular-nums px-1.5 py-0.5 rounded-full bg-blue-500/30 text-blue-100 border border-blue-400/30">#647061</span>
         </Button>
 
         <span className="w-px h-4 bg-slate-200 mx-1"></span>

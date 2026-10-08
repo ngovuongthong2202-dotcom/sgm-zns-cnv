@@ -6,7 +6,7 @@ import useSWR from 'swr';
 import { swrColFetcher, swrDocFetcher } from '@/src/data/swr-fetchers';
 import { DetailDrawer } from '@/src/design-system/DetailDrawer';
 import { Payment, PaymentInstallment } from '@/src/domain/schema/payment.schema';
-import { CreditCard, Calendar, Clock, Send, DollarSign, Edit, Package, Plus } from 'lucide-react';
+import { CreditCard, Calendar, Clock, Send, DollarSign, Edit, Package, Plus, ExternalLink } from 'lucide-react';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { formatCurrency } from '@/src/shared/utils/formatCurrency';
 import { StatusPill } from '@/src/widgets/StatusPill';
@@ -955,6 +955,21 @@ export function PaymentDetailDrawer({
                 )
               )}
 
+              <Button
+                aria-label="Cổng Khách Hàng"
+                variant="subtle"
+                size="sm"
+                onClick={() => {
+                  const code = String(payment.soDonHang || payment.soHopDong || payment.paymentId || payment.id || '');
+                  window.open(`/tra-cuu-thanh-toan?code=${encodeURIComponent(code)}`, '_blank');
+                }}
+                className="h-9 font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 flex items-center gap-1.5"
+                title="Mở Cổng Tra Cứu Thanh Toán Khách Hàng"
+                leftIcon={<ExternalLink size={13} className="text-emerald-700" />}
+              >
+                Cổng Khách Hàng
+              </Button>
+
               <Button aria-label="Đóng" variant="secondary" size="sm" onClick={onClose} className="h-9 font-bold">
                 Đóng
               </Button>
@@ -969,7 +984,7 @@ export function PaymentDetailDrawer({
                   leftIcon={<Send size={12} />}
                 >
                   <span>Gửi tin Zalo</span>
-                  <span className="text-3xs font-mono px-1.5 py-0.2 bg-blue-100 text-blue-800 rounded font-black">
+                  <span className="text-3xs font-sans font-bold tabular-nums px-1.5 py-0.2 bg-blue-100 text-blue-800 rounded">
                     {payment.tinhTrangThanhToan === 'Tất toán' ? '#552490' : '#547381'}
                   </span>
                 </Button>

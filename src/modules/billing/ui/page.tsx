@@ -35,6 +35,8 @@ import { repositoryFactory } from '@/src/data/repositories/factory';
 
 import PaymentDeliveryBanner from './components/PaymentDeliveryBanner';
 import { UniversalZnsPreviewModal } from '@/src/platform/ui/zns/UniversalZnsPreviewModal';
+import { Landmark } from 'lucide-react';
+import { CompanyBankingConfigModal } from './components/CompanyBankingConfigModal';
 
 const PaymentRouteSync = React.memo(function PaymentRouteSync({
   hasDrawer,
@@ -132,6 +134,7 @@ export default function PaymentsFeature() {
   } = usePaymentsActions(deletePayment, refresh, deliveries, userData?.role);
 
   const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'OVERDUE' | 'PAID'>('ALL');
+  const [isBankingModalOpen, setIsBankingModalOpen] = useState(false);
   const { filteredPayments, selectedTinhTrangThanhToan, setSelectedTinhTrangThanhToan, selectedPhanLoai, setSelectedPhanLoai, selectedTinhThanh, setSelectedTinhThanh, selectedZns, setSelectedZns, selectedNguoiPhuTrach, setSelectedNguoiPhuTrach, selectedDateRange, setSelectedDateRange } = usePaymentsFilters(payments, customers, activeTab);
   
   const kpiMetrics = usePaymentKpiMetrics(payments, contracts, quotations);
@@ -321,7 +324,17 @@ export default function PaymentsFeature() {
                 { id: 'ngayThanhToan', label: 'Ngày thanh toán' },
                 { id: 'ngayDenHan', label: 'Hạn chót phải thu' },
               ]}
-              extraActions={null}
+              extraActions={
+                <button
+                  type="button"
+                  onClick={() => setIsBankingModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+                  title="Cấu hình tài khoản ngân hàng nhận tiền doanh nghiệp SGM"
+                >
+                  <Landmark className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Tài khoản nhận tiền</span>
+                </button>
+              }
               onRowSelect={(row) => setDrawerPayment(row as Payment)}
               onRowDoubleClick={(row) => setDrawerPayment(row as Payment)}
               onRowHover={(row) => handlePrefetchPayment(row as Payment)}
@@ -480,6 +493,13 @@ export default function PaymentsFeature() {
             }
             refresh();
           }}
+        />
+      )}
+
+      {isBankingModalOpen && (
+        <CompanyBankingConfigModal
+          isOpen={isBankingModalOpen}
+          onClose={() => setIsBankingModalOpen(false)}
         />
       )}
     </div>
