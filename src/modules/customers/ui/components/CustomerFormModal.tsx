@@ -19,14 +19,11 @@ import { CustomerFormProfileSection, CustomerFormClassificationSection, Customer
 import { CustomerDedupeModal } from './CustomerDedupeModal';
 import { CustomerCascadeImpactModal } from './CustomerCascadeImpactModal';
 import { repositoryFactory } from '@/src/data/repositories/factory';
-import { clearSwrColCache } from '@/src/data/swr-fetchers';
-import { crossTabSync } from '@/src/shared/utils/crossTabSync';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 import { Contract } from '@/src/domain/schema/contract.schema';
 import { Payment } from '@/src/domain/schema/payment.schema';
 import { Delivery } from '@/src/domain/schema/delivery.schema';
 import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
-import { EntityZnsStatus } from '@/src/domain/enums/zns-status';
 
 interface Props {
   customer: Customer | null;
@@ -115,7 +112,6 @@ export function CustomerForm({
     linkedDocs: { quotations: [], contracts: [], payments: [], deliveries: [] }
   });
   const [isCheckingImpact, setIsCheckingImpact] = React.useState(false);
-  const [isSyncing, setIsSyncing] = React.useState(false);
 
   const handleSaveMasterOnly = async () => {
     if (!cascadeState.pendingData) return;
@@ -124,147 +120,6 @@ export function CustomerForm({
     await clearDraft();
     await onSave(dataToSave);
   };
-
-  const handleSafeSync = async (scope?: import('./CustomerCascadeImpactModal').CascadeSyncScope) => {
-    if (!cascadeState.pendingData || !customer?.id) return;
-    setIsSyncing(true);
-    try {
-      const dataToSave = cascadeState.pendingData;
-      const { quotations, contracts, payments, deliveries } = cascadeState.linkedDocs;
-      const effectiveScope = {
-        syncQuotations: scope?.syncQuotations ?? true,
-        syncContracts: scope?.syncContracts ?? true,
-        syncPayments: scope?.syncPayments ?? true,
-        syncDeliveries: scope?.syncDeliveries ?? true,
-      };
-
-      // 1. Save master customer
-      await onSave(dataToSave);
-
-      let syncedCount = 0;
-
-      // 2. Cascade to Quotations (All linked quotations regardless of draft/sent/won)
-      if (effectiveScope.syncQuotations && quotations.length > 0) {
-        const quoteRepo = repositoryFactory.get<Quotation>('quotations');
-        for (const q of quotations) {
-          if (q.id) {
-            const isPhoneChanged = Boolean(dataToSave.sdt && q.sdt && dataToSave.sdt.trim() !== q.sdt.trim());
-            const willResetZns = isPhoneChanged && (q.trangThaiGuiTinBaoGia === EntityZnsStatus.THANH_CONG || (q as any).trangThaiZns === EntityZnsStatus.THANH_CONG);
-
-            const quoteUpdates: any = {
-              tenKhachHang: dataToSave.tenKhachHang,
-              sdt: dataToSave.sdt,
-              diaChi: dataToSave.diaChi,
-              nguoiDaiDien: dataToSave.nguoiDaiDien || dataToSave.contacts?.[0]?.nguoiDaiDien,
-              tinhThanh: dataToSave.tinhThanh,
-              maSoThue: dataToSave.maSoThue,
-              phanLoaiKhach: dataToSave.loaiKh
-            };
-
-            if (willResetZns) {
-              const nowIso = new Date().toISOString();
-              quoteUpdates.trangThaiGuiTinBaoGia = EntityZnsStatus.CAN_GUI_LAI;
-              quoteUpdates.trangThaiZns = EntityZnsStatus.CAN_GUI_LAI;
-              const oldAudit = (q as any).thongTinGuiZnsBaoGia || {};
-              quoteUpdates.thongTinGuiZnsBaoGia = {
-                ...oldAudit,
-                needsResendAfterEdit: true,
-                previousSentPhone: q.sdt,
-                previousSentAt: oldAudit.thoiGianGui || (q as any).sentAt,
-                resetReason: `Đổi số điện thoại khách hàng từ ${q.sdt} sang ${dataToSave.sdt}`
-              };
-              const prevLogs = (q as any).nhatKySuaDoi || [];
-              quoteUpdates.nhatKySuaDoi = [
-                ...prevLogs,
-                {
-                  thoiGian: nowIso,
-                  nguoiThucHien: 'Hệ thống đồng bộ KH 360',
-                  noiDungThayDoi: `Chuyển trạng thái ZNS sang Chờ gửi do đổi SĐT khách hàng: ${q.sdt} ➔ ${dataToSave.sdt}`
-                }
-              ];
-            }
-
-            await quoteRepo.update(q.id, quoteUpdates);
-            syncedCount++;
-          }
-        }
-      }
-
-      // 3. Cascade to Contracts
-      if (effectiveScope.syncContracts && contracts.length > 0) {
-        const contractRepo = repositoryFactory.get<Contract>('contracts');
-        for (const c of contracts) {
-          if (c.id) {
-            await contractRepo.update(c.id, {
-              tenKhachHang: dataToSave.tenKhachHang,
-              sdt: dataToSave.sdt,
-              diaChi: dataToSave.diaChi,
-              nguoiDaiDien: dataToSave.nguoiDaiDien || dataToSave.contacts?.[0]?.nguoiDaiDien,
-              tinhThanh: dataToSave.tinhThanh
-            } as any);
-            syncedCount++;
-          }
-        }
-      }
-
-      // 4. Cascade to Payments
-      if (effectiveScope.syncPayments && payments.length > 0) {
-        const paymentRepo = repositoryFactory.get<Payment>('payments');
-        for (const p of payments) {
-          if (p.id) {
-            await paymentRepo.update(p.id, {
-              tenKhachHang: dataToSave.tenKhachHang,
-              sdt: dataToSave.sdt,
-              tenNguoiNop: dataToSave.nguoiDaiDien || dataToSave.tenKhachHang,
-              tinhThanh: dataToSave.tinhThanh
-            } as any);
-            syncedCount++;
-          }
-        }
-      }
-
-      // 5. Cascade to Deliveries
-      if (effectiveScope.syncDeliveries && deliveries.length > 0) {
-        const deliveryRepo = repositoryFactory.get<Delivery>('deliveries');
-        for (const d of deliveries) {
-          if (d.id) {
-            await deliveryRepo.update(d.id, {
-              tenKhachHang: dataToSave.tenKhachHang,
-              sdt: dataToSave.sdt,
-              diaChiGiaoHang: dataToSave.diaChi || d.diaChiGiaoHang,
-              nguoiDaiDien: dataToSave.nguoiDaiDien || dataToSave.contacts?.[0]?.nguoiDaiDien,
-              nguoiLienHe: dataToSave.contacts?.[0]?.nguoiDaiDien || dataToSave.nguoiDaiDien || d.nguoiLienHe,
-              sdtLienHe: dataToSave.contacts?.[0]?.sdt || dataToSave.sdt || d.sdtLienHe,
-              tinhThanh: dataToSave.tinhThanh
-            } as any);
-            syncedCount++;
-          }
-        }
-      }
-
-      // 6. Invalidate SWR Caches & Broadcast sync
-      clearSwrColCache('quotations');
-      clearSwrColCache('contracts');
-      clearSwrColCache('payments');
-      clearSwrColCache('deliveries');
-      clearSwrColCache('customers');
-      crossTabSync.broadcast({ type: 'ENTITY_MUTATED', collectionName: 'customers', id: customer.id });
-      crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'quotations' });
-      crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'contracts' });
-      crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'payments' });
-      crossTabSync.broadcast({ type: 'COLLECTION_REFRESH', collectionName: 'deliveries' });
-
-      notify.success(`Đã cập nhật Khách Hàng và đồng bộ toàn diện ${syncedCount} chứng từ liên quan!`);
-      await clearDraft();
-      setCascadeState(prev => ({ ...prev, isOpen: false }));
-      onClose();
-    } catch (err: any) {
-      notify.error(`Lỗi khi đồng bộ chứng từ: ${err?.message || err}`);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
 
   const handleCloseAttempt = async () => {
     if (isDirty) {
@@ -469,8 +324,6 @@ export function CustomerForm({
             linkedDocs={cascadeState.linkedDocs}
             isLoadingLinkedDocs={isCheckingImpact}
             onConfirmSaveMasterOnly={handleSaveMasterOnly}
-            onConfirmSafeSync={handleSafeSync}
-            isSyncing={isSyncing}
           />
         )}
       </>
@@ -532,8 +385,6 @@ export function CustomerForm({
             linkedDocs={cascadeState.linkedDocs}
             isLoadingLinkedDocs={isCheckingImpact}
             onConfirmSaveMasterOnly={handleSaveMasterOnly}
-            onConfirmSafeSync={handleSafeSync}
-            isSyncing={isSyncing}
           />
         )}
 
