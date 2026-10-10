@@ -29,7 +29,6 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   customer: Customer | null;
-  onUpdateCustomer?: (id: string, data: Partial<Customer>) => Promise<void>;
   onRefresh?: () => Promise<void>;
 }
 
@@ -37,7 +36,6 @@ export function CustomerZnsContactModal({
   isOpen,
   onClose,
   customer,
-  onUpdateCustomer,
   onRefresh
 }: Props) {
   const { userData } = useAuth();
@@ -113,6 +111,7 @@ export function CustomerZnsContactModal({
   const contactZnsMap = useMemo(() => {
     const map = new Map<string, {
       isSent: boolean;
+      pending: boolean;
       status: string;
       latestTime: string | null;
       messages: any[];
@@ -133,6 +132,8 @@ export function CustomerZnsContactModal({
       const hasSentContact = ct.trangThaiZns === 'THANH_CONG' || Boolean(ct.ngayGuiZns) || Boolean(savedHistory);
 
       const hasSuccessMsg = matchedMsgs.some(m => String(m.status || '').toUpperCase() === 'SUCCESS');
+      // Tin đang trên đường đi (chưa có kết quả từ Zalo): không coi là đã gửi, nhưng cũng không chọn sẵn để tránh gửi đúp
+      const hasPendingMsg = matchedMsgs.some(m => ['INIT', 'SENDING', 'SENT_WAITING'].includes(String(m.status || '').toUpperCase()));
       const isSent = hasSuccessMsg || hasSentContact;
 
       let latestTime: string | null = null;
@@ -146,6 +147,7 @@ export function CustomerZnsContactModal({
 
       map.set(phone, {
         isSent,
+        pending: hasPendingMsg,
         status: isSent ? 'SUCCESS' : (matchedMsgs[0]?.status || 'CHUA_GUI'),
         latestTime,
         messages: matchedMsgs
@@ -163,7 +165,7 @@ export function CustomerZnsContactModal({
       const ph = (ct.sdt || '').trim();
       if (ph) {
         const info = contactZnsMap.get(ph);
-        if (!info?.isSent) {
+        if (!info?.isSent && !info?.pending) {
           initial.add(ph);
         }
       }
@@ -251,33 +253,7 @@ export function CustomerZnsContactModal({
         forceResend: true
       }, `Đang gửi tin ZNS đến ${contact.nguoiDaiDien || phone}...`);
 
-      const nowIso = new Date().toISOString();
-      const updatedContacts = Array.isArray(customer.contacts) ? [...customer.contacts] : [];
-      const foundIdx = updatedContacts.findIndex(c => (c.sdt || '').trim() === phone);
-      if (foundIdx >= 0) {
-        updatedContacts[foundIdx] = {
-          ...updatedContacts[foundIdx],
-          trangThaiZns: 'THANH_CONG',
-          ngayGuiZns: nowIso
-        };
-      }
-      const updatedHistory: Record<string, any> = { ...((customer as any).contactsZnsHistory || {}) };
-      updatedHistory[phone] = {
-        status: 'SUCCESS',
-        sentAt: nowIso,
-        nguoiDaiDien: contact.nguoiDaiDien,
-        chucVu: contact.chucVu
-      };
-
-      if (onUpdateCustomer) {
-        await onUpdateCustomer(customerId, {
-          contacts: updatedContacts,
-          contactsZnsHistory: updatedHistory,
-          trangThaiGuiTinQuangCao: 'THANH_CONG'
-        } as any);
-        await onRefresh?.();
-      }
-      notify.success(`Đã gửi thành công tin ZNS cho ${contact.nguoiDaiDien || phone}!`);
+      notify.info(`Đã gửi lệnh ZNS tới ${contact.nguoiDaiDien || phone}. Kết quả sẽ cập nhật khi Zalo phản hồi.`);
     } catch (err) {
       console.error(`Error sending ZNS to contact ${phone}:`, err);
     } finally {
@@ -302,9 +278,6 @@ export function CustomerZnsContactModal({
     setIsSending(true);
     let successCount = 0;
     let failCount = 0;
-
-    const updatedContacts = Array.isArray(customer.contacts) ? [...customer.contacts] : [];
-    const updatedHistory: Record<string, any> = { ...((customer as any).contactsZnsHistory || {}) };
 
     for (const contact of selectedContacts) {
       const phone = (contact.sdt || '').trim();
@@ -331,47 +304,15 @@ export function CustomerZnsContactModal({
         }, `Đang gửi tin ZNS đến ${contact.nguoiDaiDien || phone}...`);
 
         successCount++;
-
-        // Mark sent in contacts array
-        const foundIdx = updatedContacts.findIndex(c => (c.sdt || '').trim() === phone);
-        const nowIso = new Date().toISOString();
-        if (foundIdx >= 0) {
-          updatedContacts[foundIdx] = {
-            ...updatedContacts[foundIdx],
-            trangThaiZns: 'THANH_CONG',
-            ngayGuiZns: nowIso
-          };
-        }
-
-        updatedHistory[phone] = {
-          status: 'SUCCESS',
-          sentAt: nowIso,
-          nguoiDaiDien: contact.nguoiDaiDien,
-          chucVu: contact.chucVu
-        };
       } catch (err: any) {
         failCount++;
         console.error(`Error sending ZNS to contact ${phone}:`, err);
       }
     }
 
-    // Save updated contact statuses to customer document
-    if (onUpdateCustomer && (successCount > 0)) {
-      try {
-        await onUpdateCustomer(customerId, {
-          contacts: updatedContacts,
-          contactsZnsHistory: updatedHistory,
-          trangThaiGuiTinQuangCao: 'THANH_CONG'
-        } as any);
-        await onRefresh?.();
-      } catch (e) {
-        console.error('Failed to sync customer contact status:', e);
-      }
-    }
-
     setIsSending(false);
     if (successCount > 0) {
-      notify.success(`Đã gửi thành công tin ZNS cho ${successCount} đầu mối liên hệ!`);
+      notify.info(`Đã gửi lệnh ZNS tới ${successCount} đầu mối. Kết quả sẽ cập nhật khi Zalo phản hồi.`);
     }
   };
 
