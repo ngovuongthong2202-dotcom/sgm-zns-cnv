@@ -94,4 +94,13 @@ describe('customerIdentityResolver (Zero-Contamination Boundary)', () => {
     expect(sanitizeDeliveryCustomerBoundary(deliveryLH, contractSafe).isSafeContract).toBe(true);
     expect(sanitizeDeliveryCustomerBoundary(deliveryLH, contractUnsafe).isSafeContract).toBe(false);
   });
+
+  it('nhận diện chuẩn xác khi có mergedCustomerCodes hoặc mergedInto (chuyển từ customer-consolidation-modal.spec.tsx)', () => {
+    const masterDoc = { id: 'cust-216', maKh: 'KH0216', mergedCustomerCodes: ['KH0213', 'KH0200'] };
+    const legacyDeliveryDoc = { id: 'del-1', maKh: 'KH0213', customerId: 'cust-213' };
+    expect(isSameCustomer(masterDoc, legacyDeliveryDoc)).toBe(true);
+
+    const secondaryWithMergedInto = { id: 'cust-213', maKh: 'KH0213', mergedInto: 'cust-216' };
+    expect(isSameCustomer(secondaryWithMergedInto, masterDoc)).toBe(true);
+  });
 });

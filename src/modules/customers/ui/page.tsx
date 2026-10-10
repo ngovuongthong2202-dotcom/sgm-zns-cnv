@@ -16,16 +16,14 @@ import { useDataView } from '@/src/design-system/dataview/useDataView';
 import { DataViewEngine } from '@/src/design-system/dataview/DataViewEngine';
 import { Customer, CustomerSchema } from '@/src/domain/schema/customer.schema';
 import { DataImportModal, Button } from '@/src/design-system';
-import { Upload, Printer, GitMerge, Send } from 'lucide-react';
+import { Upload, Printer, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { BlockingDocumentsModal } from '@/src/widgets/BlockingDocumentsModal';
 import { can } from '@/src/modules/iam';
 import { useAuth } from '@/src/modules/iam';
 import { CustomerZnsContactModal } from './components/CustomerZnsContactModal';
-import { CustomerConsolidationModal } from './components/CustomerConsolidationModal';
-import { BulkZnsModal } from '@/src/widgets/BulkZnsModal';
-import { detectDuplicateCustomerGroups, createManualDuplicateGroup, DuplicateCustomerGroup } from './utils/customerConsolidationEngine';
+import { detectDuplicateCustomerGroups } from './utils/customerConsolidationEngine';
 import { extractVietnamesePhones } from './utils/vietnameseTelecomExtractor';
 
 export default function CustomersFeature() {
@@ -74,9 +72,6 @@ export default function CustomersFeature() {
   const { data: payments = [] } = useRealtimeCollection<any>('payments');
   const { data: deliveries = [] } = useRealtimeCollection<any>('deliveries');
   const [printingCustomer, setPrintingCustomer] = useState<Customer | null>(null);
-  const [isConsolidationOpen, setIsConsolidationOpen] = useState(false);
-  const [manualGroupToConsolidate, setManualGroupToConsolidate] = useState<DuplicateCustomerGroup | null>(null);
-  const [isBulkZnsOpen, setIsBulkZnsOpen] = useState(false);
 
   const activeCustomers = useMemo(() => {
     return customers.filter(c => !c.isArchived && !c.mergedInto && !(c as any).is_archived && !(c as any).merged_into && !c.tenKhachHang?.startsWith('[ĐÃ GỘP VÀO'));
@@ -290,53 +285,14 @@ export default function CustomersFeature() {
             hasActiveDomainFilters={hasActiveDomainFilters}
             extraActions={
               <div className="flex items-center gap-2">
-                {(_table.getSelectedRowModel().rows || []).length >= 2 && (
-                  <Button 
-                    variant="primary" 
-                    size="sm" 
-                    leftIcon={<GitMerge size={14} className="shrink-0 text-white" />}
-                    className="h-8 px-2.5 font-bold whitespace-nowrap shrink-0 inline-flex items-center shadow-xs bg-amber-600 hover:bg-amber-700 text-white border-none cursor-pointer"
-                    onClick={() => {
-                      const selectedCustomers = _table.getSelectedRowModel().rows.map(r => r.original);
-                      const manualGroup = createManualDuplicateGroup(selectedCustomers, quotations, contracts, payments, deliveries);
-                      if (manualGroup) {
-                        setManualGroupToConsolidate(manualGroup);
-                        setIsConsolidationOpen(true);
-                      }
-                    }}
-                    title="Gộp các khách hàng đã tích chọn trên bảng"
+                {duplicateGroups.length > 0 && (
+                  <span
+                    className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50/70 text-amber-900 text-xs font-medium whitespace-nowrap shrink-0"
+                    title="Chức năng gộp khách hàng tạm khóa (Đợt 0A). Hệ thống vẫn cảnh báo khi có nhóm trùng mã số thuế."
                   >
-                    Gộp {(_table.getSelectedRowModel().rows || []).length} KH đã chọn
-                  </Button>
-                )}
-                <Button 
-                  variant="secondary" 
-                  size="sm" 
-                  leftIcon={<GitMerge size={14} className={`shrink-0 ${duplicateGroups.length > 0 ? 'text-amber-600' : 'text-slate-500'}`} />}
-                  className={`h-8 px-2.5 font-medium whitespace-nowrap shrink-0 inline-flex items-center shadow-xs ${
-                    duplicateGroups.length > 0 
-                      ? 'border-amber-300 bg-amber-50/70 text-amber-900 hover:bg-amber-100' 
-                      : 'text-slate-700 hover:text-slate-900 border-slate-200 bg-white hover:bg-slate-50'
-                  }`}
-                  onClick={() => {
-                    setManualGroupToConsolidate(null);
-                    setIsConsolidationOpen(true);
-                  }}
-                  title="Kiểm tra và gộp khách hàng trùng mã số thuế hoặc quản lý nhật ký hoàn tác"
-                >
-                  Gộp trùng MST {duplicateGroups.length > 0 ? `(${duplicateGroups.length})` : ''}
-                </Button>
-                {can('send_zns', 'customer', userData?.role) && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    leftIcon={<Send size={14} className="shrink-0 text-blue-600" />}
-                    className="h-8 px-2.5 font-medium whitespace-nowrap shrink-0 inline-flex items-center shadow-xs border-blue-200 bg-blue-50/60 text-blue-800 hover:bg-blue-100"
-                    onClick={() => setIsBulkZnsOpen(true)}
-                    title="Gửi ZNS hàng loạt cho danh sách khách hàng đang lọc"
-                  >
-                    Gửi ZNS Hàng Loạt
-                  </Button>
+                    <AlertTriangle size={14} className="shrink-0 text-amber-600" />
+                    Trùng MST: {duplicateGroups.length} nhóm
+                  </span>
                 )}
                 <Button 
                   variant="secondary" 
@@ -434,44 +390,8 @@ export default function CustomersFeature() {
         isOpen={znsContactModalState.isOpen}
         onClose={closeZnsContactModal}
         customer={znsContactModalState.customer}
-        onUpdateCustomer={handleUpdateCustomer}
         onRefresh={refresh}
       />
-
-      {isConsolidationOpen && (
-        <CustomerConsolidationModal
-          isOpen={isConsolidationOpen}
-          onClose={() => {
-            setIsConsolidationOpen(false);
-            setManualGroupToConsolidate(null);
-          }}
-          customers={customers}
-          quotations={quotations}
-          contracts={contracts}
-          payments={payments}
-          deliveries={deliveries}
-          initialSelectedGroup={manualGroupToConsolidate}
-          onConsolidationSuccess={() => {
-            refresh();
-            setManualGroupToConsolidate(null);
-          }}
-        />
-      )}
-
-      {isBulkZnsOpen && (
-        <BulkZnsModal
-          isOpen={isBulkZnsOpen}
-          onClose={() => {
-            setIsBulkZnsOpen(false);
-            refresh();
-          }}
-          entityType="CUSTOMER"
-          items={filteredCustomers}
-          userRole={userData?.role}
-          onSuccess={refresh}
-          onUpdateCustomer={handleUpdateCustomer}
-        />
-      )}
     </div>
   );
 }

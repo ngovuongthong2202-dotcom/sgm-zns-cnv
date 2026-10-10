@@ -22,7 +22,6 @@ export default defineConfig({
       'src/modules/customers/ui/components/CustomerCascadeImpactModal.spec.tsx',
       'src/modules/customers/ui/components/CustomerFormModal.spec.tsx',
       'src/tests/payment-quotation-integration.spec.tsx',
-      'src/tests/customer-consolidation-modal.spec.tsx',
       'src/tests/bulk-zns-orchestrator.spec.tsx'
     ],
     exclude: ['src/tests/e2e/**', 'node_modules/**', 'e2e/**'],
