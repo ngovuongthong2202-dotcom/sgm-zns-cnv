@@ -1,17 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { adminDb } from '../backend/config/supabase.admin';
 import { 
   isValidEnterpriseTaxCode, 
   isBranchTaxCode, 
   calculateBusinessNameSimilarity,
-  detectDuplicateCustomerGroups,
   buildConsolidationMigrationPlan,
-  BLACKLISTED_DUMMY_TAX_CODES 
 } from '../modules/customers/ui/utils/customerConsolidationEngine';
 import { matchesEnterpriseSearch } from '../shared/utils/vietnameseSearchEngine';
 import { adaptSalesOrderToQuotation } from '../modules/sales/ui/utils/salesOrderAdapter';
 import { applyQuotationToContractForm } from '../modules/contracts/ui/components/ContractFormHelpers';
-// Đợt 0A: 4 kiểm thử dưới đây cần Supabase thật (bộ đếm, ghi/đọc bản ghi). Chúng chỉ chạy khi 0A.8 cấp CSDL thử nghiệm.
+// Đợt 0A: 1 kiểm thử dưới đây cần Supabase thật (bộ đếm, ghi/đọc bản ghi). Chúng chỉ chạy khi 0A.8 cấp CSDL thử nghiệm.
 const HAS_REAL_DB = /^https?:\/\//i.test(String(process.env.SUPABASE_URL || ''));
 
 describe('Sovereign MDM Nexus: Complete Enterprise Integrity Verification Suite', () => {
