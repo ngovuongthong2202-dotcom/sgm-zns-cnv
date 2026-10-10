@@ -49,4 +49,21 @@ describe('swrColFetcher – Đợt 0A (DL01): khóa lõi không lọc khóa ngo�
     expect(listMock).toHaveBeenCalledWith(expect.objectContaining({ limit: 500 }));
     expect(listAllMock).not.toHaveBeenCalled();
   });
+
+  it('listAll lỗi (khóa lõi) → swrColFetcher ném đúng lỗi đó, không để lại mục cache và không sinh lỗi "Uncaught (in promise)"', async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => { unhandled.push(reason); };
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      listAllMock.mockRejectedValueOnce(new Error('[contracts] mất kết nối'));
+      await expect(swrColFetcher('contracts:500')).rejects.toThrow('[contracts] mất kết nối');
+      // Chờ một vòng macrotask: Node phát 'unhandledRejection' khi hàng đợi microtask đã cạn mà vẫn còn promise phụ bị từ chối không ai bắt
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(unhandled).toEqual([]);
+      expect(swrColCacheMap.has('contracts:500')).toBe(false);
+      expect(swrColPromiseCache.has('contracts:500')).toBe(false);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
 });

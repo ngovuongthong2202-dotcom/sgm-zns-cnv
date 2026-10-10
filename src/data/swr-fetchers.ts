@@ -131,9 +131,11 @@ export const swrColFetcher = async <T = unknown>(key: string): Promise<T[]> => {
   });
 
   // Keep the promise cache clean after completion so we can fetch again if evicted from main cache
+  // Đợt 0A (DL01): finally() trả về một promise MỚI, bị từ chối theo `promise` (listAll ném lỗi khi một trang lỗi) mà không ai chờ,
+  // nên chuỗi phụ này tự nuốt lỗi để trình duyệt không báo "Uncaught (in promise)". Nơi gọi vẫn nhận lỗi gốc qua `promise` bên dưới.
   promise.finally(() => {
     swrColPromiseCache.delete(key);
-  });
+  }).catch(() => {});
 
   return promise;
 };
