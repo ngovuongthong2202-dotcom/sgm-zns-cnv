@@ -1,13 +1,14 @@
 import { supabase, isSupabaseConfigured } from '@/src/shared/config/supabase.client';
 import { mapDocument } from './mapper';
 import { sessionCostCounter } from '@/src/data/cost-counter';
-import { ListOptions } from '../domain/ports/repository.port';
+import { ListOptions, ListLoadMeta, ListAllResult } from '../domain/ports/repository.port';
 import { v4 as uuidv4 } from 'uuid';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { logger } from '@/src/shared/lib/logger';
 import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
+import { POSTGREST_MAX_ROWS, CORE_PAGE_SIZE } from './list-limits';
 
-export type { ListOptions };
+export type { ListOptions, ListLoadMeta, ListAllResult };
 
 const collectionTableMap: Record<string, string> = {
   // Plural forms
@@ -439,6 +440,21 @@ export class BaseRepository<T> {
       return all;
     }
 
+    try {
+      return await this.listOrThrow(opts);
+    } catch (e) {
+      // Hợp đồng cũ của list(): lỗi truy vấn → danh sách rỗng (nhiều nơi gọi dựa vào điều này)
+      logger.debug(`list(${this.collectionName}) failed`, e);
+      return [];
+    }
+  }
+
+  /**
+   * Giống list() nhưng NÉM lỗi thay vì trả [] — listAll() dùng để không nhầm lỗi mạng với "hết dữ liệu".
+   * Khi phân trang (offset + limit) thêm khóa phụ order('id') để các dòng cùng created_at không xáo giữa các trang
+   * (đợt nhập bù 30/09–02/10/2026 tạo hàng trăm dòng trong vài giây).
+   */
+  private async listOrThrow(opts: ListOptions = {}): Promise<T[]> {
     let query = supabase.from(this.tableName).select('*');
 
     // Auto Soft-Delete Interceptor: Push filter down to PostgreSQL database level to save egress bandwidth & compute
@@ -485,16 +501,20 @@ export class BaseRepository<T> {
       query = query.order('created_at', { ascending: false });
     }
 
-    if (typeof opts.offset === 'number' && opts.offset >= 0 && opts.limit) {
-      query = query.range(opts.offset, opts.offset + opts.limit - 1);
+    const usesRange = typeof opts.offset === 'number' && opts.offset >= 0 && Boolean(opts.limit);
+    if (usesRange) {
+      query = query.order('id', { ascending: false });
+      query = query.range(opts.offset as number, (opts.offset as number) + (opts.limit as number) - 1);
     } else if (opts.limit) {
       query = query.limit(opts.limit);
     }
 
     const { data, error } = await query;
+    if (error) {
+      throw new Error(`[${this.tableName}] ${error.message || 'Lỗi truy vấn danh sách'}`);
+    }
     sessionCostCounter.incrementReads((data || []).length);
-
-    if (error || !data) return [];
+    if (!data) return [];
 
     let results = data.map(row => mapDocument<T>(row));
 
@@ -515,6 +535,61 @@ export class BaseRepository<T> {
     return results;
   }
 
+  /**
+   * Nạp theo trang (.range) tới tối đa maxRows dòng, mỗi trang ≤ POSTGREST_MAX_ROWS.
+   * capped = còn dữ liệu ngoài trần; total chỉ được đếm khi chạm trần. Lỗi ở bất kỳ trang nào → ném lỗi.
+   * LƯU Ý: trả về dòng thô đã qua mapDocument — KHÔNG đi qua `list()` ghi đè của các repo module (PaymentRepoSupabase,
+   * ContractRepoSupabase, DeliveryRepoSupabase, QuotationRepoSupabase bọc aggregate). Vì vậy chỉ gọi qua
+   * `repositoryFactory.get(...)` (BaseRepository thuần) như Việc 3/5 — không gọi trên các lớp repo module.
+   */
+  async listAll(opts: ListOptions = {}, paging: { pageSize?: number; maxRows?: number } = {}): Promise<ListAllResult<T>> {
+    const pageSize = Math.max(1, Math.min(paging.pageSize ?? CORE_PAGE_SIZE, POSTGREST_MAX_ROWS));
+    const maxRows = Math.max(pageSize, paging.maxRows ?? pageSize * 2);
+
+    if (!isSupabaseConfigured) {
+      const all = await this.list(opts);
+      return { items: all, total: all.length, capped: false };
+    }
+
+    const items: T[] = [];
+    const seen = new Set<string>();
+    let offset = 0;
+    while (items.length < maxRows) {
+      const want = Math.min(pageSize, maxRows - items.length);
+      const page = await this.listOrThrow({ ...opts, limit: want, offset });
+      for (const row of page) {
+        const id = String((row as { id?: unknown })?.id ?? '');
+        if (id && seen.has(id)) continue; // một dòng mới chèn giữa hai lần gọi có thể đẩy dòng cũ sang trang sau
+        if (id) seen.add(id);
+        items.push(row);
+      }
+      offset += want;
+      if (page.length < want) {
+        return { items, total: items.length, capped: false };
+      }
+    }
+
+    const total = await this.countActive(opts);
+    return { items, total, capped: total === null ? true : total > items.length };
+  }
+
+  /** Đếm dòng đang hoạt động; chỉ gọi khi đã chạm trần. null = không đếm được (có lọc khóa ngoại, hoặc lỗi). */
+  private async countActive(opts: ListOptions): Promise<number | null> {
+    if (opts.fkField) return null;
+    try {
+      let q = supabase.from(this.tableName).select('id', { count: 'exact', head: true });
+      const softDeleteTables = ['customers', 'quotations', 'contracts', 'payments', 'deliveries'];
+      if (!opts.ignoreDeletedAt && softDeleteTables.includes(this.tableName)) {
+        q = q.is('deleted_at', null);
+      }
+      const { count, error } = await q;
+      if (error || typeof count !== 'number') return null;
+      return count;
+    } catch {
+      return null;
+    }
+  }
+
   async listPaginated(opts?: ListOptions | any, limitOrLastDoc?: any, _lastDocId?: any): Promise<{ data: T[], hasMore: boolean; lastDoc?: any }> {
     const limit = typeof limitOrLastDoc === 'number' ? limitOrLastDoc : (opts?.limit || 50);
     const offset = typeof opts?.offset === 'number' ? opts.offset : 0;
@@ -531,28 +606,15 @@ export class BaseRepository<T> {
 
   subscribe(
     optsOrLimit: number | ListOptions,
-    cb: (data: T[], length: number) => void,
+    cb: (data: T[], length: number, meta?: ListLoadMeta) => void,
     errCb?: (err: Error) => void
   ): () => void {
     const opts: ListOptions = typeof optsOrLimit === 'number' ? { limit: optsOrLimit } : optsOrLimit;
     let isSubscribed = true;
     let currentItems: T[] = [];
-
-    // 1. Initial load
-    this.list(opts)
-      .then(items => {
-        if (isSubscribed) {
-          currentItems = items;
-          cb(currentItems, currentItems.length);
-        }
-      })
-      .catch(err => {
-        if (isSubscribed && errCb) errCb(err);
-      });
-
-    if (!isSupabaseConfigured || isTestEnv) {
-      return () => { isSubscribed = false; };
-    }
+    let lastMeta: ListLoadMeta | undefined;
+    // Sự kiện realtime đến trong lúc đang nạp (có thể nhiều trang) được giữ lại và áp dụng sau khi nạp xong
+    let pendingEvents: unknown[] | null = [];
 
     const sortField = opts.sortField || (
       ['customers', 'quotations', 'contracts', 'payments', 'deliveries'].includes(this.collectionName)
@@ -568,10 +630,15 @@ export class BaseRepository<T> {
       });
     };
 
-    // 2. Realtime CDC subscription with Delta Patching (0 reads!)
-    const unsubscribeChannel = getOrCreateTableChannel(this.tableName, (payload: any) => {
-      if (!isSubscribed) return;
+    const emit = () => {
+      const meta: ListLoadMeta | undefined = lastMeta
+        ? { total: lastMeta.capped ? lastMeta.total : currentItems.length, capped: lastMeta.capped }
+        : undefined;
+      cb(currentItems, currentItems.length, meta);
+    };
 
+    // Realtime CDC with Delta Patching (0 reads!)
+    const applyCdc = (payload: any) => {
       const eventType = payload.eventType;
       if (eventType === 'INSERT') {
         const mapped = mapDocument<T>(payload.new);
@@ -581,7 +648,7 @@ export class BaseRepository<T> {
           if (opts.limit && currentItems.length > opts.limit) {
             currentItems = currentItems.slice(0, opts.limit);
           }
-          cb(currentItems, currentItems.length);
+          emit();
         }
       } else if (eventType === 'UPDATE') {
         const mapped = mapDocument<T>(payload.new);
@@ -602,16 +669,56 @@ export class BaseRepository<T> {
               currentItems = currentItems.slice(0, opts.limit);
             }
           }
-          cb(currentItems, currentItems.length);
+          emit();
         }
       } else if (eventType === 'DELETE') {
         const delId = payload.old?.id;
         if (delId) {
           entityCachePool.remove(this.collectionName, delId);
           currentItems = currentItems.filter(item => (item as any)?.id !== delId);
-          cb(currentItems, currentItems.length);
+          emit();
         }
       }
+    };
+
+    // 1. Initial load: theo trang khi có maxRows (cửa sổ lõi), một lượt list() cho các bộ sưu tập khác
+    const usePaging = typeof opts.maxRows === 'number' && opts.maxRows > 0;
+    const initialLoad: Promise<void> = usePaging
+      ? this.listAll(opts, { pageSize: opts.pageSize, maxRows: opts.maxRows }).then(result => {
+          if (!isSubscribed) return;
+          currentItems = result.items;
+          lastMeta = { total: result.total, capped: result.capped };
+        })
+      : this.list(opts).then(items => {
+          if (!isSubscribed) return;
+          currentItems = items;
+        });
+
+    initialLoad
+      .then(() => {
+        if (!isSubscribed) return;
+        emit();
+        const buffered = pendingEvents || [];
+        pendingEvents = null;
+        buffered.forEach(applyCdc);
+      })
+      .catch(err => {
+        pendingEvents = null;
+        if (isSubscribed && errCb) errCb(err);
+      });
+
+    if (!isSupabaseConfigured || isTestEnv) {
+      return () => { isSubscribed = false; };
+    }
+
+    // 2. Realtime CDC subscription
+    const unsubscribeChannel = getOrCreateTableChannel(this.tableName, (payload: unknown) => {
+      if (!isSubscribed) return;
+      if (pendingEvents) {
+        pendingEvents.push(payload);
+        return;
+      }
+      applyCdc(payload);
     });
 
     return () => {

@@ -135,4 +135,107 @@ describe('BaseRepository (Supabase)', () => {
     expect(res).toHaveLength(1);
     expect((res[0] as any).id).toBe('c1');
   });
+
+  describe('listAll – nạp theo trang (Đợt 0A – lô 2)', () => {
+    beforeEach(() => {
+      // vi.clearAllMocks() không xóa hàng đợi mockReturnValueOnce: xóa hẳn để một kiểm thử hỏng không rò chuỗi mock sang kiểm thử sau.
+      // fromMock là vi.fn() không có giá trị trả về nền (các kiểm thử cũ không dựa vào giá trị nền nào) nên không cần đặt lại.
+      vi.mocked(supabase.from).mockReset();
+    });
+
+    const makeRows = (from: number, to: number) =>
+      Array.from({ length: to - from }, (_, i) => ({
+        id: `p${from + i}`, data: { soTien: 1 }, deleted_at: null, created_at: '2026-10-01T00:00:00.000Z'
+      }));
+    const pageChain = (rows: any[] | null, error: any = null) => ({
+      select: vi.fn().mockReturnThis(),
+      is: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockResolvedValueOnce({ data: rows, error }),
+    });
+    const countChain = (count: number) => ({
+      select: vi.fn().mockReturnThis(),
+      is: vi.fn().mockResolvedValueOnce({ count, error: null }),
+    });
+
+    it('trang cuối ngắn hơn cỡ trang → dừng, capped=false, không gọi đếm; dòng trùng id giữa hai trang chỉ giữ một', async () => {
+      (supabase.from as any)
+        .mockReturnValueOnce(pageChain(makeRows(0, 1000)))
+        .mockReturnValueOnce(pageChain([...makeRows(999, 1000), ...makeRows(1000, 1299)]));
+      const res = await repo.listAll({}, { pageSize: 1000, maxRows: 2000 });
+      expect(res.items).toHaveLength(1299);
+      expect(res.capped).toBe(false);
+      expect(res.total).toBe(1299);
+      expect(supabase.from).toHaveBeenCalledTimes(2);
+    });
+
+    it('chạm trần 2000 → đếm count:exact đúng một lần, capped=true, total lấy từ CSDL', async () => {
+      (supabase.from as any)
+        .mockReturnValueOnce(pageChain(makeRows(0, 1000)))
+        .mockReturnValueOnce(pageChain(makeRows(1000, 2000)))
+        .mockReturnValueOnce(countChain(2300));
+      const res = await repo.listAll({}, { pageSize: 1000, maxRows: 2000 });
+      expect(res.items).toHaveLength(2000);
+      expect(res.capped).toBe(true);
+      expect(res.total).toBe(2300);
+      expect(supabase.from).toHaveBeenCalledTimes(3);
+    });
+
+    it('mỗi trang dùng .range(offset, offset+limit-1) và có khóa phụ order("id") để không xáo dòng cùng created_at', async () => {
+      const first = pageChain(makeRows(0, 10));
+      const second = pageChain(makeRows(10, 15));
+      (supabase.from as any).mockReturnValueOnce(first).mockReturnValueOnce(second);
+      const res = await repo.listAll({}, { pageSize: 10, maxRows: 20 });
+      expect(res.items).toHaveLength(15);
+      expect(first.range).toHaveBeenCalledWith(0, 9);
+      expect(second.range).toHaveBeenCalledWith(10, 19);
+      expect(first.order).toHaveBeenCalledWith('created_at', { ascending: false });
+      expect(first.order).toHaveBeenCalledWith('id', { ascending: false });
+    });
+
+    it('lỗi ở trang 2 → ném lỗi, không trả danh sách cụt', async () => {
+      (supabase.from as any)
+        .mockReturnValueOnce(pageChain(makeRows(0, 1000)))
+        .mockReturnValueOnce(pageChain(null, { message: 'mất kết nối' }));
+      await expect(repo.listAll({}, { pageSize: 1000, maxRows: 2000 })).rejects.toThrow(/mất kết nối/);
+    });
+
+    it('list() vẫn nuốt lỗi thành [] như trước (các nơi gọi cũ dựa vào điều này)', async () => {
+      (supabase.from as any).mockReturnValueOnce({
+        select: vi.fn().mockReturnThis(),
+        is: vi.fn().mockReturnThis(),
+        order: vi.fn().mockResolvedValueOnce({ data: null, error: { message: 'boom' } })
+      });
+      await expect(repo.list({})).resolves.toEqual([]);
+    });
+
+    it('subscribe({ maxRows }) nạp theo trang và gọi callback kèm meta { total, capped }', async () => {
+      (supabase.from as any)
+        .mockReturnValueOnce(pageChain(makeRows(0, 1000)))
+        .mockReturnValueOnce(pageChain(makeRows(1000, 2000)))
+        .mockReturnValueOnce(countChain(2300));
+      const cb = vi.fn();
+      const unsub = repo.subscribe({ limit: 2000, pageSize: 1000, maxRows: 2000 }, cb);
+      await vi.waitFor(() => expect(cb).toHaveBeenCalledTimes(1));
+      expect(cb.mock.calls[0][0]).toHaveLength(2000);
+      expect(cb.mock.calls[0][1]).toBe(2000);
+      expect(cb.mock.calls[0][2]).toEqual({ total: 2300, capped: true });
+      unsub();
+    });
+
+    it('subscribe(500) (bộ sưu tập ngoài nhóm lõi) vẫn nạp một lần bằng list() và không kèm meta', async () => {
+      (supabase.from as any).mockReturnValueOnce({
+        select: vi.fn().mockReturnThis(),
+        is: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValueOnce({ data: makeRows(0, 3), error: null })
+      });
+      const cb = vi.fn();
+      const unsub = repo.subscribe(500, cb);
+      await vi.waitFor(() => expect(cb).toHaveBeenCalledTimes(1));
+      expect(cb.mock.calls[0][1]).toBe(3);
+      expect(cb.mock.calls[0][2]).toBeUndefined();
+      unsub();
+    });
+  });
 });
