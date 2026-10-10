@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BaseRepository, applyCdcEvent } from './base.repo';
 import { supabase } from '@/src/shared/config/supabase.client';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
+import { CORE_HARD_CAP, CORE_PAGE_SIZE } from '@/src/platform/data/list-limits';
 
 vi.mock('@/src/shared/config/supabase.client', () => {
   const fromMock = vi.fn();
@@ -220,6 +221,24 @@ describe('BaseRepository (Supabase)', () => {
       expect(cb.mock.calls[0][0]).toHaveLength(2000);
       expect(cb.mock.calls[0][1]).toBe(2000);
       expect(cb.mock.calls[0][2]).toEqual({ total: 2300, capped: true });
+      unsub();
+    });
+
+    it('subscribe({ maxRows }): lỗi ở trang 2 → gọi onError đúng một lần với lỗi "[customers] …", không gọi callback dữ liệu', async () => {
+      expect(CORE_HARD_CAP).toBeGreaterThan(CORE_PAGE_SIZE); // trần phải dài hơn một trang thì mới có trang 2
+      (supabase.from as any)
+        .mockReturnValueOnce(pageChain(makeRows(0, CORE_PAGE_SIZE)))
+        .mockReturnValueOnce(pageChain(null, { message: 'mất kết nối' }));
+      const cb = vi.fn();
+      const errCb = vi.fn();
+      const unsub = repo.subscribe({ limit: CORE_HARD_CAP, pageSize: CORE_PAGE_SIZE, maxRows: CORE_HARD_CAP }, cb, errCb);
+      await vi.waitFor(() => expect(errCb).toHaveBeenCalledTimes(1));
+      await new Promise(resolve => setTimeout(resolve, 0)); // để mọi nhánh promise còn lại chạy xong rồi mới khẳng định "không gọi"
+      expect(errCb).toHaveBeenCalledTimes(1);
+      expect(errCb.mock.calls[0][0]).toBeInstanceOf(Error);
+      expect(errCb.mock.calls[0][0].message).toBe('[customers] mất kết nối');
+      expect(cb).not.toHaveBeenCalled();
+      expect(supabase.from).toHaveBeenCalledTimes(2);
       unsub();
     });
 
