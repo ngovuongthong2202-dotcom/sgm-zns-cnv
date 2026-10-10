@@ -14,7 +14,7 @@ import workflowRoutes from './src/backend/routes/workflow.routes';
 import exportRoutes from './src/backend/routes/export.routes';
 import analyticsRoutes from './src/backend/routes/analytics.routes';
 import { metricsRoutes } from './src/backend/routes/metrics.routes';
-import { migrationRoutes } from './src/backend/routes/migration.routes';
+import { retiredRoutes } from './src/backend/routes/retired.routes';
 import znsTemplateRoutes from './src/backend/routes/zns-template.routes';
 import telegramRoutes from './src/backend/routes/telegram.routes';
 import { searchRoutes } from './src/backend/routes/search.routes';
@@ -97,7 +97,7 @@ async function startServer() {
   app.use('/api/export', exportRoutes);
   app.use('/api/analytics', analyticsRoutes);
   app.use('/api/metrics', metricsRoutes);
-  app.use('/api/migration', migrationRoutes);
+  app.use('/api', retiredRoutes); // Đợt 0A: đường "migration" cũ trả 410 (công cụ dùng một lần đã gỡ)
   app.use('/api/zns-templates', znsTemplateRoutes);
   app.use('/api/telegram', telegramRoutes);
   app.use('/api/search', searchRoutes);
