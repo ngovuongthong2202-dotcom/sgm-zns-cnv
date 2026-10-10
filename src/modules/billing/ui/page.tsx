@@ -110,7 +110,7 @@ const PaymentRouteSync = React.memo(function PaymentRouteSync({
 
 export default function PaymentsFeature() {
   const { userData } = useAuth();
-  const { payments, loading, loadMore, refresh, createPayment, updatePaymentWithTransaction, deletePayment } = usePayments();
+  const { payments, loading, loadMore, hasMore, loaded, total, capped, refresh, createPayment, updatePaymentWithTransaction, deletePayment } = usePayments();
   const { nguoiPhuTrachList, phuongThucThanhToanList, tinhTrangThanhToanList } = useSharedFields();
   const { confirm } = useConfirm();
 
@@ -341,7 +341,8 @@ export default function PaymentsFeature() {
               onRowEdit={can('update', 'payment', userData?.role) ? (row) => { setEditingPayment(row as Payment); setIsFormOpen(true); } : undefined}
               onRowZns={can('send_zns', 'payment', userData?.role) ? handleSendZns : undefined}
               onRowDelete={can('delete', 'payment', userData?.role) ? handleDeletePayment : undefined}
-              fetchMore={loadMore}
+              fetchMore={hasMore ? loadMore : undefined}
+              loadInfo={{ loaded, total, capped }}
               isFetching={loading}
               error={null}
               onRetry={loadMore}

@@ -12,6 +12,13 @@ import { Button } from '../Button';
 import { EmptyState } from '../EmptyState';
 import { ViewOption } from '../ViewSwitcher';
 
+/** Đợt 0A – lô 2: thông tin cửa sổ dữ liệu để báo khi danh sách đã chạm trần nạp (xem src/platform/data/list-limits.ts). */
+export interface DataViewLoadInfo {
+  loaded: number;
+  total: number | null;
+  capped: boolean;
+}
+
 export interface DataViewEngineProps<T> {
   dataView: ReturnType<typeof useDataView<T>>;
   columns: any[]; 
@@ -31,6 +38,7 @@ export interface DataViewEngineProps<T> {
   onRowDelete?: (row: T) => void;
   customRowActions?: (row: T) => React.ReactNode;
   fetchMore?: () => void;
+  loadInfo?: DataViewLoadInfo;
   isFetching?: boolean;
   error?: Error | null;
   onRetry?: () => void;
@@ -64,6 +72,7 @@ export function DataViewEngine<T>({
   onRowDelete,
   customRowActions,
   fetchMore,
+  loadInfo,
   isFetching,
   error,
   onRetry,
@@ -319,6 +328,14 @@ export function DataViewEngine<T>({
          <div className="flex items-center w-1/3">
            <span>
              <span className="font-semibold text-slate-700">{totalCount === 0 ? 0 : startItem}</span> – <span className="font-semibold text-slate-700">{endItem}</span> của <span className="font-semibold text-slate-700">{totalCount}</span>
+             {loadInfo?.capped && (
+               <span
+                 className="ml-2 text-amber-700 whitespace-nowrap"
+                 title="Danh sách chỉ nạp các dòng mới nhất tới một trần. Cuộn xuống cuối bảng để tải thêm."
+               >
+                 Đang hiển thị {new Intl.NumberFormat('vi-VN').format(loadInfo.loaded)}/{loadInfo.total === null ? '…' : new Intl.NumberFormat('vi-VN').format(loadInfo.total)} dòng mới nhất
+               </span>
+             )}
            </span>
          </div>
          

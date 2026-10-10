@@ -61,7 +61,7 @@ const EMPTY_PROCESSED_DELIVERIES: any[] = [];
 export default function DeliveriesFeature() {
   const { userData } = useAuth();
   const location = useLocation();
-  const { deliveries, payments, customers, quotations, contracts, loading, loadMore, createDelivery, updateDelivery, deleteDelivery, updateContract, updateQuotation } = useDeliveries({ loadRelated: true });
+  const { deliveries, payments, customers, quotations, contracts, loading, loadMore, hasMore, loaded, total, capped, createDelivery, updateDelivery, deleteDelivery, updateContract, updateQuotation } = useDeliveries({ loadRelated: true });
   const { nguoiPhuTrachList } = useSharedFields();
   const { confirm } = useConfirm();
 
@@ -434,7 +434,8 @@ export default function DeliveriesFeature() {
                 </div>
               );
             }}
-            fetchMore={loadMore}
+            fetchMore={hasMore ? loadMore : undefined}
+            loadInfo={{ loaded, total, capped }}
             isFetching={loading}
             error={null}
             onRetry={loadMore}

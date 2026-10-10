@@ -34,6 +34,7 @@ export default function CustomersFeature() {
     loading,
     hasMore,
     loadMore,
+    loaded, total, capped,
     drawerState,
     setDrawerState,
     setIsFormDirty,
@@ -280,6 +281,7 @@ export default function CustomersFeature() {
               </button>
             )}
             fetchMore={hasMore ? loadMore : undefined}
+            loadInfo={{ loaded, total, capped }}
             isFetching={loading}
             onResetAllFilters={handleResetFilters}
             hasActiveDomainFilters={hasActiveDomainFilters}

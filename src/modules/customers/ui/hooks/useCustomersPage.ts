@@ -23,6 +23,7 @@ export function useCustomersPage() {
     loading,
     loadMore,
     hasMore,
+    loaded, total, capped,
     createCustomer,
     updateCustomer,
     refresh
@@ -297,6 +298,7 @@ export function useCustomersPage() {
     loading,
     loadMore,
     hasMore,
+    loaded, total, capped,
     refresh,
     drawerState,
     setDrawerState,

@@ -14,7 +14,7 @@ const EMPTY_DELIVERIES: Delivery[] = [];
 export function usePayments(options?: { loadRelated?: boolean }) {
   const loadRelated = options?.loadRelated ?? false;
 
-  const { data: payments, loading: loadingP, hasMore, loadMore } = useRealtimeCollection<Payment>('payments');
+  const { data: payments, loading: loadingP, hasMore, loadMore, loaded, total, capped } = useRealtimeCollection<Payment>('payments');
   
   const cState = useRealtimeCollection<Contract>(loadRelated ? 'contracts' : 'non-existent-skip');
   const qState = useRealtimeCollection<Quotation>(loadRelated ? 'quotations' : 'non-existent-skip');
@@ -44,6 +44,7 @@ export function usePayments(options?: { loadRelated?: boolean }) {
     loading,
     loadMore,
     hasMore,
+    loaded, total, capped,
     refresh,
     createPayment: createRecord,
     updatePayment: updateRecord,

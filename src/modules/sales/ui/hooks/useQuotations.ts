@@ -5,7 +5,7 @@ import { useMutation } from '@/src/hooks/useMutation';
 import { Quotation } from '@/src/domain/schema/quotation.schema';
 
 export function useQuotations(_options?: { loadRelated?: boolean }) {
-  const { data: quotations, loading: dataLoading, hasMore, loadMore } = useRealtimeCollection<Quotation>('quotations');
+  const { data: quotations, loading: dataLoading, hasMore, loadMore, loaded, total, capped } = useRealtimeCollection<Quotation>('quotations');
   
   const customers: Customer[] = [];
   const contracts: Contract[] = [];
@@ -26,6 +26,7 @@ export function useQuotations(_options?: { loadRelated?: boolean }) {
     loading: dataLoading || globalLoading,
     loadMore,
     hasMore,
+    loaded, total, capped,
     refresh,
     createQuotation: createRecord,
     updateQuotation: updateRecord,

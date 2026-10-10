@@ -86,7 +86,7 @@ const ContractRouteSync = React.memo(function ContractRouteSync({
 
 export default function ContractsFeature() {
   const { userData } = useAuth();
-  const { contracts, loading, loadMore, createContract, updateContract, deleteContract, softDeleteContract } = useContracts();
+  const { contracts, loading, loadMore, hasMore, loaded, total, capped, createContract, updateContract, deleteContract, softDeleteContract } = useContracts();
   
   const { nguoiPhuTrachList } = useSharedFields();
 
@@ -344,7 +344,8 @@ export default function ContractsFeature() {
               </Button>
             )
           }}
-          fetchMore={loadMore}
+          fetchMore={hasMore ? loadMore : undefined}
+          loadInfo={{ loaded, total, capped }}
           isFetching={loading}
           error={null}
           onRetry={loadMore}

@@ -10,7 +10,7 @@ import { UpdateCustomer } from '../../application/use-cases/UpdateCustomer';
 export function useCustomers(options?: { loadRelated?: boolean }) {
   const loadRelated = options?.loadRelated ?? false;
   
-  const { data: customers, loading: customersLoading, hasMore, loadMore } = useRealtimeCollection<Customer>('customers');
+  const { data: customers, loading: customersLoading, hasMore, loadMore, loaded, total, capped } = useRealtimeCollection<Customer>('customers');
   
   // Conditional fetching pattern - only invoke useRealtimeCollection if loadRelated is true
   const qState = useRealtimeCollection<Quotation>(loadRelated ? 'quotations' : 'non-existent-skip');
@@ -67,6 +67,7 @@ export function useCustomers(options?: { loadRelated?: boolean }) {
     loading: loading,
     loadMore,
     hasMore,
+    loaded, total, capped,
     refresh,
     createCustomer,
     updateCustomer,

@@ -14,7 +14,7 @@ const EMPTY_CONTRACTS: Contract[] = [];
 export function useDeliveries(options?: { loadRelated?: boolean }) {
   const loadRelated = options?.loadRelated ?? false;
 
-  const { data: deliveries, loading: loadingD, hasMore, loadMore } = useRealtimeCollection<Delivery>('deliveries');
+  const { data: deliveries, loading: loadingD, hasMore, loadMore, loaded, total, capped } = useRealtimeCollection<Delivery>('deliveries');
   
   const cusState = useRealtimeCollection<Customer>(loadRelated ? 'customers' : 'non-existent-skip');
   const qState = useRealtimeCollection<Quotation>(loadRelated ? 'quotations' : 'non-existent-skip');
@@ -41,6 +41,7 @@ export function useDeliveries(options?: { loadRelated?: boolean }) {
     loading: loadingD || (loadRelated && (cusState.loading || qState.loading || pState.loading || cState.loading)),
     loadMore,
     hasMore,
+    loaded, total, capped,
     refresh: dummyRefresh,
     createDelivery: createRecord,
     updateDelivery: updateRecord,

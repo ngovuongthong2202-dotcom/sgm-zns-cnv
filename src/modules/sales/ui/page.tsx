@@ -55,7 +55,7 @@ const QuotationDrawerRouteListener = React.memo(function QuotationDrawerRouteLis
 
 export default function QuotationsFeature() {
   const { userData } = useAuth();
-  const { quotations, loading, loadMore, createQuotation, updateQuotation, deleteQuotation, refresh } = useQuotations();
+  const { quotations, loading, loadMore, hasMore, loaded, total, capped, createQuotation, updateQuotation, deleteQuotation, refresh } = useQuotations();
   
   const { nguoiPhuTrachList, loaiBaoGiaList, loaiKhachHangList } = useSharedFields();
   const { confirm } = useConfirm();
@@ -354,7 +354,8 @@ export default function QuotationsFeature() {
           onRowEdit={can('update', 'quotation', userData?.role) ? (row) => { setEditingQuotation(row as Quotation); setIsFormOpen(true); } : undefined}
           onRowZns={can('send_zns', 'quotation', userData?.role) ? handleSendQuotationZns : undefined}
           onRowDelete={can('delete', 'quotation', userData?.role) ? handleDeleteQuotation : undefined}
-          fetchMore={loadMore}
+          fetchMore={hasMore ? loadMore : undefined}
+          loadInfo={{ loaded, total, capped }}
           isFetching={loading}
         />
         </div>

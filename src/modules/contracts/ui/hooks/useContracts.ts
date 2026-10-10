@@ -9,7 +9,7 @@ import { Contract } from '@/src/domain/schema/contract.schema';
 export function useContracts(options?: { loadRelated?: boolean }) {
   const loadRelated = options?.loadRelated ?? false;
 
-  const { data: contracts, loading: contractsLoading, hasMore, loadMore } = useRealtimeCollection<Contract>('contracts');
+  const { data: contracts, loading: contractsLoading, hasMore, loadMore, loaded, total, capped } = useRealtimeCollection<Contract>('contracts');
   
   const qState = useRealtimeCollection<Quotation>(loadRelated ? 'quotations' : 'non-existent-skip');
   const dState = useRealtimeCollection<Delivery>(loadRelated ? 'deliveries' : 'non-existent-skip');
@@ -39,6 +39,7 @@ export function useContracts(options?: { loadRelated?: boolean }) {
     loading,
     loadMore,
     hasMore,
+    loaded, total, capped,
     refresh,
     createContract: createRecord,
     updateContract: updateRecord,
