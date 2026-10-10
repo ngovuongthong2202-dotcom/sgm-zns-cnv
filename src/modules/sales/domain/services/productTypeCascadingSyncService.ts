@@ -1,4 +1,5 @@
 import { repositoryFactory } from '@/src/data/repositories/factory';
+import { CORE_HARD_CAP } from '@/src/platform/data/list-limits';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { auditLogsRepo } from '@/src/data/repositories/system.repo';
 import { ItemSemanticType, calculateActualMachineCount, detectItemType } from '@/src/widgets/product-list-input/useProductItemSemantic';
@@ -62,10 +63,11 @@ export async function analyzeProductTypeImpact(
   const paymentRepo = repositoryFactory.get<any>('payments');
   const deliveryRepo = repositoryFactory.get<any>('deliveries');
 
+  // Đợt 0A (DL01): quét tới trần cửa sổ lõi (nạp theo trang ≤ 1000) thay vì 500 dòng mới nhất
   const [allContracts, allPayments, allDeliveries] = await Promise.all([
-    contractRepo.list({ limit: 500 }).catch(() => []),
-    paymentRepo.list({ limit: 500 }).catch(() => []),
-    deliveryRepo.list({ limit: 500 }).catch(() => []),
+    contractRepo.listAll({}, { maxRows: CORE_HARD_CAP }).then(r => r.items).catch(() => []),
+    paymentRepo.listAll({}, { maxRows: CORE_HARD_CAP }).then(r => r.items).catch(() => []),
+    deliveryRepo.listAll({}, { maxRows: CORE_HARD_CAP }).then(r => r.items).catch(() => []),
   ]);
 
   const linkedContracts = (allContracts || []).filter((c: any) => 

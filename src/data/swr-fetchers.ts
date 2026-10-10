@@ -3,6 +3,7 @@ import { mutate as globalMutate } from 'swr';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { realtimeStore } from '@/src/data/realtime-store';
 import { logger } from '@/src/shared/lib/logger';
+import { CORE_HARD_CAP, DEFAULT_WINDOW_LIMIT, isCoreCollection } from '@/src/platform/data/list-limits';
 
 // Global memory cache and promise cache for extreme performance
 export const swrColCacheMap = new Map<string, any>();
@@ -95,18 +96,22 @@ export const swrColFetcher = async <T = unknown>(key: string): Promise<T[]> => {
     logger.debug('swrColFetcher in-memory mesh check failed', e);
   }
 
-  const maxLimit = sizeLimit ? parseInt(sizeLimit) : 500;
+  const maxLimit = sizeLimit ? parseInt(sizeLimit) : DEFAULT_WINDOW_LIMIT;
   const repo = repositoryFactory.get<T>(colName);
 
   const promise = (async () => {
     try {
-      const results = await repo.list({
-        limit: maxLimit,
-        fkField,
-        fkId,
-        sortField,
-        sortDirection: 'desc'
-      });
+      // Đợt 0A (DL01): khóa dạng "contracts:500" (không lọc khóa ngoại) của bộ sưu tập lõi nạp theo trang tới trần,
+      // vì PostgREST cắt ở 1000 và cửa sổ lõi giờ giữ tới CORE_HARD_CAP dòng. Khóa có khóa ngoại giữ nguyên list().
+      const results = (!fkField && isCoreCollection(colName))
+        ? (await repo.listAll({ sortField, sortDirection: 'desc' }, { maxRows: CORE_HARD_CAP })).items
+        : await repo.list({
+            limit: maxLimit,
+            fkField,
+            fkId,
+            sortField,
+            sortDirection: 'desc'
+          });
       // Store resolved data into memory cache and L1 entity pool
       swrColCacheMap.set(key, results);
       entityCachePool.setBatch(colName, results as any[]);

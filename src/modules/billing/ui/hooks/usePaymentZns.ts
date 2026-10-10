@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Payment } from '@/src/domain/schema/payment.schema';
-import { notify } from '@/src/shared/utils/notify';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { repositoryFactory } from '@/src/data/repositories/factory';
+import { realtimeStore } from '@/src/data/realtime-store';
+import { CORE_HARD_CAP } from '@/src/platform/data/list-limits';
 import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
 import { calculateFormattedPaymentPoints, calculateFormattedCustomerCumulativePoints } from '@/src/modules/billing/domain/loyaltyEngine';
 import { formatZnsDate } from '@/src/shared/utils/formatDate';
+import { isPaymentWindowReady } from './paymentWindow';
 
 export function usePaymentZns(
   confirm: (opts: import('@/src/design-system/Confirm').ConfirmOptions) => Promise<boolean>, 
@@ -23,14 +25,12 @@ export function usePaymentZns(
 
   const handleSendZns = async (payment: Payment, installmentIndex?: number) => {
     let phone = payment.sdt;
-    let customerName = payment.tenKhachHang;
     let cSnap: any = null;
     
     if (payment.customerId) {
       cSnap = await repositoryFactory.get<any>('customers').getById(payment.customerId);
       if (cSnap) {
         phone = phone || cSnap.sdt || cSnap.soDienThoai || cSnap.contacts?.[0]?.sdt;
-        customerName = customerName || cSnap.tenKhachHang;
       }
     }
 
@@ -129,7 +129,15 @@ export function usePaymentZns(
     }
 
     // Enrich Loyalty & Payment Details for 2026 Template
-    const allPaymentsSnap = await repositoryFactory.get<any>('payments').list({ limit: 500 }).catch(() => []);
+    // Đợt 0A (DL01): điểm tích lũy phải tính trên toàn cửa sổ phiếu thu (tới CORE_HARD_CAP), không chỉ 500 dòng mới nhất.
+    // Chỉ dùng cửa sổ bộ nhớ khi nó ĐÃ NẠP XONG: `total`/`capped` chỉ được gán trong callback subscribe sau khi nạp hết các trang
+    // (Việc 3). Ngay sau khi điều hướng, entry mới được mồi bằng entityCachePool (vài phiếu thu của một hợp đồng từ ngăn chi tiết)
+    // với loading=false nhưng total=null → chưa sẵn sàng → nạp theo trang, không tính điểm trên tập thiếu.
+    const win = realtimeStore.getCollectionState<Payment>('payments');
+    const windowReady = isPaymentWindowReady(win);
+    const allPaymentsSnap: Payment[] = windowReady
+      ? win.data
+      : await repositoryFactory.get<Payment>('payments').listAll({}, { maxRows: CORE_HARD_CAP }).then(r => r.items).catch(() => []);
     const mergedCodes = cSnap?.mergedCustomerCodes || [];
     const customerId = payment.customerId || cSnap?.id || cSnap?.maKh || '';
 

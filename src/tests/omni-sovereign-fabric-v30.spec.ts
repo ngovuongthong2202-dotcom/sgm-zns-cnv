@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { CORE_HARD_CAP } from '../platform/data/list-limits';
 import { validateDeliveryBusinessRules, normalizeDeliveryFormValues } from '../modules/fulfillment/ui/components/DeliveryFormHelpers';
 import { 
-  detectItemType, 
   calculateActualMachineCount, 
   smartAllocateSerials, 
-  getAvailableRootSerials 
 } from '../widgets/product-list-input/useProductItemSemantic';
 import { 
   analyzeProductTypeImpact, 
@@ -247,21 +246,25 @@ describe('SGM Omni-Sovereign Fabric v30: End-to-End Business Logic & Integrity S
       // Mock repository methods
       const mockQuoteRepo = {
         list: vi.fn().mockResolvedValue([mockQuotation]),
+        listAll: vi.fn().mockResolvedValue({ items: [mockQuotation], total: 1, capped: false }),
         get: vi.fn().mockResolvedValue(mockQuotation),
         update: vi.fn().mockResolvedValue(true)
       };
       const mockContractRepo = {
         list: vi.fn().mockResolvedValue([mockContract]),
+        listAll: vi.fn().mockResolvedValue({ items: [mockContract], total: 1, capped: false }),
         get: vi.fn().mockResolvedValue(mockContract),
         update: vi.fn().mockResolvedValue(true)
       };
       const mockPaymentRepo = {
         list: vi.fn().mockResolvedValue([mockPayment]),
+        listAll: vi.fn().mockResolvedValue({ items: [mockPayment], total: 1, capped: false }),
         get: vi.fn().mockResolvedValue(mockPayment),
         update: vi.fn().mockResolvedValue(true)
       };
       const mockDeliveryRepo = {
         list: vi.fn().mockResolvedValue([mockDelivery]),
+        listAll: vi.fn().mockResolvedValue({ items: [mockDelivery], total: 1, capped: false }),
         get: vi.fn().mockResolvedValue(mockDelivery),
         update: vi.fn().mockResolvedValue(true)
       };
@@ -271,7 +274,7 @@ describe('SGM Omni-Sovereign Fabric v30: End-to-End Business Logic & Integrity S
         if (repoName === 'contracts') return mockContractRepo;
         if (repoName === 'payments') return mockPaymentRepo;
         if (repoName === 'deliveries') return mockDeliveryRepo;
-        return { list: vi.fn().mockResolvedValue([]), update: vi.fn().mockResolvedValue(true) };
+        return { list: vi.fn().mockResolvedValue([]), listAll: vi.fn().mockResolvedValue({ items: [], total: 0, capped: false }), update: vi.fn().mockResolvedValue(true) };
       });
 
       vi.spyOn(auditLogsRepo, 'create').mockResolvedValue('audit-1' as any);
@@ -288,6 +291,13 @@ describe('SGM Omni-Sovereign Fabric v30: End-to-End Business Logic & Integrity S
       expect(impact.linkedContracts.length).toBe(1);
       expect(impact.linkedPayments.length).toBe(1);
       expect(impact.linkedDeliveries.length).toBe(1);
+    });
+
+    it('quét chứng từ liên kết bằng listAll tới trần CORE_HARD_CAP thay vì list({ limit: 500 }) (Đợt 0A DL01)', async () => {
+      await analyzeProductTypeImpact(mockQuotation as any, 0, 'MATERIAL');
+      const contractRepo = (repositoryFactory.get as any)('contracts');
+      expect(contractRepo.listAll).toHaveBeenCalledWith({}, { maxRows: CORE_HARD_CAP });
+      expect(contractRepo.list).not.toHaveBeenCalledWith({ limit: 500 });
     });
 
     it('executes atomic cascading sync, recomputing slMay and adapting document category', async () => {
