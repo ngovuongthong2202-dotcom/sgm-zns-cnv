@@ -287,7 +287,7 @@ router.post('/preview', async (req, res) => {
             const cData = cSnap.data() as Record<string, unknown>;
             payloadData.tenZns = cData.tenZns || cData.ten_zns;
           }
-        } catch {}
+        } catch { /* làm giàu dữ liệu xem trước là tùy chọn — bỏ qua lỗi */ }
       }
     }
     
