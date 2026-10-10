@@ -114,3 +114,129 @@ Các lệnh ghi lên hồ sơ khách và chứng từ ở cả ba việc trên �
 
 - Các việc ngoài phạm vi lô 1 đã ghi nhận nằm ở mục "Ngoài phạm vi lô 1" của kế hoạch lô 1 (`2026-10-09-dot-0a-lo-1-tat-chuc-nang-nguy-hiem.md`); giới hạn 500 dòng làm ở lô 2.
 - `npm run build` in thông báo của Vite: `.env` có `NODE_ENV=production` mà Vite không hỗ trợ. Có từ trước, không phải do lô này; lô này không đụng `.env`.
+
+## 7. Lô 2 – giới hạn 500 dòng (DL01, bản tạm): cổng cuối
+
+Ngày chạy: 11/10/2026, nhánh `dot-0a-cam-mau`, tại `083e47c` (7 commit kể từ `b3e30f4`, tip của lô 1; mã không có thay đổi chưa commit). Không khởi động máy chủ, không sửa `.env`, **không chạy nghiệm thu trên dữ liệu thật** (mục 7.6: chưa thực hiện). Kiểm thử chạy **offline**: `vitest.config.ts` vẫn có khối `test.env` (bốn biến = `offline`) và `setupFiles: ['./src/tests/setup/offline-guard.ts']`; nhật ký có 13 dòng "Running with mock fallback backend client" và không có địa chỉ `supabase.co`.
+
+### 7.1 Kết quả các cổng
+
+| Cổng | Kết quả thực tế | Mong đợi |
+|---|---|---|
+| `npx vitest run` (toàn bộ, `CI=true`, không `-u`) | 109 tệp đạt; **725 passed, 5 skipped, 0 failed** (730 kiểm thử); 13,66 giây | 0 failed, 5 skipped, passed = 725 (xem 7.2) |
+| `npx tsc --noEmit` | 7 lỗi, giống `baseline-tsc.txt` (chụp tại `b3e30f4`) về tệp, mã lỗi và nội dung; chỉ khác số dòng của `usePaymentZns.ts` (193 → 201, do Việc 5 thêm mã phía trên) | bằng mốc (7) |
+| `npx eslint .` | trước 3142 vấn đề (168 errors, 2974 warnings) → sau 3152 (**164 errors**, 2988 warnings); không tệp nào nhiều lỗi hơn mốc; −4 errors là `usePaymentZns.ts` 2 → 0 và `omni-sovereign-fabric-v30.spec.ts` 2 → 0 (nhập/gán thừa, Việc 5 gỡ khi sửa hai tệp); `productTypeCascadingSyncService.ts` vẫn 29, đúng bộ lỗi cũ | errors ≤ 168, từng tệp ≤ mốc |
+| `npx eslint --quiet` trên 28 tệp `.ts/.tsx` lô 2 thêm/sửa | chỉ in 29 lỗi cũ của `productTypeCascadingSyncService.ts` (28 `no-explicit-any`, 1 `no-unused-imports`); exit 1 chỉ vì 29 lỗi này | chỉ 29 lỗi cũ đó |
+| `npm run build` | `✓ built in 1.10s`, exit 0, 3074 module (lô 1: 3072; +2 là `list-limits.ts` và `paymentWindow.ts`) | "built in …" |
+| `git grep` theo mẫu của kế hoạch | 11 dòng ở 5 tệp: 5 dòng mã đúng danh sách ngoài phạm vi + 6 dòng khẳng định trong 2 spec của lô 2 (mục 7.3) | 5 dòng ngoài phạm vi |
+| Ảnh chụp giao diện | `components.snapshot.spec.tsx` 7 passed trong lần chạy đầy đủ; `git status --porcelain src/tests/__snapshots__` rỗng; lô 2 không đổi tệp `.snap` nào | 7 passed; rỗng |
+
+Warnings +14 không tính vào cổng: chủ yếu ở spec thêm/mở rộng (`realtime-store.spec.ts` +12, `base.repo.spec.ts` +12, `DataViewEngine.loadinfo.spec.tsx` +5), bớt ở `base.repo.ts` −17.
+
+### 7.2 Đối chiếu số passed: 725 thực tế so với 711 của công thức kế hoạch
+
+Công thức của kế hoạch (688 của lô 1 + 4 + 7 + 5 + 3 + 1 + 3) cho 711; thực tế 725, chênh +14. Đối chiếu theo từng tệp spec (số kiểm thử tại `b3e30f4` đếm bằng `git show b3e30f4:<tệp>`, không tệp nào sinh kiểm thử bằng vòng lặp; số đếm ở HEAD khớp số chạy thật 21, 8, 11):
+
+| Tệp spec | `b3e30f4` | HEAD | Chênh | Commit |
+|---|---|---|---|---|
+| `src/platform/data/list-limits.spec.ts` (mới) | 0 | 4 | +4 | `d99516b` |
+| `src/data/repositories/base.repo.spec.ts` | 7 | 21 | +14 | `272307e` +7, `09d8f49` +1, `8be00ee` +6 |
+| `src/data/realtime-store.spec.ts` | 1 | 8 | +7 | `dbf8857` |
+| `src/platform/ui/design-system/dataview/DataViewEngine.loadinfo.spec.tsx` (mới) | 0 | 3 | +3 | `1931f39` |
+| `src/tests/omni-sovereign-fabric-v30.spec.ts` | 10 | 11 | +1 | `083e47c` |
+| `src/data/swr-fetchers.spec.ts` (mới) | 0 | 3 | +3 | `083e47c` |
+| `src/modules/billing/ui/hooks/paymentWindow.spec.ts` (mới) | 0 | 5 | +5 | `083e47c` |
+| Toàn bộ bộ kiểm thử (105 tệp → 109 tệp; bằng tổng chênh các dòng trên) | 693 | 730 | **+37** | |
+
+693 = 688 passed + 5 skipped của lô 1; 730 = 725 + 5. Năm kiểm thử skipped không đổi (`nexus-os.spec.ts` 4, `sovereign-mdm-nexus.spec.ts` 1). Số tệp đếm lại từ `git ls-tree`: 105 tại `b3e30f4` (98 tệp `*.spec.ts` + 7 tệp `.tsx` khai báo trong `vitest.config.ts`), 109 tại HEAD (thêm 4 spec mới; `DataViewEngine.loadinfo.spec.tsx` được đưa vào `include` ở Việc 4).
+
+Ba điểm lệch giữa công thức của kế hoạch và thực tế (711 + 7 + 2 + 5 = 725):
+
+- **+7:** `base.repo.spec.ts` có 14 kiểm thử mới thay vì 7: ngoài 7 kiểm thử của kế hoạch (`272307e`), hai commit sửa theo rà soát thêm 1 (`09d8f49`: trang đầy nhưng có dòng `deletedAt` kiểu JSONB vẫn nạp tiếp) và 6 (`8be00ee`: 4 kiểm thử hàm thuần `applyCdcEvent`; chạm trần mà số đếm bằng đúng số dòng đã nạp thì `capped=false`; chạm trần mà lệnh đếm lỗi thì `capped=true`, `total=null`).
+- **+2:** `realtime-store.spec.ts` có 7 kiểm thử mới thay vì 5: thêm "`loadMore` giữ nguyên danh tính giữa các lần thông báo" và "lượt nâng trần bị lỗi: lùi về cỡ cũ, dừng tự nạp, thử lại thủ công dùng cỡ cũ".
+- **+5:** `paymentWindow.spec.ts` (hàm thuần `isPaymentWindowReady`: cửa sổ phiếu thu đã đủ tin cậy để tính điểm tích lũy chưa) là tệp Việc 5 tách thêm; công thức của kế hoạch không có.
+
+### 7.3 Grep tổng: mọi dòng khớp đều được phép
+
+Chạy nguyên văn lệnh của kế hoạch (Việc 6, Bước 2): `git grep -n -E "currentLimit \+= 500|currentLimit: 500|limit: 500|\.limit\(5000\)|:5000'" -- src` → 11 dòng ở 5 tệp, không phải 5 dòng như kế hoạch dự kiến: kế hoạch không tính tới các kiểm thử do chính lô 2 thêm, nên `limit: 500` khớp cả vào hai spec.
+
+| Tệp | Dòng | Lý do được phép |
+|---|---|---|
+| `src/features/tracking/PublicOrderTrackingPage.tsx:271-273` | 3 | cổng tra cứu công khai: ngoài phạm vi lô 2 (thuộc kế hoạch cổng) |
+| `src/hooks/usePresence.ts:90` | 1 | đăng ký theo dõi hiện diện người dùng: ngoài phạm vi |
+| `src/hooks/useSharedFields.ts:40` | 1 | đọc mẫu ZNS `znsTemplates`: ngoài phạm vi |
+| `src/data/swr-fetchers.spec.ts:40,43,47,49` | 4 | kiểm thử khẳng định hai đường vẫn dùng 500 như cũ: khóa có khóa ngoại (`payments:500:contractId:x`) và bộ sưu tập ngoài nhóm lõi (`notifications:500`) |
+| `src/tests/omni-sovereign-fabric-v30.spec.ts:296,300` | 2 | kiểm thử khẳng định quét tác động đổi loại sản phẩm **không còn** gọi `list({ limit: 500 })` (tên kiểm thử và `not.toHaveBeenCalledWith`) |
+| Cộng | 11 | |
+
+Loại `*.spec.*` khỏi lệnh (`-- src ':(exclude)*.spec.ts' ':(exclude)*.spec.tsx'`) thì còn đúng 5 dòng mã ở ba hàng đầu. Các kiểm tra còn lại đều rỗng: `currentLimit += 500` và `currentLimit: 500,` trong `realtime-store.ts` (nhánh ngoài nhóm lõi dùng `DEFAULT_WINDOW_LIMIT`); `git grep ":5000'" -- src`; `.limit(5000)`; `list({ limit: 500 })` ở `usePaymentZns.ts`, `productTypeCascadingSyncService.ts`, `swr-fetchers.ts`.
+
+### 7.4 Danh sách commit (`git log --oneline b3e30f4..HEAD` trước commit cập nhật báo cáo này: 7 commit)
+
+```
+083e47c fix(data): loyalty points, product-type impact scan and SWR core fallback read up to the cap instead of 500 rows (Đợt 0A DL01)
+1931f39 feat(ui): show 'Đang hiển thị X/Y dòng mới nhất' when a core list hits its cap; load more only when capped (Đợt 0A DL01)
+dbf8857 feat(data): core realtime windows load up to the cap with loaded/total/capped state and a guarded loadMore (Đợt 0A DL01)
+8be00ee fix(data): paged realtime windows never trim live inserts; capped follows the exact count at the boundary; CDC application is a pure, tested function (Đợt 0A DL01)
+09d8f49 fix(data): listAll decides the last page on the raw PostgREST page length, not the client-filtered one (Đợt 0A DL01)
+272307e feat(data): BaseRepository.listAll pages with .range() up to a cap, reports total/capped, buffers realtime events during load (Đợt 0A DL01)
+d99516b feat(data): centralize browser list limits (page 1000, cap 2000, ceiling 5000) (Đợt 0A DL01)
+```
+
+`d99516b` là Việc 1; `272307e`, `09d8f49`, `8be00ee` là Việc 2 (hai commit sau là sửa theo rà soát); `dbf8857` là Việc 3; `1931f39` là Việc 4; `083e47c` là Việc 5. Cả 7 commit mang dòng ghi công `Co-Authored-By: Claude Fable 5.1`. SHA là của lúc chạy cổng; mọi số ở 7.1–7.3 đo trên cây mã tại `083e47c`, commit cập nhật báo cáo này chỉ sửa tài liệu.
+
+### 7.5 Ngày dự kiến chạm trần mới (cho lịch Đợt 0B/1)
+
+Số đo 09/10/2026 của kế hoạch lô 2 (chỉ đọc; lô này không truy vấn CSDL nên chưa đo lại): `payments` 200 dòng hoạt động, 15,6 dòng/ngày; `quotations` 313 dòng, 6,9 dòng/ngày. Ba bảng còn lại còn xa trần (`customers` 181, `contracts` 24, `deliveries` 20) và chưa có tốc độ tăng đo được.
+
+| Bảng | Chạm trần 500 (cũ) | Chạm trần 2.000 (mới) |
+|---|---|---|
+| `payments` | ≈ 29/10/2026 | **≈ 02/2027** (tính ra 02/02/2027) |
+| `quotations` | ≈ 06/11/2026 | **≈ 06/2027** (tính ra 11/06/2027) |
+
+Ước tính theo số đo 09/10/2026, chủ sở hữu tính lại bằng truy vấn chỉ đọc khi nghiệm thu (ngày chạm = 09/10/2026 + (trần − số dòng hiện có) / tốc độ mỗi ngày, làm tròn lên; chạy trong Supabase SQL editor, đổi `payments` thành `quotations` để tính bảng kia):
+
+```sql
+with s as (select count(*) as active, count(*) filter (where created_at >= now() - interval '14 days') / 14.0 as per_day from payments where deleted_at is null) select active, round(per_day,1), current_date + ceil((2000 - active) / nullif(per_day, 0))::int as eta_2000 from s;
+```
+
+Khi một bảng chạm 2.000, chân bảng hiện "Đang hiển thị 2.000/… dòng mới nhất": đó là tín hiệu để làm phân trang và tổng hợp phía máy chủ (Đợt 0B/1), muộn nhất trước ≈ 02/2027 (phiếu thu). Việc theo dõi sau khi lên bản chạy thật nằm ở mục "Nghiệm thu sau khi lên bản chạy thật" của kế hoạch lô 2.
+
+### 7.6 Nghiệm thu trên dữ liệu thật với trần hạ thấp (chủ sở hữu/IT thực hiện; chưa làm trong lô này)
+
+_Trạng thái: **chưa thực hiện**. Làm trên máy phát triển, bằng trình duyệt, **chỉ đọc**; chưa cần tạo 600 phiếu thu vì trần được hạ bằng biến môi trường. Số dòng ngày 09/10/2026 theo kế hoạch: 200 phiếu thu, 313 báo giá, 181 khách, 24 hợp đồng, 20 phiếu giao; đếm lại bằng truy vấn chỉ đọc trước khi đối chiếu. Chụp màn hình từng mục và ghi vào báo cáo này._
+
+**Lần chạy 1 – trần hạ thấp** (làm các mục 1, 2, 3, 4a, 7, 8; mỗi trang tải 50 dòng, trần 100 dòng):
+
+```powershell
+$env:VITE_CORE_PAGE_SIZE='50'; $env:VITE_CORE_HARD_CAP='100'; npm run dev
+```
+
+**Lần chạy 2 – trần mặc định** (làm các mục 4b, 5, 6 và dòng xác nhận cuối): xóa hai biến rồi chạy lại (hoặc mở cửa sổ PowerShell mới). **Không** chạy `vitest` trong phiên còn đặt hai biến này, vì `import.meta.env` của vitest đọc `process.env`.
+
+```powershell
+Remove-Item Env:\VITE_CORE_PAGE_SIZE, Env:\VITE_CORE_HARD_CAP -ErrorAction SilentlyContinue
+npm run dev
+```
+
+1. **[lần 1]** Trang **Thanh toán**: chân bảng hiện "Đang hiển thị 100/200 dòng mới nhất" (200 = số phiếu thu đang hoạt động, đối chiếu bằng truy vấn chỉ đọc `SELECT count(*) FROM payments WHERE deleted_at IS NULL` trong Supabase SQL editor). Tab Mạng (Network): 2 lượt `payments?…&offset=…`, mỗi lượt ≤ 50 dòng, cộng 1 lượt `HEAD` (`count=exact`); không lượt `payments?…` nào có `limit=` lớn hơn 50 (các bảng ngoài nhóm lõi như `znsMessages`/`notifications` vẫn 500, đúng thiết kế). **Kiểm lượt đầu tiên có `limit=50` trước khi tin các mục sau**: nếu vẫn `limit=1000` thì biến môi trường chưa vào `import.meta.env` (xem LƯU Ý ở đầu `src/platform/data/list-limits.ts`).
+2. **[lần 1]** Cuộn xuống cuối bảng: mỗi lần cuộn tới cuối trang hiện tại nâng cửa sổ thêm đúng một trang (50 dòng trong lần chạy hạ trần; 1.000 dòng ở trần mặc định), dòng cảnh báo đổi thành "Đang hiển thị 150/200 …"; cuộn tiếp tới khi hết thì dòng cảnh báo biến mất; không có hàng "đang tải" ảo đứng mãi ở cuối bảng.
+3. **[lần 1]** Lặp lại ở **Báo giá** (313 dòng), **Khách hàng** (181), **Hợp đồng** (24: không chạm trần nên không có dòng cảnh báo), **Giao hàng** (20).
+4. **Tổng quan.** (a) **[lần 1]** các số tổng (số khách, tổng báo giá, công nợ) tính trên cửa sổ bị cắt, ví dụ số khách = 100 chứ không phải 181: đúng với hạn chế đã ghi ở "Ngoài phạm vi lô 2" của kế hoạch (BC-07), chỉ ghi nhận, không phải lỗi. (b) **[lần 2]** số khách, tổng báo giá, công nợ phải khớp truy vấn chỉ đọc: `SELECT count(*) FROM customers WHERE deleted_at IS NULL`, tương tự cho `quotations` và `payments`.
+5. **[lần 2]** Mở ngăn chi tiết một hợp đồng cũ (đã ký lâu nhất): "Tiến độ thanh toán" và danh sách phiếu thu liên kết hiển thị đúng.
+6. **[lần 2]** **Xem trước** (không bấm gửi) tin ZNS thanh toán của một phiếu thu thuộc khách có nhiều phiếu thu nhất: "điểm tích lũy" phải bằng tổng điểm tính tay từ danh sách phiếu thu của khách đó, theo cách tính của `loyaltyEngine.ts:39-55`: mỗi phiếu lấy tổng `dotThanhToan[].soTien` nếu có đợt thu, ngược lại lấy `soTien`; khớp khách theo `customer_id` **hoặc** `data->>'maKh'`; điểm = floor(tổng / 1000). SQL chỉ đọc tương đương (đơn giản hơn: chọn khách không có đợt thu và không có mã gộp rồi so floor(sum / 1000)):
+
+   ```sql
+   SELECT floor(sum(coalesce((SELECT sum((d->>'soTien')::numeric) FROM jsonb_array_elements(CASE WHEN jsonb_typeof(data->'dotThanhToan')='array' AND jsonb_array_length(data->'dotThanhToan')>0 THEN data->'dotThanhToan' ELSE NULL END) d), (data->>'soTien')::numeric, 0))/1000) AS diem FROM payments WHERE deleted_at IS NULL AND (customer_id = '<id>' OR data->>'maKh' = '<maKh>')
+   ```
+
+7. **[lần 1]** Trong lúc đang ở trang Thanh toán với trần nhỏ, chờ một phiếu thu mới do nhân viên tạo trong giờ (hoặc hẹn người tạo một phiếu thử rồi xóa mềm): phiếu mới xuất hiện ở đầu danh sách mà không cần F5 (kênh realtime vẫn chạy sau khi nạp theo trang).
+8. **[lần 1]** Tắt mạng (DevTools → Network → Offline) rồi cuộn tới cuối bảng để kích hoạt tải thêm (không có nút riêng; `DataView.tsx:105-113` gọi `fetchMore` khi hàng cuối hiện ra): chỉ hiện một thông báo lỗi "Không tải được dữ liệu, thử lại", không tự thử lại, cửa sổ giữ cỡ đã nạp thành công (dữ liệu đang có không bị cắt ngắn). Bật mạng lại rồi bấm "Thử lại" nếu trang có nút này, nếu không thì dùng nút làm mới của trang hoặc F5 để nạp lại.
+
+**Dòng xác nhận cuối (lần chạy 2, trần mặc định):** không trang nào hiện dòng cảnh báo (mọi bảng còn dưới 2.000 dòng); tab Mạng cho thấy mỗi bảng lõi chỉ 1 lượt đọc ≤ 1.000 dòng (phiếu thu 200 dòng thì 1 lượt). Kết quả 8 mục và ảnh chụp: chưa có (ghi vào đây khi làm).
+
+### 7.7 Ghi chú
+
+- Các việc ngoài phạm vi lô 2 nằm ở mục "Ngoài phạm vi lô 2" của kế hoạch lô 2 (`2026-10-09-dot-0a-lo-2-gioi-han-500-dong.md`). Riêng ý thứ ba của mục đó (dòng mới chèn khi đã chạm trần đẩy dòng cũ nhất ra khỏi bộ nhớ) đã lỗi thời sau `8be00ee`: cửa sổ nạp theo trang không còn bị cắt khi có dòng mới đến, `total` tăng thêm 1.
+- Tab trình duyệt mở từ trước khi lên bản vẫn chạy giao diện cũ (cửa sổ 500 dòng) cho tới khi được tải lại: nếu lô 2 lên bản cùng lô 1 thì Bước 0 ở mục 5 đã bao gồm việc này, nếu lên bản riêng thì nhắc mọi người đóng hẳn rồi mở lại tab.
+- `npm run build` vẫn in thông báo của Vite: `.env` có `NODE_ENV=production` mà Vite không hỗ trợ. Có từ trước, lô này không đụng `.env`.
