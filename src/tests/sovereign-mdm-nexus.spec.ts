@@ -11,6 +11,8 @@ import {
 import { matchesEnterpriseSearch } from '../shared/utils/vietnameseSearchEngine';
 import { adaptSalesOrderToQuotation } from '../modules/sales/ui/utils/salesOrderAdapter';
 import { applyQuotationToContractForm } from '../modules/contracts/ui/components/ContractFormHelpers';
+// Đợt 0A: 4 kiểm thử dưới đây cần Supabase thật (bộ đếm, ghi/đọc bản ghi). Chúng chỉ chạy khi 0A.8 cấp CSDL thử nghiệm.
+const HAS_REAL_DB = /^https?:\/\//i.test(String(process.env.SUPABASE_URL || ''));
 
 describe('Sovereign MDM Nexus: Complete Enterprise Integrity Verification Suite', () => {
   describe('Pillar 1: Tax Disambiguation & Junk Tax Code Shield', () => {
@@ -115,7 +117,7 @@ describe('Sovereign MDM Nexus: Complete Enterprise Integrity Verification Suite'
   });
 
   describe('Pillar 4: Historical Document Snapshot Immutability (Zero-Trust Sealing)', () => {
-    it('reassigns document customerId/maKh without corrupting original contact person or phone', async () => {
+    it.skipIf(!HAS_REAL_DB)('reassigns document customerId/maKh without corrupting original contact person or phone', async () => {
       const masterId = `test-master-${Date.now()}`;
       const secId = `test-sec-${Date.now()}`;
       const quoteId = `test-quote-${Date.now()}`;

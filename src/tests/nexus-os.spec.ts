@@ -3,6 +3,8 @@ import { sequenceGeneratorService } from '@/src/backend/services/workflow/sequen
 import { Quotation as QuotationDomain, QuotationType } from '@/src/modules/sales/domain/Quotation';
 import { Payment } from '@/src/modules/billing/domain/Payment';
 import { adminDb } from '@/src/backend/config/supabase.admin';
+// Đợt 0A: 4 kiểm thử dưới đây cần Supabase thật (bộ đếm, ghi/đọc bản ghi). Chúng chỉ chạy khi 0A.8 cấp CSDL thử nghiệm.
+const HAS_REAL_DB = /^https?:\/\//i.test(String(process.env.SUPABASE_URL || ''));
 
 describe('NEXUS-OS Architectural Verification', () => {
   beforeEach(() => {
@@ -29,7 +31,7 @@ describe('NEXUS-OS Architectural Verification', () => {
       expect(customerCode).toMatch(/^KH\d{4}$/);
     }, 15000);
 
-    it('generates strictly sequential unique numbers without collisions', async () => {
+    it.skipIf(!HAS_REAL_DB)('generates strictly sequential unique numbers without collisions', async () => {
       const results = await Promise.all([
         sequenceGeneratorService.getNextCode('quotation', { loai: 'MAY' }),
         sequenceGeneratorService.getNextCode('quotation', { loai: 'MAY' }),
@@ -112,7 +114,7 @@ describe('NEXUS-OS Architectural Verification', () => {
   });
 
   describe('Pillar 4: Bidirectional Schema Reflection & Projection (BSRP)', () => {
-    it('DocRef.set automatically projects camelCase properties into snake_case physical columns', async () => {
+    it.skipIf(!HAS_REAL_DB)('DocRef.set automatically projects camelCase properties into snake_case physical columns', async () => {
       const testQuoteId = `test-bsrp-quote-${Date.now()}`;
       const docRef = adminDb.collection('quotations').doc(testQuoteId);
 
@@ -138,7 +140,7 @@ describe('NEXUS-OS Architectural Verification', () => {
   });
 
   describe('Pillar 5: Deep Cascading Customer Merge Verification', () => {
-    it('reassigns all child entities from source customers to target customer', async () => {
+    it.skipIf(!HAS_REAL_DB)('reassigns all child entities from source customers to target customer', async () => {
       const targetCustId = `target-cust-${Date.now()}`;
       const sourceCustId = `source-cust-${Date.now()}`;
 
@@ -203,7 +205,7 @@ describe('NEXUS-OS Architectural Verification', () => {
   });
 
   describe('Pillar 6: Zero-Trust Backend RBAC Gate Verification', () => {
-    it('prohibits deletion when role is Chuyên viên', async () => {
+    it.skipIf(!HAS_REAL_DB)('prohibits deletion when role is Chuyên viên', async () => {
       const testUserId = `user-chuyen-vien-${Date.now()}`;
       await adminDb.collection('users').doc(testUserId).set({
         id: testUserId,
