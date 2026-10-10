@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 
-const { fakeAdminDb, whereCalls, executeMock, bulkEnqueueMock } = vi.hoisted(() => {
+const { fakeAdminDb, whereCalls, executeMock } = vi.hoisted(() => {
   const whereCalls: unknown[][] = [];
   const makeQuery = (): any => ({
     where: vi.fn((...args: unknown[]) => { whereCalls.push(args); return makeQuery(); }),
@@ -18,7 +18,6 @@ const { fakeAdminDb, whereCalls, executeMock, bulkEnqueueMock } = vi.hoisted(() 
     whereCalls,
     fakeAdminDb: { collection: vi.fn(() => makeQuery()), batch: vi.fn(), runTransaction: vi.fn() },
     executeMock: vi.fn().mockResolvedValue({ status: 'SENT_WAITING', messageId: 'msg-1' }),
-    bulkEnqueueMock: vi.fn(),
   };
 });
 
@@ -39,7 +38,9 @@ vi.mock('../../modules/messaging/infrastructure/MultiProviderZnsVendor', () => (
 vi.mock('../../modules/messaging/application/handlers/EntityEventsHandler', () => ({}));
 vi.mock('../services/zns/zalo-token-manager.service', () => ({ zaloTokenManager: {} }));
 vi.mock('../services/zns/vendor-webhook.handler', () => ({ vendorWebhookHandler: { handleResult: vi.fn() } }));
-vi.mock('../services/zns/outbound-helpers', () => ({ bulkEnqueueHelper: bulkEnqueueMock, resolveVendorUrl: vi.fn() }));
+// Hàng rào: Vitest chỉ chạy hàm dựng này khi outbound-helpers thật sự bị nhập – bộ kiểm thử xanh khi zns.routes.ts không nhập nó
+// (bulkEnqueueHelper chỉ phục vụ đường gửi hàng loạt đã khóa), đỏ ngay nếu ai nhập lại.
+vi.mock('../services/zns/outbound-helpers', () => { throw new Error('zns.routes.ts không được nhập outbound-helpers (Đợt 0A Z0.1: gửi ZNS hàng loạt đã khóa)'); });
 vi.mock('../services/zns/zns-payload.builder', () => ({
   znsPayloadBuilder: {},
   sanitizeZnsCustomerName: (s: string) => s,
@@ -62,14 +63,14 @@ const BULK_BODY = {
 describe('zns.routes – Đợt 0A: khóa gửi hàng loạt, giữ gửi lẻ, bỏ tra khách theo tên', () => {
   beforeEach(() => { vi.clearAllMocks(); whereCalls.length = 0; });
 
-  it('POST /api/zns/bulk-send trả 410 BULK_ZNS_LOCKED và không gọi bulkEnqueueHelper', async () => {
+  it('POST /api/zns/bulk-send trả 410 BULK_ZNS_LOCKED, không gửi tin và không chạm CSDL', async () => {
     const res = await request(app).post('/api/zns/bulk-send').send({
       requests: [{ entityId: 'q1', entityType: 'QUOTATION', messageType: 'BAOGIA', phone: '0912345678' }]
     });
     expect(res.status).toBe(410);
     expect(res.body).toEqual(BULK_BODY);
-    expect(bulkEnqueueMock).not.toHaveBeenCalled();
     expect(executeMock).not.toHaveBeenCalled();
+    expect(fakeAdminDb.collection).not.toHaveBeenCalled();
   });
 
   it('POST /api/zns/replay-dlq trả 410 và không gửi lại tin nào', async () => {

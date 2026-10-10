@@ -9,6 +9,7 @@ export default defineConfig({
     // bộ đếm số chứng từ, khách thử nghiệm). Bốn biến dưới đây ép cả client trình duyệt lẫn client
     // máy chủ về chế độ giả lập trong mọi worker (giá trị không bắt đầu bằng "http").
     // KHÔNG XÓA. Muốn chạy với CSDL thử nghiệm riêng: xem việc 0A.8 của kế hoạch tổng thể.
+    // Lưu ý: chạy bằng `--config <tệp khác>` hoặc thêm mục `test.projects` không `extends` tệp này thì KHÔNG thừa hưởng `env`/`setupFiles` dưới đây.
     env: {
       VITE_SUPABASE_URL: 'offline',
       VITE_SUPABASE_ANON_KEY: 'offline',
