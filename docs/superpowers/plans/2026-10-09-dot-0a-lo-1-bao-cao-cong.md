@@ -171,7 +171,7 @@ Chạy nguyên văn lệnh của kế hoạch (Việc 6, Bước 2): `git grep -
 
 Loại `*.spec.*` khỏi lệnh (`-- src ':(exclude)*.spec.ts' ':(exclude)*.spec.tsx'`) thì còn đúng 5 dòng mã ở ba hàng đầu. Các kiểm tra còn lại đều rỗng: `currentLimit += 500` và `currentLimit: 500,` trong `realtime-store.ts` (nhánh ngoài nhóm lõi dùng `DEFAULT_WINDOW_LIMIT`); `git grep ":5000'" -- src`; `.limit(5000)`; `list({ limit: 500 })` ở `usePaymentZns.ts`, `productTypeCascadingSyncService.ts`, `swr-fetchers.ts`.
 
-### 7.4 Danh sách commit (`git log --oneline b3e30f4..HEAD` trước commit cập nhật báo cáo này: 7 commit)
+### 7.4 Danh sách commit (`git log --oneline b3e30f4..083e47c`: 7 commit, trước các commit cập nhật báo cáo này)
 
 ```
 083e47c fix(data): loyalty points, product-type impact scan and SWR core fallback read up to the cap instead of 500 rows (Đợt 0A DL01)
@@ -183,7 +183,7 @@ dbf8857 feat(data): core realtime windows load up to the cap with loaded/total/c
 d99516b feat(data): centralize browser list limits (page 1000, cap 2000, ceiling 5000) (Đợt 0A DL01)
 ```
 
-`d99516b` là Việc 1; `272307e`, `09d8f49`, `8be00ee` là Việc 2 (hai commit sau là sửa theo rà soát); `dbf8857` là Việc 3; `1931f39` là Việc 4; `083e47c` là Việc 5. Cả 7 commit mang dòng ghi công `Co-Authored-By: Claude Fable 5.1`. SHA là của lúc chạy cổng; mọi số ở 7.1–7.3 đo trên cây mã tại `083e47c`, commit cập nhật báo cáo này chỉ sửa tài liệu.
+`d99516b` là Việc 1; `272307e`, `09d8f49`, `8be00ee` là Việc 2 (hai commit sau là sửa theo rà soát); `dbf8857` là Việc 3; `1931f39` là Việc 4; `083e47c` là Việc 5. Cả 7 commit mang dòng ghi công `Co-Authored-By: Claude Fable 5.1`. SHA là của lúc chạy cổng; mọi số ở 7.1–7.3 đo trên cây mã tại `083e47c`. Sau đó chỉ có hai commit sửa tài liệu: `63bfa1b` (báo cáo này) và một commit bổ sung sau rà soát cuối nhánh (mục 8 của 7.6 và mục 7.7).
 
 ### 7.5 Ngày dự kiến chạm trần mới (cho lịch Đợt 0B/1)
 
@@ -212,6 +212,8 @@ _Trạng thái: **chưa thực hiện**. Làm trên máy phát triển, bằng t
 $env:VITE_CORE_PAGE_SIZE='50'; $env:VITE_CORE_HARD_CAP='100'; npm run dev
 ```
 
+Hai biến này chỉ dành cho `npm run dev` trên máy nghiệm thu; đừng để chúng lọt vào bản dựng chạy thật (xem 7.7).
+
 **Lần chạy 2 – trần mặc định** (làm các mục 4b, 5, 6 và dòng xác nhận cuối): xóa hai biến rồi chạy lại (hoặc mở cửa sổ PowerShell mới). **Không** chạy `vitest` trong phiên còn đặt hai biến này, vì `import.meta.env` của vitest đọc `process.env`.
 
 ```powershell
@@ -231,12 +233,18 @@ npm run dev
    ```
 
 7. **[lần 1]** Trong lúc đang ở trang Thanh toán với trần nhỏ, chờ một phiếu thu mới do nhân viên tạo trong giờ (hoặc hẹn người tạo một phiếu thử rồi xóa mềm): phiếu mới xuất hiện ở đầu danh sách mà không cần F5 (kênh realtime vẫn chạy sau khi nạp theo trang).
-8. **[lần 1]** Tắt mạng (DevTools → Network → Offline) rồi cuộn tới cuối bảng để kích hoạt tải thêm (không có nút riêng; `DataView.tsx:105-113` gọi `fetchMore` khi hàng cuối hiện ra): chỉ hiện một thông báo lỗi "Không tải được dữ liệu, thử lại", không tự thử lại, cửa sổ giữ cỡ đã nạp thành công (dữ liệu đang có không bị cắt ngắn). Bật mạng lại rồi bấm "Thử lại" nếu trang có nút này, nếu không thì dùng nút làm mới của trang hoặc F5 để nạp lại.
+8. **[lần 1]** Tắt mạng (DevTools → Network → Offline) rồi cuộn tới cuối bảng để kích hoạt tải thêm (không có nút riêng; `DataView.tsx:105-113` gọi `fetchMore` khi hàng cuối hiện ra): hiện đúng một thông báo "Không tải được dữ liệu, thử lại"; dữ liệu đang có không bị cắt, cửa sổ giữ cỡ đã nạp thành công; cuộn tiếp không tự nạp. **Hạn chế đã biết:** các trang này không có nút "Thử lại" hay nút làm mới (màn lỗi của bảng không bao giờ hiện vì trang truyền `error={null}` hoặc không truyền `error`; `refresh` chỉ chạy sau các thao tác ghi: tạo, sửa, xóa), và **kênh realtime của bộ sưu tập đó tắt cho tới khi tải lại trang**. Cách khôi phục duy nhất hiện nay là bật mạng lại rồi **F5** (tải lại trang). Đợt 0B sẽ nối nút "Thử lại" từ trạng thái lỗi của store.
 
 **Dòng xác nhận cuối (lần chạy 2, trần mặc định):** không trang nào hiện dòng cảnh báo (mọi bảng còn dưới 2.000 dòng); tab Mạng cho thấy mỗi bảng lõi chỉ 1 lượt đọc ≤ 1.000 dòng (phiếu thu 200 dòng thì 1 lượt). Kết quả 8 mục và ảnh chụp: chưa có (ghi vào đây khi làm).
 
-### 7.7 Ghi chú
+### 7.7 Lưu ý vận hành khi lên bản chạy thật
+
+- **Trước khi dựng bản chạy thật:** hai biến nghiệm thu `VITE_CORE_PAGE_SIZE` và `VITE_CORE_HARD_CAP` được đọc **lúc dựng** (`list-limits.ts` đọc `import.meta.env`), nên `npm run build` và việc triển khai phải chạy từ một cửa sổ PowerShell **không đặt** hai biến này (`Remove-Item Env:\VITE_CORE_PAGE_SIZE, Env:\VITE_CORE_HARD_CAP -ErrorAction SilentlyContinue`, hoặc mở cửa sổ mới; dựng bằng dịch vụ như Render thì phần biến môi trường của dịch vụ cũng không được có hai biến này). Nếu chúng lọt vào bản dựng, mọi nhân viên sẽ chỉ thấy trần 100 dòng. Sau khi lên bản, mở tab Mạng và xác nhận lượt đọc đầu tiên của một danh sách lõi (ví dụ `payments?…`) mang `limit=1000` (đọc dòng 0–999), không phải `limit=50`.
+- **Cài đặt Supabase:** `max-rows` của PostgREST trong dự án phải giữ **từ 1.000 trở lên** (= `CORE_PAGE_SIZE`). Nếu từng bị hạ thấp hơn, mọi danh sách lõi sẽ dừng ở con số đó mà **không có dòng cảnh báo** (trang thô ngắn được hiểu là trang cuối). Đã xác nhận bằng 1.000 ngày 09/10/2026; kiểm lại khi nghiệm thu bằng giá trị Max rows trong cài đặt API của dự án Supabase, và bằng cách so số dòng ở chân bảng với `SELECT count(*)` của mục 1 và 4b (cách so này chỉ lộ ra khi bảng có nhiều dòng hơn `max-rows`).
+- **Tab đang mở:** tab trình duyệt mở từ trước khi lên bản vẫn chạy giao diện cũ (cửa sổ 500 dòng) cho tới khi được tải lại; lô này không đổi API máy chủ nên tab cũ không hỏng, chỉ còn cắt 500 dòng như trước. Nếu lô 2 lên bản cùng lô 1 thì Bước 0 ở mục 5 đã bao gồm việc này, nếu lên bản riêng thì nhắc mọi người đóng hẳn rồi mở lại tab.
+- **Số lượt truy vấn:** không đổi so với hôm nay khi mỗi bảng lõi còn dưới 1.000 dòng: 1 lượt đọc cho mỗi bộ sưu tập lõi, không có lượt đếm. Từ 1.000 dòng trở lên thêm một lượt đọc cho mỗi 1.000 dòng; chạm trần 2.000 thì lần nạp đầu là 2 lượt đọc + 1 lượt đếm (`count=exact`) cho mỗi bộ sưu tập. Ngày chạm trần ≈ 02/2027 (phiếu thu) và ≈ 06/2027 (báo giá) theo số đo 09/10/2026, chủ sở hữu tính lại bằng truy vấn chỉ đọc (mục 7.5).
+
+### 7.8 Ghi chú
 
 - Các việc ngoài phạm vi lô 2 nằm ở mục "Ngoài phạm vi lô 2" của kế hoạch lô 2 (`2026-10-09-dot-0a-lo-2-gioi-han-500-dong.md`). Riêng ý thứ ba của mục đó (dòng mới chèn khi đã chạm trần đẩy dòng cũ nhất ra khỏi bộ nhớ) đã lỗi thời sau `8be00ee`: cửa sổ nạp theo trang không còn bị cắt khi có dòng mới đến, `total` tăng thêm 1.
-- Tab trình duyệt mở từ trước khi lên bản vẫn chạy giao diện cũ (cửa sổ 500 dòng) cho tới khi được tải lại: nếu lô 2 lên bản cùng lô 1 thì Bước 0 ở mục 5 đã bao gồm việc này, nếu lên bản riêng thì nhắc mọi người đóng hẳn rồi mở lại tab.
 - `npm run build` vẫn in thông báo của Vite: `.env` có `NODE_ENV=production` mà Vite không hỗ trợ. Có từ trước, lô này không đụng `.env`.
