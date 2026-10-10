@@ -6,7 +6,7 @@ import { canCreateContract, checkContractLock } from '../../modules/contracts/do
 import { eventBus } from '../../platform/events/EventBus';
 import { validateDocumentUpdate } from '../../domain/policy/document-integrity.policy';
 import { sequenceGeneratorService } from '../services/workflow/sequence-generator.service';
-import { reconcileHistoricalDuplicateQuotations } from '../services/workflow/reconcile-duplicates.service';
+import { RETIRED } from './retired.routes';
 import { normalizeLoai } from '../../domain/enums/quotation-loai';
 import { isSourceDocumentFullyDelivered, validateShipmentQuantities } from '../../domain/services/delivery-reconciler';
 import crypto from 'crypto';
@@ -23,15 +23,8 @@ export function normalizeEntityType(entityType: string): string {
 
 const router = Router();
 
-// Endpoint tự động hòa giải và tách số kế toán các chứng từ trùng lịch sử (như BGVT-2026-0171)
-router.post('/reconcile-duplicates', async (req, res) => {
-  try {
-    const result = await reconcileHistoricalDuplicateQuotations();
-    return res.json({ success: true, result });
-  } catch (error: any) {
-    return res.status(500).json({ success: false, error: error.message || String(error) });
-  }
-});
+// Đợt 0A (A4/K2): công cụ tự đánh số lại báo giá trùng đã bị khóa (nó đổi số cả báo giá mang mã ERP – MC17).
+router.post('/reconcile-duplicates', RETIRED.reconcileDuplicates);
 
 // Universal Sequence Engine (USE) - Atomic sequence code generator (Hỗ trợ cả GET và POST)
 router.all('/next-code/:entityType', async (req, res) => {

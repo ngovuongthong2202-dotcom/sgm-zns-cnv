@@ -1,8 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { adminDb } from '@/src/backend/config/supabase.admin';
-import { sequenceGeneratorService } from '@/src/backend/services/workflow/sequence-generator.service';
-import { reconcileHistoricalDuplicateQuotations, planDuplicateReconciliation } from '@/src/backend/services/workflow/reconcile-duplicates.service';
-import { computeLineItem, aggregateProducts } from '@/src/domain/pricing/quotation-pricing';
+import { describe, it, expect } from 'vitest';
+import { computeLineItem } from '@/src/domain/pricing/quotation-pricing';
 
 describe('Sovereign Apex Omni-Fabric v39 Master Test Suite', () => {
 
@@ -129,50 +126,6 @@ describe('Sovereign Apex Omni-Fabric v39 Master Test Suite', () => {
       const results = searchCatalog('may can ton 2');
       // Máy 1 tầng có 1200mm nhưng số 2 nằm trong 1200 nên regex ranh giới không khớp
       expect(results.some(r => r.item_code === 'MCT-1T-1200')).toBe(false);
-    });
-  });
-
-  describe('2. Historical Duplicate Reconciliation (BGVT-2026-0171 Healing)', () => {
-    it('Tự động phân định 2 bản ghi trùng BGVT-2026-0171: bản ghi 1 giữ mã, bản ghi 2 nhận mã mới', async () => {
-      const quoteHoaSen = {
-        id: 'quo-hoasen-1',
-        soPhieuBaoGia: 'BGVT-2026-0171',
-        tenKhachHang: 'Công Ty Cổ Phần Tập Đoàn Hoa Sen - CN Gia Lai',
-        loai: 'BG Vật tư',
-        ngayBaoGia: '2026-09-08',
-        createdAt: '2026-09-08T08:00:00.000Z',
-        totalAmount: 6300000
-      };
-
-      const quotePhucThinhPhat = {
-        id: 'quo-phucthinh-2',
-        soPhieuBaoGia: 'BGVT-2026-0171',
-        tenKhachHang: 'Công Ty TNHH Tôn Thép Phúc Thịnh Phát',
-        loai: 'BG Vật tư',
-        ngayBaoGia: '2026-09-08',
-        createdAt: '2026-09-08T09:30:00.000Z',
-        totalAmount: 960000
-      };
-
-      const activeDocs = [quoteHoaSen, quotePhucThinhPhat];
-
-      // Chạy thuật toán phân định và hòa giải
-      const { duplicateGroupsFound, itemsToHeal } = planDuplicateReconciliation(activeDocs);
-      expect(duplicateGroupsFound).toBe(1);
-      expect(itemsToHeal.length).toBe(1);
-
-      // Bản ghi cần hòa giải chính là Phúc Thịnh Phát (tạo sau)
-      expect(itemsToHeal[0].id).toBe('quo-phucthinh-2');
-      expect(itemsToHeal[0].customerName).toBe('Công Ty TNHH Tôn Thép Phúc Thịnh Phát');
-      expect(itemsToHeal[0].oldCode).toBe('BGVT-2026-0171');
-
-      // Sinh mã mới thay thế an toàn
-      const newCode = await sequenceGeneratorService.getNextCode('quotation', {
-        loai: itemsToHeal[0].loai,
-        year: itemsToHeal[0].year
-      });
-      expect(newCode).toMatch(/^BGVT-2026-\d{4}$/);
-      expect(newCode).not.toBe('BGVT-2026-0171');
     });
   });
 
