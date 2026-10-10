@@ -331,7 +331,11 @@ export function DataViewEngine<T>({
              {loadInfo?.capped && (
                <span
                  className="ml-2 text-amber-700 whitespace-nowrap"
-                 title="Danh sách chỉ nạp các dòng mới nhất tới một trần. Cuộn xuống cuối bảng để tải thêm."
+                 title={
+                   `Danh sách chỉ nạp ${new Intl.NumberFormat('vi-VN').format(loadInfo.loaded)} dòng mới nhất theo thời điểm nhập vào hệ thống.` +
+                   // Chỉ hứa "tải thêm" khi còn nạp thêm được: trang chỉ truyền fetchMore khi hasMore (không có ở trần tuyệt đối hay sau lỗi nạp)
+                   (fetchMore ? ' Cuộn xuống cuối bảng để tải thêm.' : '')
+                 }
                >
                  Đang hiển thị {new Intl.NumberFormat('vi-VN').format(loadInfo.loaded)}/{loadInfo.total === null ? '…' : new Intl.NumberFormat('vi-VN').format(loadInfo.total)} dòng mới nhất
                </span>

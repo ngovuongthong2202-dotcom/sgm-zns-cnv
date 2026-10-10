@@ -107,4 +107,24 @@ describe('DataViewEngine – dòng "Đang hiển thị X/Y" (Đợt 0A – lô 2
     );
     expect(screen.queryByText(/Đang hiển thị/)).toBeNull();
   });
+
+  it('chú thích: nói rõ "mới nhất theo thời điểm nhập vào hệ thống"; câu "tải thêm" chỉ có khi còn nạp thêm được (có fetchMore)', () => {
+    const loadInfo = { loaded: 2000, total: 2350, capped: true };
+    const { rerender } = render(
+      <MemoryRouter>
+        <DataViewEngine dataView={mockDataView} columns={[]} title="Phiếu thu" groupByOptions={[]} loadInfo={loadInfo} />
+      </MemoryRouter>
+    );
+    const tooltip = () => screen.getByText(/Đang hiển thị 2\.000\/2\.350 dòng mới nhất/).getAttribute('title');
+    // Không có fetchMore (trần tuyệt đối 5.000, hoặc sau lỗi nạp): không hứa "tải thêm"
+    expect(tooltip()).not.toContain('tải thêm');
+    expect(tooltip()).toBe('Danh sách chỉ nạp 2.000 dòng mới nhất theo thời điểm nhập vào hệ thống.');
+    rerender(
+      <MemoryRouter>
+        <DataViewEngine dataView={mockDataView} columns={[]} title="Phiếu thu" groupByOptions={[]} loadInfo={loadInfo} fetchMore={vi.fn()} />
+      </MemoryRouter>
+    );
+    expect(tooltip()).toContain('tải thêm');
+    expect(tooltip()).toBe('Danh sách chỉ nạp 2.000 dòng mới nhất theo thời điểm nhập vào hệ thống. Cuộn xuống cuối bảng để tải thêm.');
+  });
 });
