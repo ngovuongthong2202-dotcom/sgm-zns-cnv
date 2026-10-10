@@ -1,3 +1,6 @@
+// KHÔNG CHẠY LẠI. Lệnh gộp khách hàng dùng một lần (30/09/2026) đã gây gộp nhầm; lưu trữ theo Đợt 0A (phụ lục 06, K2).
+// Thoát ngay khi được gọi. Muốn xem logic cũ: đọc tệp, không chạy.
+process.exit(1);
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 

@@ -1,3 +1,7 @@
+// KHÔNG CHẠY LẠI. Script dùng một lần (10/2026) đã lưu trữ theo Đợt 0A (phụ lục 06, K2). Thoát ngay khi được gọi.
+// Lưu ý: tệp đã chuyển thư mục nên import tương đối `../src/...` phía dưới không còn nạp được (tsx báo ERR_MODULE_NOT_FOUND trước khi chạy dòng nào).
+// Dù có sửa đường dẫn thì các import đó cũng chỉ đọc .env và tạo client, không ghi gì; process.exit(1) bên dưới vẫn chặn phần thân.
+process.exit(1);
 import 'dotenv/config';
 import { supabase } from '../src/shared/config/supabase.client';
 
