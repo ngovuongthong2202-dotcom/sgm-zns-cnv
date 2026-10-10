@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { notify } from '@/src/shared/utils/notify';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { useDebounce } from '../../../hooks/useDebounce';
-import { useConfirm } from '@/src/design-system/Confirm';
 import { can } from '@/src/modules/iam';
 import { useAuth } from '@/src/modules/iam';
 import { PageHeader } from '@/src/design-system/PageHeader';
@@ -137,7 +136,6 @@ export default function ZnsHubFeature() {
     'processed_at'
   );
 
-  const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 250);
 
@@ -237,26 +235,6 @@ export default function ZnsHubFeature() {
     notify.success(`Đã xuất ${currentList.length} bản ghi ra file ${filename}`);
   };
 
-  const handleReplaySingle = async (e: React.MouseEvent, msgId: string) => {
-    e.stopPropagation();
-    if (await confirm({ title: 'Replay Message', message: 'Thử gửi lại tin ZNS này?' })) {
-      const tid = notify.loading('Đang gửi lệnh...');
-      try {
-        const res = await fetch('/api/zns/replay', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messageId: msgId })
-        });
-        if (!res.ok) throw new Error('Lỗi backend');
-        notify.dismiss(tid);
-        notify.info('Hệ thống đã ghi nhận lệnh gửi lại vào hàng chờ (queued).');
-      } catch (err: any) {
-        notify.dismiss(tid);
-        notify.error('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
-      }
-    }
-  };
-
   return (
     <div className="flex flex-col h-full bg-surface-sunken relative overflow-hidden">
       <PageHeader title="ZNS Control Hub" meta="Quản lý tin nhắn Zalo, lỗi gửi tin và mô phỏng giao tiếp Zalo" />
@@ -295,7 +273,6 @@ export default function ZnsHubFeature() {
             }
             expandedMsgId={expandedMsgId}
             setExpandedMsgId={setExpandedMsgId}
-            handleReplaySingle={handleReplaySingle}
             hasMore={
               (activeTab === 'outbox' || activeTab === 'dlq') ? hasMoreMessages :
               activeTab === 'debug' ? hasMoreD :

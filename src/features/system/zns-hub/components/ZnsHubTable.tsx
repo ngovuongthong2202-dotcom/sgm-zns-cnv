@@ -1,6 +1,6 @@
 import React, { useRef, useMemo, useState, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { RefreshCw, CodeSquare, Copy, CheckCircle2, ChevronRight, AlertCircle } from 'lucide-react';
+import { CodeSquare, Copy, CheckCircle2, ChevronRight, AlertCircle } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { StatusPill } from '@/src/widgets/StatusPill';
 import { tokens } from '@/src/design-system/tokens';
@@ -13,7 +13,6 @@ interface Props {
   loading: boolean;
   expandedMsgId: string | null;
   setExpandedMsgId: (id: string | null) => void;
-  handleReplaySingle: (e: React.MouseEvent, id: string) => Promise<void>;
   hasMore: boolean;
   loadMore: () => void;
   loadingMore: boolean;
@@ -25,7 +24,6 @@ export default function ZnsHubTable({
   loading,
   expandedMsgId,
   setExpandedMsgId,
-  handleReplaySingle,
   hasMore,
   loadMore,
   loadingMore
@@ -159,15 +157,6 @@ export default function ZnsHubTable({
                            </span>
                          </div>
                          <div className="text-right flex items-center justify-end pr-2">
-                           {(item.status === 'DLQ' || item.status === 'FAILED') && (
-                             <Button
-                               onClick={(e) => handleReplaySingle(e, item.id)}
-                               className="p-1 rounded text-red-500 hover:text-white hover:bg-red-500 transition-colors focus-visible:outline-none"
-                               title="Retry DLQ"
-                             >
-                               <RefreshCw size={14} className="hover:animate-spin" />
-                             </Button>
-                           )}
                            <ChevronRight size={16} className={`ml-2 text-slate-300 transition-opacity ${isSelected ? 'opacity-100 text-blue-500' : 'opacity-0 group-hover:opacity-100'}`} />
                          </div>
                        </>
@@ -290,16 +279,6 @@ export default function ZnsHubTable({
                     </pre>
                  </div>
                  
-                 {(selectedItem.status === 'DLQ' || selectedItem.status === 'FAILED') && (
-                    <Button 
-                       variant="danger" 
-                       size="md" 
-                       className="w-full mt-4 bg-red-600 hover:bg-red-700 text-white font-semibold flex items-center justify-center gap-2 py-2.5 rounded-xl shadow-[0_2px_4px_rgba(220,38,38,0.2)] transition-all"
-                       onClick={(e) => handleReplaySingle(e, selectedItem.id)}
-                    >
-                       <RefreshCw size={14} className="animate-spin-slow" /> {t('znshub.detail.btn_retry_single')}
-                    </Button>
-                 )}
               </div>
            </div>
         </div>
