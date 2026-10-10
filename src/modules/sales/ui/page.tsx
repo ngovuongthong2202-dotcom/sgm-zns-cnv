@@ -18,10 +18,9 @@ import { CollapsibleStatsBanner } from '@/src/platform/ui/design-system/stats/Co
 import { extractCustomerTinhThanhMap, extractTinhThanhList, enhanceQuotationsWithProvince } from './utils/extractors';
 import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { QuotationFilterBar } from './components/QuotationFilterBar';
-import { Zap, Send } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { CreateQuotationFromSalesOrderModal } from './components/CreateQuotationFromSalesOrderModal';
-import { BulkZnsModal } from '@/src/widgets/BulkZnsModal';
 import { UniversalZnsPreviewModal } from '@/src/platform/ui/zns/UniversalZnsPreviewModal';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { repositoryFactory } from '@/src/data/repositories/factory';
@@ -66,7 +65,6 @@ export default function QuotationsFeature() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [drawerQuotation, setDrawerQuotation] = useState<Quotation | null>(null);
   const [isSalesOrderModalOpen, setIsSalesOrderModalOpen] = useState(false);
-  const [isBulkZnsOpen, setIsBulkZnsOpen] = useState(false);
 
   useQuotationMigration(quotations, updateQuotation);
 
@@ -310,19 +308,6 @@ export default function QuotationsFeature() {
             canCreate={can('create', 'quotation', userData?.role)}
             extraActions={
               <div className="flex items-center gap-2">
-                {can('send_zns', 'quotation', userData?.role) && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    leftIcon={<Send size={14} className="shrink-0 text-blue-600" />}
-                    onClick={() => setIsBulkZnsOpen(true)}
-                    className="h-8 px-2.5 font-medium whitespace-nowrap shrink-0 inline-flex items-center shadow-xs border-blue-200 bg-blue-50/60 text-blue-800 hover:bg-blue-100"
-                    title="Gửi ZNS hàng loạt cho danh sách báo giá đang lọc"
-                  >
-                    Gửi ZNS Hàng Loạt
-                  </Button>
-                )}
                 {can('create', 'quotation', userData?.role) && (
                   <Button
                     type="button"
@@ -431,20 +416,6 @@ export default function QuotationsFeature() {
             setEditingQuotation(draft as Quotation);
             setIsFormOpen(true);
           }}
-        />
-      )}
-      {isBulkZnsOpen && (
-        <BulkZnsModal
-          isOpen={isBulkZnsOpen}
-          onClose={() => {
-            setIsBulkZnsOpen(false);
-            refresh?.();
-          }}
-          entityType="QUOTATION"
-          items={currentData}
-          customers={allCustomers}
-          userRole={userData?.role}
-          onSuccess={refresh}
         />
       )}
       {znsPreviewQuotation && (
