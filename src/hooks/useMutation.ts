@@ -177,27 +177,6 @@ export function useMutation<T>({ collection: collectionName, onSuccess, onError 
         throw new Error(errorMsg);
       }
       
-      if (collectionName === 'customers') {
-        const syncJobPayload: Record<string, unknown> = {
-           customerId: id,
-           status: 'PENDING',
-           createdAt: rawUpdatePayload.updatedAt
-        };
-        if (updatePayload.tenKhachHang !== undefined) syncJobPayload.tenKhachHang = updatePayload.tenKhachHang;
-        if (updatePayload.sdt !== undefined) syncJobPayload.sdt = updatePayload.sdt;
-        if (updatePayload.nguoiPhuTrach !== undefined) syncJobPayload.nguoiPhuTrach = updatePayload.nguoiPhuTrach;
-        if (updatePayload.nguoiDaiDien !== undefined) syncJobPayload.nguoiDaiDien = updatePayload.nguoiDaiDien;
-        if (updatePayload.maKh !== undefined) syncJobPayload.maKh = updatePayload.maKh;
-
-        if (Object.keys(syncJobPayload).length > 3) {
-           const jobRepo = repositoryFactory.get<Record<string, unknown>>('crossEntitySyncJobs');
-           await jobRepo.set(`${id}_${Date.now()}`, syncJobPayload);
-           fetch('/api/customers/trigger-sync', { method: 'POST' }).catch((e) => {
-             logger.debug('Trigger customer sync failed silently', e);
-           });
-        }
-      }
-
       // Optimistically resolve UI state
       onSuccess?.((updatePayload as unknown) as T); 
       setLoading(false);
