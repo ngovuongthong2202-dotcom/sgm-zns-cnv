@@ -3,10 +3,7 @@ import { logger } from '../../lib/logger';
 import { SendZnsMessageUseCase } from '../../../modules/messaging/application/use-cases/SendZnsMessage';
 import { znsRepository } from '../../../modules/messaging/infrastructure/ZnsRepoSupabase';
 import { multiProviderZnsVendor as znsVendor } from '../../../modules/messaging/infrastructure/MultiProviderZnsVendor';
-import {
-  syncCustomerSnapshots,
-  cleanupExpiredLocks
-} from './cron-helpers';
+import { cleanupExpiredLocks } from './cron-helpers';
 
 const sendZnsUseCase = new SendZnsMessageUseCase(znsRepository, znsVendor);
 
@@ -20,10 +17,6 @@ export class CronService {
     } catch(e) {
       console.error(`Failed to log heartbeat for ${jobName}`, e);
     }
-  }
-
-  async syncCustomerSnapshots(forceFullSync = false) {
-    return syncCustomerSnapshots(forceFullSync);
   }
 
   async processOutbox() {

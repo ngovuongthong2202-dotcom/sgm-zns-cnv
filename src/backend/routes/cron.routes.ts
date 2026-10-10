@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { cronService } from '../services/cron/cron.service';
 import { adminDb, adminAuth } from '../config/supabase.admin';
 import { sendZaloAlert } from '../services/alerting.service';
+import { RETIRED } from './retired.routes';
 
 if (process.env.NODE_ENV === 'production' && !process.env.CRON_SECRET) {
   console.warn('CRON_SECRET environment variable is required in production environment.');
@@ -61,135 +62,7 @@ router.post('/rebuild-metrics', async (req, res) => {
   }
 });
 
-router.post('/preview', async (req, res) => {
-  try {
-    const isAuthed = await verifyCronAuth(req);
-    if (!isAuthed) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const { jobId } = req.body;
-
-
-    if (jobId === 'outbox') {
-      const previewCategories: any[] = [];
-      const now = new Date().toISOString();
-      const lockThreshold = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-
-      // 1. Fail retries
-      const retrySnap = await adminDb.collection('znsMessages')
-        .where('status', '==', 'FAILED')
-        .where('nextRetryAt', '<=', now)
-        .limit(50)
-        .get();
-
-      const retryItems = retrySnap.docs.map(d => {
-        const data = d.data();
-        return {
-          id: d.id,
-          title: `Tin nhắn ZNS (${data.messageType || 'N/A'})`,
-          details: `Người nhận: ${data.phone || 'N/A'} | Lần thử lại: ${(data.attemptBucket || 0) + 1} | Lỗi trước đó: ${data.errorLog || 'N/A'}`,
-          before: 'Trạng thái: THẤT BẠI (Đang đợi thử lại)',
-          after: 'Sẽ gửi lại ngay lập tức'
-        };
-      });
-
-      // 2. Stale sending / locks
-      const lockSnap = await adminDb.collection('znsMessages')
-        .where('status', '==', 'SENDING')
-        .where('lockedAt', '<', lockThreshold)
-        .limit(50)
-        .get();
-
-      const lockItems = lockSnap.docs.map(d => {
-        const data = d.data();
-        return {
-          id: d.id,
-          title: `Tin nhắn bị kẹt (${data.messageType || 'N/A'})`,
-          details: `Người nhận: ${data.phone || 'N/A'} | Bị kẹt từ lúc: ${data.lockedAt}`,
-          before: 'Trạng thái: ĐANG GỬI (Bị kẹt > 5 phút)',
-          after: 'Mở khoá & Đặt lịch gửi lại'
-        };
-      });
-
-      previewCategories.push({
-        id: 'outbox_retries',
-        name: 'Tin nhắn lỗi sẽ thực hiện thử lại',
-        description: 'Các tin nhắn gửi thất bại đã đủ thời gian chờ giãn cách.',
-        items: retryItems
-      });
-
-      previewCategories.push({
-        id: 'outbox_stale_locks',
-        name: 'Tin nhắn bị kẹt khoá (Stale Locks)',
-        description: 'Các tin nhắn đang ở trạng thái gửi lâu hơn 5 phút (hệ thống sẽ tự động giải phóng khoá để retry).',
-        items: lockItems
-      });
-
-      return res.json({ status: 'ok', jobId, categories: previewCategories });
-    }
-
-    if (jobId === 'sync-snapshots') {
-      const previewCategories: any[] = [];
-      
-      // Look up cross-entity sync jobs
-      const jobsSnap = await adminDb
-        .collection("crossEntitySyncJobs")
-        .where("status", "==", "PENDING")
-        .limit(50)
-        .get();
-
-      const items: any[] = [];
-
-      for (const d of jobsSnap.docs) {
-        const job = d.data();
-        
-        // Fetch customer current data
-        const custDoc = await adminDb.collection("customers").doc(job.customerId).get();
-        if (custDoc.exists) {
-          const custData = custDoc.data();
-          
-          const changeDetails = [];
-          if (job.tenKhachHang && job.tenKhachHang !== custData?.tenKhachHang) {
-            changeDetails.push(`Tên KH: "${job.tenKhachHang}" ➔ "${custData?.tenKhachHang}"`);
-          }
-          if (job.sdt && job.sdt !== custData?.sdt) {
-            changeDetails.push(`SĐT: "${job.sdt}" ➔ "${custData?.sdt}"`);
-          }
-          if (job.nguoiPhuTrach && job.nguoiPhuTrach !== custData?.nguoiPhuTrach) {
-            changeDetails.push(`Người phụ trách: "${job.nguoiPhuTrach}" ➔ "${custData?.nguoiPhuTrach}"`);
-          }
-          if (job.nguoiDaiDien && job.nguoiDaiDien !== custData?.nguoiDaiDien) {
-            changeDetails.push(`Người đại diện: "${job.nguoiDaiDien}" ➔ "${custData?.nguoiDaiDien}"`);
-          }
-          
-          items.push({
-            id: d.id,
-            title: `Cập nhật hồ sơ khách hàng: ${custData?.tenKhachHang || 'N/A'} (Mã: ${custData?.maKh || 'N/A'})`,
-            details: changeDetails.join(' | ') || 'Đồng bộ toàn bộ trường thông tin snapshot',
-            before: 'KHÁC BIỆT DỮ LIỆU (Chưa đồng bộ cho Báo giá, Hợp đồng, Thanh toán, Giao hàng)',
-            after: 'Cập nhật tự động các bản ghi quan hệ liên quan'
-          });
-        }
-      }
-
-      previewCategories.push({
-        id: 'snapshot_sync_jobs',
-        name: 'Hồ sơ khách hàng có sửa đổi cần đồng bộ',
-        description: 'Danh sách các khách hàng có thông tin profile thay đổi và cần đồng bộ snapshot vào các đề mục quan hệ.',
-        items: items
-      });
-
-      return res.json({ status: 'ok', jobId, categories: previewCategories });
-    }
-
-    return res.status(400).json({ error: 'Invalid Job ID' });
-  } catch (err: any) {
-    console.error('CRON Preview error:', err);
-    return res.status(500).json({ error: err.message || String(err) });
-  }
-});
-
+router.post('/preview', RETIRED.cronPreview); // Đợt 0A: màn đối soát CronPage đã xóa; đường này lộ SĐT người nhận cho token dev
 
 router.post('/process-outbox', async (req, res) => {
   try {
@@ -236,22 +109,7 @@ router.post('/process-outbox', async (req, res) => {
   }
 });
 
-router.post('/sync-snapshots', async (req, res) => {
-  try {
-    const isAuthed = await verifyCronAuth(req);
-    if (!isAuthed) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const results = await cronService.syncCustomerSnapshots(true);
-    const lockCleanup = await cronService.cleanupExpiredLocks();
-    await cronService.logHeartbeat('sync-snapshots');
-    return res.json({ status: 'ok', results, lockCleanup });
-  } catch (err: unknown) { 
-    console.error('CRON sync-snapshots error:', err);
-    return res.status(500).json({ error: (err instanceof Error ? err.message : String(err)) });
-  }
-});
+router.post('/sync-snapshots', RETIRED.syncSnapshots); // Đợt 0A (K1): nhánh ghi đè toàn bộ chứng từ đã gỡ
 
 router.post('/cleanup-locks', async (req, res) => {
   try {
