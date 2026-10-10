@@ -7,7 +7,7 @@ import { SendZnsMessageUseCase } from '../../modules/messaging/application/use-c
 import { znsRepository } from '../../modules/messaging/infrastructure/ZnsRepoSupabase';
 import { multiProviderZnsVendor as znsVendor } from '../../modules/messaging/infrastructure/MultiProviderZnsVendor';
 import { zaloTokenManager } from '../services/zns/zalo-token-manager.service';
-import { bulkEnqueueHelper } from '../services/zns/outbound-helpers';
+import { RETIRED } from './retired.routes';
 import '../../modules/messaging/application/handlers/EntityEventsHandler';
 import { ZBS_TEMPLATE_REGISTRY } from '../../domain/constants/zbs-template.registry';
 
@@ -388,20 +388,7 @@ router.post('/send', async (req, res) => {
       }
     }
 
-    // Tra cứu bổ sung theo tên khách hàng nếu chưa tìm thấy parentCustomer
-    if (body.entityType !== 'CUSTOMER' && Object.keys(parentCustomer).length === 0) {
-      const searchName = (dbEntity.tenKhachHang || clientEntity.tenKhachHang) as string;
-      if (searchName) {
-        try {
-          const nameSnap = await adminDb.collection('customers').where('tenKhachHang', '==', searchName).limit(1).get();
-          if (!nameSnap.empty) {
-            parentCustomer = (nameSnap.docs[0].data() as Record<string, unknown>) || {};
-          }
-        } catch {
-          // Fallback gracefully
-        }
-      }
-    }
+    // Đợt 0A: không tra khách theo tên nữa — trùng tên là nguồn gửi nhầm khách (ZNS12/KH13).
 
     // Ưu tiên tuyệt đối trường "Chuẩn ZNS" (tenZns / ten_zns) theo yêu cầu Zalo Cloud OpenAPI
     const candidateZns = (
@@ -540,134 +527,10 @@ router.post('/send', async (req, res) => {
   }
 });
 
-// Endpoint cho Bulk Send (chống treo Frontend khi gửi nhiều ZNS)
-router.post('/bulk-send', async (req, res) => {
-  try {
-    const { requests } = req.body;
-    if (!requests || !Array.isArray(requests) || requests.length === 0) {
-      return res.status(400).json({ error: 'Missing or empty requests array' });
-    }
-    
-    // Validate quickly
-    for (const p of requests) {
-      if (!p.entityId || !p.entityType || !p.messageType) {
-        return res.status(400).json({ error: 'Mỗi request phải có entityId, entityType, messageType' });
-      }
-      if (p.phone) {
-         p.phone = normalizeVNPhone(p.phone) || p.phone;
-      }
-    }
-
-    const { successCount, failCount, errors } = await bulkEnqueueHelper(requests, async (msgId) => {
-       const msg = await znsRepository.findById(msgId);
-       if (msg) {
-         await sendZnsUseCase.execute({
-            entityId: msg.props.entityId,
-            entityType: msg.props.entityType,
-            messageType: msg.props.messageType,
-            phone: msg.props.phone,
-            payload: msg.props.payload
-         });
-       }
-       return msgId;
-    });
-
-    res.status(200).json({ successCount, failCount, errors });
-  } catch (error: unknown) { 
-    console.error('Failed to bulk enqueue ZNS messages:', error);
-    res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
-  }
-});
-
-// Endpoint to retry ALL failed or DLQ messages (for ZNS Hub replay)
-router.post('/replay-dlq', async (req, res) => {
-  try {
-    const { messageIds, filter, dryRun } = req.body;
-
-    let targetIds: string[] = [];
-
-    if (messageIds && Array.isArray(messageIds) && messageIds.length > 0) {
-      targetIds = messageIds;
-    } else if (filter) {
-      // Query up to 100 DLQ/FAILED
-      const query = adminDb.collection('znsMessages')
-        .where('status', 'in', ['FAILED', 'DLQ'])
-        .limit(100);
-      
-      const snapshot = await query.get();
-      snapshot.forEach((doc) => targetIds.push(doc.id)); 
-    }
-
-    if (dryRun) {
-      return res.json({ targetIds, count: targetIds.length });
-    }
-
-    const replayed: string[] = [];
-    const skipped: string[] = [];
-    const errors: any[] = [];
-
-    for (const msgId of targetIds) {
-      try {
-        const docRef = adminDb.collection('znsMessages').doc(msgId);
-        await docRef.update({
-          status: 'INIT',
-          retryCount: 0,
-          errorLog: '',
-          updatedAt: new Date().toISOString()
-        });
-        
-        // fire-and-forget process
-        const msg = await znsRepository.findById(msgId);
-        if (msg) {
-          sendZnsUseCase.execute({
-            entityId: msg.props.entityId,
-            entityType: msg.props.entityType,
-            messageType: msg.props.messageType,
-            phone: msg.props.phone,
-            payload: msg.props.payload
-          }).catch(console.error);
-        }
-        replayed.push(msgId);
-      } catch (err: unknown) { 
-        errors.push({ id: msgId, error: err instanceof Error ? err.message : String(err) });
-      }
-    }
-    return res.json({ replayed, skipped, errors, total: replayed.length });
-  } catch (err: unknown) { 
-    return res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
-  }
-});
-
-router.post('/replay', async (req, res) => {
-  try {
-    const { messageId } = req.body;
-    if (!messageId) return res.status(400).json({ error: 'Missing messageId' });
-
-    const docRef = adminDb.collection('znsMessages').doc(messageId);
-    
-    await docRef.update({
-      status: 'INIT',
-      retryCount: 0,
-       errorLog: '',
-      updatedAt: new Date().toISOString()
-    });
-    
-    // trigger background process
-    const msg = await znsRepository.findById(messageId);
-    if (msg) {
-      sendZnsUseCase.execute({
-        entityId: msg.props.entityId,
-        entityType: msg.props.entityType,
-        messageType: msg.props.messageType,
-        phone: msg.props.phone,
-        payload: msg.props.payload
-      }).catch(console.error);
-    }
-
-    res.status(200).json({ success: true });
-  } catch (err: unknown) { 
-    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
-  }
-});
+// Đợt 0A (Z0.1): gửi hàng loạt và gửi lại hàng loạt tạm khóa. Thân xử lý cũ (ghi 400 tin/lô, gửi lại với payload cũ,
+// không xác thực) đã xóa khỏi kho; xem lịch sử git 2b56114. Thiết kế mới nằm ở Đợt 2B.
+router.post('/bulk-send', RETIRED.bulkZns);
+router.post('/replay-dlq', RETIRED.bulkZns);
+router.post('/replay', RETIRED.bulkZns);
 
 export default router;
