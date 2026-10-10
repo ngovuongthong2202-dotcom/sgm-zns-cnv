@@ -82,4 +82,25 @@ describe('CustomerZnsContactModal – gửi ZNS theo đầu mối (Đợt 0A)', 
     const footer = screen.getByText(/Đã chọn:/).textContent?.replace(/\s+/g, ' ') || '';
     expect(footer).toContain('1 / 2');
   });
+
+  it('khách chỉ có 1 đầu mối và tin đang chờ Zalo trả kết quả: không chọn sẵn, kể cả khi mặc định "chọn hết"; nút gửi bị khóa', () => {
+    const singleContactCustomer = { ...customer, contacts: [customer.contacts[0]] };
+    renderModal(
+      { customer: singleContactCustomer },
+      [{ id: 'm1', phone: '0901234567', status: 'SENT_WAITING', createdAt: '2026-10-09T01:00:00.000Z' }],
+    );
+    const footer = screen.getByText(/Đã chọn:/).textContent?.replace(/\s+/g, ' ') || '';
+    expect(footer).toContain('Đã chọn: 0 / 1');
+    const sendButton = screen.getByRole('button', { name: /Gửi ZNS \(0 đầu mối\)/i }) as HTMLButtonElement;
+    expect(sendButton.disabled).toBe(true);
+  });
+
+  it('các đầu mối đều đã gửi xong (SUCCESS, không chờ kết quả): mặc định vẫn chọn hết để có thể gửi lại', () => {
+    renderModal({}, [
+      { id: 'm1', phone: '0901234567', status: 'SUCCESS', createdAt: '2026-10-09T01:00:00.000Z' },
+      { id: 'm2', phone: '0912345678', status: 'SUCCESS', createdAt: '2026-10-09T01:05:00.000Z' },
+    ]);
+    const footer = screen.getByText(/Đã chọn:/).textContent?.replace(/\s+/g, ' ') || '';
+    expect(footer).toContain('Đã chọn: 2 / 2');
+  });
 });

@@ -174,7 +174,8 @@ export function CustomerZnsContactModal({
     if (initial.size === 0) {
       contactsList.forEach(ct => {
         const ph = (ct.sdt || '').trim();
-        if (ph) initial.add(ph);
+        // Đầu mối có tin đang chờ Zalo trả kết quả không bao giờ được chọn sẵn (kể cả khi chọn hết mặc định), tránh gửi đúp
+        if (ph && !contactZnsMap.get(ph)?.pending) initial.add(ph);
       });
     }
     setSelectedPhones(initial);
