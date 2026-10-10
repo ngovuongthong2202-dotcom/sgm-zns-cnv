@@ -1,7 +1,6 @@
 import { SegmentedTabs } from '@/src/design-system';
 import React, { useState } from 'react';
 import { Clock, Activity, HardDrive } from 'lucide-react';
-import CronPage from './CronPage';
 import BackupPage from './BackupPage';
 import SgmHaControlStudio from '../components/SgmHaControlStudio';
 import JobMonitorPanel from '../components/JobMonitorPanel';
@@ -26,12 +25,7 @@ export default function SystemPage() {
       />
 
       <div className="pt-2 animate-in fade-in duration-300">
-        {activeTab === 'cron' && (
-          <div className="space-y-4">
-            <CronPage />
-            <JobMonitorPanel />
-          </div>
-        )}
+        {activeTab === 'cron' && <JobMonitorPanel />}
         {activeTab === 'performance' && <SgmHaControlStudio />}
         {activeTab === 'backup' && <BackupPage />}
       </div>

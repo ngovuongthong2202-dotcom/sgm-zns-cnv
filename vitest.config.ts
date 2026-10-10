@@ -20,6 +20,7 @@ export default defineConfig({
       '**/*.spec.ts',
       'src/tests/components.snapshot.spec.tsx',
       'src/modules/customers/ui/components/CustomerCascadeImpactModal.spec.tsx',
+      'src/features/system/settings/pages/SystemPage.spec.tsx',
       'src/features/system/zns-hub/components/ZnsHubTable.spec.tsx',
       'src/modules/customers/ui/components/CustomerZnsContactModal.spec.tsx',
       'src/modules/customers/ui/components/CustomerFormModal.spec.tsx',

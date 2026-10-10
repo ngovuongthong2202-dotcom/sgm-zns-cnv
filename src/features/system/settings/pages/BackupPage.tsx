@@ -8,7 +8,6 @@ import { settingsRepo, repositoryFactory } from '@/src/data/repositories';
 
 import { Button } from '@/src/design-system/Button';
 import { Switch } from '@/src/design-system';
-import DataStandardizationPanel from '../components/DataStandardizationPanel';
 
 export default function BackupPage() {
   const [exporting, setExporting] = useState(false);
@@ -306,9 +305,6 @@ export default function BackupPage() {
             </div>
           </div>
         </div>
-
-        {/* New Data Standardization Center */}
-        <DataStandardizationPanel />
       </div>
     </div>
   );
