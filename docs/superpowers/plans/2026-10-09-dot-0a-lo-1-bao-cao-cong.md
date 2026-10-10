@@ -79,9 +79,19 @@ Hai commit tiếp theo trên nhánh là chính báo cáo này và commit tài li
 
 ## 5. Nghiệm thu thủ công
 
-_(chủ sở hữu/nhân viên IT, sau khi lên bản chạy thật; chỉ thao tác đọc trừ mục 4 (hủy ở hộp cảnh báo, không lưu), 5 (ghi 1 hồ sơ khách thử) và 7–8)_
+_(chủ sở hữu/nhân viên IT, sau khi lên bản chạy thật **và xong bước 0**; chỉ thao tác đọc trừ mục 4 (hủy ở hộp cảnh báo, không lưu), 5 (ghi 1 hồ sơ khách thử) và 7–8)_
 
-Điều kiện lên bản: máy chủ và bản giao diện lên **cùng một lần** (một commit, Render dựng `dist/` từ cùng mã); làm ngoài giờ; nhắn mọi người **Ctrl+F5** ngay sau đó (tab cũ còn có thể chạy gộp dự phòng trên trình duyệt).
+Điều kiện lên bản: máy chủ và bản giao diện lên **cùng một lần** (một commit, Render dựng `dist/` từ cùng mã); làm ngoài giờ. Như vậy vẫn **chưa đủ**: tab trình duyệt mở từ trước khi lên bản vẫn chạy giao diện cũ cho tới khi được tải lại, và hiện chưa có gì nhắc người dùng tải lại. Khóa ở máy chủ (kiểm ở mục 1–3) không chặn được ba việc sau của giao diện cũ, vì chúng không đi qua các đường đã khóa:
+
+- **Gộp khách:** nút "Tiến Hành Gộp Nhóm MST" nhận 403 rồi tự chạy gộp dự phòng ngay trên trình duyệt: đánh dấu khách phụ đã gộp, đổi tên thành "[ĐÃ GỘP VÀO …]", chuyển báo giá, hợp đồng, phiếu thu, phiếu giao sang khách chính.
+- **Đồng bộ chứng từ theo hồ sơ khách:** "1-Click Đồng bộ an toàn" (hộp Phân tích Tác động khi lưu khách) và "Đồng bộ chứng từ" (chân ngăn chi tiết khách) ghi đè tên, SĐT, địa chỉ, MST, người đại diện của khách lên báo giá, hợp đồng, phiếu thu, phiếu giao.
+- **Gửi ZNS hàng loạt:** nút "Gửi ZNS Hàng Loạt" (trang Khách hàng và trang Báo giá) của bản cũ không hề gọi `/api/zns/bulk-send` (đường đã khóa) mà gọi `POST /api/zns/send` (đường gửi lẻ, vẫn mở) lần lượt cho từng người nhận, rồi ghi ngược `contacts`/`contactsZnsHistory` lên hồ sơ khách (gửi theo báo giá thì ghi trạng thái gửi lên báo giá).
+
+Các lệnh ghi lên hồ sơ khách và chứng từ ở cả ba việc trên đi thẳng từ trình duyệt vào Supabase (khóa anon), không qua máy chủ; riêng lệnh gửi tin ở việc thứ ba đi qua `/api/zns/send`, là đường gửi lẻ vẫn mở.
+
+**Bước 0 (bắt buộc, ngay sau khi lên bản):** mọi nhân viên bấm **Ctrl+F5** (hoặc đóng hẳn mọi tab SGM OS rồi mở lại). Cách xác nhận: IT gửi danh sách tên vào nhóm chat; từng người mở trang **Khách hàng**, thấy thanh công cụ **không còn nút "Gộp trùng MST"** (bản cũ luôn hiện nút này với mọi tài khoản; ô vàng "Trùng MST: N nhóm" của bản mới không phải nút đó) thì trả lời "đã tải lại"; còn thấy nút nghĩa là tab đó vẫn chạy bản cũ → Ctrl+F5 lại. Chưa đủ người xác nhận thì chưa tính là lên bản xong. Không dùng nhật ký truy cập thay cho bước này: tab cũ để yên thì không tải tệp nào nên không để lại dấu vết.
+
+Đề xuất cho Đợt 0B: giao diện tự so mã bản dựng (build-id) với máy chủ và hiện băng "Tải lại để dùng phiên bản mới" khi hai bên lệch nhau.
 
 1. `curl -i -X POST https://<host>/api/customers/merge -H "Content-Type: application/json" -d "{}"` → `HTTP/1.1 403`, thân JSON đúng bảng mã; lặp lại với `rollback-merge` (403), `GET merge-history` (403), `POST trigger-sync` (410).
 2. `curl -i -X POST https://<host>/api/cron/sync-snapshots -H "Authorization: Bearer sgm_admin_dev_token"` → 410 (không còn 401/200 dù token nào); `POST /api/cron/preview` → 410.
