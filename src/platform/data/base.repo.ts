@@ -192,6 +192,53 @@ function getOrCreateEntityChannel(tableName: string, id: string, onPayload: (pay
   };
 }
 
+/** Sự kiện realtime (CDC) của Supabase — chỉ các trường dùng tới. */
+type CdcEvent = { eventType: string; new?: unknown; old?: unknown };
+
+/**
+ * Áp một sự kiện realtime (CDC) lên cửa sổ danh sách. Hàm thuần: không đụng bộ nhớ đệm, không gọi callback.
+ * INSERT: thêm dòng, gộp theo id (thay dòng cùng id), bỏ qua dòng đã xóa mềm. UPDATE: thay theo id, chưa có thì thêm;
+ * dòng bị xóa mềm thì bỏ khỏi cửa sổ. DELETE: bỏ theo old.id. Sau INSERT/UPDATE (trừ xóa mềm) sắp lại theo sortField
+ * (thiếu giá trị thì createdAt, rồi ngayCapNhat), giảm dần trừ khi 'asc' — đúng cách sắp subscribe() dùng — và chỉ cắt
+ * về trimTo dòng đầu khi có trimTo. Cửa sổ nạp theo trang của bộ sưu tập lõi không truyền trimTo nên không bao giờ bị cắt.
+ */
+export function applyCdcEvent<T>(
+  items: T[],
+  payload: CdcEvent,
+  options: { trimTo?: number; sortField?: string; sortDirection?: 'asc' | 'desc' } = {}
+): T[] {
+  const idOf = (item: unknown) => (item as { id?: unknown } | null | undefined)?.id;
+  const sortField = options.sortField || 'createdAt';
+  const sortKey = (item: unknown) => {
+    const rec = item as Record<string, unknown> | null | undefined;
+    return String(rec?.[sortField] || rec?.createdAt || rec?.ngayCapNhat || '');
+  };
+  const sortAndTrim = (list: T[]): T[] => {
+    const sorted = [...list].sort((a, b) => (options.sortDirection === 'asc'
+      ? sortKey(a).localeCompare(sortKey(b))
+      : sortKey(b).localeCompare(sortKey(a))));
+    return options.trimTo && sorted.length > options.trimTo ? sorted.slice(0, options.trimTo) : sorted;
+  };
+
+  if (payload.eventType === 'INSERT') {
+    const row = mapDocument<T>(payload.new as Record<string, unknown> | null | undefined);
+    if (!row || (row as { deletedAt?: unknown }).deletedAt) return items;
+    return sortAndTrim([row, ...items.filter(item => idOf(item) !== idOf(row))]);
+  }
+  if (payload.eventType === 'UPDATE') {
+    const row = mapDocument<T>(payload.new as Record<string, unknown> | null | undefined);
+    if (!row) return items;
+    if ((row as { deletedAt?: unknown }).deletedAt) return items.filter(item => idOf(item) !== idOf(row));
+    const exists = items.some(item => idOf(item) === idOf(row));
+    return sortAndTrim(exists ? items.map(item => (idOf(item) === idOf(row) ? row : item)) : [row, ...items]);
+  }
+  if (payload.eventType === 'DELETE') {
+    const delId = idOf(payload.old);
+    return delId ? items.filter(item => idOf(item) !== delId) : items;
+  }
+  return items;
+}
+
 /**
  * Enterprise Hybrid Repository: Implements Clean Architecture Repository Port on top of Supabase PostgreSQL
  */
@@ -540,8 +587,9 @@ export class BaseRepository<T> {
   /**
    * Nạp theo trang (.range) tới tối đa maxRows dòng, mỗi trang ≤ POSTGREST_MAX_ROWS.
    * "Trang cuối" xét theo số dòng THÔ PostgREST trả về (trước bộ lọc deletedAt kiểu JSONB cũ): trang thô ngắn → dừng, capped=false,
-   * total = số dòng đã nạp. capped=true khi dừng vì số dòng thô đã nạp chạm maxRows mà trang thô cuối vẫn đầy; chỉ khi đó mới
-   * đếm total (count: exact, một lần). Lỗi ở bất kỳ trang nào → ném lỗi.
+   * total = số dòng đã nạp. Khi số dòng thô đã nạp chạm maxRows mà trang thô cuối vẫn đầy thì đếm (count: exact) đúng một lần:
+   * số đếm > số dòng thô đã nạp → capped=true, total = số đếm; không lớn hơn → capped=false, total = số dòng đã nạp;
+   * không đếm được (lọc khóa ngoại hoặc lỗi) → capped=true, total=null. Lỗi ở bất kỳ trang nào → ném lỗi.
    * LƯU Ý: trả về dòng thô đã qua mapDocument — KHÔNG đi qua `list()` ghi đè của các repo module (PaymentRepoSupabase,
    * ContractRepoSupabase, DeliveryRepoSupabase, QuotationRepoSupabase bọc aggregate). Vì vậy chỉ gọi qua
    * `repositoryFactory.get(...)` (BaseRepository thuần) như Việc 3/5 — không gọi trên các lớp repo module.
@@ -573,9 +621,11 @@ export class BaseRepository<T> {
       }
     }
 
-    // Dừng ở trần maxRows trong khi trang thô cuối vẫn đầy → có thể còn dữ liệu ngoài trần
+    // Dừng ở trần maxRows trong khi trang thô cuối vẫn đầy: đếm một lần để biết CSDL còn dòng ngoài trần hay không
     const total = await this.countActive(opts);
-    return { items, total, capped: true };
+    if (total === null) return { items, total: null, capped: true };
+    if (total > offset) return { items, total, capped: true };
+    return { items, total: items.length, capped: false };
   }
 
   /** Đếm dòng đang hoạt động; chỉ gọi khi đã chạm trần. null = không đếm được (có lọc khóa ngoại, hoặc lỗi). */
@@ -620,20 +670,16 @@ export class BaseRepository<T> {
     let lastMeta: ListLoadMeta | undefined;
     // Sự kiện realtime đến trong lúc đang nạp (có thể nhiều trang) được giữ lại và áp dụng sau khi nạp xong
     let pendingEvents: unknown[] | null = [];
+    // Nạp theo trang khi có maxRows (cửa sổ lõi). Cửa sổ này KHÔNG bao giờ bị cắt khi có dòng mới đến;
+    // chỉ đường cũ theo số (bộ sưu tập ngoài nhóm lõi) mới cắt về opts.limit như trước
+    const usePaging = typeof opts.maxRows === 'number' && opts.maxRows > 0;
 
     const sortField = opts.sortField || (
       ['customers', 'quotations', 'contracts', 'payments', 'deliveries'].includes(this.collectionName)
         ? (this.collectionName === 'customers' ? 'ngayCapNhat' : (this.collectionName === 'contracts' ? 'ngayKy' : (this.collectionName === 'payments' ? 'ngayThanhToan' : (this.collectionName === 'deliveries' ? 'ngayGiaoMay' : 'ngayBaoGia'))))
         : 'createdAt'
     );
-
-    const sortItems = (items: T[]) => {
-      return [...items].sort((a: any, b: any) => {
-        const valA = String(a?.[sortField] || a?.createdAt || a?.ngayCapNhat || '');
-        const valB = String(b?.[sortField] || b?.createdAt || b?.ngayCapNhat || '');
-        return opts.sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-      });
-    };
+    const cdcOptions = { sortField, sortDirection: opts.sortDirection, trimTo: usePaging ? undefined : opts.limit };
 
     const emit = () => {
       const meta: ListLoadMeta | undefined = lastMeta
@@ -642,52 +688,43 @@ export class BaseRepository<T> {
       cb(currentItems, currentItems.length, meta);
     };
 
-    // Realtime CDC with Delta Patching (0 reads!)
-    const applyCdc = (payload: any) => {
-      const eventType = payload.eventType;
-      if (eventType === 'INSERT') {
-        const mapped = mapDocument<T>(payload.new);
-        if (mapped && !(mapped as any).deletedAt) {
-          entityCachePool.set(this.collectionName, mapped as any);
-          currentItems = sortItems([mapped, ...currentItems.filter(item => (item as any)?.id !== (mapped as any).id)]);
-          if (opts.limit && currentItems.length > opts.limit) {
-            currentItems = currentItems.slice(0, opts.limit);
-          }
-          emit();
-        }
-      } else if (eventType === 'UPDATE') {
-        const mapped = mapDocument<T>(payload.new);
-        if (mapped) {
-          if ((mapped as any).deletedAt) {
-            entityCachePool.remove(this.collectionName, (mapped as any).id);
-            currentItems = currentItems.filter(item => (item as any)?.id !== (mapped as any).id);
-          } else {
-            entityCachePool.set(this.collectionName, mapped as any);
-            const exists = currentItems.some(item => (item as any)?.id === (mapped as any).id);
-            if (exists) {
-              currentItems = currentItems.map(item => (item as any)?.id === (mapped as any).id ? mapped : item);
-            } else {
-              currentItems = [mapped, ...currentItems];
-            }
-            currentItems = sortItems(currentItems);
-            if (opts.limit && currentItems.length > opts.limit) {
-              currentItems = currentItems.slice(0, opts.limit);
-            }
-          }
-          emit();
-        }
-      } else if (eventType === 'DELETE') {
-        const delId = payload.old?.id;
-        if (delId) {
-          entityCachePool.remove(this.collectionName, delId);
-          currentItems = currentItems.filter(item => (item as any)?.id !== delId);
-          emit();
+    // Realtime CDC with Delta Patching (0 reads!): bộ nhớ đệm + cửa sổ (applyCdcEvent, hàm thuần) + tổng khi đã chạm trần.
+    // Trả true khi cần gọi lại callback (đúng các trường hợp bản trước đã phát).
+    const applyCdc = (payload: unknown): boolean => {
+      const event = payload as CdcEvent;
+      if (!event) return false;
+      let eventId: unknown;
+      if (event.eventType === 'INSERT' || event.eventType === 'UPDATE') {
+        const mapped = mapDocument<{ id: string; deletedAt?: unknown }>(event.new as Record<string, unknown> | null | undefined);
+        if (!mapped || (event.eventType === 'INSERT' && mapped.deletedAt)) return false;
+        if (mapped.deletedAt) entityCachePool.remove(this.collectionName, mapped.id);
+        else entityCachePool.set(this.collectionName, mapped);
+        eventId = mapped.id;
+      } else if (event.eventType === 'DELETE') {
+        eventId = (event.old as { id?: unknown } | null | undefined)?.id;
+        if (!eventId) return false;
+        entityCachePool.remove(this.collectionName, String(eventId));
+      } else {
+        return false;
+      }
+
+      const isHeld = (list: T[]) => list.some(item => (item as { id?: unknown })?.id === eventId);
+      const heldBefore = isHeld(currentItems);
+      currentItems = applyCdcEvent(currentItems, event, cdcOptions);
+      // Đã chạm trần thì total là số đếm từ CSDL: +1 khi INSERT một id mới, −1 khi bỏ một dòng đang giữ (DELETE hoặc
+      // UPDATE xóa mềm). UPDATE thay dòng đang giữ, hay đưa vào cửa sổ một dòng ngoài trần (vốn đã được đếm), không đổi tổng.
+      if (lastMeta?.capped && typeof lastMeta.total === 'number') {
+        const heldAfter = isHeld(currentItems);
+        if (event.eventType === 'INSERT' && !heldBefore && heldAfter) {
+          lastMeta = { ...lastMeta, total: lastMeta.total + 1 };
+        } else if (event.eventType !== 'INSERT' && heldBefore && !heldAfter) {
+          lastMeta = { ...lastMeta, total: lastMeta.total - 1 };
         }
       }
+      return true;
     };
 
     // 1. Initial load: theo trang khi có maxRows (cửa sổ lõi), một lượt list() cho các bộ sưu tập khác
-    const usePaging = typeof opts.maxRows === 'number' && opts.maxRows > 0;
     const initialLoad: Promise<void> = usePaging
       ? this.listAll(opts, { pageSize: opts.pageSize, maxRows: opts.maxRows }).then(result => {
           if (!isSubscribed) return;
@@ -703,9 +740,15 @@ export class BaseRepository<T> {
       .then(() => {
         if (!isSubscribed) return;
         emit();
+        // Áp MỌI sự kiện đã giữ rồi phát MỘT lần; dừng êm nếu đã hủy đăng ký (kể cả ngay trong callback ở trên)
         const buffered = pendingEvents || [];
         pendingEvents = null;
-        buffered.forEach(applyCdc);
+        let changed = false;
+        for (const payload of buffered) {
+          if (!isSubscribed) return;
+          if (applyCdc(payload)) changed = true;
+        }
+        if (changed && isSubscribed) emit();
       })
       .catch(err => {
         pendingEvents = null;
@@ -723,7 +766,7 @@ export class BaseRepository<T> {
         pendingEvents.push(payload);
         return;
       }
-      applyCdc(payload);
+      if (applyCdc(payload)) emit();
     });
 
     return () => {

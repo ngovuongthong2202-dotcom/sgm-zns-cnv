@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BaseRepository } from './base.repo';
+import { BaseRepository, applyCdcEvent } from './base.repo';
 import { supabase } from '@/src/shared/config/supabase.client';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 
@@ -255,5 +255,67 @@ describe('BaseRepository (Supabase)', () => {
       expect(res.total).toBe(res.items.length);
       expect(res.capped).toBe(false);
     });
+
+    it('chạm trần nhưng số đếm bằng đúng số dòng thô đã nạp → capped=false, total = số dòng đang giữ', async () => {
+      (supabase.from as any)
+        .mockReturnValueOnce(pageChain(makeRows(0, 1000)))
+        .mockReturnValueOnce(pageChain(makeRows(1000, 2000)))
+        .mockReturnValueOnce(countChain(2000));
+      const res = await repo.listAll({}, { pageSize: 1000, maxRows: 2000 });
+      expect(supabase.from).toHaveBeenCalledTimes(3);
+      expect(res.items).toHaveLength(2000);
+      expect(res.capped).toBe(false);
+      expect(res.total).toBe(res.items.length);
+    });
+
+    it('chạm trần mà lệnh đếm lỗi → capped=true, total=null', async () => {
+      (supabase.from as any)
+        .mockReturnValueOnce(pageChain(makeRows(0, 1000)))
+        .mockReturnValueOnce(pageChain(makeRows(1000, 2000)))
+        .mockReturnValueOnce({
+          select: vi.fn().mockReturnThis(),
+          is: vi.fn().mockResolvedValueOnce({ count: null, error: { message: 'hết thời gian chờ' } }),
+        });
+      const res = await repo.listAll({}, { pageSize: 1000, maxRows: 2000 });
+      expect(res.items).toHaveLength(2000);
+      expect(res.capped).toBe(true);
+      expect(res.total).toBeNull();
+    });
+  });
+});
+
+describe('applyCdcEvent – áp sự kiện realtime lên cửa sổ (Đợt 0A – lô 2)', () => {
+  // Dòng thô như sự kiện CDC gửi về (cột vật lý + JSONB data) và mục đã ánh xạ đang giữ trong cửa sổ
+  const row = (id: string, createdAt: string, data: Record<string, unknown> = {}) =>
+    ({ id, data, deleted_at: null, created_at: createdAt });
+  const item = (id: string, createdAt: string) => ({ id, createdAt });
+  const window3 = () => [item('c', '2026-10-03'), item('b', '2026-10-02'), item('a', '2026-10-01')];
+
+  it('INSERT một id đã có → thay dòng cũ, không nhân đôi', () => {
+    const next = applyCdcEvent(window3(), { eventType: 'INSERT', new: row('a', '2026-10-04', { ten: 'A mới' }) }, { sortField: 'createdAt' });
+    expect(next.map(x => x.id)).toEqual(['a', 'c', 'b']);
+    expect(next[0]).toMatchObject({ id: 'a', ten: 'A mới' });
+  });
+
+  it('UPDATE một id đang giữ → thay đúng dòng đó, số dòng không đổi', () => {
+    const next = applyCdcEvent(window3(), { eventType: 'UPDATE', new: row('b', '2026-10-02', { ten: 'B sửa' }) }, { sortField: 'createdAt' });
+    expect(next.map(x => x.id)).toEqual(['c', 'b', 'a']);
+    expect(next[1]).toMatchObject({ id: 'b', ten: 'B sửa' });
+  });
+
+  it('DELETE theo old.id và UPDATE xóa mềm → bỏ đúng dòng theo id', () => {
+    const afterDelete = applyCdcEvent(window3(), { eventType: 'DELETE', old: { id: 'b' } }, { sortField: 'createdAt' });
+    expect(afterDelete.map(x => x.id)).toEqual(['c', 'a']);
+    const softDeleted = { ...row('a', '2026-10-01'), deleted_at: '2026-10-05T00:00:00.000Z' };
+    const afterSoftDelete = applyCdcEvent(afterDelete, { eventType: 'UPDATE', new: softDeleted }, { sortField: 'createdAt' });
+    expect(afterSoftDelete.map(x => x.id)).toEqual(['c']);
+  });
+
+  it('có trimTo → giữ N dòng mới nhất theo cùng cách sắp của subscribe(); không có trimTo → không cắt', () => {
+    const newer = { eventType: 'INSERT', new: row('d', '2026-10-04') };
+    const older = { eventType: 'INSERT', new: row('z', '2026-09-30') };
+    expect(applyCdcEvent(window3(), newer, { sortField: 'createdAt', trimTo: 3 }).map(x => x.id)).toEqual(['d', 'c', 'b']);
+    expect(applyCdcEvent(window3(), older, { sortField: 'createdAt', trimTo: 3 }).map(x => x.id)).toEqual(['c', 'b', 'a']);
+    expect(applyCdcEvent(window3(), newer, { sortField: 'createdAt' }).map(x => x.id)).toEqual(['d', 'c', 'b', 'a']);
   });
 });
