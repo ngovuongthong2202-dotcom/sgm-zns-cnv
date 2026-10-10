@@ -1,4 +1,4 @@
-# Báo cáo cổng cuối lô 1 – Đợt 0A (tắt chức năng nguy hiểm)
+# Báo cáo cổng Đợt 0A – lô 1 (tắt chức năng nguy hiểm) và lô 2 (giới hạn 500 dòng)
 
 Ngày chạy: 10/10/2026. Nhánh `dot-0a-cam-mau`. Cổng chạy lần đầu tại `22fcfe7` (19 commit kể từ `main` = `2b56114`); sau rà soát cuối nhánh và một đợt sửa (mục 4), **chạy lại toàn bộ cổng tại commit `6cc9c37`** (23 commit kể từ `main`; lúc chạy, commit này còn mang SHA `4aaa960`, xem mục 4). Mọi số ở mục 1–3 là của lần chạy lại này. Không khởi động máy chủ. Toàn bộ kiểm thử chạy **offline** nhờ Việc 1 (bốn biến `test.env` = `offline` và `offline-guard.ts`); nhật ký các worker nạp client máy chủ đều ghi "Running with mock fallback backend client" (không worker nào có địa chỉ CSDL thật; `offline-guard.ts` dừng ngay nếu có).
 
@@ -117,44 +117,45 @@ Các lệnh ghi lên hồ sơ khách và chứng từ ở cả ba việc trên �
 
 ## 7. Lô 2 – giới hạn 500 dòng (DL01, bản tạm): cổng cuối
 
-Ngày chạy: 11/10/2026, nhánh `dot-0a-cam-mau`, tại `083e47c` (7 commit kể từ `b3e30f4`, tip của lô 1; mã không có thay đổi chưa commit). Không khởi động máy chủ, không sửa `.env`, **không chạy nghiệm thu trên dữ liệu thật** (mục 7.6: chưa thực hiện). Kiểm thử chạy **offline**: `vitest.config.ts` vẫn có khối `test.env` (bốn biến = `offline`) và `setupFiles: ['./src/tests/setup/offline-guard.ts']`; nhật ký có 13 dòng "Running with mock fallback backend client" và không có địa chỉ `supabase.co`.
+Ngày chạy: 11/10/2026, nhánh `dot-0a-cam-mau`. Cổng chạy lần đầu tại `083e47c` (7 commit kể từ `b3e30f4`, tip của lô 1); sau rà soát cuối nhánh và một đợt sửa (mục 7.4), **chạy lại toàn bộ cổng tại commit `b81f525`** (12 commit kể từ `b3e30f4`; mã không có thay đổi chưa commit). Mọi số ở mục 7.1–7.3 là của lần chạy lại này. Không khởi động máy chủ, không sửa `.env`, **không chạy nghiệm thu trên dữ liệu thật** (mục 7.6: chưa thực hiện). Kiểm thử chạy **offline**: `vitest.config.ts` vẫn có khối `test.env` (bốn biến = `offline`) và `setupFiles: ['./src/tests/setup/offline-guard.ts']`; nhật ký có 13 dòng "Running with mock fallback backend client" và không có địa chỉ `supabase.co`.
 
 ### 7.1 Kết quả các cổng
 
 | Cổng | Kết quả thực tế | Mong đợi |
 |---|---|---|
-| `npx vitest run` (toàn bộ, `CI=true`, không `-u`) | 109 tệp đạt; **725 passed, 5 skipped, 0 failed** (730 kiểm thử); 13,66 giây | 0 failed, 5 skipped, passed = 725 (xem 7.2) |
+| `npx vitest run` (toàn bộ, `CI=true`, không `-u`) | 109 tệp đạt; **728 passed, 5 skipped, 0 failed** (733 kiểm thử); 12,96 giây | 0 failed, 5 skipped, passed = 728 (xem 7.2) |
 | `npx tsc --noEmit` | 7 lỗi, giống `baseline-tsc.txt` (chụp tại `b3e30f4`) về tệp, mã lỗi và nội dung; chỉ khác số dòng của `usePaymentZns.ts` (193 → 201, do Việc 5 thêm mã phía trên) | bằng mốc (7) |
-| `npx eslint .` | trước 3142 vấn đề (168 errors, 2974 warnings) → sau 3152 (**164 errors**, 2988 warnings); không tệp nào nhiều lỗi hơn mốc; −4 errors là `usePaymentZns.ts` 2 → 0 và `omni-sovereign-fabric-v30.spec.ts` 2 → 0 (nhập/gán thừa, Việc 5 gỡ khi sửa hai tệp); `productTypeCascadingSyncService.ts` vẫn 29, đúng bộ lỗi cũ | errors ≤ 168, từng tệp ≤ mốc |
+| `npx eslint .` | trước 3142 vấn đề (168 errors, 2974 warnings) → sau 3154 (**164 errors**, 2990 warnings); không tệp nào nhiều lỗi hơn mốc; −4 errors là `usePaymentZns.ts` 2 → 0 và `omni-sovereign-fabric-v30.spec.ts` 2 → 0 (nhập/gán thừa, Việc 5 gỡ khi sửa hai tệp); `productTypeCascadingSyncService.ts` vẫn 29, đúng bộ lỗi cũ | errors ≤ 168, từng tệp ≤ mốc |
 | `npx eslint --quiet` trên 28 tệp `.ts/.tsx` lô 2 thêm/sửa | chỉ in 29 lỗi cũ của `productTypeCascadingSyncService.ts` (28 `no-explicit-any`, 1 `no-unused-imports`); exit 1 chỉ vì 29 lỗi này | chỉ 29 lỗi cũ đó |
-| `npm run build` | `✓ built in 1.10s`, exit 0, 3074 module (lô 1: 3072; +2 là `list-limits.ts` và `paymentWindow.ts`) | "built in …" |
+| `npm run build` | `✓ built in 989ms`, exit 0, 3074 module (lô 1: 3072; +2 là `list-limits.ts` và `paymentWindow.ts`) | "built in …" |
 | `git grep` theo mẫu của kế hoạch | 11 dòng ở 5 tệp: 5 dòng mã đúng danh sách ngoài phạm vi + 6 dòng khẳng định trong 2 spec của lô 2 (mục 7.3) | 5 dòng ngoài phạm vi |
 | Ảnh chụp giao diện | `components.snapshot.spec.tsx` 7 passed trong lần chạy đầy đủ; `git status --porcelain src/tests/__snapshots__` rỗng; lô 2 không đổi tệp `.snap` nào | 7 passed; rỗng |
 
-Warnings +14 không tính vào cổng: chủ yếu ở spec thêm/mở rộng (`realtime-store.spec.ts` +12, `base.repo.spec.ts` +12, `DataViewEngine.loadinfo.spec.tsx` +5), bớt ở `base.repo.ts` −17.
+Warnings +16 không tính vào cổng: chủ yếu ở spec thêm/mở rộng (`realtime-store.spec.ts` +12, `base.repo.spec.ts` +14, `DataViewEngine.loadinfo.spec.tsx` +5), bớt ở `base.repo.ts` −17. Đợt sửa sau rà soát thêm 2 warnings, đều ở `base.repo.spec.ts`: một `no-explicit-any` theo kiểu mock sẵn có của tệp và một `max-lines` (tệp vượt 280 dòng).
 
-### 7.2 Đối chiếu số passed: 725 thực tế so với 711 của công thức kế hoạch
+### 7.2 Đối chiếu số passed: 728 thực tế so với 711 của công thức kế hoạch
 
-Công thức của kế hoạch (688 của lô 1 + 4 + 7 + 5 + 3 + 1 + 3) cho 711; thực tế 725, chênh +14. Đối chiếu theo từng tệp spec (số kiểm thử tại `b3e30f4` đếm bằng `git show b3e30f4:<tệp>`, không tệp nào sinh kiểm thử bằng vòng lặp; số đếm ở HEAD khớp số chạy thật 21, 8, 11):
+Công thức của kế hoạch (688 của lô 1 + 4 + 7 + 5 + 3 + 1 + 3) cho 711; thực tế 728, chênh +17. Đối chiếu theo từng tệp spec (số kiểm thử tại `b3e30f4` đếm bằng `git show b3e30f4:<tệp>`, không tệp nào sinh kiểm thử bằng vòng lặp; số đếm ở HEAD khớp số chạy thật 22, 8, 11):
 
 | Tệp spec | `b3e30f4` | HEAD | Chênh | Commit |
 |---|---|---|---|---|
 | `src/platform/data/list-limits.spec.ts` (mới) | 0 | 4 | +4 | `d99516b` |
-| `src/data/repositories/base.repo.spec.ts` | 7 | 21 | +14 | `272307e` +7, `09d8f49` +1, `8be00ee` +6 |
+| `src/data/repositories/base.repo.spec.ts` | 7 | 22 | +15 | `272307e` +7, `09d8f49` +1, `8be00ee` +6, `b81f525` +1 |
 | `src/data/realtime-store.spec.ts` | 1 | 8 | +7 | `dbf8857` |
-| `src/platform/ui/design-system/dataview/DataViewEngine.loadinfo.spec.tsx` (mới) | 0 | 3 | +3 | `1931f39` |
+| `src/platform/ui/design-system/dataview/DataViewEngine.loadinfo.spec.tsx` (mới) | 0 | 4 | +4 | `1931f39` +3, `1094238` +1 |
 | `src/tests/omni-sovereign-fabric-v30.spec.ts` | 10 | 11 | +1 | `083e47c` |
-| `src/data/swr-fetchers.spec.ts` (mới) | 0 | 3 | +3 | `083e47c` |
+| `src/data/swr-fetchers.spec.ts` (mới) | 0 | 4 | +4 | `083e47c` +3, `a944d6b` +1 |
 | `src/modules/billing/ui/hooks/paymentWindow.spec.ts` (mới) | 0 | 5 | +5 | `083e47c` |
-| Toàn bộ bộ kiểm thử (105 tệp → 109 tệp; bằng tổng chênh các dòng trên) | 693 | 730 | **+37** | |
+| Toàn bộ bộ kiểm thử (105 tệp → 109 tệp; bằng tổng chênh các dòng trên) | 693 | 733 | **+40** | |
 
-693 = 688 passed + 5 skipped của lô 1; 730 = 725 + 5. Năm kiểm thử skipped không đổi (`nexus-os.spec.ts` 4, `sovereign-mdm-nexus.spec.ts` 1). Số tệp đếm lại từ `git ls-tree`: 105 tại `b3e30f4` (98 tệp `*.spec.ts` + 7 tệp `.tsx` khai báo trong `vitest.config.ts`), 109 tại HEAD (thêm 4 spec mới; `DataViewEngine.loadinfo.spec.tsx` được đưa vào `include` ở Việc 4).
+693 = 688 passed + 5 skipped của lô 1; 733 = 728 + 5. Năm kiểm thử skipped không đổi (`nexus-os.spec.ts` 4, `sovereign-mdm-nexus.spec.ts` 1). Số tệp đếm lại từ `git ls-tree`: 105 tại `b3e30f4` (98 tệp `*.spec.ts` + 7 tệp `.tsx` khai báo trong `vitest.config.ts`), 109 tại HEAD (thêm 4 spec mới; `DataViewEngine.loadinfo.spec.tsx` được đưa vào `include` ở Việc 4).
 
-Ba điểm lệch giữa công thức của kế hoạch và thực tế (711 + 7 + 2 + 5 = 725):
+Bốn điểm lệch giữa công thức của kế hoạch và thực tế (711 + 7 + 2 + 5 + 3 = 728):
 
 - **+7:** `base.repo.spec.ts` có 14 kiểm thử mới thay vì 7: ngoài 7 kiểm thử của kế hoạch (`272307e`), hai commit sửa theo rà soát thêm 1 (`09d8f49`: trang đầy nhưng có dòng `deletedAt` kiểu JSONB vẫn nạp tiếp) và 6 (`8be00ee`: 4 kiểm thử hàm thuần `applyCdcEvent`; chạm trần mà số đếm bằng đúng số dòng đã nạp thì `capped=false`; chạm trần mà lệnh đếm lỗi thì `capped=true`, `total=null`).
 - **+2:** `realtime-store.spec.ts` có 7 kiểm thử mới thay vì 5: thêm "`loadMore` giữ nguyên danh tính giữa các lần thông báo" và "lượt nâng trần bị lỗi: lùi về cỡ cũ, dừng tự nạp, thử lại thủ công dùng cỡ cũ".
 - **+5:** `paymentWindow.spec.ts` (hàm thuần `isPaymentWindowReady`: cửa sổ phiếu thu đã đủ tin cậy để tính điểm tích lũy chưa) là tệp Việc 5 tách thêm; công thức của kế hoạch không có.
+- **+3:** đợt sửa sau rà soát cuối nhánh thêm một kiểm thử vào mỗi tệp: `DataViewEngine.loadinfo.spec.tsx` (`1094238`: chú thích của dòng cảnh báo chỉ hứa "tải thêm" khi còn nạp thêm được), `swr-fetchers.spec.ts` (`a944d6b`: lượt đọc lỗi không để lại unhandled rejection), `base.repo.spec.ts` (`b81f525`: lỗi ở trang 2 bên trong `subscribe({ maxRows })` chỉ tới `onError`, không tới callback dữ liệu).
 
 ### 7.3 Grep tổng: mọi dòng khớp đều được phép
 
@@ -171,9 +172,14 @@ Chạy nguyên văn lệnh của kế hoạch (Việc 6, Bước 2): `git grep -
 
 Loại `*.spec.*` khỏi lệnh (`-- src ':(exclude)*.spec.ts' ':(exclude)*.spec.tsx'`) thì còn đúng 5 dòng mã ở ba hàng đầu. Các kiểm tra còn lại đều rỗng: `currentLimit += 500` và `currentLimit: 500,` trong `realtime-store.ts` (nhánh ngoài nhóm lõi dùng `DEFAULT_WINDOW_LIMIT`); `git grep ":5000'" -- src`; `.limit(5000)`; `list({ limit: 500 })` ở `usePaymentZns.ts`, `productTypeCascadingSyncService.ts`, `swr-fetchers.ts`.
 
-### 7.4 Danh sách commit (`git log --oneline b3e30f4..083e47c`: 7 commit, trước các commit cập nhật báo cáo này)
+### 7.4 Danh sách commit (`git log --oneline b3e30f4..b81f525`: 12 commit, trước commit cập nhật báo cáo này)
 
 ```
+b81f525 test(data): pin that a page-2 error inside a paged subscribe reaches onError and never the data callback (Đợt 0A DL01)
+a944d6b fix(data): SWR core fallback no longer leaves an unhandled rejection when a capped read fails (Đợt 0A DL01)
+1094238 fix(ui): cap tooltip offers scrolling only when more rows can load; say the window is newest by entry time (Đợt 0A DL01)
+456a9e1 docs(dot-0a): lô 2 gate report - load-failure limitation, build-time cap variables and Supabase max-rows notes
+63bfa1b docs(dot-0a): lô 2 gate report and new cap ETA
 083e47c fix(data): loyalty points, product-type impact scan and SWR core fallback read up to the cap instead of 500 rows (Đợt 0A DL01)
 1931f39 feat(ui): show 'Đang hiển thị X/Y dòng mới nhất' when a core list hits its cap; load more only when capped (Đợt 0A DL01)
 dbf8857 feat(data): core realtime windows load up to the cap with loaded/total/capped state and a guarded loadMore (Đợt 0A DL01)
@@ -183,7 +189,7 @@ dbf8857 feat(data): core realtime windows load up to the cap with loaded/total/c
 d99516b feat(data): centralize browser list limits (page 1000, cap 2000, ceiling 5000) (Đợt 0A DL01)
 ```
 
-`d99516b` là Việc 1; `272307e`, `09d8f49`, `8be00ee` là Việc 2 (hai commit sau là sửa theo rà soát); `dbf8857` là Việc 3; `1931f39` là Việc 4; `083e47c` là Việc 5. Cả 7 commit mang dòng ghi công `Co-Authored-By: Claude Fable 5.1`. SHA là của lúc chạy cổng; mọi số ở 7.1–7.3 đo trên cây mã tại `083e47c`. Sau đó chỉ có hai commit sửa tài liệu: `63bfa1b` (báo cáo này) và một commit bổ sung sau rà soát cuối nhánh (mục 8 của 7.6 và mục 7.7).
+`d99516b` là Việc 1; `272307e`, `09d8f49`, `8be00ee` là Việc 2 (hai commit sau là sửa theo rà soát); `dbf8857` là Việc 3; `1931f39` là Việc 4; `083e47c` là Việc 5; `63bfa1b` và `456a9e1` là Việc 6 (báo cáo này; commit sau bổ sung mục 8 của 7.6 và mục 7.7 theo rà soát cuối nhánh, chỉ sửa tài liệu); `1094238`, `a944d6b`, `b81f525` là đợt sửa sau rà soát cuối nhánh (mục 7.8). Cả 12 commit mang dòng ghi công `Co-Authored-By: Claude Fable 5.1`. SHA là của lúc chạy cổng; mọi số ở 7.1–7.3 đo trên cây mã tại `b81f525`. Sau đó chỉ có commit cập nhật báo cáo này (chỉ sửa tài liệu).
 
 ### 7.5 Ngày dự kiến chạm trần mới (cho lịch Đợt 0B/1)
 
@@ -248,3 +254,4 @@ npm run dev
 
 - Các việc ngoài phạm vi lô 2 nằm ở mục "Ngoài phạm vi lô 2" của kế hoạch lô 2 (`2026-10-09-dot-0a-lo-2-gioi-han-500-dong.md`). Riêng ý thứ ba của mục đó (dòng mới chèn khi đã chạm trần đẩy dòng cũ nhất ra khỏi bộ nhớ) đã lỗi thời sau `8be00ee`: cửa sổ nạp theo trang không còn bị cắt khi có dòng mới đến, `total` tăng thêm 1.
 - `npm run build` vẫn in thông báo của Vite: `.env` có `NODE_ENV=production` mà Vite không hỗ trợ. Có từ trước, lô này không đụng `.env`.
+- Đợt sửa sau rà soát cuối nhánh: câu "Cuộn xuống cuối bảng để tải thêm." trong chú thích của dòng "Đang hiển thị X/Y dòng mới nhất" giờ chỉ hiện khi còn nạp thêm được (câu đầu nói rõ "mới nhất theo thời điểm nhập vào hệ thống"); lượt đọc SWR bị lỗi không còn để lại lỗi "Uncaught (in promise)" (unhandled rejection).
