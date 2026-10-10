@@ -441,7 +441,7 @@ export class BaseRepository<T> {
     }
 
     try {
-      return await this.listOrThrow(opts);
+      return (await this.listOrThrow(opts)).items;
     } catch (e) {
       // Hợp đồng cũ của list(): lỗi truy vấn → danh sách rỗng (nhiều nơi gọi dựa vào điều này)
       logger.debug(`list(${this.collectionName}) failed`, e);
@@ -453,8 +453,10 @@ export class BaseRepository<T> {
    * Giống list() nhưng NÉM lỗi thay vì trả [] — listAll() dùng để không nhầm lỗi mạng với "hết dữ liệu".
    * Khi phân trang (offset + limit) thêm khóa phụ order('id') để các dòng cùng created_at không xáo giữa các trang
    * (đợt nhập bù 30/09–02/10/2026 tạo hàng trăm dòng trong vài giây).
+   * Trả kèm rawLength = số dòng THÔ PostgREST trả về, trước bộ lọc deletedAt kiểu JSONB cũ phía máy khách:
+   * listAll() xét "trang cuối" theo số này, không theo số dòng còn lại sau khi lọc.
    */
-  private async listOrThrow(opts: ListOptions = {}): Promise<T[]> {
+  private async listOrThrow(opts: ListOptions = {}): Promise<{ items: T[]; rawLength: number }> {
     let query = supabase.from(this.tableName).select('*');
 
     // Auto Soft-Delete Interceptor: Push filter down to PostgreSQL database level to save egress bandwidth & compute
@@ -514,7 +516,7 @@ export class BaseRepository<T> {
       throw new Error(`[${this.tableName}] ${error.message || 'Lỗi truy vấn danh sách'}`);
     }
     sessionCostCounter.incrementReads((data || []).length);
-    if (!data) return [];
+    if (!data) return { items: [], rawLength: 0 };
 
     let results = data.map(row => mapDocument<T>(row));
 
@@ -532,12 +534,14 @@ export class BaseRepository<T> {
     }
 
     entityCachePool.setBatch(this.collectionName, results as any[]);
-    return results;
+    return { items: results, rawLength: data.length };
   }
 
   /**
    * Nạp theo trang (.range) tới tối đa maxRows dòng, mỗi trang ≤ POSTGREST_MAX_ROWS.
-   * capped = còn dữ liệu ngoài trần; total chỉ được đếm khi chạm trần. Lỗi ở bất kỳ trang nào → ném lỗi.
+   * "Trang cuối" xét theo số dòng THÔ PostgREST trả về (trước bộ lọc deletedAt kiểu JSONB cũ): trang thô ngắn → dừng, capped=false,
+   * total = số dòng đã nạp. capped=true khi dừng vì số dòng thô đã nạp chạm maxRows mà trang thô cuối vẫn đầy; chỉ khi đó mới
+   * đếm total (count: exact, một lần). Lỗi ở bất kỳ trang nào → ném lỗi.
    * LƯU Ý: trả về dòng thô đã qua mapDocument — KHÔNG đi qua `list()` ghi đè của các repo module (PaymentRepoSupabase,
    * ContractRepoSupabase, DeliveryRepoSupabase, QuotationRepoSupabase bọc aggregate). Vì vậy chỉ gọi qua
    * `repositoryFactory.get(...)` (BaseRepository thuần) như Việc 3/5 — không gọi trên các lớp repo module.
@@ -553,10 +557,10 @@ export class BaseRepository<T> {
 
     const items: T[] = [];
     const seen = new Set<string>();
-    let offset = 0;
-    while (items.length < maxRows) {
-      const want = Math.min(pageSize, maxRows - items.length);
-      const page = await this.listOrThrow({ ...opts, limit: want, offset });
+    let offset = 0; // = số dòng thô đã nạp (mọi trang trước đều đầy)
+    while (offset < maxRows) {
+      const want = Math.min(pageSize, maxRows - offset);
+      const { items: page, rawLength } = await this.listOrThrow({ ...opts, limit: want, offset });
       for (const row of page) {
         const id = String((row as { id?: unknown })?.id ?? '');
         if (id && seen.has(id)) continue; // một dòng mới chèn giữa hai lần gọi có thể đẩy dòng cũ sang trang sau
@@ -564,13 +568,14 @@ export class BaseRepository<T> {
         items.push(row);
       }
       offset += want;
-      if (page.length < want) {
+      if (rawLength < want) {
         return { items, total: items.length, capped: false };
       }
     }
 
+    // Dừng ở trần maxRows trong khi trang thô cuối vẫn đầy → có thể còn dữ liệu ngoài trần
     const total = await this.countActive(opts);
-    return { items, total, capped: total === null ? true : total > items.length };
+    return { items, total, capped: true };
   }
 
   /** Đếm dòng đang hoạt động; chỉ gọi khi đã chạm trần. null = không đếm được (có lọc khóa ngoại, hoặc lỗi). */

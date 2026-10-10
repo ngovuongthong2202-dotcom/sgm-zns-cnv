@@ -237,5 +237,23 @@ describe('BaseRepository (Supabase)', () => {
       expect(cb.mock.calls[0][2]).toBeUndefined();
       unsub();
     });
+
+    it('trang đầy nhưng có dòng deletedAt kiểu JSONB vẫn nạp tiếp trang sau', async () => {
+      // Trang 1 đủ 1000 dòng thô; p500 là dòng xóa kiểu cũ: data.deletedAt có giá trị nhưng cột deleted_at vẫn null
+      const legacyDeleted = {
+        id: 'p500', data: { soTien: 1, deletedAt: '2026-09-30T00:00:00.000Z' }, deleted_at: null, created_at: '2026-10-01T00:00:00.000Z'
+      };
+      const first = pageChain([...makeRows(0, 500), legacyDeleted, ...makeRows(501, 1000)]);
+      const second = pageChain(makeRows(1000, 1200));
+      (supabase.from as any).mockReturnValueOnce(first).mockReturnValueOnce(second);
+      const res = await repo.listAll({}, { pageSize: 1000, maxRows: 2000 });
+      expect(supabase.from).toHaveBeenCalledTimes(2);
+      expect(first.range).toHaveBeenCalledWith(0, 999);
+      expect(second.range).toHaveBeenCalledWith(1000, 1999);
+      expect(res.items).toHaveLength(1200 - 1);
+      expect(res.items.map(x => x.id)).not.toContain('p500');
+      expect(res.total).toBe(res.items.length);
+      expect(res.capped).toBe(false);
+    });
   });
 });
