@@ -288,7 +288,7 @@ export default function CustomersFeature() {
                 {duplicateGroups.length > 0 && (
                   <span
                     className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50/70 text-amber-900 text-xs font-medium whitespace-nowrap shrink-0"
-                    title="Chức năng gộp khách hàng tạm khóa (Đợt 0A). Hệ thống vẫn cảnh báo khi có nhóm trùng mã số thuế."
+                    title="Chức năng gộp khách hàng đang tạm khóa. Hệ thống vẫn cảnh báo khi có nhóm trùng mã số thuế."
                   >
                     <AlertTriangle size={14} className="shrink-0 text-amber-600" />
                     Trùng MST: {duplicateGroups.length} nhóm

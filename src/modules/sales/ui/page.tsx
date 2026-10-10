@@ -10,7 +10,6 @@ import { DataViewEngine } from '@/src/design-system/dataview/DataViewEngine';
 import { useDataView } from '@/src/design-system/dataview/useDataView';
 import { getQuotationColumns } from './columns.config';
 import { useQuotationsFilters } from './hooks/useQuotationsFilters';
-import { useQuotationMigration } from './hooks/useQuotationMigration';
 import { lazy, Suspense } from 'react';
 import { QuotationDetailDrawer } from './components/QuotationDetailDrawer';
 import { QuotationStats } from './components/QuotationStats';
@@ -65,8 +64,6 @@ export default function QuotationsFeature() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [drawerQuotation, setDrawerQuotation] = useState<Quotation | null>(null);
   const [isSalesOrderModalOpen, setIsSalesOrderModalOpen] = useState(false);
-
-  useQuotationMigration(quotations, updateQuotation);
 
   const { data: allContracts = [] } = useRealtimeCollection<Contract>('contracts');
   const { data: allPayments = [] } = useRealtimeCollection<any>('payments');

@@ -155,7 +155,7 @@ export function CustomerCascadeImpactModal({
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold tracking-wide uppercase">
-                    Phân tích Tác động Thay đổi Khách Hàng (Impact Analysis)
+                    Phân tích Tác động Thay đổi Khách Hàng
                   </h3>
                   <span className="px-2 py-0.5 rounded text-3xs font-mono font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
                     {originalCustomer.maKh || 'KH'}
@@ -183,7 +183,7 @@ export function CustomerCascadeImpactModal({
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <Sparkles size={14} className="text-blue-600" />
-                  1. So sánh Thay đổi Thông tin (Field-by-Field Visual Diff)
+                  1. So sánh Thay đổi Thông tin
                 </h4>
                 <span className="text-3xs text-slate-500 font-medium font-mono">
                   {changedFields.length} trường thông tin được điều chỉnh
@@ -359,7 +359,7 @@ export function CustomerCascadeImpactModal({
             <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl flex items-start gap-2.5 text-2xs text-blue-900">
               <Info size={15} className="text-blue-600 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <span className="font-bold block">Nguyên tắc dữ liệu (Đợt 0A):</span>
+                <span className="font-bold block">Nguyên tắc dữ liệu:</span>
                 <p className="text-blue-800 leading-relaxed">
                   Chứng từ đã phát hành là bản ghi lịch sử. Lưu khách hàng chỉ cập nhật hồ sơ khách; báo giá, hợp đồng, phiếu thu và phiếu giao hàng
                   giữ nguyên nội dung đã in. Công cụ cập nhật chứng từ có kiểm soát (xem trước từng chứng từ, có nhật ký) sẽ có ở đợt nâng cấp sau.
