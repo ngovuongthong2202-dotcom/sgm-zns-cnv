@@ -153,20 +153,26 @@ describe('zns.routes POST /send – Đợt 0A (TT01): tin thanh toán chốt the
 
   // ── Vòng sửa 1 (Đợt 0A TT01) ─────────────────────────────────────────────────────────────────────────────────────────
   // (1) Tab cũ điền sẵn ghi chú nội bộ (ghiChu của đợt thu / của phiếu) vào ô Ghi chú rồi gửi lên nguyên văn; câu ngắn (≤ 30) trùng ghi chú nội bộ
-  //     lưu trong CSDL phải bị thay bằng câu máy chủ, và dòng log [TT01 echo] không được chứa nội dung ghi chú.
+  //     lưu trong CSDL phải bị thay bằng câu máy chủ, và dòng log [TT01 echo] không được chứa nội dung ghi chú. Nếu bản sao khớp ghi chú của ĐÚNG MỘT đợt có tiền thì
+  //     số đợt là lanThu đã lưu của đợt đó (không đọc từ chữ); khớp nhiều đợt (mơ hồ), khớp đợt không có tiền hoặc chỉ khớp ghi chú cấp phiếu thì dùng câu máy chủ (đợt mới nhất có tiền).
   const TWO_PAID = { ...PAID_30, cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ngayThu: '2026-09-01' }, { lanThu: 2, soTien: 40_000_000, ngayThu: '2026-10-01' }] };
   const TWO_NOTED = { cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ghiChu: 'Đợt đầu - FT111' }, { lanThu: 2, soTien: 40_000_000, ghiChu: 'Đợt hai - FT222' }] };
   const ECHO_CASES: Array<{ label: string; typed: string; patch: Record<string, unknown>; expected: string }> = [
     { label: 'ghiChu của phiếu', typed: 'FT26161873245 link chứng từ', patch: {}, expected: 'Thanh toán đợt 1' },
     { label: 'ghiChu của đợt thu', typed: 'Thu tiền đợt 1 - HĐ 004', patch: {}, expected: 'Thanh toán đợt 1' },
     { label: 'ghiChu của phiếu (khác hoa/thường, thừa khoảng trắng)', typed: '  ft26161873245   LINK  chứng từ ', patch: {}, expected: 'Thanh toán đợt 1' },
-    { label: 'ghiChu của đợt thu thứ nhất (phiếu có hai đợt)', typed: 'đợt đầu - ft111', patch: TWO_NOTED, expected: 'Thanh toán đợt 2' },
+    { label: 'ghiChu của đợt thu thứ nhất (phiếu có hai đợt; số đợt lấy từ chính đợt đó)', typed: 'đợt đầu - ft111', patch: TWO_NOTED, expected: 'Thanh toán đợt 1' },
     { label: 'ghiChu của đợt thu thứ hai (phiếu có hai đợt)', typed: 'Đợt hai - FT222', patch: TWO_NOTED, expected: 'Thanh toán đợt 2' },
     { label: 'note của phiếu (có khoảng trắng hai đầu)', typed: 'chuyển khoản vcb', patch: { note: '  Chuyển khoản VCB  ' }, expected: 'Thanh toán đợt 1' },
     { label: 'ghiChuNoiBo của phiếu', typed: 'Đã đối soát', patch: { ghiChuNoiBo: 'Đã đối soát' }, expected: 'Thanh toán đợt 1' },
     { label: 'note của phiếu (dạng Unicode tách dấu)', typed: 'Chuyển khoản VCB'.normalize('NFD'), patch: { note: 'Chuyển khoản VCB' }, expected: 'Thanh toán đợt 1' },
     { label: 'ghiChu của phiếu dài hơn 30 ký tự', typed: 'FT26161873245 link chứng từ - đã đối soát xong', patch: { ghiChu: 'FT26161873245 link chứng từ - đã đối soát xong' }, expected: 'Thanh toán đợt 1' },
-    { label: 'ghiChu của đợt thu 1 dài hơn 30 ký tự và bắt đầu bằng "Thanh toán đợt 1" (phiếu có hai đợt)', typed: 'Thanh toán đợt 1 - chuyển khoản VCB (đã đối soát)', patch: { cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ghiChu: 'Thanh toán đợt 1 - chuyển khoản VCB (đã đối soát)' }, { lanThu: 2, soTien: 40_000_000 }] }, expected: 'Thanh toán đợt 2' },
+    { label: 'ghiChu của đợt thu 1 dài hơn 30 ký tự và bắt đầu bằng "Thanh toán đợt 1" (phiếu có hai đợt; số đợt lấy từ chính đợt đó)', typed: 'Thanh toán đợt 1 - chuyển khoản VCB (đã đối soát)', patch: { cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ghiChu: 'Thanh toán đợt 1 - chuyển khoản VCB (đã đối soát)' }, { lanThu: 2, soTien: 40_000_000 }] }, expected: 'Thanh toán đợt 1' },
+    { label: 'cùng một ghi chú ở hai đợt có tiền (mơ hồ) → câu máy chủ, đợt mới nhất', typed: 'đợt chung - ft333', patch: { cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ghiChu: 'Đợt chung - FT333' }, { lanThu: 2, soTien: 40_000_000, ghiChu: 'Đợt chung - FT333' }] }, expected: 'Thanh toán đợt 2' },
+    { label: 'ghiChu của phiếu khi phiếu có hai đợt có ghi chú riêng (không khớp đợt nào) → câu máy chủ, đợt mới nhất', typed: 'FT26161873245 link chứng từ', patch: TWO_NOTED, expected: 'Thanh toán đợt 2' },
+    { label: 'ghiChu của đợt không có tiền (soTien 0) → bỏ qua, câu máy chủ (đợt mới nhất có tiền)', typed: 'đợt nháp - ft444', patch: { cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ghiChu: 'Đợt đầu - FT111' }, { lanThu: 2, soTien: 40_000_000, ghiChu: 'Đợt hai - FT222' }, { lanThu: 3, soTien: 0, ghiChu: 'Đợt nháp - FT444' }] }, expected: 'Thanh toán đợt 2' },
+    { label: 'số đợt lấy từ lanThu đã lưu, không phải vị trí trong mảng (lanThu 3 và 4)', typed: 'đợt ba - ft555', patch: { cacDotThu: [{ lanThu: 3, soTien: 30_000_000, ghiChu: 'Đợt ba - FT555' }, { lanThu: 4, soTien: 40_000_000, ghiChu: 'Đợt bốn - FT666' }] }, expected: 'Thanh toán đợt 3' },
+    { label: 'ghi chú dài của đợt thu 1 ghi nhầm "Thanh toán đợt 2" → số đợt lấy từ vị trí đã lưu (1), không đọc từ chữ (2)', typed: 'Thanh toán đợt 2 - ghi nhầm số trong ghi chú nội bộ', patch: { cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ghiChu: 'Thanh toán đợt 2 - ghi nhầm số trong ghi chú nội bộ' }, { lanThu: 2, soTien: 40_000_000 }] }, expected: 'Thanh toán đợt 1' },
   ];
   it.each(ECHO_CASES)('ghi_chu gửi lên là bản sao $label → 200 với câu máy chủ; log [TT01 echo] không chứa nội dung ghi chú', async ({ typed, patch, expected }) => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -176,7 +182,7 @@ describe('zns.routes POST /send – Đợt 0A (TT01): tin thanh toán chốt the
     expect(sentPayload().ghi_chu).toBe(expected);
     const echoLogs = warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('[TT01 echo]'));
     expect(echoLogs).toHaveLength(1);
-    expect(echoLogs[0]).not.toMatch(/FT2616|Thu tiền|ft111|ft222|vcb|đối soát/i);
+    expect(echoLogs[0]).not.toMatch(/FT2616|Thu tiền|ft[0-9]{3}|vcb|đối soát|ghi nhầm/i);
   });
 
   it.each(['Thanh toán đợt 1', 'Đã nhận đủ tiền cọc'])('câu ngắn thật "%s" (không trùng ghi chú nội bộ nào) → giữ nguyên, không ghi [TT01 echo]', async (typed) => {
@@ -255,5 +261,47 @@ describe('zns.routes POST /send – Đợt 0A (TT01): tin thanh toán chốt the
     const res = await send({}, { installmentIndex: 0 });
     expect(res.status).toBe(200);
     expect(sentPayload().ghi_chu).toBe('Thanh toán đợt 1');
+  });
+
+  // ── Vòng sửa 2 (Đợt 0A TT01) ─────────────────────────────────────────────────────────────────────────────────────────
+  // supabase.admin.ts gộp cả cột data của dòng vào tài liệu ({ ...data.data, ...data }) nên dbEntity.data / hồ sơ khách.data mang nguyên bản ghi chú nội bộ;
+  // bóc ghi chú ở mức trên cùng là chưa đủ: bản sao lồng trong `data` cũng không được tới nhà cung cấp, và tài liệu gốc (CSDL, hồ sơ khách) không bị sửa.
+  const INTERNAL_NOTES = { ghiChu: 'FT26161873245 link chứng từ', note: 'nội bộ', ghiChuNoiBo: 'khách khó tính', cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ngayThu: '2026-10-01', ghiChu: 'Thu tiền đợt 1 - HĐ 004' }] };
+  it('phiếu có dạng thật của lớp CSDL (cột data lồng nhau mang ghi chú nội bộ) → 200; không còn ghi chú nội bộ ở mức nào; data giữ các trường khác; tài liệu gốc không bị sửa', async () => {
+    const stored = { ...PAID_30, data: { ...PAID_30, ...INTERNAL_NOTES } };
+    const before = JSON.parse(JSON.stringify(stored));
+    znsHarness.docFixtures['payments/p1'] = stored;
+    const res = await send();
+    expect(res.status).toBe(200);
+    const p = sentPayload();
+    expect(p.ghi_chu).toBe('Thanh toán đợt 1');
+    const json = JSON.stringify(p);
+    for (const leaked of ['FT2616', 'nội bộ', 'khách khó tính', 'Thu tiền đợt 1 - HĐ 004']) expect(json).not.toContain(leaked);
+    expect(p.data).toEqual({ customerId: 'kh1', tenKhachHang: 'Công ty A', soHopDong: 'HD-2026-0002', totalAmount: 100_000_000, tinhTrangThanhToan: 'Công nợ', cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ngayThu: '2026-10-01' }] });
+    expect(znsHarness.docFixtures['payments/p1']).toEqual(before);
+  });
+
+  it('hồ sơ khách có cột data (phiếu không có) → ghi chú nội bộ của khách trong data cũng không tới nhà cung cấp; hồ sơ khách không bị sửa', async () => {
+    const customer = { ...CUSTOMER, data: { tenKhachHang: 'Công ty A', ghiChu: 'khách khó tính', note: 'nội bộ của khách' } };
+    const before = JSON.parse(JSON.stringify(customer));
+    znsHarness.docFixtures['customers/kh1'] = customer;
+    znsHarness.docFixtures['payments/p1'] = { ...PAID_30 };
+    const res = await send();
+    expect(res.status).toBe(200);
+    const p = sentPayload();
+    const json = JSON.stringify(p);
+    expect(json).not.toContain('khách khó tính');
+    expect(json).not.toContain('nội bộ của khách');
+    expect(p.data).toEqual({ tenKhachHang: 'Công ty A' });
+    expect(znsHarness.docFixtures['customers/kh1']).toEqual(before);
+  });
+
+  it('đối chứng: tin báo giá (QUOTATION) giữ nguyên cả data lồng nhau — chỉ tin xác nhận thanh toán bị bóc ghi chú', async () => {
+    const data = { tenKhachHang: 'Công ty B', ghiChu: 'ghi chú báo giá', note: 'ghi chú phụ', cacDotThu: [{ lanThu: 1, ghiChu: 'dòng 1' }] };
+    znsHarness.docFixtures['quotations/q1'] = { tenKhachHang: 'Công ty B', ghiChu: 'ghi chú báo giá', data };
+    const res = await request(app).post('/api/zns/send').send({ entityId: 'q1', entityType: 'QUOTATION', messageType: 'BAOGIA', phone: '0912345678', payload: {} });
+    expect(res.status).toBe(200);
+    expect(sentPayload().data).toEqual(data);
+    expect(sentPayload().ghiChu).toBe('ghi chú báo giá');
   });
 });

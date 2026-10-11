@@ -411,16 +411,25 @@ router.post('/send', async (req, res) => {
       if (echoedInternalNote) {
         console.warn(`[TT01 echo] phiếu ${String(body.entityId)}: ghi_chu gửi lên trùng ghi chú nội bộ của phiếu — thay bằng câu máy chủ`);
       }
+      // Tab cũ không gửi installmentIndex nhưng điền sẵn ghiChu của ĐÚNG đợt thu được bấm: nếu bản sao khớp ghi chú của đúng MỘT đợt có tiền thì số đợt là lanThu đã lưu của đợt đó
+      // (lấy từ vị trí đã lưu, không đọc từ chữ); khớp nhiều đợt (mơ hồ), khớp đợt không có tiền hoặc chỉ khớp ghi chú cấp phiếu thì giữ câu máy chủ (đợt mới nhất có tiền).
+      const ledgerEntries = collectPaymentLedger(dbPayment).entries;
+      const echoedInstallments = echoedInternalNote
+        ? ledgerEntries.filter(e => {
+            const rowNote = installmentNotes[e.index];
+            return typeof rowNote === 'string' && normalizeNote(rowNote) === normalizeNote(typedNote);
+          })
+        : [];
       // Tab cũ ở trang Thanh toán điền sẵn "Thanh toán đợt N (Còn lại: … đ)" (> 30 ký tự) và không gửi installmentIndex nên máy chủ sẽ lấy đợt MỚI NHẤT: với câu quá dài như vậy,
       // giữ số đợt N người dùng đã chọn khi N là số lần thu (lanThu) của một đợt có tiền trong phiếu; câu gửi đi là "Thanh toán đợt N" (≤ 30 ký tự), không kèm phần còn lại của câu.
       // Câu ≤ 30 ký tự không bị viết lại (xem trước = tin gửi khách); N không có trong phiếu thì giữ hành vi cũ.
       const overLongInstallment = typedNote.length > PAYMENT_ZNS_NOTE_MAX ? /^thanh toán đợt (\d+)/i.exec(normalizeNote(typedNote)) : null;
       const typedInstallmentNumber = overLongInstallment ? Number(overLongInstallment[1]) : NaN;
-      const typedInstallmentIsCollected = collectPaymentLedger(dbPayment).entries.some(e => e.lanThu === typedInstallmentNumber);
-      // Thứ tự: bản sao ghi chú nội bộ (kiểm tra trước, mọi độ dài; số N đọc từ chữ đã lưu không đáng tin) → câu máy chủ; câu quá dài kiểu bản cũ có N hợp lệ → "Thanh toán đợt N";
-      // câu ≤ 30 ký tự → như đã gõ, trừ câu "Tất toán" bị loại; còn lại → câu máy chủ dựng.
+      const typedInstallmentIsCollected = ledgerEntries.some(e => e.lanThu === typedInstallmentNumber);
+      // Thứ tự: bản sao ghi chú nội bộ (kiểm tra trước, mọi độ dài; số N đọc từ chữ không đáng tin) → "Thanh toán đợt <lanThu đã lưu>" nếu khớp đúng một đợt có tiền, nếu không → câu máy chủ;
+      // câu quá dài kiểu bản cũ có N hợp lệ → "Thanh toán đợt N"; câu ≤ 30 ký tự → như đã gõ, trừ câu "Tất toán" bị loại; còn lại → câu máy chủ dựng.
       if (echoedInternalNote) {
-        serverPaymentNote = note.ghiChu;
+        serverPaymentNote = echoedInstallments.length === 1 ? `Thanh toán đợt ${echoedInstallments[0].lanThu}`.slice(0, PAYMENT_ZNS_NOTE_MAX) : note.ghiChu;
       } else if (typedInstallmentIsCollected) {
         serverPaymentNote = `Thanh toán đợt ${typedInstallmentNumber}`.slice(0, PAYMENT_ZNS_NOTE_MAX);
       } else {
@@ -530,14 +539,24 @@ router.post('/send', async (req, res) => {
     };
 
     if (isPaymentConfirmation) {
-      // Không để ghi chú nội bộ của phiếu thu hay của hồ sơ khách (spread parentCustomer đứng trước) lọt vào tin gửi khách.
-      delete mergedPayload.ghiChu;
-      delete mergedPayload.note;
-      delete mergedPayload.ghiChuNoiBo;
-      if (Array.isArray(mergedPayload.cacDotThu)) {
-        mergedPayload.cacDotThu = (mergedPayload.cacDotThu as unknown[]).map(d =>
-          d && typeof d === 'object' ? Object.fromEntries(Object.entries(d as Record<string, unknown>).filter(([k]) => k !== 'ghiChu')) : d
-        );
+      // Không để ghi chú nội bộ của phiếu thu hay của hồ sơ khách (spread parentCustomer đứng trước) lọt vào tin gửi khách — kể cả bản sao lồng trong `data`:
+      // supabase.admin.ts gộp cả cột data của dòng vào tài liệu ({ ...data.data, ...data }) nên dbEntity.data / parentCustomer.data mang nguyên ghiChu, note, cacDotThu[].ghiChu.
+      // stripInternalNotes chỉ được gọi trên bản sao (mergedPayload là đối tượng mới, data được sao chép trước) để không sửa tài liệu gốc.
+      const stripInternalNotes = (doc: Record<string, unknown>) => {
+        delete doc.ghiChu;
+        delete doc.note;
+        delete doc.ghiChuNoiBo;
+        if (Array.isArray(doc.cacDotThu)) {
+          doc.cacDotThu = (doc.cacDotThu as unknown[]).map(d =>
+            d && typeof d === 'object' ? Object.fromEntries(Object.entries(d as Record<string, unknown>).filter(([k]) => k !== 'ghiChu')) : d
+          );
+        }
+      };
+      stripInternalNotes(mergedPayload);
+      if (mergedPayload.data && typeof mergedPayload.data === 'object' && !Array.isArray(mergedPayload.data)) {
+        const nestedCopy = { ...(mergedPayload.data as Record<string, unknown>) };
+        stripInternalNotes(nestedCopy);
+        mergedPayload.data = nestedCopy;
       }
     }
 
