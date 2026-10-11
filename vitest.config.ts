@@ -30,6 +30,7 @@ export default defineConfig({
       'src/features/system/settings/pages/VendorPage.spec.tsx',
       'src/modules/iam/ui/AuthContext.spec.tsx',
       'src/modules/fulfillment/ui/components/RevertShipmentConfirmModal.spec.tsx',
+      'src/modules/fulfillment/ui/hooks/useDeliveriesActions.revertShipment.spec.tsx',
     ],
     exclude: ['src/tests/e2e/**', 'node_modules/**', 'e2e/**'],
     coverage: {

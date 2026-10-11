@@ -3,9 +3,8 @@ import { getProductItemKey } from '@/src/shared/utils/product-key';
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { customerRepo } from '@/src/modules/customers';
 import { logger } from '@/src/shared/lib/logger';
-import { Delivery } from '@/src/domain/schema/delivery.schema';
+import { Delivery, DeliveryShipment } from '@/src/domain/schema/delivery.schema';
 import { notify } from '@/src/shared/utils/notify';
-import { sendZnsAndToast, nextAttempt, checkZnsResendAllowed } from '@/src/domain/zns-client';
 import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { handleDatabaseError, OperationType } from '@/src/shared/errors/database-error';
@@ -18,6 +17,8 @@ import { auditLogsRepo } from '@/src/data/repositories/system.repo';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { resolveDeliverySourceDocument } from '../utils/deliverySourceResolver';
 import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietnameseTelecomExtractor';
+import { useAuth } from '@/src/modules/iam';
+import { applyShipmentRevert } from '../utils/shipment-revert';
 
 export function useDeliveriesActions(
   createDelivery: (data: Delivery) => Promise<string>,
@@ -36,6 +37,7 @@ export function useDeliveriesActions(
   const [completingDelivery, setCompletingDelivery] = useState<Delivery | null>(null);
   const [viewingConfirmationDelivery, setViewingConfirmationDelivery] = useState<Delivery | null>(null);
   const { blockingModalState, showBlockingModal, closeBlockingModal } = useEntityLifecycle();
+  const { user, userData } = useAuth();
 
   const handleRevertDeliveryConfirmation = useCallback(async (del: Delivery) => {
     if (!del.id) return;
@@ -107,6 +109,59 @@ export function useDeliveriesActions(
       notify.error(err.message || 'Lỗi khi hủy xác nhận giao hàng');
     }
   }, [updateDelivery, updateContract, confirm, drawerDelivery, setDrawerDelivery, viewingConfirmationDelivery, userRole]);
+
+  /**
+   * Đợt 0A (GH01): hủy xác nhận MỘT đợt có lý do. Đọc bản mới nhất trước khi ghi (GH03), chỉ gửi phần đã sửa qua
+   * updateDelivery → PUT /api/workflow/update (máy chủ ghi nhật ký trước/sau), rồi làm mới ngăn chi tiết từ bản đã lưu.
+   * Không ghi auditLogsRepo từ trình duyệt (HT02: luôn lỗi).
+   */
+  const handleRevertShipmentConfirmation = useCallback(async (del: Delivery, shipment: DeliveryShipment, reason: string) => {
+    if (!del.id) {
+      notify.error('Không xác định được phiếu giao cần hủy xác nhận. Hãy đóng và mở lại phiếu rồi thử lại.');
+      return;
+    }
+    try {
+      const fresh = (await repositoryFactory.get<Delivery>('deliveries').getById(del.id)) || del;
+      const result = applyShipmentRevert(fresh, shipment, {
+        reason,
+        actorId: user?.uid,
+        actorName: userData?.displayName || user?.displayName,
+        at: new Date().toISOString(),
+      });
+      if (!result.ok) {
+        notify.error(result.error);
+        return;
+      }
+
+      await updateDelivery(del.id, { ...result.patch, _lastUpdatedAt: (fresh as { updatedAt?: string }).updatedAt } as Partial<Delivery>);
+
+      if (result.wasCompletedBefore && !result.isCompletedAfter && fresh.contractId) {
+        try {
+          const cSnap = await repositoryFactory.get<any>('contracts').getById(fresh.contractId);
+          if (cSnap && (cSnap.tinhTrangGiaoHang === 'HOAN_TAT' || cSnap.tinhTrangHopDong === 'COMPLETED')) {
+            await updateContract(fresh.contractId, {
+              tinhTrangGiaoHang: 'DANG_GIAO',
+              tinhTrangHopDong: 'DANG_THUC_HIEN',
+              status: 'ACTIVE'
+            });
+          }
+        } catch (cErr: any) {
+          notify.warning(`Đã hủy xác nhận đợt nhưng chưa cập nhật được trạng thái hợp đồng: ${cErr?.message || String(cErr)}`);
+        }
+      }
+
+      if (drawerDelivery?.id === del.id) {
+        setDrawerDelivery({ ...fresh, ...result.patch } as Delivery);
+      }
+      if (viewingConfirmationDelivery?.id === del.id) {
+        setViewingConfirmationDelivery(null);
+      }
+      notify.success(`Đã hủy xác nhận Đợt ${shipment.dotGiaoHang}; phiếu chuyển sang "${result.patch.tinhTrangGiaoHang}". Ngày giao và người ký cũ được giữ trong lịch sử đợt.`);
+    } catch (err: any) {
+      logger.error('Revert shipment confirmation error:', err);
+      notify.error(err?.message || 'Lỗi khi hủy xác nhận đợt giao');
+    }
+  }, [updateDelivery, updateContract, drawerDelivery, setDrawerDelivery, viewingConfirmationDelivery, user, userData]);
 
   const handleViewDeliveryConfirmation = useCallback((del: Delivery) => {
     setViewingConfirmationDelivery(del);
@@ -309,14 +364,12 @@ export function useDeliveriesActions(
 
   const handleSendZns = useCallback(async (del: Delivery, templateCode: 'GIAOHANG_ZNS' | 'GIAOHANG_HOANTAT' | 'GIAOHANG_BAOHANH' = 'GIAOHANG_ZNS') => {
      let phone = del.sdt;
-     let customerName = del.tenKhachHang;
      let cSnap: any = null;
      
      if (del.customerId) {
        cSnap = await customerRepo.getById(del.customerId);
        if (cSnap) {
          phone = phone || cSnap.sdt || (cSnap as any).soDienThoai || cSnap.contacts?.[0]?.sdt;
-         customerName = customerName || cSnap.tenKhachHang;
        }
      }
      
@@ -636,6 +689,7 @@ export function useDeliveriesActions(
     handleReschedule,
     handleSaveDelivery,
     handleRevertDeliveryConfirmation,
+    handleRevertShipmentConfirmation,
     handleViewDeliveryConfirmation,
     viewingConfirmationDelivery,
     setViewingConfirmationDelivery,
