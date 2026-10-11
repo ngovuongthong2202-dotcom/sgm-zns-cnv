@@ -2,11 +2,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
-const { repoGetById, repoUpdate, contractGetById, notifyMock } = vi.hoisted(() => ({
+const { repoGetById, repoUpdate, contractGetById, notifyMock, poolGet, poolSet, poolRemove, auditCreate, loggerMock } = vi.hoisted(() => ({
   repoGetById: vi.fn(),
   repoUpdate: vi.fn(),
   contractGetById: vi.fn(),
   notifyMock: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), loading: vi.fn(), dismiss: vi.fn() },
+  poolGet: vi.fn(),
+  poolSet: vi.fn(),
+  poolRemove: vi.fn(),
+  auditCreate: vi.fn().mockResolvedValue(undefined),
+  loggerMock: { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() },
 }));
 
 vi.mock('@/src/data/repositories/factory', () => ({
@@ -19,11 +24,11 @@ vi.mock('@/src/data/repositories/factory', () => ({
 vi.mock('@/src/modules/iam', () => ({ useAuth: () => ({ user: { uid: 'u1', displayName: 'Thông' }, userData: { displayName: 'Quản trị', role: 'Administrator' } }), can: () => true }));
 vi.mock('@/src/modules/customers', () => ({ customerRepo: { getById: vi.fn() } }));
 vi.mock('@/src/domain/zns-client', () => ({ sendZnsAndToast: vi.fn(), nextAttempt: vi.fn(() => 1), checkZnsResendAllowed: vi.fn(() => ({ allowed: true })) }));
-vi.mock('@/src/data/repositories/system.repo', () => ({ auditLogsRepo: { create: vi.fn().mockResolvedValue(undefined) } }));
-vi.mock('@/src/platform/data/entity-cache-pool', () => ({ entityCachePool: { get: vi.fn(), set: vi.fn(), remove: vi.fn(), getAll: vi.fn(() => []) } }));
+vi.mock('@/src/data/repositories/system.repo', () => ({ auditLogsRepo: { create: auditCreate } }));
+vi.mock('@/src/platform/data/entity-cache-pool', () => ({ entityCachePool: { get: poolGet, set: poolSet, remove: poolRemove, getAll: vi.fn(() => []) } }));
 vi.mock('@/src/shared/utils/apiCreateEntity', () => ({ apiCreateEntity: vi.fn(), apiDeleteEntity: vi.fn(), apiRestoreEntity: vi.fn() }));
 vi.mock('@/src/shared/utils/notify', () => ({ notify: notifyMock }));
-vi.mock('@/src/shared/lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() } }));
+vi.mock('@/src/shared/lib/logger', () => ({ logger: loggerMock }));
 
 import { useDeliveriesActions } from './useDeliveriesActions';
 import type { Delivery, DeliveryShipment } from '@/src/domain/schema/delivery.schema';
@@ -50,7 +55,7 @@ function setup(drawer: Delivery | null = staleDrawer) {
 const hasUndefined = (o: Record<string, unknown>) => Object.values(o).some(v => v === undefined);
 
 describe('useDeliveriesActions.handleRevertShipmentConfirmation – Đợt 0A (GH01/GH03)', () => {
-  beforeEach(() => { vi.clearAllMocks(); repoGetById.mockResolvedValue(freshDoc); contractGetById.mockResolvedValue({ tinhTrangGiaoHang: 'HOAN_TAT' }); });
+  beforeEach(() => { vi.clearAllMocks(); repoGetById.mockResolvedValue(freshDoc); contractGetById.mockResolvedValue({ tinhTrangGiaoHang: 'HOAN_TAT' }); poolGet.mockReturnValue(null); });
 
   it('ghi qua updateDelivery đúng một lần với phần đã sửa + _lastUpdatedAt của BẢN MỚI NHẤT; Đợt 2 (vừa được người khác xác nhận) giữ nguyên; không undefined', async () => {
     const { hook, updateDelivery } = setup();
@@ -67,10 +72,11 @@ describe('useDeliveriesActions.handleRevertShipmentConfirmation – Đợt 0A (G
     expect(hasUndefined(payload)).toBe(false);
   });
 
-  it('đường ghi thẳng cũ không còn: repositoryFactory.get("deliveries").update không được gọi', async () => {
+  it('đường ghi thẳng cũ không còn: repositoryFactory.get("deliveries").update không được gọi, và không ghi nhật ký từ trình duyệt (auditLogsRepo.create – HT02)', async () => {
     const { hook } = setup();
     await act(async () => { await hook.result.current.handleRevertShipmentConfirmation(staleDrawer, done(1), 'Khách chưa nhận hàng'); });
     expect(repoUpdate).not.toHaveBeenCalled();
+    expect(auditCreate).not.toHaveBeenCalled();
   });
 
   it('lịch sử trên đợt mang userId "u1", người thực hiện "Quản trị", lý do, ngày và người ký cũ', async () => {
@@ -83,7 +89,8 @@ describe('useDeliveriesActions.handleRevertShipmentConfirmation – Đợt 0A (G
   it('phiếu từng "Hoàn tất" + hợp đồng HOAN_TAT → updateContract về DANG_GIAO; phiếu trước đó "Đang giao" → không gọi; updateContract lỗi → chỉ cảnh báo, phiếu vẫn đã ghi', async () => {
     const a = setup();
     await act(async () => { await a.hook.result.current.handleRevertShipmentConfirmation(staleDrawer, done(1), 'Khách chưa nhận hàng'); });
-    expect(a.updateContract).toHaveBeenCalledWith('c1', { tinhTrangGiaoHang: 'DANG_GIAO', tinhTrangHopDong: 'DANG_THUC_HIEN', status: 'ACTIVE' });
+    // hợp đồng mặc định của spec chỉ có cờ giao hàng HOAN_TAT → chỉ đổi cờ (tình trạng/trạng thái hợp đồng chỉ đổi khi COMPLETED – xem các ca "lùi hợp đồng –")
+    expect(a.updateContract).toHaveBeenCalledWith('c1', { tinhTrangGiaoHang: 'DANG_GIAO' });
 
     repoGetById.mockResolvedValue({ ...freshDoc, tinhTrangGiaoHang: 'Đang giao', ngayGiaoThucTe: null, cacDotGiao: [done(1), ship(2)] });
     const b = setup();
@@ -119,7 +126,7 @@ describe('useDeliveriesActions.handleRevertShipmentConfirmation – Đợt 0A (G
     const { hook, updateDelivery, updateContract, setDrawerDelivery } = setup();
     updateDelivery.mockRejectedValue(new Error('CONCURRENCY_CONFLICT'));
     await act(async () => { await hook.result.current.handleRevertShipmentConfirmation(staleDrawer, done(1), 'Khách chưa nhận hàng'); });
-    expect(notifyMock.error).toHaveBeenCalledWith('CONCURRENCY_CONFLICT');
+    expect(notifyMock.error).toHaveBeenCalledWith('Phiếu giao vừa được người khác thay đổi. Tải lại trang rồi thử lại.');
     expect(setDrawerDelivery).not.toHaveBeenCalled();
     expect(updateContract).not.toHaveBeenCalled();
   });
@@ -150,30 +157,111 @@ describe('useDeliveriesActions.handleRevertShipmentConfirmation – Đợt 0A (G
     expect(updateDelivery.mock.calls[0][1]._lastUpdatedAt).toBe('T-stale');
   });
 
-  it('lùi hợp đồng lỗi → chỉ cảnh báo riêng (không báo lỗi), phiếu không bị hoàn tác, ngăn chi tiết vẫn làm mới từ bản đã lưu', async () => {
+  it('lùi hợp đồng lỗi → chỉ cảnh báo riêng bằng câu cố định (không lộ lỗi gốc), không báo lỗi, phiếu không bị hoàn tác, ngăn chi tiết vẫn làm mới từ bản đã lưu', async () => {
     const { hook, updateDelivery, updateContract, setDrawerDelivery } = setup();
     updateContract.mockRejectedValue(new Error('422 hợp đồng đã ký'));
     await act(async () => { await hook.result.current.handleRevertShipmentConfirmation(staleDrawer, done(1), 'Khách chưa nhận hàng'); });
     expect(updateDelivery).toHaveBeenCalledTimes(1);
     expect(notifyMock.warning).toHaveBeenCalledTimes(1);
-    expect(notifyMock.warning.mock.calls[0][0]).toContain('422 hợp đồng đã ký');
+    expect(notifyMock.warning).toHaveBeenCalledWith('Đã hủy xác nhận đợt nhưng chưa cập nhật được trạng thái hợp đồng. Hãy mở hợp đồng để kiểm tra lại.');
+    expect(loggerMock.warn).toHaveBeenCalled(); // nguyên nhân chỉ còn trong nhật ký trình duyệt, không hiện cho nhân viên
     expect(notifyMock.error).not.toHaveBeenCalled();
     expect(setDrawerDelivery).toHaveBeenCalledTimes(1);
     expect(setDrawerDelivery.mock.calls[0][0]).toMatchObject({ id: 'd1', updatedAt: 'T-fresh', tinhTrangGiaoHang: 'Đang giao' });
     expect(notifyMock.success).toHaveBeenCalledTimes(1);
   });
 
-  it('chỉ lùi hợp đồng đang ở trạng thái hoàn tất (cờ giao hàng HOAN_TAT hoặc cờ hợp đồng COMPLETED); hợp đồng ở trạng thái khác giữ nguyên', async () => {
-    contractGetById.mockResolvedValue({ tinhTrangGiaoHang: 'DANG_GIAO', tinhTrangHopDong: 'DANG_THUC_HIEN', status: 'ACTIVE' });
+  // Quy tắc lùi hợp đồng dùng chung (contractRollbackPatch): hợp đồng đã hủy không bao giờ bị ghi (màn hợp đồng cấm mở lại); cờ giao hàng HOAN_TAT → DANG_GIAO;
+  // tình trạng/trạng thái chỉ về DANG_THUC_HIEN/ACTIVE khi hợp đồng đang COMPLETED ở một trong hai trường – cùng nghĩa với máy chủ (entity-status.service.ts, DeliveryDeleted).
+  type Doc = Record<string, string>;
+  const ROLLBACK_ROWS: [string, Doc | null, Doc | null][] = [
+    ['đã hủy (Hủy) → không ghi', { tinhTrangGiaoHang: 'HOAN_TAT', tinhTrangHopDong: 'Hủy' }, null],
+    ['đã hủy (HỦY) → không ghi', { tinhTrangGiaoHang: 'HOAN_TAT', tinhTrangHopDong: 'HỦY' }, null],
+    ['đã hủy (Huỷ) → không ghi', { tinhTrangGiaoHang: 'HOAN_TAT', tinhTrangHopDong: 'Huỷ' }, null],
+    ['đã hủy ở trường trạng thái (Đã hủy) → không ghi', { tinhTrangGiaoHang: 'HOAN_TAT', tinhTrangHopDong: 'Đã ký', status: 'Đã hủy' }, null],
+    ['đã hủy dù cũng COMPLETED (CANCELLED thắng) → không ghi', { tinhTrangGiaoHang: 'HOAN_TAT', tinhTrangHopDong: 'COMPLETED', status: 'CANCELLED' }, null],
+    ['chỉ cờ giao hàng HOAN_TAT → chỉ đổi cờ', { tinhTrangGiaoHang: 'HOAN_TAT', tinhTrangHopDong: 'Đã ký', status: 'ACTIVE' }, { tinhTrangGiaoHang: 'DANG_GIAO' }],
+    ['COMPLETED ở tình trạng hợp đồng → đổi cả ba', { tinhTrangGiaoHang: 'HOAN_TAT', tinhTrangHopDong: 'COMPLETED', status: 'COMPLETED' }, { tinhTrangGiaoHang: 'DANG_GIAO', tinhTrangHopDong: 'DANG_THUC_HIEN', status: 'ACTIVE' }],
+    ['COMPLETED chỉ ở trường trạng thái → đổi cả ba', { tinhTrangGiaoHang: 'HOAN_TAT', tinhTrangHopDong: 'Đã ký', status: 'COMPLETED' }, { tinhTrangGiaoHang: 'DANG_GIAO', tinhTrangHopDong: 'DANG_THUC_HIEN', status: 'ACTIVE' }],
+    ['COMPLETED nhưng cờ giao hàng không phải HOAN_TAT → không đụng cờ', { tinhTrangGiaoHang: 'DANG_GIAO', tinhTrangHopDong: 'COMPLETED' }, { tinhTrangHopDong: 'DANG_THUC_HIEN', status: 'ACTIVE' }],
+    ['chưa hoàn tất gì → không ghi', { tinhTrangGiaoHang: 'DANG_GIAO', tinhTrangHopDong: 'Đã ký', status: 'ACTIVE' }, null],
+    ['không đọc được hợp đồng (null) → không ghi, không cảnh báo', null, null],
+  ];
+  it.each(ROLLBACK_ROWS)('lùi hợp đồng – %s', async (_label, contract, expected) => {
+    contractGetById.mockResolvedValue(contract);
+    const { hook, updateDelivery, updateContract } = setup();
+    await act(async () => { await hook.result.current.handleRevertShipmentConfirmation(staleDrawer, done(1), 'Khách chưa nhận hàng'); });
+    expect(updateDelivery).toHaveBeenCalledTimes(1);
+    if (expected) {
+      expect(updateContract).toHaveBeenCalledTimes(1);
+      expect(updateContract).toHaveBeenCalledWith('c1', expected);
+    } else {
+      expect(updateContract).not.toHaveBeenCalled();
+    }
+    expect(notifyMock.warning).not.toHaveBeenCalled();
+    expect(notifyMock.success).toHaveBeenCalledTimes(1);
+  });
+
+  it('hủy xác nhận cả phiếu (handleRevertDeliveryConfirmation) dùng cùng quy tắc: hợp đồng đã hủy không bị ghi; chỉ cờ HOAN_TAT → chỉ đổi cờ; COMPLETED → đổi cả ba', async () => {
+    contractGetById.mockResolvedValue({ tinhTrangGiaoHang: 'HOAN_TAT', tinhTrangHopDong: 'Hủy' });
     const a = setup();
-    await act(async () => { await a.hook.result.current.handleRevertShipmentConfirmation(staleDrawer, done(1), 'Khách chưa nhận hàng'); });
+    await act(async () => { await a.hook.result.current.handleRevertDeliveryConfirmation(staleDrawer); });
     expect(a.updateDelivery).toHaveBeenCalledTimes(1);
     expect(a.updateContract).not.toHaveBeenCalled();
 
-    contractGetById.mockResolvedValue({ tinhTrangGiaoHang: 'DANG_GIAO', tinhTrangHopDong: 'COMPLETED' });
+    contractGetById.mockResolvedValue({ tinhTrangGiaoHang: 'HOAN_TAT', tinhTrangHopDong: 'Đã ký', status: 'ACTIVE' });
     const b = setup();
-    await act(async () => { await b.hook.result.current.handleRevertShipmentConfirmation(staleDrawer, done(1), 'Khách chưa nhận hàng'); });
-    expect(b.updateContract).toHaveBeenCalledWith('c1', { tinhTrangGiaoHang: 'DANG_GIAO', tinhTrangHopDong: 'DANG_THUC_HIEN', status: 'ACTIVE' });
+    await act(async () => { await b.hook.result.current.handleRevertDeliveryConfirmation(staleDrawer); });
+    expect(b.updateContract).toHaveBeenCalledWith('c1', { tinhTrangGiaoHang: 'DANG_GIAO' });
+
+    contractGetById.mockResolvedValue({ tinhTrangGiaoHang: 'HOAN_TAT', tinhTrangHopDong: 'COMPLETED', status: 'COMPLETED' });
+    const c = setup();
+    await act(async () => { await c.hook.result.current.handleRevertDeliveryConfirmation(staleDrawer); });
+    expect(c.updateContract).toHaveBeenCalledWith('c1', { tinhTrangGiaoHang: 'DANG_GIAO', tinhTrangHopDong: 'DANG_THUC_HIEN', status: 'ACTIVE' });
+  });
+
+  // GH03: bộ đệm L1 (entityCachePool) không có hạn dùng và getById trả bản đệm mà không chạm CSDL (có thể cũ hoặc chỉ là phần vừa ghi) → hook bỏ mục đệm rồi mới đọc.
+  it('đọc lại từ CSDL: bỏ mục đệm của phiếu TRƯỚC khi đọc; đọc được thì không đặt lại bản đệm cũ và dùng bản vừa đọc', async () => {
+    poolGet.mockReturnValue({ ...staleDrawer, cacDotGiao: [done(1), ship(2)], updatedAt: 'T-cache' });
+    const { hook, updateDelivery } = setup();
+    await act(async () => { await hook.result.current.handleRevertShipmentConfirmation(staleDrawer, done(1), 'Khách chưa nhận hàng'); });
+    expect(poolRemove).toHaveBeenCalledTimes(1);
+    expect(poolRemove).toHaveBeenCalledWith('deliveries', 'd1');
+    expect(repoGetById).toHaveBeenCalledWith('d1');
+    expect(poolRemove.mock.invocationCallOrder[0]).toBeLessThan(repoGetById.mock.invocationCallOrder[0]);
+    expect(poolSet).not.toHaveBeenCalled();
+    expect(updateDelivery.mock.calls[0][1]._lastUpdatedAt).toBe('T-fresh');
+  });
+
+  it('getById trả null (đọc CSDL không được) nhưng bộ đệm từng có bản phiếu → trả bản đó về bộ đệm (xóa dấu "không tìm thấy") rồi dùng nó, không dùng bản sao ở ngăn chi tiết', async () => {
+    const cached = { ...freshDoc, updatedAt: 'T-cache' } as unknown as Delivery; // Đợt 2 đã xác nhận trong bản đệm, còn bản ở ngăn chi tiết chưa
+    poolGet.mockReturnValue(cached);
+    repoGetById.mockResolvedValue(null);
+    const { hook, updateDelivery } = setup();
+    await act(async () => { await hook.result.current.handleRevertShipmentConfirmation(staleDrawer, done(1), 'Khách chưa nhận hàng'); });
+    expect(poolSet).toHaveBeenCalledTimes(1);
+    expect(poolSet).toHaveBeenCalledWith('deliveries', cached);
+    expect(poolRemove.mock.invocationCallOrder[0]).toBeLessThan(poolSet.mock.invocationCallOrder[0]);
+    expect(updateDelivery).toHaveBeenCalledTimes(1);
+    expect(updateDelivery.mock.calls[0][1]._lastUpdatedAt).toBe('T-cache');
+    expect(updateDelivery.mock.calls[0][1].cacDotGiao[1]).toMatchObject({ tinhTrangGiaoHang: 'HOAN_TAT', ngayGiaoThucTe: '2026-10-02' });
+  });
+
+  // Nhân viên không bao giờ thấy mã kỹ thuật: mã đã biết → câu tiếng Việt thường; thông điệp không có chữ tiếng Việt → câu chung; câu tiếng Việt của máy chủ giữ nguyên.
+  it.each<[string, string, string]>([
+    ['xung đột ghi (409)', 'CONCURRENCY_CONFLICT', 'Phiếu giao vừa được người khác thay đổi. Tải lại trang rồi thử lại.'],
+    ['không ghi đè thay đổi của người khác', 'OPTIMISTIC_CONCURRENCY_ABORTED', 'Đã dừng để không ghi đè thay đổi của người khác. Tải lại trang rồi thử lại.'],
+    ['hết phiên đăng nhập', 'Unauthenticated', 'Phiên đăng nhập đã hết. Đăng nhập lại rồi thử lại.'],
+    ['không tìm thấy phiếu (404)', 'Not found', 'Không tìm thấy phiếu giao. Tải lại trang rồi thử lại.'],
+    ['lỗi máy chủ không có chữ tiếng Việt', 'Internal Server Error', 'Không lưu được việc hủy xác nhận đợt. Thử lại sau giây lát.'],
+    ['thông điệp rỗng', '', 'Không lưu được việc hủy xác nhận đợt. Thử lại sau giây lát.'],
+    ['lý do tiếng Việt của máy chủ giữ nguyên', 'Phiếu giao đã khóa, không sửa được', 'Phiếu giao đã khóa, không sửa được'],
+  ])('updateDelivery lỗi – %s → thông báo tiếng Việt thường', async (_label, raw, shown) => {
+    const { hook, updateDelivery } = setup();
+    updateDelivery.mockRejectedValue(new Error(raw));
+    await act(async () => { await hook.result.current.handleRevertShipmentConfirmation(staleDrawer, done(1), 'Khách chưa nhận hàng'); });
+    expect(notifyMock.error).toHaveBeenCalledTimes(1);
+    expect(notifyMock.error).toHaveBeenCalledWith(shown);
   });
 
   // Hộp thoại (Việc 13) chặn Esc/"Quay lại" trong lúc chờ: mọi đường lỗi phải kết thúc bình thường và báo người dùng.
@@ -181,16 +269,21 @@ describe('useDeliveriesActions.handleRevertShipmentConfirmation – Đợt 0A (G
     const { hook, updateDelivery, setDrawerDelivery } = setup();
     await act(async () => { await hook.result.current.handleRevertShipmentConfirmation({ ...staleDrawer, id: undefined } as Delivery, done(1), 'Khách chưa nhận hàng'); });
     expect(notifyMock.error).toHaveBeenCalledTimes(1);
+    expect(poolRemove).not.toHaveBeenCalled();
     expect(repoGetById).not.toHaveBeenCalled();
     expect(updateDelivery).not.toHaveBeenCalled();
     expect(setDrawerDelivery).not.toHaveBeenCalled();
   });
 
-  it('không đọc được bản mới nhất (getById lỗi) → báo lỗi, không ghi, không đặt lại ngăn chi tiết, vẫn kết thúc bình thường', async () => {
+  // getById thật không ném lỗi (trả null khi đọc hỏng), nên ca này giả lập một lỗi bất ngờ TRƯỚC khi ghi chứ không phải một lần đọc hỏng thông thường.
+  it('lỗi bất ngờ trước khi ghi (bước đọc ném lỗi) → báo lỗi, không ghi, không đặt lại ngăn chi tiết, bộ đệm cũ được trả về chỗ cũ, vẫn kết thúc bình thường', async () => {
+    const cached = { ...freshDoc, updatedAt: 'T-cache' } as unknown as Delivery;
+    poolGet.mockReturnValue(cached);
     repoGetById.mockRejectedValue(new Error('Mất kết nối máy chủ'));
     const { hook, updateDelivery, updateContract, setDrawerDelivery } = setup();
     await act(async () => { await hook.result.current.handleRevertShipmentConfirmation(staleDrawer, done(1), 'Khách chưa nhận hàng'); });
     expect(notifyMock.error).toHaveBeenCalledWith('Mất kết nối máy chủ');
+    expect(poolSet).toHaveBeenCalledWith('deliveries', cached);
     expect(updateDelivery).not.toHaveBeenCalled();
     expect(updateContract).not.toHaveBeenCalled();
     expect(setDrawerDelivery).not.toHaveBeenCalled();

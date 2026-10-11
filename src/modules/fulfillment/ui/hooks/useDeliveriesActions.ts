@@ -20,6 +20,68 @@ import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietna
 import { useAuth } from '@/src/modules/iam';
 import { applyShipmentRevert } from '../utils/shipment-revert';
 
+/**
+ * Đợt 0A (GH03): đọc lại phiếu giao từ CSDL ngay trước khi hủy xác nhận. getById trả thẳng mục trong bộ đệm L1 (entityCachePool) nếu đã có, không chạm CSDL;
+ * bộ đệm không có hạn dùng (chỉ sự kiện realtime, lần tải danh sách và chính lần ghi của tab này làm mới nó, mà lần ghi chỉ chép phần vừa gửi) nên "bản mới nhất"
+ * có thể cũ hoặc thiếu trường. Bỏ mục đệm trước khi đọc để getById hỏi CSDL và nạp lại bản đầy đủ. Đọc không được (getById trả null và để lại dấu "không tìm thấy",
+ * hoặc ném lỗi) thì đặt mục đệm cũ về chỗ cũ rồi dùng nó; không có mục đệm cũ thì trả null để người gọi dùng bản đang mở.
+ */
+async function readStoredDelivery(id: string): Promise<Delivery | null> {
+  const previous = entityCachePool.get<Delivery>('deliveries', id);
+  entityCachePool.remove('deliveries', id);
+  let stored: Delivery | null = null;
+  try {
+    stored = await repositoryFactory.get<Delivery>('deliveries').getById(id);
+  } finally {
+    if (!stored && previous) entityCachePool.set('deliveries', previous);
+  }
+  return stored || previous;
+}
+
+/** Trạng thái "đã hủy" ở mọi cách viết đang dùng: Hủy, Huỷ, HỦY, Đã hủy, DA_HUY, Cancelled… (bỏ dấu, chữ thường, "_" và "-" thành khoảng trắng). */
+const isCancelledStatus = (value: unknown): boolean =>
+  /\b(huy|cancel(l?ed)?)\b/.test(String(value ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[_-]+/g, ' '));
+
+/**
+ * Phần cần ghi lên hợp đồng khi một phiếu giao rời trạng thái "Hoàn tất", hoặc null nếu không được ghi / không có gì để ghi. DÙNG CHUNG cho hủy xác nhận cả phiếu
+ * và hủy xác nhận một đợt. Cùng nghĩa với máy chủ (entity-status.service.ts, DeliveryDeleted):
+ * - hợp đồng đã hủy thì không ghi gì (màn hợp đồng cấm đổi trạng thái hợp đồng đã hủy: "Hợp đồng đã Hủy, không thể đổi trạng thái khác!");
+ * - cờ giao hàng HOAN_TAT → DANG_GIAO;
+ * - tình trạng/trạng thái chỉ về DANG_THUC_HIEN/ACTIVE khi hợp đồng đang COMPLETED (ở một trong hai trường).
+ */
+function contractRollbackPatch(contract: { tinhTrangGiaoHang?: unknown; tinhTrangHopDong?: unknown; status?: unknown } | null | undefined): Record<string, string> | null {
+  if (!contract) return null;
+  if (isCancelledStatus(contract.tinhTrangHopDong) || isCancelledStatus(contract.status)) return null;
+  const patch: Record<string, string> = {};
+  if (contract.tinhTrangGiaoHang === 'HOAN_TAT') patch.tinhTrangGiaoHang = 'DANG_GIAO';
+  if (contract.tinhTrangHopDong === 'COMPLETED' || contract.status === 'COMPLETED') {
+    patch.tinhTrangHopDong = 'DANG_THUC_HIEN';
+    patch.status = 'ACTIVE';
+  }
+  return Object.keys(patch).length > 0 ? patch : null;
+}
+
+/** Mã kỹ thuật thường gặp khi ghi phiếu giao → câu tiếng Việt thường (khóa viết thường). */
+const PLAIN_REVERT_ERRORS = new Map<string, string>([
+  ['concurrency_conflict', 'Phiếu giao vừa được người khác thay đổi. Tải lại trang rồi thử lại.'],
+  ['optimistic_concurrency_aborted', 'Đã dừng để không ghi đè thay đổi của người khác. Tải lại trang rồi thử lại.'],
+  ['unauthenticated', 'Phiên đăng nhập đã hết. Đăng nhập lại rồi thử lại.'],
+  ['not found', 'Không tìm thấy phiếu giao. Tải lại trang rồi thử lại.'],
+]);
+const REVERT_FAILED_MESSAGE = 'Không lưu được việc hủy xác nhận đợt. Thử lại sau giây lát.';
+/** Chữ đ hoặc một dấu (huyền, sắc, mũ, ngã, trăng, hỏi, móc, nặng…) sau khi tách dấu bằng NFD: có thì thông điệp là câu tiếng Việt. */
+const VIETNAMESE_LETTER = /[đĐ]|\p{M}/u;
+
+/**
+ * Câu báo lỗi cho nhân viên khi hủy xác nhận đợt không ghi được: mã kỹ thuật đã biết → câu tiếng Việt thường; thông điệp không có chữ cái tiếng Việt
+ * (lỗi máy chủ thô, "Failed to fetch"…) → câu chung; thông điệp tiếng Việt (ví dụ lý do của máy chủ) giữ nguyên.
+ */
+function plainRevertError(err: unknown): string {
+  const raw = (err as { message?: unknown } | null | undefined)?.message;
+  const text = typeof raw === 'string' ? raw.trim() : '';
+  return PLAIN_REVERT_ERRORS.get(text.toLowerCase()) ?? (VIETNAMESE_LETTER.test(text.normalize('NFD')) ? text : REVERT_FAILED_MESSAGE);
+}
+
 export function useDeliveriesActions(
   createDelivery: (data: Delivery) => Promise<string>,
   deleteDelivery: (id: string) => Promise<void>,
@@ -57,16 +119,10 @@ export function useDeliveriesActions(
         kyNhan: '',
       });
 
-      // Nếu hợp đồng liên quan đang có cờ HOAN_TAT / COMPLETED, đưa về DANG_GIAO
+      // Hợp đồng liên quan đang HOAN_TAT / COMPLETED thì lùi theo quy tắc chung (contractRollbackPatch); hợp đồng đã hủy không bị ghi
       if (del.contractId) {
-        const cSnap = await repositoryFactory.get<any>('contracts').getById(del.contractId);
-        if (cSnap && (cSnap.tinhTrangGiaoHang === 'HOAN_TAT' || cSnap.tinhTrangHopDong === 'COMPLETED')) {
-          await updateContract(del.contractId, {
-            tinhTrangGiaoHang: 'DANG_GIAO',
-            tinhTrangHopDong: 'DANG_THUC_HIEN',
-            status: 'ACTIVE'
-          });
-        }
+        const rollback = contractRollbackPatch(await repositoryFactory.get<Record<string, unknown>>('contracts').getById(del.contractId));
+        if (rollback) await updateContract(del.contractId, rollback);
       }
 
       auditLogsRepo.create({
@@ -121,7 +177,7 @@ export function useDeliveriesActions(
       return;
     }
     try {
-      const fresh = (await repositoryFactory.get<Delivery>('deliveries').getById(del.id)) || del;
+      const fresh = (await readStoredDelivery(del.id)) || del;
       const result = applyShipmentRevert(fresh, shipment, {
         reason,
         actorId: user?.uid,
@@ -137,16 +193,11 @@ export function useDeliveriesActions(
 
       if (result.wasCompletedBefore && !result.isCompletedAfter && fresh.contractId) {
         try {
-          const cSnap = await repositoryFactory.get<any>('contracts').getById(fresh.contractId);
-          if (cSnap && (cSnap.tinhTrangGiaoHang === 'HOAN_TAT' || cSnap.tinhTrangHopDong === 'COMPLETED')) {
-            await updateContract(fresh.contractId, {
-              tinhTrangGiaoHang: 'DANG_GIAO',
-              tinhTrangHopDong: 'DANG_THUC_HIEN',
-              status: 'ACTIVE'
-            });
-          }
-        } catch (cErr: any) {
-          notify.warning(`Đã hủy xác nhận đợt nhưng chưa cập nhật được trạng thái hợp đồng: ${cErr?.message || String(cErr)}`);
+          const rollback = contractRollbackPatch(await repositoryFactory.get<Record<string, unknown>>('contracts').getById(fresh.contractId));
+          if (rollback) await updateContract(fresh.contractId, rollback);
+        } catch (cErr) {
+          logger.warn('Contract roll-back after shipment revert failed:', cErr);
+          notify.warning('Đã hủy xác nhận đợt nhưng chưa cập nhật được trạng thái hợp đồng. Hãy mở hợp đồng để kiểm tra lại.');
         }
       }
 
@@ -157,9 +208,9 @@ export function useDeliveriesActions(
         setViewingConfirmationDelivery(null);
       }
       notify.success(`Đã hủy xác nhận Đợt ${shipment.dotGiaoHang}; phiếu chuyển sang "${result.patch.tinhTrangGiaoHang}". Ngày giao và người ký cũ được giữ trong lịch sử đợt.`);
-    } catch (err: any) {
+    } catch (err) {
       logger.error('Revert shipment confirmation error:', err);
-      notify.error(err?.message || 'Lỗi khi hủy xác nhận đợt giao');
+      notify.error(plainRevertError(err));
     }
   }, [updateDelivery, updateContract, drawerDelivery, setDrawerDelivery, viewingConfirmationDelivery, user, userData]);
 
