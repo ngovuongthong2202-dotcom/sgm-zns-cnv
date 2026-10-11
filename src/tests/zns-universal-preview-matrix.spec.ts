@@ -4,6 +4,7 @@ import { ZnsMessageType } from '@/src/domain/enums/zns-status';
 import { ZaloOfficialZnsVendor } from '@/src/modules/messaging/infrastructure/ZaloOfficialZnsVendor';
 import { ZnsMessageAggregate } from '@/src/modules/messaging/domain/ZnsMessage';
 import { resolveVendorUrl } from '@/src/backend/services/zns/outbound-helpers';
+import { PAYMENT_ZNS_NOTE_MAX } from '@/src/modules/billing/domain/paymentZnsNote';
 
 describe('ZBS Universal Template Registry & Dispatch Matrix', () => {
   it('should define all 7 required business templates with correct official IDs', () => {
@@ -226,11 +227,40 @@ describe('ZBS Universal Template Registry & Dispatch Matrix', () => {
     expect(long.ghi_chu).toBe('Thanh toán đợt 1 (Còn lại: 70.000.000 đ)'.slice(0, 30).trim());
   });
 
+  it('Đợt 0A (TT01): ghi_chu rỗng hoặc chỉ có khoảng trắng → câu trung tính; khoảng trắng đầu/cuối của câu đã nhập bị bỏ', () => {
+    const vendor = new ZaloOfficialZnsVendor();
+    const extractFn = (vendor as any).extractTemplateData.bind(vendor);
+    const base = { customer_name: 'Công ty A', phone: '0912345678', soHopDong: 'HD-2026-0002', ngayThanhToan: '07/10/2026', soTien: 1000000 };
+
+    for (const blank of ['', '   ', ' \t\n ']) {
+      const out = extractFn({ ...base, ghi_chu: blank }, ZnsMessageType.THANH_TOAN_XAC_NHAN);
+      expect(out.ghi_chu, JSON.stringify(blank)).toBe('Thanh toán đợt hợp đồng');
+    }
+
+    const padded = extractFn({ ...base, ghi_chu: '  Thanh toán đợt 2  ' }, ZnsMessageType.THANH_TOAN_XAC_NHAN);
+    expect(padded.ghi_chu).toBe('Thanh toán đợt 2');
+  });
+
+  it('Đợt 0A (TT01): ghi_chu bị cắt ở 30 ký tự không để lại khoảng trắng ở cuối', () => {
+    const vendor = new ZaloOfficialZnsVendor();
+    const extractFn = (vendor as any).extractTemplateData.bind(vendor);
+    const base = { customer_name: 'Công ty A', phone: '0912345678', soHopDong: 'HD-2026-0002', ngayThanhToan: '07/10/2026', soTien: 1000000 };
+
+    // Ký tự thứ 30 là dấu cách: cắt thẳng ở 30 sẽ để lại một khoảng trắng thừa ở cuối.
+    const sentence = 'Thanh toán đợt 2 theo tiến độ hợp đồng này';
+    expect(sentence.length).toBeGreaterThan(30);
+    expect(sentence[29]).toBe(' ');
+
+    const out = extractFn({ ...base, ghi_chu: sentence }, ZnsMessageType.THANH_TOAN_XAC_NHAN);
+    expect(out.ghi_chu).toBe('Thanh toán đợt 2 theo tiến độ');
+    expect(out.ghi_chu).not.toMatch(/\s$/);
+  });
+
   it('Đợt 0A (TT01): tham số ghi_chu của ba dòng mẫu 646935 khai báo maxLength 30 (khớp vendor cắt 30 và phụ lục 01 dòng 74)', () => {
     for (const key of [ZnsMessageType.THANH_TOAN_XAC_NHAN, ZnsMessageType.THANH_TOAN_TAT_TOAN, ZnsMessageType.THANH_TOAN_CONG_NO]) {
       const param = ZBS_TEMPLATE_REGISTRY[key].params.find((p: { name: string }) => p.name === 'ghi_chu');
       expect(param, String(key)).toBeDefined();
-      expect(param?.maxLength, String(key)).toBe(30);
+      expect(param?.maxLength, String(key)).toBe(PAYMENT_ZNS_NOTE_MAX);
     }
   });
 });

@@ -99,7 +99,7 @@ export class ZaloOfficialZnsVendor implements ZnsVendorPort {
     }
 
     // Đợt 0A (TT01): chỉ đọc ghi_chu (câu đã dựng cho khách); ghiChu/note là ghi chú nội bộ. Dự phòng trung tính giữ tới Z1.3.
-    const ghiChu = String(p.ghi_chu || 'Thanh toán đợt hợp đồng').slice(0, 30);
+    const ghiChu = (String(p.ghi_chu ?? '').trim() || 'Thanh toán đợt hợp đồng').slice(0, 30).trim();
     const rawPaymentAmount = Number(p.so_tien || p.soTien || p.amount || 0);
     const diemThanhToan = String(p.diem_thanh_toan || p.diemThanhToan || calculateFormattedPaymentPoints(rawPaymentAmount));
     const diemKhachHang = String(p.diem_khach_hang || p.diemKhachHang || p.diemTichLuy || diemThanhToan);
