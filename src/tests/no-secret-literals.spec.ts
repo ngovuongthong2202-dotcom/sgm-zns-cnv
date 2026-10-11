@@ -51,4 +51,12 @@ describe('no-secret-literals – Đợt 0A', () => {
       expect(text, rel).not.toMatch(/Authorization:/);
     }
   });
+
+  it('không tệp nào chứa chuỗi dạng JWT (khóa anon/service của Supabase) – rào cho K-SEC-7', () => {
+    const JWT_PATTERN = /eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}/;
+    const offenders = SCANNED_FILES
+      .filter(f => JWT_PATTERN.test(fs.readFileSync(f, 'utf8')))
+      .map(f => path.relative(ROOT, f));
+    expect(offenders).toEqual([]);
+  });
 });

@@ -1,8 +1,14 @@
 const { chromium } = require('@playwright/test');
 const { createClient } = require('@supabase/supabase-js');
 
-const url = 'https://baduyiiwvaxudcplffri.supabase.co';
-const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhZHV5aWl3dmF4dWRjcGxmZnJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNDg2ODksImV4cCI6MjEwNTcyNDY4OX0.1FSGqLqHN_g09NOt6mFw8vGGk8I1VH735iPgaMx-0ao';
+// Đợt 0A (K-SEC-7): không viết khóa vào script. Chạy: node --env-file=.env scripts/verify-zns-hub-fix.cjs
+// Lưu ý: dòng xóa zns_messages 'verify_zns%' ở cuối tệp sẽ bị CSDL từ chối sau tệp SQL 0001 (khóa anon không còn quyền xóa) — đúng ý.
+const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const key = process.env.VITE_SUPABASE_ANON_KEY;
+if (!url || !key) {
+  console.error('Thiếu VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY trong môi trường. Chạy: node --env-file=.env scripts/verify-zns-hub-fix.cjs');
+  process.exit(1);
+}
 const supabase = createClient(url, key);
 
 (async () => {
