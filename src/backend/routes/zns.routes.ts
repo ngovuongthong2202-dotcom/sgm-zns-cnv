@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { vendorWebhookHandler } from '../services/zns/vendor-webhook.handler';
 import { znsPayloadBuilder, sanitizeZnsCustomerName, sanitizeZnsPersonName } from '../services/zns/zns-payload.builder';
 import { toPublicZnsConfig, pickZnsConfigUpdate, ZNS_CONFIG_SECRET_FIELDS } from '../services/zns/zns-config.policy';
-import { buildPaymentZnsNote, isLegacyAutoSettledNote, PAYMENT_ZNS_NOTE_MAX } from '../../modules/billing/domain/paymentZnsNote';
+import { buildPaymentZnsNote, collectPaymentLedger, isLegacyAutoSettledNote, PAYMENT_ZNS_NOTE_MAX } from '../../modules/billing/domain/paymentZnsNote';
 import { adminDb } from '../config/supabase.admin';
 import { ZnsMessage } from '../../domain/schema/workflow.schema';
 import { SendZnsMessageUseCase } from '../../modules/messaging/application/use-cases/SendZnsMessage';
@@ -357,6 +357,7 @@ router.post('/send', async (req, res) => {
       'DELIVERY': 'deliveries'
     };
     let dbEntity: Record<string, unknown> = {};
+    let dbEntityReadFailed = false;
     const collName = collectionMap[body.entityType];
     if (collName && body.entityId) {
       try {
@@ -365,7 +366,9 @@ router.post('/send', async (req, res) => {
           dbEntity = (docSnap.data() as Record<string, unknown>) || {};
         }
       } catch (err) {
-        // Fallback gracefully
+        // Tin không phải thanh toán vẫn đi tiếp như cũ (Fallback gracefully); tin xác nhận thanh toán bị chặn 503 ở chốt bên dưới. Chỉ ghi lỗi, không ghi nội dung chứng từ.
+        dbEntityReadFailed = true;
+        console.error(`[TT01] không đọc được ${collName}/${String(body.entityId)}: ${err instanceof Error ? err.message : 'lỗi không rõ'}`);
       }
     }
 
@@ -373,6 +376,10 @@ router.post('/send', async (req, res) => {
     const isPaymentConfirmation = body.entityType === 'PAYMENT' && String(body.messageType || '').startsWith('THANH_TOAN_');
     let serverPaymentNote: string | null = null;
     if (isPaymentConfirmation) {
+      if (dbEntityReadFailed) {
+        // Không đọc được phiếu thì chưa biết đã thu hay chưa: báo thử lại thay vì "chưa ghi nhận khoản thu nào" (nhân viên sẽ ghi nhận trùng một đợt thu); chưa gửi gì.
+        return res.status(503).json({ success: false, code: 'PAYMENT_READ_FAILED', error: 'Không đọc được phiếu thu lúc này nên chưa gửi tin. Thử lại sau giây lát.' });
+      }
       const dbPayment = Object.keys(dbEntity).length > 0 ? dbEntity : null;
       const rawIndex = clientEntity.installmentIndex;
       const requestedIndex = rawIndex === undefined || rawIndex === null || rawIndex === '' ? undefined : Number(rawIndex);
@@ -393,8 +400,26 @@ router.post('/send', async (req, res) => {
           return res.status(409).json({ success: false, code: 'PAYMENT_NOTE_REJECTED', error: 'Nội dung "Tất toán" chỉ gửi được khi phiếu đã thu đủ. Sửa ô Ghi chú thành câu phù hợp (ví dụ "Thanh toán đợt 2").' });
         }
       }
-      // Câu gửi lên chỉ được dùng khi vừa 30 ký tự và không phải câu "Tất toán" bị loại; câu dài (bản cũ: "Thanh toán đợt N (Còn lại: …)") thay bằng câu máy chủ dựng.
-      serverPaymentNote = typedNote && typedNote.length <= PAYMENT_ZNS_NOTE_MAX && !legacyNoteForOpenReceipt ? typedNote : note.ghiChu;
+      // Tab cũ điền sẵn ghi chú nội bộ (ghiChu của đợt thu / của phiếu) vào ô Ghi chú rồi gửi lên nguyên văn; câu đó ngắn nên lọt qua giới hạn 30 ký tự.
+      // Câu gửi lên trùng (sau khi chuẩn hóa) với ghi chú nội bộ lưu trong CSDL là bản sao ghi chú nội bộ: không gửi cho khách; log không chứa nội dung ghi chú.
+      const normalizeNote = (s: string) => s.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
+      const installmentNotes = (Array.isArray(dbPayment?.cacDotThu) ? (dbPayment?.cacDotThu as unknown[]) : []).map(d => (d && typeof d === 'object' ? (d as Record<string, unknown>).ghiChu : undefined));
+      const storedInternalNotes = [dbPayment?.ghiChu, dbPayment?.note, dbPayment?.ghiChuNoiBo, ...installmentNotes]
+        .filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+        .map(normalizeNote);
+      const echoedInternalNote = Boolean(typedNote) && storedInternalNotes.includes(normalizeNote(typedNote));
+      if (echoedInternalNote) {
+        console.warn(`[TT01 echo] phiếu ${String(body.entityId)}: ghi_chu gửi lên trùng ghi chú nội bộ của phiếu — thay bằng câu máy chủ`);
+      }
+      // Tab cũ ở trang Thanh toán điền sẵn "Thanh toán đợt N (Còn lại: … đ)" (> 30 ký tự) và không gửi installmentIndex nên máy chủ sẽ lấy đợt MỚI NHẤT: giữ số đợt N người dùng đã chọn
+      // khi N là số lần thu (lanThu) của một đợt có tiền trong phiếu; câu gửi đi luôn là "Thanh toán đợt N" (≤ 30 ký tự), không kèm phần còn lại của câu. N không có trong phiếu thì giữ hành vi cũ.
+      const typedInstallment = /^thanh toán đợt (\d+)/i.exec(normalizeNote(typedNote));
+      const typedInstallmentNumber = typedInstallment ? Number(typedInstallment[1]) : NaN;
+      const typedInstallmentIsCollected = collectPaymentLedger(dbPayment).entries.some(e => e.lanThu === typedInstallmentNumber);
+      // Câu gửi lên chỉ được dùng khi vừa 30 ký tự, không phải câu "Tất toán" bị loại và không phải bản sao ghi chú nội bộ; câu dài thay bằng câu máy chủ dựng.
+      serverPaymentNote = typedInstallmentIsCollected
+        ? `Thanh toán đợt ${typedInstallmentNumber}`.slice(0, PAYMENT_ZNS_NOTE_MAX)
+        : (typedNote && typedNote.length <= PAYMENT_ZNS_NOTE_MAX && !legacyNoteForOpenReceipt && !echoedInternalNote ? typedNote : note.ghiChu);
     }
 
     const targetCustId = (clientEntity.customerId as string) || 

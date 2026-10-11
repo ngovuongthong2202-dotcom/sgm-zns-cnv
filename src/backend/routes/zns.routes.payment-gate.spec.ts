@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import { znsHarness } from './zns-route-harness';
@@ -21,6 +21,10 @@ describe('zns.routes POST /send – Đợt 0A (TT01): tin thanh toán chốt the
   beforeEach(() => {
     znsHarness.reset();
     znsHarness.docFixtures['customers/kh1'] = { ...CUSTOMER };
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('phiếu Chưa TT trong CSDL, thân gửi lên "khai" có tiền → 409 PAYMENT_NOT_COLLECTED, không gửi, không ghi trạng thái', async () => {
@@ -145,5 +149,101 @@ describe('zns.routes POST /send – Đợt 0A (TT01): tin thanh toán chốt the
     const res = await request(app).post('/api/zns/send').send({ entityId: 'q1', entityType: 'QUOTATION', messageType: 'BAOGIA', phone: '0912345678', payload: {} });
     expect(res.status).toBe(200);
     expect(sentPayload().ghiChu).toBe('ghi chú báo giá');
+  });
+
+  // ── Vòng sửa 1 (Đợt 0A TT01) ─────────────────────────────────────────────────────────────────────────────────────────
+  // (1) Tab cũ điền sẵn ghi chú nội bộ (ghiChu của đợt thu / của phiếu) vào ô Ghi chú rồi gửi lên nguyên văn; câu ngắn (≤ 30) trùng ghi chú nội bộ
+  //     lưu trong CSDL phải bị thay bằng câu máy chủ, và dòng log [TT01 echo] không được chứa nội dung ghi chú.
+  const TWO_PAID = { ...PAID_30, cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ngayThu: '2026-09-01' }, { lanThu: 2, soTien: 40_000_000, ngayThu: '2026-10-01' }] };
+  const TWO_NOTED = { cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ghiChu: 'Đợt đầu - FT111' }, { lanThu: 2, soTien: 40_000_000, ghiChu: 'Đợt hai - FT222' }] };
+  const ECHO_CASES: Array<{ label: string; typed: string; patch: Record<string, unknown>; expected: string }> = [
+    { label: 'ghiChu của phiếu', typed: 'FT26161873245 link chứng từ', patch: {}, expected: 'Thanh toán đợt 1' },
+    { label: 'ghiChu của đợt thu', typed: 'Thu tiền đợt 1 - HĐ 004', patch: {}, expected: 'Thanh toán đợt 1' },
+    { label: 'ghiChu của phiếu (khác hoa/thường, thừa khoảng trắng)', typed: '  ft26161873245   LINK  chứng từ ', patch: {}, expected: 'Thanh toán đợt 1' },
+    { label: 'ghiChu của đợt thu thứ nhất (phiếu có hai đợt)', typed: 'đợt đầu - ft111', patch: TWO_NOTED, expected: 'Thanh toán đợt 2' },
+    { label: 'ghiChu của đợt thu thứ hai (phiếu có hai đợt)', typed: 'Đợt hai - FT222', patch: TWO_NOTED, expected: 'Thanh toán đợt 2' },
+    { label: 'note của phiếu (có khoảng trắng hai đầu)', typed: 'chuyển khoản vcb', patch: { note: '  Chuyển khoản VCB  ' }, expected: 'Thanh toán đợt 1' },
+    { label: 'ghiChuNoiBo của phiếu', typed: 'Đã đối soát', patch: { ghiChuNoiBo: 'Đã đối soát' }, expected: 'Thanh toán đợt 1' },
+    { label: 'note của phiếu (dạng Unicode tách dấu)', typed: 'Chuyển khoản VCB'.normalize('NFD'), patch: { note: 'Chuyển khoản VCB' }, expected: 'Thanh toán đợt 1' },
+  ];
+  it.each(ECHO_CASES)('ghi_chu gửi lên là bản sao $label → 200 với câu máy chủ; log [TT01 echo] không chứa nội dung ghi chú', async ({ typed, patch, expected }) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    znsHarness.docFixtures['payments/p1'] = { ...PAID_30, ...patch };
+    const res = await send({}, { ghi_chu: typed });
+    expect(res.status).toBe(200);
+    expect(sentPayload().ghi_chu).toBe(expected);
+    const echoLogs = warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('[TT01 echo]'));
+    expect(echoLogs).toHaveLength(1);
+    expect(echoLogs[0]).not.toMatch(/FT2616|Thu tiền|ft111|ft222|vcb|đối soát/i);
+  });
+
+  it.each(['Thanh toán đợt 1', 'Đã nhận đủ tiền cọc'])('câu ngắn thật "%s" (không trùng ghi chú nội bộ nào) → giữ nguyên, không ghi [TT01 echo]', async (typed) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    znsHarness.docFixtures['payments/p1'] = { ...PAID_30 };
+    const res = await send({}, { ghi_chu: typed });
+    expect(res.status).toBe(200);
+    expect(sentPayload().ghi_chu).toBe(typed);
+    expect(warn.mock.calls.some(c => String(c[0]).includes('[TT01 echo]'))).toBe(false);
+  });
+
+  // (2) Tab cũ ở trang Thanh toán điền sẵn "Thanh toán đợt N (Còn lại: … đ)" (> 30 ký tự) và không gửi installmentIndex: giữ đợt N người dùng đã chọn
+  //     (N là số lần thu của một đợt có tiền), không lấy đợt mới nhất; N không phải đợt có tiền thì giữ hành vi cũ (câu máy chủ = đợt mới nhất có tiền).
+  it.each([
+    'Thanh toán đợt 1 (Còn lại: 70.000.000 đ)',
+    'THANH TOÁN ĐỢT 1 (CÒN LẠI: 70.000.000 Đ)',
+    'Thanh toán đợt 1 (Còn lại: 70.000.000 đ)'.normalize('NFD'),
+    '  thanh   toán đợt 1 - còn lại 70tr',
+  ])('bản cũ không gửi installmentIndex, ghi_chu "%s" → giữ đợt 1 người dùng đã chọn, không lấy đợt mới nhất (2)', async (typed) => {
+    znsHarness.docFixtures['payments/p1'] = { ...TWO_PAID };
+    const res = await send({}, { ghi_chu: typed });
+    expect(res.status).toBe(200);
+    expect(sentPayload().ghi_chu).toBe('Thanh toán đợt 1');
+  });
+
+  it.each(['Thanh toán đợt 3 (Còn lại: 30.000.000 đ)', 'Thanh toán đợt 9 (Còn lại: 30.000.000 đ)'])('số đợt trong ghi_chu "%s" không phải đợt có tiền của phiếu → câu máy chủ (đợt mới nhất có tiền: 2)', async (typed) => {
+    znsHarness.docFixtures['payments/p1'] = { ...TWO_PAID, cacDotThu: [...TWO_PAID.cacDotThu, { lanThu: 3, soTien: 0, ngayThu: '' }] };
+    const res = await send({}, { ghi_chu: typed });
+    expect(res.status).toBe(200);
+    expect(sentPayload().ghi_chu).toBe('Thanh toán đợt 2');
+  });
+
+  // (3) Đọc phiếu thu lỗi (CSDL ném lỗi) không được trả "chưa ghi nhận khoản thu nào" (nhân viên sẽ ghi nhận trùng một đợt): 503, chưa gửi gì.
+  //     Chỉ tin xác nhận thanh toán bị chặn; các loại tin khác vẫn đi tiếp như cũ.
+  const failingRead = () => ({ doc: () => ({ get: () => Promise.reject(new Error('db down')) }) });
+  it('đọc phiếu thu lỗi → 503 PAYMENT_READ_FAILED, không gửi, không ghi trạng thái, có ghi log lỗi', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    znsHarness.fakeAdminDb.collection.mockImplementationOnce(failingRead);
+    const res = await send({}, { ghi_chu: 'Thanh toán đợt 1' });
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ success: false, code: 'PAYMENT_READ_FAILED', error: 'Không đọc được phiếu thu lúc này nên chưa gửi tin. Thử lại sau giây lát.' });
+    expect(znsHarness.fakeAdminDb.collection).toHaveBeenCalledWith('payments');
+    expect(znsHarness.executeMock).not.toHaveBeenCalled();
+    expect(znsHarness.docUpdateCalls).toEqual([]);
+    expect(error).toHaveBeenCalledTimes(1);
+  });
+
+  it('đối chứng: lỗi đọc báo giá (QUOTATION) không chặn gửi → vẫn 200 như cũ (chỉ tin thanh toán bị 503)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    znsHarness.fakeAdminDb.collection.mockImplementationOnce(failingRead);
+    const res = await request(app).post('/api/zns/send').send({ entityId: 'q1', entityType: 'QUOTATION', messageType: 'BAOGIA', phone: '0912345678', payload: { tenKhachHang: 'Công ty B' } });
+    expect(res.status).toBe(200);
+    expect(znsHarness.executeMock).toHaveBeenCalledTimes(1);
+  });
+
+  // (4) Hai ca của kế hoạch mà bản đầu của spec chưa có.
+  it('phiếu đã xóa mềm (deletedAt) dù còn các đợt có tiền → 409 PAYMENT_NOT_COLLECTED, không gửi, không ghi trạng thái', async () => {
+    znsHarness.docFixtures['payments/p1'] = { ...PAID_30, deletedAt: '2026-10-05T08:00:00Z' };
+    const res = await send();
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('PAYMENT_NOT_COLLECTED');
+    expect(znsHarness.executeMock).not.toHaveBeenCalled();
+    expect(znsHarness.docUpdateCalls).toEqual([]);
+  });
+
+  it('phiếu chỉ có số tiền đầu phiếu (Công nợ, soTien 50 triệu, không đợt thu) + installmentIndex 0 (dòng "Đợt 1" tự dựng) → 200, ghi_chu "Thanh toán đợt 1"', async () => {
+    znsHarness.docFixtures['payments/p1'] = { customerId: 'kh1', soTien: 50_000_000, totalAmount: 100_000_000, cacDotThu: [], tinhTrangThanhToan: 'Công nợ' };
+    const res = await send({}, { installmentIndex: 0 });
+    expect(res.status).toBe(200);
+    expect(sentPayload().ghi_chu).toBe('Thanh toán đợt 1');
   });
 });
