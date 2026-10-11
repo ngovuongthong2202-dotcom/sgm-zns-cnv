@@ -132,9 +132,18 @@ describe('PaymentRecordDrawer - Zero-Effect Financial Orchestrator (APW-ZFO)', (
     // 2. Verify total reference matches quotation total with VAT
     expect(rootContainer.textContent).toContain('2.832.840');
 
-    // 3. Verify status initialized as "Tất toán" because 100% amount was prefilled
-    const statusInputs = rootContainer.querySelectorAll('input[name="tinhTrangThanhToan"], select[name="tinhTrangThanhToan"]');
-    // Drawer uses select or radio or input for status
-    expect(rootContainer.innerHTML).toContain('Tất toán');
+    // 3. Đợt 0A (TT04): số tiền KHÔNG điền sẵn, trạng thái "Chưa TT", có dòng "Còn phải thu" bằng tổng báo giá
+    expect(rootContainer.textContent).toContain('Còn phải thu');
+    expect(rootContainer.textContent).toContain('2.832.840');
+    // Ô trạng thái là <select aria-label="Tình trạng thanh toán"> (PaymentRecordBasicFields.tsx:585-596) — KHÔNG có thuộc tính name
+    const statusSelect = rootContainer.querySelector('select[aria-label="Tình trạng thanh toán"]') as HTMLSelectElement | null;
+    expect(statusSelect).not.toBeNull();
+    expect(statusSelect!.value).toBe('Chưa TT');
+    // Ô "Thực thu" là SmartFinancialInput (input text, placeholder "0 đ", PaymentRecordBasicFields.tsx:808-820;
+    // SmartFinancialInput.tsx:76-90 hiển thị chuỗi rỗng khi value là undefined) — phải TÌM THẤY ô rồi mới so giá trị
+    const amountInput = rootContainer.querySelector('input[placeholder="0 đ"]') as HTMLInputElement | null;
+    expect(amountInput).not.toBeNull();
+    expect(amountInput!.value).toBe('');
+    expect(rootContainer.textContent).not.toContain('Tất toán 100%');
   });
 });

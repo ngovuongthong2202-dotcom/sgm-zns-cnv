@@ -367,7 +367,6 @@ export function PaymentRecordBasicFields({
                         setValue('discountRate', resolvedDiscountRate, { shouldDirty: true });
                         setValue('discountAmount', resolvedDiscount, { shouldDirty: true });
                         setValue('totalAmount', resolvedTotal, { shouldDirty: true });
-                        setValue('soTien', resolvedTotal, { shouldValidate: true, shouldDirty: true });
                         setValue('products', healedProducts, { shouldDirty: true });
                       } else {
                         setValue('sourceValue', val, { shouldValidate: true });
@@ -734,6 +733,11 @@ export function PaymentRecordBasicFields({
 
               {/* Smart Quick Rate Pills */}
               <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
+                {totalAmountVal > 0 && (
+                  <span className="w-full text-3xs font-semibold text-amber-800" data-testid="con-phai-thu">
+                    Còn phải thu: {new Intl.NumberFormat('vi-VN').format(Math.max(0, totalAmountVal - otherPaid))} ₫ — nhập số thực thu hoặc bấm gợi ý bên dưới
+                  </span>
+                )}
                 <button
                   type="button"
                   disabled={isFree || disabled || totalAmountVal <= 0}

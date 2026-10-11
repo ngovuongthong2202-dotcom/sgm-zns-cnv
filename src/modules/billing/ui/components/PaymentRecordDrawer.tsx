@@ -28,6 +28,7 @@ import { PaymentRecordBasicFields } from './form/PaymentRecordBasicFields';
 import { PaymentRecordProductsSection } from './form/PaymentRecordProductsSection';
 import { handleEnterToTab } from '@/src/shared/utils/formNavigation';
 import { calculateOtherPaid, determinePaymentStatus } from '../utils/payment-limits';
+import { buildQuotationPaymentPrefill } from '../utils/payment-prefill';
 import { notify } from '@/src/shared/utils/notify';
 
 interface PaymentRecordDrawerProps {
@@ -168,48 +169,12 @@ export function PaymentRecordDrawer({
       });
     } else if (isNew) {
       if (prefillQuotation) {
-        const normLoai = (prefillQuotation.phanLoai || (prefillQuotation as any).loai || (prefillQuotation as any).loaiBaoGia) || 'BG Vật tư';
-        const quoTotal = Number(prefillQuotation.totalAmount) || Number(prefillQuotation.subTotal) || 0;
-        const initialStatus = quoTotal > 0 ? 'Tất toán' : 'Chưa TT';
-
-        const linkedContract = contracts?.find((c: any) => 
-          (c.quotationId && (c.quotationId === prefillQuotation.id || c.quotationId === prefillQuotation.soPhieuBaoGia)) ||
-          (c.soPhieuBaoGia && (c.soPhieuBaoGia === prefillQuotation.soPhieuBaoGia || c.soPhieuBaoGia === prefillQuotation.id))
-        );
-        const resolvedContractId = linkedContract?.id || '';
-        const resolvedSoHopDong = linkedContract?.soHopDong || '';
-        const resolvedSoDonHang = linkedContract?.soDonHang || prefillQuotation.soDonHang || '';
-
-        reset({
-          paymentId: currentPaymentId,
-          trangThaiGuiTinThanhToan: EntityZnsStatus.CHUA_GUI,
-          tinhTrangThanhToan: initialStatus,
-          phuongThucThanhToan: 'Chuyển khoản',
-          sourceValue: resolvedContractId ? `CONTRACT:${resolvedContractId}` : `QUOTATION:${prefillQuotation.id}`,
-          quotationId: prefillQuotation.id,
-          contractId: resolvedContractId,
-          customerId: prefillQuotation.customerId || (prefillQuotation as any).customer_id || '',
-          maKh: prefillQuotation.maKh || '',
-          tenKhachHang: prefillQuotation.tenKhachHang || '',
-          sdt: prefillQuotation.soZaloMacDinh || prefillQuotation.sdt || '',
-          tenNguoiNop: prefillQuotation.nguoiLienHe || prefillQuotation.nguoiNhan || prefillQuotation.tenKhachHang || '',
-          isNguoiNopKhac: false,
-          soDonHang: resolvedSoDonHang,
-          soHopDong: resolvedSoHopDong,
-          soPhieuBaoGia: prefillQuotation.soPhieuBaoGia || '',
-          subTotal: prefillQuotation.subTotal || 0,
-          vatRate: prefillQuotation.vatRate || 0,
-          vatAmount: prefillQuotation.vatAmount || 0,
-          discountRate: prefillQuotation.discountRate || 0,
-          discountAmount: prefillQuotation.discountAmount || 0,
-          totalAmount: quoTotal,
-          soTien: quoTotal,
-          products: prefillQuotation.products || [],
-          ngayThanhToan: format(new Date(), 'yyyy-MM-dd'),
-          nguoiPhuTrach: defaultOfficer,
-          phanLoai: normLoai,
-          loai: normLoai
-        } as any);
+        // Đợt 0A (TT04): không điền 100 % và "Tất toán"; số tiền để trống, form hiện "Còn phải thu".
+        reset(buildQuotationPaymentPrefill(prefillQuotation, contracts, {
+          currentPaymentId,
+          defaultOfficer,
+          today: format(new Date(), 'yyyy-MM-dd'),
+        }) as any);
       } else if (draft) {
         reset({
           ...draft,
