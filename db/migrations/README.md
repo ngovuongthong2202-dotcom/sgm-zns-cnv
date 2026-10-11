@@ -37,7 +37,7 @@ Chạy `0001_b0c_cam_xoa_cung_khoa_cong_khai.rollback.sql` (cấp lại đúng c
 
 ## Cách chạy 0002
 
-Sau sao lưu: chạy `0002_don_zns_config_long.sql`; kiểm bằng truy vấn ở cuối tệp (`con_lop_long` = false cho `zns_config`); vào Cài đặt › Vendor & Webhook bấm "Kiểm tra kết nối Zalo OpenAPI" rồi "Lưu toàn bộ cấu hình", gửi thử 1 tin ZNS lẻ tới số nội bộ. Hoàn tác: `0002_don_zns_config_long.rollback.sql`. Dòng sao lưu `zns_config__bak_0002` chứa bí mật cũ — xóa tay sau khi B6 (đổi khóa) hoàn tất.
+Sau sao lưu: chạy `0002_don_zns_config_long.sql`; kiểm bằng truy vấn ở cuối tệp (`con_lop_long` = false cho `zns_config`); vào Cài đặt › Vendor & Webhook bấm "Kiểm tra kết nối Zalo OpenAPI" rồi "Lưu toàn bộ cấu hình", gửi thử 1 tin ZNS lẻ tới số nội bộ. Hoàn tác: `0002_don_zns_config_long.rollback.sql`. Chỉ chạy 0002 **một lần**: nếu sau này phải hoàn tác rồi chạy lại, và trong lúc đó cấu hình Zalo đã được sửa, thì bản sao lưu **cũ** vẫn được giữ nguyên (không bị ghi đè); muốn có bản sao lưu mới, hãy đổi tên hoặc xóa dòng `zns_config__bak_0002` trước khi chạy lại. Dòng sao lưu `zns_config__bak_0002` chứa bí mật cũ — xóa tay sau khi B6 (đổi khóa) hoàn tất.
 
 ## Tập trước trên dự án tạm (khuyến nghị, A5 còn mở)
 

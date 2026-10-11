@@ -127,6 +127,9 @@ describe('db/migrations/0002 – dọn zns_config lồng (ZNS05) và README', ()
     expect(joined).toMatch(/data - 'data' - 'id' - 'updated_at' - 'success'/);
     expect(joined.match(/WHERE id = 'zns_config'/g)?.length).toBeGreaterThanOrEqual(2);
     expect(joined).not.toMatch(/DELETE FROM|TRUNCATE|DROP /i);
+    // chạy lại không ghi đè bản sao lưu đầu tiên (nguồn hoàn tác của tệp hoàn tác): chỉ DO NOTHING, không bao giờ DO UPDATE
+    expect(joined).toMatch(/ON CONFLICT \(id\) DO NOTHING;/);
+    expect(joined).not.toMatch(/DO UPDATE/i);
   });
 
   it('tệp hoàn tác chép data từ dòng sao lưu về zns_config; không xóa dòng nào', () => {
