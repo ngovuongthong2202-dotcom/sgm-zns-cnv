@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import { CompleteSchema, resolveInitialHandoverDate } from './complete-delivery.rules';
+import type { CompleteFormValues } from './complete-delivery.rules';
+import { getVietnamDateKey, shiftVietnamDateKey } from '@/src/shared/utils/vietnamDate';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Delivery, DeliveryShipment } from '@/src/domain/schema/delivery.schema';
 import { motion } from 'motion/react';
@@ -30,20 +32,6 @@ import { resolveDeliveryDisplayCode } from '@/src/shared/utils/voucherResolver';
 import { parseVietnamAddressComplete } from '@/src/shared/services/vietnamAddressParser';
 import { VIETNAM_PROVINCES_2025 } from '@/src/shared/services/vietnamProvincesApi';
 import { detectItemType } from '@/src/widgets/product-list-input/useProductItemSemantic';
-
-const CompleteSchema = z.object({
-  ngayGiaoThucTe: z.string().min(1, 'Vui lòng chọn ngày giao'),
-  kyNhan: z.string().min(1, 'Vui lòng nhập tên/sđt người nhận'),
-  soPhieuXuat: z.string().optional(),
-  keToanKho: z.string().optional(),
-  khoXuat: z.string().optional(),
-  donViVanChuyen: z.string().optional(),
-  thoGiaoMay: z.string().optional(),
-  sdtThoGiaoMay: z.string().optional(),
-  ghiChu: z.string().optional(),
-});
-
-type CompleteFormValues = z.infer<typeof CompleteSchema>;
 
 interface CompleteDeliveryModalProps {
   delivery: Delivery;
@@ -95,7 +83,7 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave, targetShipmen
   const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<CompleteFormValues>({
     resolver: zodResolver(CompleteSchema),
     defaultValues: {
-      ngayGiaoThucTe: targetShipment?.ngayGiaoThucTe || targetShipment?.ngayGiaoMay || delivery.ngayGiaoThucTe || delivery.ngayGiaoMay || new Date().toISOString().split('T')[0],
+      ngayGiaoThucTe: resolveInitialHandoverDate(delivery, targetShipment), // Đợt 0A (GH15): không điền sẵn ngày hẹn/hôm nay
       kyNhan: targetShipment?.kyNhan || delivery.kyNhan || delivery.nguoiLienHe || '',
       soPhieuXuat: targetShipment?.soPhieuXuat || delivery.soPhieuXuat || '',
       keToanKho: targetShipment?.keToanKho || delivery.keToanKho || '',
@@ -494,18 +482,14 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave, targetShipmen
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
-                              onClick={() => setValue('ngayGiaoThucTe', new Date().toISOString().split('T')[0], { shouldDirty: true })}
+                              onClick={() => setValue('ngayGiaoThucTe', getVietnamDateKey(), { shouldDirty: true, shouldValidate: true })}
                               className="text-3xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.2 rounded border border-blue-200 cursor-pointer"
                             >
                               Hôm nay
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                const yesterday = new Date();
-                                yesterday.setDate(yesterday.getDate() - 1);
-                                setValue('ngayGiaoThucTe', yesterday.toISOString().split('T')[0], { shouldDirty: true });
-                              }}
+                              onClick={() => setValue('ngayGiaoThucTe', shiftVietnamDateKey(getVietnamDateKey(), -1), { shouldDirty: true, shouldValidate: true })}
                               className="text-3xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.2 rounded border border-slate-200 cursor-pointer"
                             >
                               Hôm qua
@@ -515,6 +499,7 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave, targetShipmen
                         <input 
                           type="date" 
                           {...register('ngayGiaoThucTe')}
+                          max={getVietnamDateKey()}
                           className="h-9 px-3 border border-slate-300 rounded-lg text-xs font-bold text-slate-900 w-full focus:border-blue-600 outline-none bg-white" 
                         />
                         {errors.ngayGiaoThucTe && <p className="text-red-500 text-3xs font-medium">{errors.ngayGiaoThucTe.message}</p>}
