@@ -155,34 +155,41 @@ router.post('/test-zalo-direct', async (req, res) => {
   }
 });
 
-// Endpoint for testing connection to vendor webhook
+// Đợt 0A (ZNS01): "ping" chỉ gọi tới địa chỉ CNV ĐÃ LƯU trong cấu hình (bỏ qua mọi địa chỉ gửi lên), chỉ https tới hub.cnvcdp.com,
+// không đi theo chuyển hướng, chỉ trả mã trạng thái và thời gian phản hồi (không trả nội dung, không lặp lại địa chỉ).
+// Phần "bắt buộc đăng nhập quản trị" của ZNS01 thuộc B2.
+const VENDOR_URL_SLOTS: readonly string[] = [
+  'vendorUrl_CUSTOMER_PRE_QUOTE', 'vendorUrl_BAOGIA', 'vendorUrl_HOPDONG_SIGN_ZNS', 'vendorUrl_THANH_TOAN_XAC_NHAN',
+  'vendorUrl_THANH_TOAN_TAT_TOAN', 'vendorUrl_THANH_TOAN_CONG_NO', 'vendorUrl_GIAOHANG_ZNS', 'vendorUrl_GIAOHANG_HOANTAT', 'vendorUrl_DEFAULT'
+];
+const ALLOWED_VENDOR_HOSTS: readonly string[] = ['hub.cnvcdp.com'];
+
+export function isAllowedVendorUrl(raw: unknown): boolean {
+  if (typeof raw !== 'string' || !raw.trim()) return false;
+  try {
+    const u = new URL(raw.trim());
+    return u.protocol === 'https:' && ALLOWED_VENDOR_HOSTS.includes(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
 router.post('/test-webhook-dryrun', async (req, res) => {
   try {
-    let testUrl = (req.body?.testUrl || req.body?.url || '').trim();
+    const requestedSlot = typeof req.body?.slot === 'string' ? req.body.slot : '';
+    const settingsDoc = await adminDb.collection('settings').doc('zns_config').get();
+    const configData: Record<string, unknown> = settingsDoc.exists ? settingsDoc.data() || {} : {};
+    const slots = requestedSlot && VENDOR_URL_SLOTS.includes(requestedSlot) ? [requestedSlot] : VENDOR_URL_SLOTS;
+    const savedUrl = slots.map(k => String(configData[k] || '').trim()).find(Boolean)
+      || String(process.env.CNV_DEFAULT_WEBHOOK_URL || '').trim();
 
-    if (!testUrl) {
-      const settingsDoc = await adminDb.collection('settings').doc('zns_config').get();
-      const configData = settingsDoc.exists ? settingsDoc.data() || {} : {};
-      testUrl = (
-        configData.vendorUrl_CUSTOMER_PRE_QUOTE || 
-        configData.vendorUrl_BAOGIA || 
-        configData.vendorUrl_HOPDONG_SIGN_ZNS || 
-        configData.vendorUrl_THANH_TOAN_TAT_TOAN || 
-        configData.vendorUrl_GIAOHANG_ZNS || 
-        configData.vendorUrl_DEFAULT || 
-        process.env.CNV_DEFAULT_WEBHOOK_URL ||
-        ''
-      ).trim();
+    if (!savedUrl) {
+      return res.status(400).json({ success: false, code: 'NO_SAVED_VENDOR_URL', error: 'Chưa lưu địa chỉ Webhook CNV nào trong Cài đặt → Vendor & Webhook.' });
     }
-    
-    if (!testUrl || typeof testUrl !== 'string' || !testUrl.trim()) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Chưa cấu hình URL Webhook Vendor trong mục Ánh xạ giao thức (Vào Cài đặt → Vendor & Webhook).' 
-      });
+    if (!isAllowedVendorUrl(savedUrl)) {
+      return res.status(400).json({ success: false, code: 'VENDOR_URL_NOT_ALLOWED', error: 'Địa chỉ đã lưu không thuộc máy chủ CNV (https://hub.cnvcdp.com) nên không ping.' });
     }
 
-    const trimmedUrl = testUrl.trim();
     const pingPayload = {
       action: 'Gửi tin',
       message_type: 'TEST_DRY_RUN',
@@ -195,45 +202,24 @@ router.post('/test-webhook-dryrun', async (req, res) => {
       timestamp: new Date().toISOString()
     };
 
-    const pingResponse = await resilientFetch(trimmedUrl, {
+    const startedAt = Date.now();
+    const pingResponse = await resilientFetch(savedUrl, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'User-Agent': 'SGM-CRM-ZNS-Outbound/1.0'
-      },
-      body: JSON.stringify(pingPayload)
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'SGM-CRM-ZNS-Outbound/1.0' },
+      body: JSON.stringify(pingPayload),
+      redirect: 'manual'
     });
-
+    const latencyMs = Date.now() - startedAt;
     const status = pingResponse.status;
-    const responseText = await pingResponse.text().catch(() => '');
-    let parsedBody: any = null;
-    try {
-      parsedBody = JSON.parse(responseText);
-    } catch {
-      parsedBody = responseText;
-    }
+    await pingResponse.text().catch(() => ''); // đọc để đóng kết nối; KHÔNG trả nội dung về trình duyệt
 
     if (status >= 200 && status < 300) {
-      return res.json({ 
-        success: true, 
-        message: `Kết nối thành công tới Webhook CNV (HTTP ${status}). Hệ thống đã liên kết và nhận phản hồi tốt từ CNV.`,
-        url: trimmedUrl,
-        response: parsedBody
-      });
-    } else {
-      return res.status(502).json({
-        success: false,
-        error: `Webhook CNV phản hồi mã lỗi HTTP ${status}. Kiểm tra lại trạng thái kịch bản trên CNV.`,
-        url: trimmedUrl,
-        response: parsedBody
-      });
+      return res.json({ success: true, status, latencyMs, message: `Kết nối thành công tới Webhook CNV (HTTP ${status}, ${latencyMs} ms).` });
     }
+    return res.status(502).json({ success: false, status, latencyMs, error: `Webhook CNV phản hồi mã lỗi HTTP ${status}. Kiểm tra lại trạng thái kịch bản trên CNV.` });
   } catch (err: any) {
     const errorDetail = err?.cause?.message || err?.message || String(err);
-    return res.status(500).json({ 
-      success: false, 
-      error: `Không thể kết nối tới Webhook CNV: ${errorDetail}` 
-    });
+    return res.status(500).json({ success: false, error: `Không thể kết nối tới Webhook CNV: ${errorDetail}` });
   }
 });
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { notify } from '@/src/shared/utils/notify';
-import { Save, ShieldAlert, Check, Copy, Zap, Globe, Key, RefreshCw, HelpCircle, Send } from 'lucide-react';
+import { Save, Check, Copy, Zap, Globe, Send } from 'lucide-react';
 import { useAuth } from '@/src/modules/iam';
 import { Button } from '@/src/design-system/Button';
 
@@ -87,12 +87,11 @@ export default function VendorPage() {
   const handleTestCnvWebhook = async () => {
     setTestingCnv(true);
     try {
-      const testUrl = formState.vendorUrl_CUSTOMER_PRE_QUOTE || formState.vendorUrl_BAOGIA || '';
-
+      // Đợt 0A (ZNS01): máy chủ chỉ ping địa chỉ ĐÃ LƯU của ô này; địa chỉ đang gõ trong form không được gửi lên.
       const res = await fetch('/api/zns/test-webhook-dryrun', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ testUrl })
+        body: JSON.stringify({ slot: 'vendorUrl_CUSTOMER_PRE_QUOTE' })
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
@@ -365,6 +364,7 @@ export default function VendorPage() {
                 {testingCnv ? 'Đang ping CNV...' : 'Ping Thử Nghiệm Webhook CNV'}
               </Button>
             </div>
+            <p className="text-2xs text-slate-500">Kiểm tra dùng địa chỉ đã lưu của ô "1. Giai đoạn trước báo giá" — hãy Lưu trước nếu vừa sửa địa chỉ.</p>
 
             {/* CNV System Endpoint */}
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
