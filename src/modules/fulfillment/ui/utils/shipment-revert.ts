@@ -93,12 +93,22 @@ interface Located {
   index: number;
 }
 
+/** Hai số phiếu xuất cùng không rỗng (sau khi cắt khoảng trắng) mà khác nhau → hai đợt thuộc hai phiếu xuất khác nhau. Rỗng = không có bằng chứng. */
+function pxkConflict(a: Partial<DeliveryShipment>, b: Partial<DeliveryShipment>): boolean {
+  const x = String(a.soPhieuXuat ?? '').trim();
+  const y = String(b.soPhieuXuat ?? '').trim();
+  return x !== '' && y !== '' && x !== y;
+}
+
 function locate(delivery: Delivery, target: Partial<DeliveryShipment>): Located | { error: string } {
   if (DeliveryStatusVO.fromString(delivery.tinhTrangGiaoHang) === CanonicalDeliveryStatus.DA_HUY) {
     return { error: 'Phiếu đã hủy, không hủy xác nhận đợt được.' };
   }
   let shipments: DeliveryShipment[] = Array.isArray(delivery.cacDotGiao) ? [...delivery.cacDotGiao] : [];
   let index = findShipmentIndex(shipments, target);
+  // Id `DOT-n` không đủ để chứng minh đợt thuộc phiếu này: id dựng tạm (delivery-reconciler.ts) và id thật (RecordShipmentModal.tsx) đều có dạng `DOT-n`,
+  // nên một dòng gộp có thể liệt kê đợt của phiếu anh em trùng id. Số phiếu xuất cùng không rỗng mà khác nhau → đợt của phiếu khác → coi như không tìm thấy.
+  if (index !== -1 && pxkConflict(target, shipments[index])) index = -1;
 
   // Phiếu cũ: không có sổ đợt trong CSDL nhưng phiếu đã giao → "Đợt 1" được dựng tạm từ phiếu (migrateLegacyDeliveriesToUnifiedLedger).
   // Chỉ nhận đích mang đúng số phiếu xuất của CHÍNH phiếu này: "Đợt 1" dựng tạm của phiếu anh em trong cùng nhóm gộp có số phiếu xuất khác.

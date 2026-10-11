@@ -137,6 +137,52 @@ describe('shipment-revert – Đợt 0A (GH01)', () => {
     expect(findShipmentIndex(withIds, { id: '  ', dotGiaoHang: 1 })).toBe(0);
   });
 
+  it('dòng gộp: đích là đợt của phiếu anh em mang CÙNG id DOT-2 nhưng số phiếu xuất khác → ok:false (lỗi không tìm thấy đợt), xem trước cũng từ chối, sổ đợt của phiếu không bị sửa', () => {
+    const d = base({ cacDotGiao: [confirmed(1, { id: 'DOT-1-111', soPhieuXuat: 'PXK-A1' }), confirmed(2, { id: 'DOT-2', soPhieuXuat: 'PXK-A2' })], tinhTrangGiaoHang: 'Hoàn tất' });
+    const sibling = confirmed(2, { id: 'DOT-2', soPhieuXuat: 'PXK-B', kyNhan: 'Người ký B' });
+    expect(applyShipmentRevert(d, sibling, ctx)).toEqual({ ok: false, error: 'Không tìm thấy đợt giao cần hủy xác nhận trong phiếu.' });
+    expect(previewShipmentRevert(d, sibling)).toEqual({ ok: false, error: 'Không tìm thấy đợt giao cần hủy xác nhận trong phiếu.' });
+    expect(d.cacDotGiao).toEqual([confirmed(1, { id: 'DOT-1-111', soPhieuXuat: 'PXK-A1' }), confirmed(2, { id: 'DOT-2', soPhieuXuat: 'PXK-A2' })]);
+  });
+
+  it('dòng gộp: đợt của CHÍNH phiếu (cùng id DOT-2, cùng số phiếu xuất PXK-A2) vẫn hủy được; chỉ đợt ở vị trí 1 bị xóa, đợt ở vị trí 0 giữ nguyên', () => {
+    const d = base({ cacDotGiao: [confirmed(1, { id: 'DOT-1-111', soPhieuXuat: 'PXK-A1' }), confirmed(2, { id: 'DOT-2', soPhieuXuat: 'PXK-A2' })], tinhTrangGiaoHang: 'Hoàn tất' });
+    const r = applyShipmentRevert(d, confirmed(2, { id: 'DOT-2', soPhieuXuat: 'PXK-A2' }), ctx);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.patch.cacDotGiao[1]).toMatchObject({ id: 'DOT-2', soPhieuXuat: 'PXK-A2', tinhTrangGiaoHang: 'CHO_GIAO', ngayGiaoThucTe: null, kyNhan: '' });
+    expect(r.patch.cacDotGiao[0]).toEqual(confirmed(1, { id: 'DOT-1-111', soPhieuXuat: 'PXK-A1' }));
+  });
+
+  it('hủy thành công đợt ở vị trí khác 0, khớp theo id: [DOT-1-1, DOT-2-2] hủy Đợt 2 → vị trí 1 bị xóa kèm 1 mục lịch sử, vị trí 0 bằng bản dựng mới', () => {
+    const d = base({ cacDotGiao: [confirmed(1, { id: 'DOT-1-1' }), confirmed(2, { id: 'DOT-2-2' })], tinhTrangGiaoHang: 'Hoàn tất' });
+    const r = applyShipmentRevert(d, confirmed(2, { id: 'DOT-2-2' }), ctx);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.patch.cacDotGiao).toHaveLength(2);
+    expect(r.patch.cacDotGiao[1]).toMatchObject({ id: 'DOT-2-2', tinhTrangGiaoHang: 'CHO_GIAO', ngayGiaoThucTe: null, kyNhan: '' });
+    expect(r.patch.cacDotGiao[1].lichSuHuyXacNhan).toHaveLength(1);
+    expect(r.patch.cacDotGiao[0]).toEqual(confirmed(1, { id: 'DOT-1-1' }));
+    expect(r.updatedShipments).toEqual(r.patch.cacDotGiao);
+  });
+
+  it('số phiếu xuất rỗng ở đích hoặc ở đợt đang lưu (hoặc chỉ khác khoảng trắng đầu/cuối) → không đủ bằng chứng để chặn: id quyết định như trước', () => {
+    const d = base({ cacDotGiao: [confirmed(1, { id: 'DOT-1-111', soPhieuXuat: 'PXK-A1' }), confirmed(2, { id: 'DOT-2', soPhieuXuat: 'PXK-A2' })], tinhTrangGiaoHang: 'Hoàn tất' });
+    for (const pxk of [undefined, '', '   ', ' PXK-A2 ']) {
+      const r = applyShipmentRevert(d, { id: 'DOT-2', dotGiaoHang: 2, soPhieuXuat: pxk }, ctx);
+      expect(r.ok, `đích có soPhieuXuat ${JSON.stringify(pxk)}`).toBe(true);
+      if (r.ok) expect(r.patch.cacDotGiao[1]).toMatchObject({ id: 'DOT-2', tinhTrangGiaoHang: 'CHO_GIAO' });
+    }
+    const storedEmpty = base({ cacDotGiao: [confirmed(1, { id: 'DOT-1-111', soPhieuXuat: 'PXK-A1' }), confirmed(2, { id: 'DOT-2', soPhieuXuat: '  ' })], tinhTrangGiaoHang: 'Hoàn tất' });
+    expect(applyShipmentRevert(storedEmpty, confirmed(2, { id: 'DOT-2', soPhieuXuat: 'PXK-B' }), ctx).ok).toBe(true);
+  });
+
+  it('khớp theo số đợt (đợt đang lưu không có id) mà số phiếu xuất cùng không rỗng và khác nhau → cũng bị từ chối; cùng số phiếu xuất thì vẫn hủy được', () => {
+    const d = base({ cacDotGiao: [confirmed(1, { id: '', soPhieuXuat: 'PXK-A1' }), confirmed(2, { id: '', soPhieuXuat: 'PXK-A2' })], tinhTrangGiaoHang: 'Hoàn tất' });
+    expect(applyShipmentRevert(d, { dotGiaoHang: 2, soPhieuXuat: 'PXK-B' }, ctx)).toEqual({ ok: false, error: 'Không tìm thấy đợt giao cần hủy xác nhận trong phiếu.' });
+    expect(applyShipmentRevert(d, { dotGiaoHang: 2, soPhieuXuat: 'PXK-A2' }, ctx).ok).toBe(true);
+  });
+
   it('chuỗi trạng thái cũ: "Hoàn tất" + ngày hoặc "HOAN_TAT" không ngày đều tính là đã xác nhận', () => {
     expect(applyShipmentRevert(base({ cacDotGiao: [ship(1, { tinhTrangGiaoHang: 'Hoàn tất', ngayGiaoThucTe: '2026-10-01' }), ship(2)] }), ship(1), ctx).ok).toBe(true);
     expect(applyShipmentRevert(base({ cacDotGiao: [ship(1, { tinhTrangGiaoHang: 'HOAN_TAT' }), ship(2)] }), ship(1), ctx).ok).toBe(true);
