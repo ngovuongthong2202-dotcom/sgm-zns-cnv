@@ -33,17 +33,21 @@ describe('usePaymentZns – Đợt 0A (TT01): câu ghi chú từ hàm chung, ch�
     expect(preview?.installmentIndex).toBe(0);
     const p = preview?.payment as unknown as Record<string, unknown>;
     expect(p.ghi_chu).toBe('Thanh toán đợt 1');
+    expect(p.installmentIndex).toBe(0);
     expect(p).not.toHaveProperty('ghiChu');
     expect(JSON.stringify(p)).not.toMatch(/FT2616|Tất toán|Còn lại/);
     expect(notifyMock.error).not.toHaveBeenCalled();
   });
 
-  it('gửi ở cấp phiếu (không chọn đợt) → N là đợt có tiền mới nhất và installmentIndex được suy ra', async () => {
+  it('gửi ở cấp phiếu (không chọn đợt) → N là đợt có tiền mới nhất; installmentIndex suy ra chỉ đi trong payload gửi máy chủ, màn xem trước giữ chỉ số người dùng chọn (không có)', async () => {
     const twoInstallments = { ...paid30, cacDotThu: [...(paid30.cacDotThu || []), { lanThu: 2, soTien: 20_000_000, ngayThu: '2026-10-05' }] } as unknown as Payment;
     const { result } = renderHook(() => usePaymentZns(vi.fn().mockResolvedValue(true), vi.fn()));
     await act(async () => { await result.current.handleSendZns(twoInstallments); });
-    expect((result.current.znsPreviewPayment?.payment as unknown as Record<string, unknown>).ghi_chu).toBe('Thanh toán đợt 2');
-    expect(result.current.znsPreviewPayment?.installmentIndex).toBe(1);
+    const p = result.current.znsPreviewPayment?.payment as unknown as Record<string, unknown>;
+    expect(p.ghi_chu).toBe('Thanh toán đợt 2');
+    expect(p.installmentIndex).toBe(1);
+    // Trang Thanh toán chỉ ghi trạng thái gửi vào sổ thu khi người dùng chọn đúng một đợt; gửi ở cấp phiếu không được ghi đè cacDotThu bằng bản chụp.
+    expect(result.current.znsPreviewPayment?.installmentIndex).toBeUndefined();
   });
 
   it('phiếu "Chưa TT" chưa thu đồng nào → notify.error với hướng dẫn, không mở màn xem trước', async () => {

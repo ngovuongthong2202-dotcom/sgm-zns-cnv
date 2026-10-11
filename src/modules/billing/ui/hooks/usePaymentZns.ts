@@ -191,7 +191,8 @@ export function usePaymentZns(
       customer: cSnap,
       phone: targetPhone,
       messageType,
-      installmentIndex: resolvedInstallmentIndex ?? undefined,
+      // Chỉ số người dùng CHỌN (không phải chỉ số suy ra): onSuccess của trang Thanh toán chỉ ghi trạng thái gửi vào cacDotThu khi có chỉ số này.
+      installmentIndex,
       availablePhones: availableMobiles.map((m, idx) => ({
         phone: m.cleaned,
         label: `${m.formatted} (${m.carrier || 'Di động'})`,

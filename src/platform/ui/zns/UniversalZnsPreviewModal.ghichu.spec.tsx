@@ -66,4 +66,16 @@ describe('UniversalZnsPreviewModal – Đợt 0A (TT01): ô Ghi chú của mẫu
     await waitFor(() => expect(notifyMock.error).toHaveBeenCalledWith(expect.stringContaining('Thiếu nội dung')));
     expect(sendZnsAndToastMock).not.toHaveBeenCalled();
   });
+
+  it('ghi chú đúng 30 ký tự → gửi được: sendZnsAndToast được gọi một lần với đúng câu đó và installmentIndex của payload', async () => {
+    renderModal({ ...basePayload, ghi_chu: 'Thanh toán đợt 1', installmentIndex: 0 });
+    fireEvent.change(noteInput(), { target: { value: 'Thanh toan dot 1 - HD 2026-002' } }); // 30 ký tự ASCII (đếm chắc)
+    expect(noteInput().value.length).toBe(30);
+    fireEvent.click(sendButton());
+    await waitFor(() => expect(sendZnsAndToastMock).toHaveBeenCalledTimes(1));
+    const { payload } = sendZnsAndToastMock.mock.calls[0][0] as { payload: Record<string, unknown> };
+    expect(payload.ghi_chu).toBe('Thanh toan dot 1 - HD 2026-002');
+    expect(payload.installmentIndex).toBe(0);
+    expect(notifyMock.error).not.toHaveBeenCalled();
+  });
 });

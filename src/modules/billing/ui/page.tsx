@@ -450,7 +450,8 @@ export default function PaymentsFeature() {
             date: formatZnsDate((znsPreviewPayment.payment as any).date || znsPreviewPayment.payment.ngayThanhToan),
             time: formatZnsDate(znsPreviewPayment.payment.ngayThanhToan),
             ghi_chu: (znsPreviewPayment.payment as any).ghi_chu || '',
-            installmentIndex: znsPreviewPayment.installmentIndex,
+            // Đợt 0A (TT01): gửi chỉ số đợt đã suy ra để máy chủ kiểm; onSuccess bên dưới vẫn chỉ ghi sổ thu theo chỉ số người dùng chọn.
+            installmentIndex: (znsPreviewPayment.payment as any).installmentIndex,
             diem_thanh_toan: (znsPreviewPayment.payment as any).diem_thanh_toan || '0',
             loai_don: (znsPreviewPayment.payment as any).loai_don || 'Cung cấp Máy móc/Thiết Bị',
             diem_khach_hang: (znsPreviewPayment.payment as any).diem_khach_hang || (znsPreviewPayment.payment as any).diem_thanh_toan || '0',
