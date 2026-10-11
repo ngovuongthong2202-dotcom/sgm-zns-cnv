@@ -150,8 +150,11 @@ export default function VendorPage() {
         throw new Error(data?.error || `Lỗi HTTP ${res.status}`);
       }
       notify.success(data?.message || 'Kết nối thành công tới Zalo Cloud OpenAPI!');
-      // Đợt 0A (Z0.3): máy chủ đã lưu cặp mã mới → tải lại form (xóa trắng ô bí mật, cập nhật hạn dùng) để "Lưu" không ghi đè mã.
-      await reloadConfig();
+      // Đợt 0A (Z0.3): máy chủ vừa lưu cặp mã mới → chỉ đổi đúng phần bài kiểm tra đã đổi, ngay tại chỗ: ô Secret Key/Refresh Token
+      // về trống (mã vừa gõ đã bị Zalo tiêu), cờ "đã lưu", hạn dùng theo phản hồi. Không tải lại cả form để giữ phần đang sửa dở.
+      setFormState(prev => ({ ...prev, zaloSecretKey: '', zaloRefreshToken: '' }));
+      setSavedSecrets(prev => ({ ...prev, zaloSecretKey: true, zaloRefreshToken: true }));
+      if (Number(data?.tokenExpiresAt) > 0) setTokenExpiresAt(Number(data.tokenExpiresAt));
     } catch (err: any) {
       notify.error(err instanceof Error ? err.message : String(err));
     } finally {
@@ -517,10 +520,11 @@ export default function VendorPage() {
           <div className="text-xs text-slate-500">
             Chế độ đang chọn: <strong className="text-blue-600 font-semibold">{formState.znsProvider}</strong>
           </div>
+          {/* Đợt 0A (Z0.3): khóa "Lưu" trong lúc "Kiểm tra kết nối Zalo" chạy — Refresh Token đang gõ sắp bị Zalo tiêu. */}
           <Button 
             aria-label="Lưu cấu hình" 
             type="submit" 
-            disabled={saving} 
+            disabled={saving || testingZalo}
             className="bg-blue-600 text-white font-medium h-9 px-5 border-0 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm text-sm"
           >
             <Save size={15} className={saving ? 'animate-pulse' : ''} />

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { vendorWebhookHandler } from '../services/zns/vendor-webhook.handler';
 import { znsPayloadBuilder, sanitizeZnsCustomerName, sanitizeZnsPersonName } from '../services/zns/zns-payload.builder';
-import { toPublicZnsConfig, pickZnsConfigUpdate } from '../services/zns/zns-config.policy';
+import { toPublicZnsConfig, pickZnsConfigUpdate, ZNS_CONFIG_SECRET_FIELDS } from '../services/zns/zns-config.policy';
 import { adminDb } from '../config/supabase.admin';
 import { ZnsMessage } from '../../domain/schema/workflow.schema';
 import { SendZnsMessageUseCase } from '../../modules/messaging/application/use-cases/SendZnsMessage';
@@ -99,6 +99,16 @@ router.post('/config', async (req, res) => {
   try {
     const { payload, rejectedKeys } = pickZnsConfigUpdate(req.body || {});
     const docRef = adminDb.collection('settings').doc('zns_config');
+    // Đợt 0A (ZNS05): set(merge) của lớp tương thích thành ghi đè cả dòng khi lần đọc bên trong lỗi, và form đã che khóa nên không
+    // gửi lại bí mật → đọc trước; không đọc được (hoặc chưa có dòng) mà thân không mang bí mật mới thì KHÔNG ghi (tránh xóa khóa Zalo).
+    const current = await docRef.get();
+    if (!current.exists && !ZNS_CONFIG_SECRET_FIELDS.some(k => payload[k] !== undefined)) {
+      return res.status(503).json({
+        success: false,
+        code: 'ZNS_CONFIG_UNREADABLE',
+        error: 'Không đọc được cấu hình ZNS đang lưu (hoặc chưa có). Chưa lưu để không làm mất khóa Zalo. Nếu đã có cấu hình, thử lại sau giây lát; nếu là lần lưu đầu, hãy nhập đủ khóa Zalo.'
+      });
+    }
     const updatePayload: Record<string, any> = { ...payload, updatedAt: new Date().toISOString() };
     await docRef.set(updatePayload, { merge: true });
     const saved = await docRef.get();
@@ -116,11 +126,14 @@ router.post('/test-zalo-direct', async (req, res) => {
     const appId = String(req.body?.appId || creds.appId || '').trim();
     const secretKey = String(req.body?.secretKey || creds.secretKey || '').trim();
     const oaId = String(req.body?.oaId || creds.oaId || '').trim();
-    const refreshToken = String(req.body?.refreshToken || creds.refreshToken || '').trim();
+    // Đợt 0A (Z0.3): chỉ truyền Refresh Token người dùng vừa gõ; để trống thì refreshTokenDirect đọc mã đang lưu TRONG khóa
+    // (mã đọc ở đây có thể vừa bị một lần tự làm mới đang chạy xoay mất).
+    const typedRefreshToken = String(req.body?.refreshToken || '').trim();
+    const refreshToken = typedRefreshToken || String(creds.refreshToken || '').trim();
 
     // 1. Nếu có đầy đủ appId, secretKey, refreshToken từ form hoặc DB, thực hiện refresh trực tiếp
     if (appId && secretKey && refreshToken) {
-      const refreshResult = await zaloTokenManager.refreshTokenDirect(appId, secretKey, refreshToken, oaId);
+      const refreshResult = await zaloTokenManager.refreshTokenDirect(appId, secretKey, typedRefreshToken, oaId);
       if (!refreshResult.success) {
         return res.status(400).json({
           success: false,

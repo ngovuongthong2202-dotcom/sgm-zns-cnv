@@ -129,12 +129,41 @@ describe('zns.routes – Đợt 0A (ZNS05/Z0.3): GET /config không trả bí m�
     expect(znsHarness.docSetCalls[0].data).not.toHaveProperty('zaloSecretKey');
   });
 
-  it('POST /api/zns/test-zalo-direct với appId/secretKey/refreshToken rỗng → dùng bản đã lưu; phản hồi không chứa accessToken', async () => {
+  it('POST /api/zns/test-zalo-direct với appId/secretKey/refreshToken rỗng → dùng App ID/Secret Key/OA ID đã lưu, Refresh Token để trống (token manager đọc trong khóa); phản hồi không chứa accessToken', async () => {
     znsHarness.zaloTokenManagerMock.getCredentials.mockResolvedValue({ appId: '123', secretKey: 'bi-mat-1', oaId: '456', refreshToken: 'rt-1' });
     const res = await request(app).post('/api/zns/test-zalo-direct').send({ appId: '', secretKey: '', oaId: '', refreshToken: '' });
     expect(res.status).toBe(200);
-    expect(znsHarness.zaloTokenManagerMock.refreshTokenDirect).toHaveBeenCalledWith('123', 'bi-mat-1', 'rt-1', '456');
+    // Đợt 0A (Z0.3, vòng sửa 1): không truyền Refresh Token đọc sẵn ở đây (một lần tự làm mới đang chạy có thể vừa xoay mất).
+    expect(znsHarness.zaloTokenManagerMock.refreshTokenDirect).toHaveBeenCalledWith('123', 'bi-mat-1', '', '456');
     expect(res.body).not.toHaveProperty('accessToken');
     expect(JSON.stringify(res.body)).not.toMatch(/bi-mat|rt-1/);
+  });
+
+  it('POST /api/zns/test-zalo-direct với Refresh Token vừa gõ → truyền đúng mã đó (đã cắt khoảng trắng)', async () => {
+    znsHarness.zaloTokenManagerMock.getCredentials.mockResolvedValue({ appId: '123', secretKey: 'bi-mat-1', oaId: '456', refreshToken: 'rt-1' });
+    const res = await request(app).post('/api/zns/test-zalo-direct').send({ refreshToken: ' rt-tay ' });
+    expect(res.status).toBe(200);
+    expect(znsHarness.zaloTokenManagerMock.refreshTokenDirect).toHaveBeenCalledWith('123', 'bi-mat-1', 'rt-tay', '456');
+  });
+
+  it('POST /api/zns/config khi không đọc được dòng cấu hình (hoặc chưa có) và thân không có bí mật mới → 503 ZNS_CONFIG_UNREADABLE, không ghi', async () => {
+    delete znsHarness.docFixtures[CFG];
+    const res = await request(app).post('/api/zns/config').send({ zaloAppId: '123', zaloSecretKey: '', zaloRefreshToken: '  ', vendorWebhookSecret: '••••abcd', updatedBy: 'thong' });
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({
+      success: false,
+      code: 'ZNS_CONFIG_UNREADABLE',
+      error: 'Không đọc được cấu hình ZNS đang lưu (hoặc chưa có). Chưa lưu để không làm mất khóa Zalo. Nếu đã có cấu hình, thử lại sau giây lát; nếu là lần lưu đầu, hãy nhập đủ khóa Zalo.',
+    });
+    expect(znsHarness.docSetCalls).toHaveLength(0);
+  });
+
+  it('POST /api/zns/config khi không đọc được dòng cấu hình nhưng thân có bí mật mới → vẫn lưu (200), phản hồi không lặp lại bí mật', async () => {
+    delete znsHarness.docFixtures[CFG];
+    const res = await request(app).post('/api/zns/config').send({ zaloAppId: '123', zaloSecretKey: 'sec-moi', updatedBy: 'thong' });
+    expect(res.status).toBe(200);
+    expect(znsHarness.docSetCalls).toHaveLength(1);
+    expect(znsHarness.docSetCalls[0].data).toMatchObject({ zaloAppId: '123', zaloSecretKey: 'sec-moi', updatedBy: 'thong' });
+    expect(JSON.stringify(res.body)).not.toContain('sec-moi');
   });
 });

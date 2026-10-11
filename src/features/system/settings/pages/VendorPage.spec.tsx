@@ -81,26 +81,56 @@ describe('VendorPage – Đợt 0A (ZNS05/Z0.3): form không giữ mã, Kiểm t
     expect(screen.getByText(/Hạn tự động làm mới/)).toBeTruthy();
   });
 
-  it('"Kiểm tra kết nối Zalo" thành công → tải lại GET /api/zns/config, ô bí mật vẫn trống', async () => {
+  it('"Kiểm tra kết nối Zalo" thành công → không tải lại cả form; Refresh Token vừa gõ về trống ngay, hiện "Đã lưu", hạn dùng theo phản hồi; nút Lưu bị khóa trong lúc kiểm tra', async () => {
+    let releaseTest: () => void = () => {};
+    const testGate = new Promise<void>(r => { releaseTest = r; });
+    installFetch({
+      'GET /api/zns/config': () => jsonResponse({ success: true, config: publicConfig }),
+      'POST /api/zns/test-zalo-direct': async () => {
+        await testGate;
+        return jsonResponse({ success: true, message: 'Kết nối Zalo Cloud OpenAPI thành công!', oaId: '456', tokenExpiresAt: 1_800_100_000_000 });
+      },
+    });
+    const shownDate = (ms: number) => new Date(ms).toLocaleString('vi-VN').replace(/\s+/g, ' ').trim();
     render(<VendorPage />);
-    await screen.findByLabelText('Zalo App Secret Key');
+    const refresh = await screen.findByLabelText('Refresh Token (Hiệu lực 90 ngày)') as HTMLInputElement;
+    expect(screen.getByText(shownDate(1_800_000_000_000))).toBeTruthy();
+    fireEvent.change(refresh, { target: { value: 'rt-go-tay' } });
     const getsBefore = fetchCalls.filter(c => c.url === '/api/zns/config' && (c.init?.method || 'GET') === 'GET').length;
-    fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra kết nối Zalo' }));
-    await waitFor(() => expect(fetchCalls.filter(c => c.url === '/api/zns/config' && (c.init?.method || 'GET') === 'GET').length).toBe(getsBefore + 1));
-    expect(postedBody('/api/zns/test-zalo-direct')).toEqual({ appId: '123', secretKey: '', oaId: '456', refreshToken: '' });
-    expect((screen.getByLabelText('Refresh Token (Hiệu lực 90 ngày)') as HTMLInputElement).value).toBe('');
-  });
-
-  it('"Kiểm tra kết nối" rồi "Lưu toàn bộ cấu hình" → thân POST /config không có zaloAccessToken, zaloTokenExpiresAt, zaloRefreshToken, zaloSecretKey, data, id, secrets', async () => {
-    render(<VendorPage />);
-    await screen.findByLabelText('Zalo App Secret Key');
+    const save = screen.getByRole('button', { name: 'Lưu cấu hình' }) as HTMLButtonElement;
+    expect(save.disabled).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra kết nối Zalo' }));
     await waitFor(() => expect(postedBody('/api/zns/test-zalo-direct')).toBeDefined());
+    expect(save.disabled).toBe(true); // đang kiểm tra: không cho Lưu (mã vừa gõ sắp bị Zalo tiêu)
+    releaseTest();
+    await waitFor(() => expect(save.disabled).toBe(false));
+    expect(postedBody('/api/zns/test-zalo-direct')).toEqual({ appId: '123', secretKey: '', oaId: '456', refreshToken: 'rt-go-tay' });
+    expect(refresh.value).toBe('');
+    expect(refresh.placeholder).toBe('Đã lưu — để trống nếu không đổi');
+    expect(screen.getByText(shownDate(1_800_100_000_000))).toBeTruthy();
+    expect(screen.queryByText(shownDate(1_800_000_000_000))).toBeNull();
+    expect(fetchCalls.filter(c => c.url === '/api/zns/config' && (c.init?.method || 'GET') === 'GET').length).toBe(getsBefore);
+  });
+
+  it('gõ Refresh Token + sửa địa chỉ webhook, "Kiểm tra kết nối" rồi "Lưu toàn bộ cấu hình" → thân POST /config giữ địa chỉ đang sửa; không có Refresh Token vừa bị Zalo tiêu, zaloAccessToken, zaloTokenExpiresAt, zaloSecretKey, data, id, secrets', async () => {
+    render(<VendorPage />);
+    const refresh = await screen.findByLabelText('Refresh Token (Hiệu lực 90 ngày)') as HTMLInputElement;
+    const preQuote = screen.getByLabelText('1. GIAI ĐOẠN TRƯỚC BÁO GIÁ (Warm-up)') as HTMLInputElement;
+    await waitFor(() => expect(preQuote.value).toBe('https://hub.cnvcdp.com/webhook/pre'));
+    fireEvent.change(refresh, { target: { value: 'rt-go-tay' } });
+    fireEvent.change(preQuote, { target: { value: 'https://hub.cnvcdp.com/webhook/pre-moi' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra kết nối Zalo' }));
+    await waitFor(() => expect(postedBody('/api/zns/test-zalo-direct')).toBeDefined());
+    await waitFor(() => expect(refresh.value).toBe(''));
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Lưu cấu hình' }) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole('button', { name: 'Lưu cấu hình' }));
     await waitFor(() => expect(postedBody('/api/zns/config')).toBeDefined());
     const body = postedBody('/api/zns/config');
     for (const k of ['zaloAccessToken', 'zaloTokenExpiresAt', 'zaloRefreshToken', 'zaloSecretKey', 'vendorWebhookSecret', 'data', 'id', 'secrets', 'updatedAt']) expect(body, k).not.toHaveProperty(k);
-    expect(body).toMatchObject({ znsProvider: 'ZALO_OFFICIAL', zaloAppId: '123', zaloOaId: '456', updatedBy: 'admin-thu', templateStrictMode: true });
+    expect(body).toMatchObject({
+      znsProvider: 'ZALO_OFFICIAL', zaloAppId: '123', zaloOaId: '456', updatedBy: 'admin-thu', templateStrictMode: true,
+      vendorUrl_CUSTOMER_PRE_QUOTE: 'https://hub.cnvcdp.com/webhook/pre-moi',
+    });
   });
 
   it('gõ Refresh Token mới rồi Lưu → thân có zaloRefreshToken mới (và chỉ bí mật đó)', async () => {

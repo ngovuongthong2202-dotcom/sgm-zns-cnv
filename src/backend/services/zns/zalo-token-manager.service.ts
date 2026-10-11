@@ -112,7 +112,16 @@ export class ZaloTokenManagerService {
       return this.inFlightRefreshPromise;
     }
 
-    this.inFlightRefreshPromise = this.runExclusive(() => this.performTokenRefresh(creds)).finally(() => {
+    this.inFlightRefreshPromise = this.runExclusive(async () => {
+      // Đợt 0A (Z0.3): đọc lại cấu hình TRONG khóa — một lần "Kiểm tra kết nối" xếp trước có thể vừa xoay cặp mã, khi đó
+      // Refresh Token đọc trước lúc xếp hàng đã bị Zalo tiêu (dùng lại → cảnh báo giả và trả null).
+      const latest = await this.getCredentials();
+      if (latest.accessToken && latest.tokenExpiresAt && (latest.tokenExpiresAt - Date.now() > marginMs)) {
+        return latest.accessToken;
+      }
+      // Lần đọc lại thiếu App ID/Secret Key/Refresh Token (ví dụ đọc lỗi) → dùng bản đã đọc trước khi xếp hàng như cũ.
+      return this.performTokenRefresh(latest.appId && latest.secretKey && latest.refreshToken ? latest : creds);
+    }).finally(() => {
       this.inFlightRefreshPromise = null;
     });
 
@@ -184,8 +193,13 @@ export class ZaloTokenManagerService {
    */
   public refreshTokenDirect(appId: string, secretKey: string, refreshToken: string, oaId?: string): Promise<{ success: boolean; accessToken?: string; expiresAt?: number; error?: string }> {
     // Đợt 0A (Z0.3): đi qua cùng hàng đợi với tự làm mới — nút "Kiểm tra kết nối" và cron không xoay mã làm mới hai lần.
+    // refreshToken rỗng (người dùng không gõ) → đọc mã đang lưu TRONG khóa, tức là mã sau mọi lần xoay đã xếp trước.
     return this.runExclusive(async () => {
       try {
+        const effectiveRefreshToken = String(refreshToken || '').trim() || String((await this.getCredentials()).refreshToken || '').trim();
+        if (!effectiveRefreshToken) {
+          return { success: false, error: 'Chưa có Refresh Token đã lưu' };
+        }
         logger.info({ appId }, '[ZaloTokenManager] Xác thực & cấp mới Token Zalo trực tiếp...');
         const response = await resilientFetch('https://oauth.zaloapp.com/v4/oa/access_token', {
           method: 'POST',
@@ -196,7 +210,7 @@ export class ZaloTokenManagerService {
           body: new URLSearchParams({
             app_id: appId,
             grant_type: 'refresh_token',
-            refresh_token: refreshToken
+            refresh_token: effectiveRefreshToken
           }).toString()
         });
 
@@ -208,7 +222,7 @@ export class ZaloTokenManagerService {
         }
 
         const newAccessToken = data.access_token;
-        const newRefreshToken = data.refresh_token || refreshToken;
+        const newRefreshToken = data.refresh_token || effectiveRefreshToken;
         const expiresInSec = Number(data.expires_in) || 90000;
         const newExpiresAt = Date.now() + (expiresInSec * 1000);
 
