@@ -23,8 +23,9 @@ async function verifyCronAuth(req: any): Promise<boolean> {
     return true;
   }
 
-  // Allow bypass in local dev if CRON_SECRET is not configured
-  if (!process.env.CRON_SECRET && process.env.NODE_ENV !== 'production') {
+  // Đợt 0A (BM02): thiếu CRON_SECRET chỉ được bỏ qua xác thực trên máy phát triển (NODE_ENV=development),
+  // không còn "mọi môi trường khác production".
+  if (!process.env.CRON_SECRET && process.env.NODE_ENV === 'development') {
     return true;
   }
 

@@ -996,21 +996,22 @@ export const adminAuth = {
     return { uid, email: `${uid}@sgm.vn`, displayName: uid };
   },
   async verifyIdToken(token: string) {
-    if (token === 'sgm_admin_dev_token' || process.env.DEV_BYPASS_AUTH === 'true') {
+    // Đợt 0A (BM02/K-SEC-8): không còn mã quản trị viết cứng; DEV_BYPASS_AUTH chỉ có tác dụng trên máy phát triển;
+    // nhánh NODE_ENV === 'test' đã bỏ (mọi spec route đều giả lập adminAuth, không spec nào dựa vào nó).
+    if (!token) return null;
+    if (process.env.DEV_BYPASS_AUTH === 'true' && process.env.NODE_ENV === 'development') {
       return { uid: 'admin-001', email: 'admin@sgm.vn', role: 'admin' };
     }
     if (isSupabaseAdminConfigured) {
       try {
         const { data: { user } } = await supabaseAdmin.auth.getUser(token);
         if (user) {
+          // Vẫn gán role 'admin' cho mọi người dùng Supabase Auth: việc B1 (Đợt 0B) mới lấy vai trò từ bảng users.
           return { uid: user.id, email: user.email || `${user.id}@sgm.vn`, role: 'admin' };
         }
       } catch (e) {
         logger.debug({ err: e }, 'Failed to verify Supabase token in verifyIdToken');
       }
-    }
-    if (process.env.NODE_ENV === 'test') {
-      return { uid: 'admin-001', email: 'admin@sgm.vn', role: 'admin' };
     }
     return null;
   }
