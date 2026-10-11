@@ -65,6 +65,8 @@ export function PaymentRecordDrawer({
 }: PaymentRecordDrawerProps) {
   const [isLockedByOther, setIsLockedByOther] = React.useState(false);
   const isNew = !payment;
+  // Đợt 0A (TT04): "chưa lưu" = chưa có id. Khác isNew (chưa có payment): phiếu dựng sẵn từ hợp đồng được truyền qua `payment` nhưng cũng chưa có id.
+  const isUnsaved = !payment?.id;
   const { confirm } = useConfirm();
   const { user, userData } = useAuth();
   const defaultOfficer = formatUserOfficer(userData, user);
@@ -282,12 +284,18 @@ export function PaymentRecordDrawer({
     if (selectedSourceValue && targetTotalAmount > 0) {
       const curStatus = getValues('tinhTrangThanhToan');
       if (curStatus === 'Miễn phí') return;
+      // Đợt 0A (TT04): phiếu chưa lưu mà chưa nhập số tiền thì chỉ có thể ở "Chưa TT" — không suy trạng thái từ phần đã thu ở phiếu khác (otherPaid > 0).
+      // Trạng thái đang lệch (ví dụ chọn "Tất toán" trước khi có chứng từ gốc) thì đưa về "Chưa TT" như trước đây.
+      if (isUnsaved && soTienVal === 0) {
+        if (curStatus !== 'Chưa TT') setValue('tinhTrangThanhToan', 'Chưa TT', { shouldValidate: true });
+        return;
+      }
       const newStatus = determinePaymentStatus(soTienVal, otherPaid, targetTotalAmount);
       if (newStatus && curStatus !== newStatus) {
         setValue('tinhTrangThanhToan', newStatus, { shouldValidate: true });
       }
     }
-  }, [selectedSourceValue, soTienVal, targetTotalAmount, otherPaid, setValue, getValues]);
+  }, [selectedSourceValue, soTienVal, targetTotalAmount, otherPaid, isUnsaved, setValue, getValues]);
  
   const onSubmit = async (data: any) => {
     // Normalization & Enterprise 5-Tier Sanitization
@@ -445,6 +453,7 @@ export function PaymentRecordDrawer({
             setValue={setValue}
             control={control}
             otherPaid={otherPaid}
+            isUnsaved={isUnsaved}
             disabled={businessLock.locked}
             contracts={contracts}
             quotations={quotations}

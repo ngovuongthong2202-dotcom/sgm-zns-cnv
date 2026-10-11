@@ -20,6 +20,7 @@ interface PaymentRecordBasicFieldsProps {
   setValue: any;
   control: any;
   otherPaid?: number;
+  isUnsaved?: boolean; // phiếu chưa có id (lập mới hoặc dựng sẵn từ chứng từ); chỉ lúc đó mới hiện dòng gợi ý "Còn phải thu"
   disabled?: boolean;
   contracts?: any[];
   quotations?: any[];
@@ -38,6 +39,7 @@ export function PaymentRecordBasicFields({
   setValue,
   control,
   otherPaid = 0,
+  isUnsaved = false,
   disabled,
   contracts = [],
   quotations = [],
@@ -733,7 +735,7 @@ export function PaymentRecordBasicFields({
 
               {/* Smart Quick Rate Pills */}
               <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
-                {totalAmountVal > 0 && (
+                {isUnsaved && !disabled && totalAmountVal > 0 && (
                   <span className="w-full text-3xs font-semibold text-amber-800" data-testid="con-phai-thu">
                     Còn phải thu: {new Intl.NumberFormat('vi-VN').format(Math.max(0, totalAmountVal - otherPaid))} ₫ — nhập số thực thu hoặc bấm gợi ý bên dưới
                   </span>
