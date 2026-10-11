@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { adminDb as db } from '../config/supabase.admin';
 import { metricsRollupService } from '../../modules/reporting/infrastructure/metrics/metrics-rollup.service';
 import { GetDashboardKpis } from '../../modules/reporting/application/queries/GetDashboardKpis';
+import { projectRecentZns } from '../../modules/reporting/infrastructure/metrics/recent-zns-projection';
 
 const router = Router();
 
@@ -37,7 +38,10 @@ router.get('/today', async (req, res) => {
      res.setHeader('ETag', etag);
      res.setHeader('Cache-Control', 'public, no-cache, must-revalidate'); // rely on SWR deduplication and ETag revalidation instead of naive browser max-age
      
-     return res.json({ success: true, data });
+     // Đợt 0A (BM01): chiếu recentZns tại route để bản tổng hợp cũ đã lưu kèm SĐT/nội dung cũng không lộ ra ngoài.
+     const zns = data && typeof data.zns === 'object' && data.zns !== null ? (data.zns as Record<string, unknown>) : null;
+     const safeData = zns ? { ...data, zns: { ...zns, recentZns: projectRecentZns(zns.recentZns) } } : data;
+     return res.json({ success: true, data: safeData });
    } catch (err: unknown) { 
      const errorMessage = err instanceof Error ? err.message : String(err);
      console.error('Fetch today metrics error:', err);

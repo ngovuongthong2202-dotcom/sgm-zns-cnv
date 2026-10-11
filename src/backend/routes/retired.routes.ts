@@ -12,7 +12,8 @@ export type RetiredCode =
   | 'SYNC_REMOVED'
   | 'CRON_PREVIEW_REMOVED'
   | 'BULK_ZNS_LOCKED'
-  | 'MIGRATION_REMOVED';
+  | 'MIGRATION_REMOVED'
+  | 'SEARCH_INDEX_REMOVED';
 
 export interface RetiredBody {
   success: false;
@@ -34,6 +35,7 @@ export const RETIRED = {
   cronPreview: retired(410, 'CRON_PREVIEW_REMOVED', 'Màn đối soát tác vụ định kỳ đã được gỡ (Đợt 0A).'),
   bulkZns: retired(410, 'BULK_ZNS_LOCKED', 'Gửi ZNS hàng loạt đã tạm khóa (Đợt 0A). Vui lòng gửi từng chứng từ.'),
   migration: retired(410, 'MIGRATION_REMOVED', 'Công cụ chuyển đổi dữ liệu một lần đã được gỡ (Đợt 0A).'),
+  searchIndex: retired(410, 'SEARCH_INDEX_REMOVED', 'Chỉ mục tìm kiếm báo cáo đã được gỡ (Đợt 0A).'),
 } as const;
 
 const router = Router();

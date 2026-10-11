@@ -3,6 +3,7 @@ import { adminDb } from '../config/supabase.admin';
 import { metricsRollupService } from '../../modules/reporting/infrastructure/metrics/metrics-rollup.service';
 import { GetReportsFullData } from '../../modules/reporting/application/queries/GetReportsFullData';
 import { aiService, InsightRequestDto } from '../../modules/reporting/ai/ai.service';
+import { RETIRED } from './retired.routes';
 
 const router = express.Router();
 
@@ -19,31 +20,9 @@ router.get('/full-data', async (_req, res) => {
   }
 });
 
-// GET /api/reports/search-index
-router.get('/search-index', async (_req, res) => {
-  try {
-    const [customersSnap, usersSnap] = await Promise.all([
-      adminDb.collection('customers').select('tenKhachHang').get(),
-      adminDb.collection('users').select('displayName', 'email').get(),
-    ]);
-
-    const customers = customersSnap.docs.map((doc: any) => ({
-      id: doc.id,
-      name: doc.data().tenKhachHang || 'N/A',
-    }));
-
-    const salesReps = usersSnap.docs.map((doc: any) => ({
-      id: doc.id,
-      name: doc.data().displayName || doc.data().email || 'Sales rep',
-    }));
-
-    return res.json({ success: true, index: { customers, salesReps } });
-  } catch (err: unknown) {
-    const errorDetails = err instanceof Error ? err.message : String(err);
-    console.error('Failed search-index building:', err);
-    return res.status(500).json({ success: false, error: errorDetails });
-  }
-});
+// Đợt 0A (BM01; B2 giữ "vẫn tắt"): /search-index từng trả tên mọi khách và tên/email nhân viên cho người gọi không đăng nhập;
+// giao diện không dùng (grep 'search-index' ngoài src/backend = 0). Trả 410 theo mẫu retired.routes.ts, không chạm CSDL.
+router.get('/search-index', RETIRED.searchIndex);
 
 // POST /api/reports/gemini-insight
 router.post('/gemini-insight', async (req, res) => {

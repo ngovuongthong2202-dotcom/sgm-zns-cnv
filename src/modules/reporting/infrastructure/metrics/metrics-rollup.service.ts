@@ -17,6 +17,7 @@ import {
 } from './metrics-rollup-helpers';
 import { MetricsRollupSchema } from './metrics-rollup-schema';
 import { executeCustomRollup } from './custom-rollup-helper';
+import { projectRecentZns } from './recent-zns-projection';
 import {
   rollupCustomers,
   rollupQuotations,
@@ -174,9 +175,8 @@ export class MetricsRollupService {
       });
       const successRate = totalZns > 0 ? (data.znsMessages.filter(z => z.status === 'SUCCESS').length / totalZns) * 100 : 0;
  
-      const recentZns = data.znsMessages
-         .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-         .slice(0, 10);
+      // Đợt 0A (BM01): bản tổng hợp chỉ lưu bản tối giản của 10 tin gần nhất (không SĐT, không nội dung).
+      const recentZns = projectRecentZns(data.znsMessages);
 
       // 7. Funnels
       const funnel_vattudv = { 
