@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { vendorWebhookHandler } from '../services/zns/vendor-webhook.handler';
 import { znsPayloadBuilder, sanitizeZnsCustomerName, sanitizeZnsPersonName } from '../services/zns/zns-payload.builder';
 import { toPublicZnsConfig, pickZnsConfigUpdate, ZNS_CONFIG_SECRET_FIELDS } from '../services/zns/zns-config.policy';
+import { buildPaymentZnsNote, isLegacyAutoSettledNote, PAYMENT_ZNS_NOTE_MAX } from '../../modules/billing/domain/paymentZnsNote';
 import { adminDb } from '../config/supabase.admin';
 import { ZnsMessage } from '../../domain/schema/workflow.schema';
 import { SendZnsMessageUseCase } from '../../modules/messaging/application/use-cases/SendZnsMessage';
@@ -368,6 +369,33 @@ router.post('/send', async (req, res) => {
       }
     }
 
+    // Đợt 0A (TT01/§9.11): tin xác nhận thanh toán — chốt theo TRẠNG THÁI TRONG CSDL, không tin thân gửi lên.
+    const isPaymentConfirmation = body.entityType === 'PAYMENT' && String(body.messageType || '').startsWith('THANH_TOAN_');
+    let serverPaymentNote: string | null = null;
+    if (isPaymentConfirmation) {
+      const dbPayment = Object.keys(dbEntity).length > 0 ? dbEntity : null;
+      const rawIndex = clientEntity.installmentIndex;
+      const requestedIndex = rawIndex === undefined || rawIndex === null || rawIndex === '' ? undefined : Number(rawIndex);
+      const note = buildPaymentZnsNote(dbPayment, requestedIndex);
+      if (!note.ok) {
+        return res.status(note.code === 'INVALID_INSTALLMENT' ? 400 : 409).json({ success: false, code: note.code, error: note.reason });
+      }
+      const typedNote = typeof clientEntity.ghi_chu === 'string' ? clientEntity.ghi_chu.trim() : '';
+      const totalAmount = Number(dbPayment?.totalAmount || 0);
+      const fullyCollected = totalAmount > 0 && note.collected >= totalAmount;
+      const legacyNoteForOpenReceipt = Boolean(typedNote) && isLegacyAutoSettledNote(typedNote) && !fullyCollected;
+      if (legacyNoteForOpenReceipt) {
+        // Công tắc PAYMENT_NOTE_GUARD (nguyên tắc 6): mặc định (không đặt) = chặn 409, vì câu "Tất toán" sai gửi tới khách là thiệt hại
+        // trực tiếp; đặt 'report' trên Render nếu nghiệm thu thấy dương tính giả → chỉ ghi nhận và thay bằng câu máy chủ dựng.
+        if (process.env.PAYMENT_NOTE_GUARD === 'report') {
+          console.warn(`[TT01 report-only] phiếu ${String(body.entityId)}: câu "Tất toán" khi mới thu ${note.collected}/${totalAmount} — thay bằng câu máy chủ`);
+        } else {
+          return res.status(409).json({ success: false, code: 'PAYMENT_NOTE_REJECTED', error: 'Nội dung "Tất toán" chỉ gửi được khi phiếu đã thu đủ. Sửa ô Ghi chú thành câu phù hợp (ví dụ "Thanh toán đợt 2").' });
+        }
+      }
+      // Câu gửi lên chỉ được dùng khi vừa 30 ký tự và không phải câu "Tất toán" bị loại; câu dài (bản cũ: "Thanh toán đợt N (Còn lại: …)") thay bằng câu máy chủ dựng.
+      serverPaymentNote = typedNote && typedNote.length <= PAYMENT_ZNS_NOTE_MAX && !legacyNoteForOpenReceipt ? typedNote : note.ghiChu;
+    }
 
     const targetCustId = (clientEntity.customerId as string) || 
                          (dbEntity.customerId as string) || 
@@ -451,6 +479,7 @@ router.post('/send', async (req, res) => {
       ...parentCustomer,
       ...dbEntity,
       ...clientEntity,
+      ...(isPaymentConfirmation ? { ghi_chu: serverPaymentNote } : {}),
       phone: normalizedPhone,
       sdt: normalizedPhone,
       tenZns: resolvedZnsName,
@@ -468,6 +497,18 @@ router.post('/send', async (req, res) => {
       messageType: body.messageType,
       attemptBucket: body.attemptBucket || Date.now()
     };
+
+    if (isPaymentConfirmation) {
+      // Không để ghi chú nội bộ của phiếu thu hay của hồ sơ khách (spread parentCustomer đứng trước) lọt vào tin gửi khách.
+      delete mergedPayload.ghiChu;
+      delete mergedPayload.note;
+      delete mergedPayload.ghiChuNoiBo;
+      if (Array.isArray(mergedPayload.cacDotThu)) {
+        mergedPayload.cacDotThu = (mergedPayload.cacDotThu as unknown[]).map(d =>
+          d && typeof d === 'object' ? Object.fromEntries(Object.entries(d as Record<string, unknown>).filter(([k]) => k !== 'ghiChu')) : d
+        );
+      }
+    }
 
     const result = await sendZnsUseCase.execute({
       entityId: body.entityId,
