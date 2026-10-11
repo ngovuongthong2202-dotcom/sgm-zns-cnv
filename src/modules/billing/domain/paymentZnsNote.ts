@@ -1,0 +1,101 @@
+/**
+ * Đợt 0A (TT01; thiết kế cổng §9 dòng 11, §4.7.1): một cách tính "đã thu" và một câu ghi chú cho tin xác nhận thanh toán 646935,
+ * dùng chung cho ba nơi gửi ở trình duyệt và cho chốt máy chủ (POST /api/zns/send).
+ * - Không bao giờ dựng "Tất toán …"; không bao giờ đọc ghi chú nội bộ (payment.ghiChu, cacDotThu[].ghiChu, note).
+ * - "Đã thu" tính từ đợt thu có tiền; phiếu không có đợt thu chỉ tính soTien đầu phiếu khi trạng thái thuộc nhóm có thực thu.
+ * - Import tương đối (không alias) để máy chủ nhập được.
+ */
+import { hasActualCashCollected, isPaymentCancelled } from '../../../domain/enums/payment-status';
+
+export const PAYMENT_ZNS_NOTE_MAX = 30;
+
+const LEGACY_AUTO_SETTLED_PREFIX = 'tất toán 100% hợp đồng';
+
+export interface PaymentLedgerEntry {
+  index: number;
+  lanThu: number;
+  soTien: number;
+  ngayThu: string;
+}
+
+export interface PaymentLedger {
+  collected: number;
+  entries: PaymentLedgerEntry[];
+  cancelled: boolean;
+  deleted: boolean;
+}
+
+export type PaymentLike = Record<string, unknown>;
+
+export type PaymentZnsNoteResult =
+  | { ok: true; ghiChu: string; installmentIndex: number | null; installmentNumber: number; collected: number }
+  | { ok: false; code: 'PAYMENT_NOT_COLLECTED' | 'INVALID_INSTALLMENT'; reason: string };
+
+export const PAYMENT_NOT_COLLECTED_REASON = 'Phiếu thu chưa ghi nhận khoản thu nào nên không gửi được tin xác nhận thanh toán. Ghi nhận đợt thu trước.';
+export const INVALID_INSTALLMENT_REASON = 'Đợt thu được chọn không có trong phiếu. Mở lại phiếu và chọn đúng đợt.';
+
+const toNumber = (v: unknown): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+export function collectPaymentLedger(payment: PaymentLike | null | undefined): PaymentLedger {
+  const p: PaymentLike = payment || {};
+  const deleted = Boolean(p.deletedAt || p.deleted_at || p.isDeleted);
+  const cancelled = isPaymentCancelled(p.tinhTrangThanhToan);
+  const raw = Array.isArray(p.cacDotThu) ? (p.cacDotThu as unknown[]) : [];
+  const entries: PaymentLedgerEntry[] = raw
+    .map((d, index) => {
+      const row = (d && typeof d === 'object' ? d : {}) as Record<string, unknown>;
+      return {
+        index,
+        lanThu: toNumber(row.lanThu) > 0 ? toNumber(row.lanThu) : index + 1,
+        soTien: toNumber(row.soTien),
+        ngayThu: typeof row.ngayThu === 'string' ? row.ngayThu : '',
+      };
+    })
+    .filter(e => e.soTien > 0)
+    .sort((a, b) => a.lanThu - b.lanThu || a.index - b.index);
+
+  let collected = entries.reduce((sum, e) => sum + e.soTien, 0);
+  if (entries.length === 0 && hasActualCashCollected(p.tinhTrangThanhToan)) {
+    collected = Math.max(0, toNumber(p.soTien));
+  }
+  if (deleted || cancelled) collected = 0;
+  return { collected, entries, cancelled, deleted };
+}
+
+export function buildPaymentZnsNote(payment: PaymentLike | null | undefined, installmentIndex?: number | null): PaymentZnsNoteResult {
+  const ledger = collectPaymentLedger(payment);
+  if (ledger.deleted || ledger.cancelled || ledger.collected <= 0) {
+    return { ok: false, code: 'PAYMENT_NOT_COLLECTED', reason: PAYMENT_NOT_COLLECTED_REASON };
+  }
+
+  let resolvedIndex: number | null;
+  let installmentNumber: number;
+  if (installmentIndex === undefined || installmentIndex === null) {
+    if (ledger.entries.length > 0) {
+      const latest = ledger.entries[ledger.entries.length - 1];
+      resolvedIndex = latest.index;
+      installmentNumber = latest.lanThu;
+    } else {
+      resolvedIndex = null;
+      installmentNumber = 1;
+    }
+  } else {
+    const entry = Number.isInteger(installmentIndex) ? ledger.entries.find(e => e.index === installmentIndex) : undefined;
+    if (!entry) {
+      return { ok: false, code: 'INVALID_INSTALLMENT', reason: INVALID_INSTALLMENT_REASON };
+    }
+    resolvedIndex = entry.index;
+    installmentNumber = entry.lanThu;
+  }
+
+  const ghiChu = `Thanh toán đợt ${installmentNumber}`.slice(0, PAYMENT_ZNS_NOTE_MAX);
+  return { ok: true, ghiChu, installmentIndex: resolvedIndex, installmentNumber, collected: ledger.collected };
+}
+
+export function isLegacyAutoSettledNote(text: unknown): boolean {
+  if (typeof text !== 'string') return false;
+  return text.trim().toLowerCase().replace(/\s+/g, ' ').startsWith(LEGACY_AUTO_SETTLED_PREFIX);
+}
