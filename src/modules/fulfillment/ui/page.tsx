@@ -137,6 +137,7 @@ export default function DeliveriesFeature() {
     handleSendZns, znsPreviewDelivery, setZnsPreviewDelivery,
     handleCancelDelivery, handleSaveDelivery,
     handleRevertDeliveryConfirmation,
+    handleRevertShipmentConfirmation,
     handleViewDeliveryConfirmation,
     viewingConfirmationDelivery, setViewingConfirmationDelivery,
     completingDelivery, setCompletingDelivery,
@@ -452,7 +453,8 @@ export default function DeliveriesFeature() {
         onViewConfirmation={handleViewDeliveryConfirmation}
         onSendZns={handleSendZns}
         onCancelDelivery={handleCancelDelivery}
-        onOpenRecordShipment={(del) => setRecordingShipmentDelivery(del)}
+        onOpenRecordShipment={can('update', 'delivery', userData?.role) ? (del) => setRecordingShipmentDelivery(del) : undefined}
+        onRevertShipment={can('update', 'delivery', userData?.role) ? handleRevertShipmentConfirmation : undefined}
         drawerContract={drawerContract}
         drawerQuotation={drawerQuotation}
         completingDelivery={completingDelivery}

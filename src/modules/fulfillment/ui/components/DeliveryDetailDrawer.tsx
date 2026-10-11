@@ -25,6 +25,7 @@ import { notify } from '@/src/shared/utils/notify';
 import { mutate } from 'swr';
 import { CompleteDeliveryModal } from './CompleteDeliveryModal';
 import { DeliveryConfirmationModal } from './DeliveryConfirmationModal';
+import { RevertShipmentConfirmModal } from './RevertShipmentConfirmModal';
 
 import { Button } from '@/src/design-system/Button';
 
@@ -38,6 +39,8 @@ interface DeliveryDetailDrawerProps {
   onSendZns: (delivery: Delivery, templateCode: 'GIAOHANG_ZNS' | 'GIAOHANG_HOANTAT' | 'GIAOHANG_BAOHANH') => void;
   onCancelDelivery: (delivery: Delivery, reason: string) => Promise<void>;
   onOpenRecordShipment?: (delivery: Delivery) => void;
+  /** Đợt 0A (GH01): hủy xác nhận một đợt có lý do; không truyền thì nút ẩn (DrawerStackContext, Tổng quan). */
+  onRevertShipment?: (delivery: Delivery, shipment: DeliveryShipment, reason: string) => Promise<void>;
   drawerContract: any | null;
   drawerQuotation: any | null;
   modal?: boolean;
@@ -57,6 +60,7 @@ export function DeliveryDetailDrawer({
   onSendZns,
   onCancelDelivery,
   onOpenRecordShipment,
+  onRevertShipment,
   drawerContract,
   drawerQuotation,
   modal,
@@ -107,6 +111,7 @@ export function DeliveryDetailDrawer({
   // Quản lý xác nhận bàn giao từng Đợt (Omni-Milestone Lifecycle)
   const [confirmingShipment, setConfirmingShipment] = useState<DeliveryShipment | null>(null);
   const [viewingShipmentConfirmation, setViewingShipmentConfirmation] = useState<DeliveryShipment | null>(null);
+  const [revertingShipment, setRevertingShipment] = useState<DeliveryShipment | null>(null);
 
   const handleConfirmShipment = (shipment: DeliveryShipment) => {
     setConfirmingShipment(shipment);
@@ -162,40 +167,6 @@ export function DeliveryDetailDrawer({
     setConfirmingShipment(null);
   };
 
-  const handleRevertShipment = async (shipment: DeliveryShipment) => {
-    if (!drawerDelivery?.id) return;
-    const existingShipments = Array.isArray(drawerDelivery.cacDotGiao) ? [...drawerDelivery.cacDotGiao] : [];
-    const targetIdx = existingShipments.findIndex(s => s.id === shipment.id || s.dotGiaoHang === shipment.dotGiaoHang);
-    if (targetIdx === -1) return;
-
-    const currentShipment = existingShipments[targetIdx];
-    const revertedShipment: DeliveryShipment = {
-      ...currentShipment,
-      tinhTrangGiaoHang: 'CHO_GIAO',
-      ngayGiaoThucTe: undefined,
-      kyNhan: undefined,
-    };
-
-    existingShipments[targetIdx] = revertedShipment;
-
-    const totalBaseline = (drawerDelivery.products || []).reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
-    const totalShipped = existingShipments.filter(s => s.tinhTrangGiaoHang === 'HOAN_TAT').reduce((sum, s) => {
-      return sum + (s.products || []).reduce((ssum, sp) => ssum + (Number(sp.quantity) || 0), 0);
-    }, 0);
-    const pct = totalBaseline > 0 ? Math.min(100, Math.round((totalShipped / totalBaseline) * 100)) : 0;
-
-    const updatedDelivery: Delivery = {
-      ...drawerDelivery,
-      cacDotGiao: existingShipments,
-      tienDoLuyKe: pct,
-      tinhTrangGiaoHang: 'Chưa giao',
-      ngayGiaoThucTe: undefined
-    };
-
-    await repositoryFactory.get<any>('deliveries').update(drawerDelivery.id, updatedDelivery);
-    mutate(`deliveries:${drawerDelivery.id}`, updatedDelivery, false);
-    notify.success(`Đã hoàn tác xác nhận bàn giao Đợt ${shipment.dotGiaoHang}!`);
-  };
   const [activeTab, setActiveTab] = useState<'overview' | 'flow' | 'nexus'>('overview');
   const [flowFocusTarget, setFlowFocusTarget] = useState<'quotation' | 'contract' | 'delivery' | 'payment'>('delivery');
   const [showMismatchDetails, setShowMismatchDetails] = useState(false);
@@ -800,7 +771,7 @@ export function DeliveryDetailDrawer({
                 onSendZns(shipmentContext as any, 'GIAOHANG_ZNS');
               }}
               onConfirmShipment={handleConfirmShipment}
-              onRevertShipment={handleRevertShipment}
+              onRevertShipment={onRevertShipment ? (s) => setRevertingShipment(s) : undefined}
               canEdit={Boolean(onOpenRecordShipment)}
             />
           </section>
@@ -1313,6 +1284,21 @@ export function DeliveryDetailDrawer({
         targetShipment={confirmingShipment}
         onClose={() => setConfirmingShipment(null)}
         onSave={handleConfirmShipmentSubmit}
+      />
+    )}
+
+    {drawerDelivery && revertingShipment && onRevertShipment && (
+      <RevertShipmentConfirmModal
+        delivery={drawerDelivery}
+        shipment={revertingShipment}
+        onCancel={() => setRevertingShipment(null)}
+        onConfirm={async (reason) => {
+          await onRevertShipment(drawerDelivery, revertingShipment, reason);
+          setRevertingShipment(null);
+          if (viewingShipmentConfirmation && (viewingShipmentConfirmation.id === revertingShipment.id || viewingShipmentConfirmation.dotGiaoHang === revertingShipment.dotGiaoHang)) {
+            setViewingShipmentConfirmation(null);
+          }
+        }}
       />
     )}
 

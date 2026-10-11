@@ -1,13 +1,7 @@
 import React from 'react';
 import { 
   Truck, 
-  Calendar, 
   CheckCircle2, 
-  Clock, 
-  User, 
-  FileText, 
-  AlertCircle,
-  Printer,
   Send,
   Plus,
   Package,
@@ -208,15 +202,26 @@ export function TabLichSuGiaoHang({
                               type="button"
                               variant="ghost"
                               onClick={() => onRevertShipment(shipment)}
-                              className="text-3xs h-8 px-2 text-slate-500 hover:text-red-700 hover:bg-red-50 flex items-center gap-1 rounded-lg cursor-pointer"
-                              title="Sửa / Hủy xác nhận đợt này"
+                              aria-label={`Hủy xác nhận đợt ${shipment.dotGiaoHang}`}
+                              className="text-3xs h-8 px-2 bg-amber-50 border border-amber-300 text-amber-800 hover:bg-amber-100 hover:text-amber-900 flex items-center gap-1 rounded-lg cursor-pointer"
+                              title="Hủy xác nhận bàn giao đợt này (cần lý do)"
                             >
                               <RotateCcw size={12} />
-                              <span>Sửa</span>
+                              <span>{`Hủy xác nhận đợt ${shipment.dotGiaoHang}`}</span>
                             </Button>
                           )}
                         </div>
                       )}
+                      {Array.isArray(shipment.lichSuHuyXacNhan) && shipment.lichSuHuyXacNhan.length > 0 && (() => {
+                        const last = shipment.lichSuHuyXacNhan[shipment.lichSuHuyXacNhan.length - 1];
+                        return (
+                          <p className="mt-1 text-3xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+                            Đã hủy xác nhận {formatDate(last.thoiDiem)}{last.nguoiThucHien ? ` bởi ${last.nguoiThucHien}` : ''} – lý do: {last.lyDo}
+                            {last.ngayGiaoThucTeCu ? `; trước đó giao ngày ${formatDate(last.ngayGiaoThucTeCu)}` : ''}
+                            {last.kyNhanCu ? `, ký nhận ${last.kyNhanCu}` : ''}.
+                          </p>
+                        );
+                      })()}
 
                       {/* Print Handover Protocol for this Shipment */}
                       <ExportHandoverPdf 

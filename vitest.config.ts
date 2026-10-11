@@ -31,6 +31,7 @@ export default defineConfig({
       'src/modules/iam/ui/AuthContext.spec.tsx',
       'src/modules/fulfillment/ui/components/RevertShipmentConfirmModal.spec.tsx',
       'src/modules/fulfillment/ui/hooks/useDeliveriesActions.revertShipment.spec.tsx',
+      'src/widgets/TabLichSuGiaoHang.spec.tsx',
     ],
     exclude: ['src/tests/e2e/**', 'node_modules/**', 'e2e/**'],
     coverage: {
