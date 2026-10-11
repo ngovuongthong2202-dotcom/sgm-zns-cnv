@@ -33,6 +33,7 @@ export default defineConfig({
       'src/modules/fulfillment/ui/components/RevertShipmentConfirmModal.spec.tsx',
       'src/modules/fulfillment/ui/hooks/useDeliveriesActions.revertShipment.spec.tsx',
       'src/widgets/TabLichSuGiaoHang.spec.tsx',
+      'src/platform/ui/design-system/dataview/cells/CurrencyCell.spec.tsx',
     ],
     exclude: ['src/tests/e2e/**', 'node_modules/**', 'e2e/**'],
     coverage: {

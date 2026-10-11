@@ -263,7 +263,8 @@ export const getContractColumns = (
     header: () => <div className="text-right w-full">Giá trị HĐ</div>,
     meta: { label: 'Giá trị HĐ', align: 'right' },
     aggregationFn: 'sum',
-    size: 130,
+    size: 150,
+    minSize: 140,
     cell: (info) => {
       const row = info.row.original;
       const products = row.products || [];

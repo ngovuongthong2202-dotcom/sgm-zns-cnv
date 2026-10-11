@@ -170,13 +170,14 @@ export const getQuotationColumns = (
     header: () => <div className="text-right w-full">Trị giá</div>,
     meta: { label: 'Trị giá', align: 'right' },
     aggregationFn: 'sum',
-    size: 110,
+    size: 170,
+    minSize: 150,
     cell: (info) => {
       const q = info.row.original;
       const prods = q.products || [];
       const norm = normalizeLoai(q.loai);
       
-      let subText = '';
+      let subText: string;
       if (norm === QUOTATION_LOAI.VAT_TU) {
         subText = `${prods.length} Mặt hàng`;
       } else if (norm === QUOTATION_LOAI.DICH_VU) {
