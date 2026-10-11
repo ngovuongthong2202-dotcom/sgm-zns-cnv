@@ -26,6 +26,7 @@ describe('AuthContext – Đợt 0A (BM03): phiên trình duyệt không chứa 
   beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); getUserMock.mockResolvedValue(leakyUser); verifyPasswordMock.mockResolvedValue(true); });
 
   it('login("thong","dung") → true; state và sgm_user_session không có khóa password; so mật khẩu qua verifyPassword', async () => {
+    getUserMock.mockResolvedValueOnce(leakyUser).mockResolvedValue(null);
     const { result } = renderHook(() => useAuth(), { wrapper });
     let ok = false;
     await act(async () => { ok = await result.current.login('thong', 'dung'); });
@@ -47,6 +48,7 @@ describe('AuthContext – Đợt 0A (BM03): phiên trình duyệt không chứa 
   });
 
   it('khởi động với sgm_user_session cũ còn password → bản lưu được ghi lại sạch, state sạch', async () => {
+    getUserMock.mockResolvedValue(null);
     localStorage.setItem(KEY, JSON.stringify({ user: { uid: 'thong', username: 'thong', displayName: 'T', email: 't@sgm.vn', photoURL: '' }, userData: { username: 'thong', role: 'Administrator', password: 'bi-mat-cu' } }));
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(stored().userData).not.toHaveProperty('password'));
