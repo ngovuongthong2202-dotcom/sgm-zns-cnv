@@ -58,13 +58,26 @@ describe('cron.routes.verifyCronAuth – Đợt 0A (BM02): mã viết cứng →
     expect(cronServiceMock.processOutbox).not.toHaveBeenCalled();
   });
 
-  it('production KHÔNG có CRON_SECRET: token lạ → 401 (đường vòng cũ "khác production" đã đóng)', async () => {
+  it('production KHÔNG có CRON_SECRET: token lạ → 401 (chốt hồi quy production)', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('CRON_SECRET', '');
     vi.stubEnv('DEV_BYPASS_AUTH', 'false');
     const res = await request(app).post('/api/cron/process-outbox').set({ Authorization: 'Bearer bat-ky' }).send({});
     expect(res.status).toBe(401);
   });
+
+  // Đường vòng cũ mở cho mọi NODE_ENV khác production; nay chỉ development: 'test', 'staging' và giá trị rỗng phải bị đóng.
+  it.each(['test', 'staging', ''])(
+    'NODE_ENV=%s (không phải development), thiếu CRON_SECRET → 401, không chạy outbox',
+    async (nodeEnv) => {
+      vi.stubEnv('NODE_ENV', nodeEnv);
+      vi.stubEnv('CRON_SECRET', '');
+      vi.stubEnv('DEV_BYPASS_AUTH', 'false');
+      const res = await request(app).post('/api/cron/process-outbox').set({ Authorization: 'Bearer bat-ky' }).send({});
+      expect(res.status).toBe(401);
+      expect(cronServiceMock.processOutbox).not.toHaveBeenCalled();
+    }
+  );
 
   it('development KHÔNG có CRON_SECRET: → 200 (giữ tiện ích máy phát triển)', async () => {
     vi.stubEnv('NODE_ENV', 'development');

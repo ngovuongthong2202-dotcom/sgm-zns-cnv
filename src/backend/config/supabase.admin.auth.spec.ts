@@ -34,6 +34,14 @@ describe('adminAuth.verifyIdToken – Đợt 0A (BM02/K-SEC-8): không còn mã 
     expect(await adminAuth.verifyIdToken('bat-ky')).toEqual({ uid: 'admin-001', email: 'admin@sgm.vn', role: 'admin' });
   });
 
+  // Bypass chỉ mở khi NODE_ENV đúng là 'development': 'test', 'staging' và giá trị rỗng đều phải bị từ chối.
+  it.each(['test', 'staging', ''])('NODE_ENV=%s + DEV_BYPASS_AUTH=true → null (bypass chỉ ở development)', async (nodeEnv) => {
+    vi.stubEnv('NODE_ENV', nodeEnv);
+    vi.stubEnv('DEV_BYPASS_AUTH', 'true');
+    const adminAuth = await loadAdminAuth();
+    expect(await adminAuth.verifyIdToken('bat-ky')).toBeNull();
+  });
+
   it('NODE_ENV=test (mặc định của vitest), không bypass: token lạ → null (nhánh test cũ đã xóa)', async () => {
     vi.stubEnv('NODE_ENV', 'test');
     vi.stubEnv('DEV_BYPASS_AUTH', 'false');
