@@ -1,0 +1,22 @@
+-- Hoàn tác 0001: cấp lại đúng các quyền đã thu (và chỉ các quyền đó). Nhân viên không thấy khác biệt gì sau khi hoàn tác.
+BEGIN;
+GRANT DELETE, TRUNCATE ON TABLE public.customers TO anon, authenticated;
+GRANT DELETE, TRUNCATE ON TABLE public.quotations TO anon, authenticated;
+GRANT DELETE, TRUNCATE ON TABLE public.contracts TO anon, authenticated;
+GRANT DELETE, TRUNCATE ON TABLE public.payments TO anon, authenticated;
+GRANT DELETE, TRUNCATE ON TABLE public.deliveries TO anon, authenticated;
+GRANT DELETE, TRUNCATE ON TABLE public.audit_logs TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.zns_messages TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.counters TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.zns_callbacks TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.zns_dead_letters TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.workflow_events TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.telegram_sent_log TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.job_heartbeats TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.system_locks TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.idempotency_keys TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.metrics_rollup TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.cross_entity_sync_jobs TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cleanup_expired_system_data() TO PUBLIC;
+GRANT EXECUTE ON FUNCTION public.decrement_zns_quota(integer) TO PUBLIC;
+COMMIT;
