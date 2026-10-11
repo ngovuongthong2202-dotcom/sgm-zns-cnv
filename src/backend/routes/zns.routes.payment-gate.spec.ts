@@ -165,6 +165,8 @@ describe('zns.routes POST /send – Đợt 0A (TT01): tin thanh toán chốt the
     { label: 'note của phiếu (có khoảng trắng hai đầu)', typed: 'chuyển khoản vcb', patch: { note: '  Chuyển khoản VCB  ' }, expected: 'Thanh toán đợt 1' },
     { label: 'ghiChuNoiBo của phiếu', typed: 'Đã đối soát', patch: { ghiChuNoiBo: 'Đã đối soát' }, expected: 'Thanh toán đợt 1' },
     { label: 'note của phiếu (dạng Unicode tách dấu)', typed: 'Chuyển khoản VCB'.normalize('NFD'), patch: { note: 'Chuyển khoản VCB' }, expected: 'Thanh toán đợt 1' },
+    { label: 'ghiChu của phiếu dài hơn 30 ký tự', typed: 'FT26161873245 link chứng từ - đã đối soát xong', patch: { ghiChu: 'FT26161873245 link chứng từ - đã đối soát xong' }, expected: 'Thanh toán đợt 1' },
+    { label: 'ghiChu của đợt thu 1 dài hơn 30 ký tự và bắt đầu bằng "Thanh toán đợt 1" (phiếu có hai đợt)', typed: 'Thanh toán đợt 1 - chuyển khoản VCB (đã đối soát)', patch: { cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ghiChu: 'Thanh toán đợt 1 - chuyển khoản VCB (đã đối soát)' }, { lanThu: 2, soTien: 40_000_000 }] }, expected: 'Thanh toán đợt 2' },
   ];
   it.each(ECHO_CASES)('ghi_chu gửi lên là bản sao $label → 200 với câu máy chủ; log [TT01 echo] không chứa nội dung ghi chú', async ({ typed, patch, expected }) => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -186,8 +188,9 @@ describe('zns.routes POST /send – Đợt 0A (TT01): tin thanh toán chốt the
     expect(warn.mock.calls.some(c => String(c[0]).includes('[TT01 echo]'))).toBe(false);
   });
 
-  // (2) Tab cũ ở trang Thanh toán điền sẵn "Thanh toán đợt N (Còn lại: … đ)" (> 30 ký tự) và không gửi installmentIndex: giữ đợt N người dùng đã chọn
+  // (2) Tab cũ ở trang Thanh toán điền sẵn "Thanh toán đợt N (Còn lại: … đ)" (> 30 ký tự) và không gửi installmentIndex: với câu quá dài như vậy, giữ đợt N người dùng đã chọn
   //     (N là số lần thu của một đợt có tiền), không lấy đợt mới nhất; N không phải đợt có tiền thì giữ hành vi cũ (câu máy chủ = đợt mới nhất có tiền).
+  //     Câu ≤ 30 ký tự giữ nguyên như đã gõ (xem trước = tin gửi khách), kể cả khi bắt đầu bằng "Thanh toán đợt N"; bản sao ghi chú nội bộ luôn bị thay bằng câu máy chủ, mọi độ dài.
   it.each([
     'Thanh toán đợt 1 (Còn lại: 70.000.000 đ)',
     'THANH TOÁN ĐỢT 1 (CÒN LẠI: 70.000.000 Đ)',
@@ -205,6 +208,13 @@ describe('zns.routes POST /send – Đợt 0A (TT01): tin thanh toán chốt the
     const res = await send({}, { ghi_chu: typed });
     expect(res.status).toBe(200);
     expect(sentPayload().ghi_chu).toBe('Thanh toán đợt 2');
+  });
+
+  it('ghi_chu ≤ 30 ký tự giữ nguyên như đã gõ dù bắt đầu bằng "Thanh toán đợt N" (phiếu có hai đợt có tiền): "Thanh toán đợt 1 - cọc" không bị rút gọn', async () => {
+    znsHarness.docFixtures['payments/p1'] = { ...TWO_PAID };
+    const res = await send({}, { ghi_chu: 'Thanh toán đợt 1 - cọc' });
+    expect(res.status).toBe(200);
+    expect(sentPayload().ghi_chu).toBe('Thanh toán đợt 1 - cọc');
   });
 
   // (3) Đọc phiếu thu lỗi (CSDL ném lỗi) không được trả "chưa ghi nhận khoản thu nào" (nhân viên sẽ ghi nhận trùng một đợt): 503, chưa gửi gì.

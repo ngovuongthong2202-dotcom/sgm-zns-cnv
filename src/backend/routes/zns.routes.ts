@@ -411,15 +411,21 @@ router.post('/send', async (req, res) => {
       if (echoedInternalNote) {
         console.warn(`[TT01 echo] phiếu ${String(body.entityId)}: ghi_chu gửi lên trùng ghi chú nội bộ của phiếu — thay bằng câu máy chủ`);
       }
-      // Tab cũ ở trang Thanh toán điền sẵn "Thanh toán đợt N (Còn lại: … đ)" (> 30 ký tự) và không gửi installmentIndex nên máy chủ sẽ lấy đợt MỚI NHẤT: giữ số đợt N người dùng đã chọn
-      // khi N là số lần thu (lanThu) của một đợt có tiền trong phiếu; câu gửi đi luôn là "Thanh toán đợt N" (≤ 30 ký tự), không kèm phần còn lại của câu. N không có trong phiếu thì giữ hành vi cũ.
-      const typedInstallment = /^thanh toán đợt (\d+)/i.exec(normalizeNote(typedNote));
-      const typedInstallmentNumber = typedInstallment ? Number(typedInstallment[1]) : NaN;
+      // Tab cũ ở trang Thanh toán điền sẵn "Thanh toán đợt N (Còn lại: … đ)" (> 30 ký tự) và không gửi installmentIndex nên máy chủ sẽ lấy đợt MỚI NHẤT: với câu quá dài như vậy,
+      // giữ số đợt N người dùng đã chọn khi N là số lần thu (lanThu) của một đợt có tiền trong phiếu; câu gửi đi là "Thanh toán đợt N" (≤ 30 ký tự), không kèm phần còn lại của câu.
+      // Câu ≤ 30 ký tự không bị viết lại (xem trước = tin gửi khách); N không có trong phiếu thì giữ hành vi cũ.
+      const overLongInstallment = typedNote.length > PAYMENT_ZNS_NOTE_MAX ? /^thanh toán đợt (\d+)/i.exec(normalizeNote(typedNote)) : null;
+      const typedInstallmentNumber = overLongInstallment ? Number(overLongInstallment[1]) : NaN;
       const typedInstallmentIsCollected = collectPaymentLedger(dbPayment).entries.some(e => e.lanThu === typedInstallmentNumber);
-      // Câu gửi lên chỉ được dùng khi vừa 30 ký tự, không phải câu "Tất toán" bị loại và không phải bản sao ghi chú nội bộ; câu dài thay bằng câu máy chủ dựng.
-      serverPaymentNote = typedInstallmentIsCollected
-        ? `Thanh toán đợt ${typedInstallmentNumber}`.slice(0, PAYMENT_ZNS_NOTE_MAX)
-        : (typedNote && typedNote.length <= PAYMENT_ZNS_NOTE_MAX && !legacyNoteForOpenReceipt && !echoedInternalNote ? typedNote : note.ghiChu);
+      // Thứ tự: bản sao ghi chú nội bộ (kiểm tra trước, mọi độ dài; số N đọc từ chữ đã lưu không đáng tin) → câu máy chủ; câu quá dài kiểu bản cũ có N hợp lệ → "Thanh toán đợt N";
+      // câu ≤ 30 ký tự → như đã gõ, trừ câu "Tất toán" bị loại; còn lại → câu máy chủ dựng.
+      if (echoedInternalNote) {
+        serverPaymentNote = note.ghiChu;
+      } else if (typedInstallmentIsCollected) {
+        serverPaymentNote = `Thanh toán đợt ${typedInstallmentNumber}`.slice(0, PAYMENT_ZNS_NOTE_MAX);
+      } else {
+        serverPaymentNote = typedNote && typedNote.length <= PAYMENT_ZNS_NOTE_MAX && !legacyNoteForOpenReceipt ? typedNote : note.ghiChu;
+      }
     }
 
     const targetCustId = (clientEntity.customerId as string) || 
