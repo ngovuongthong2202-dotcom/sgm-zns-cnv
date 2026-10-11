@@ -5,6 +5,7 @@ import request from 'supertest';
 const { fakeAdminDb, batchMock, docFixtures } = vi.hoisted(() => {
   const docFixtures: Record<string, Record<string, unknown>> = {
     'pay-unpaid': { tinhTrangThanhToan: 'Chưa TT', soTien: 0, cacDotThu: [], contractId: 'c1', products: [] },
+    'pay-paid': { tinhTrangThanhToan: 'Đã TT', soTien: 100, contractId: 'c1', products: [] },
     'c1': { soHopDong: 'HD-01', products: [] },
   };
   const batchMock = { update: vi.fn(), set: vi.fn(), delete: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) };
@@ -108,6 +109,23 @@ describe('workflow.routes – Đợt 0A (GH02): đặc cách cần người duy�
 
   it('đối chứng GH12 (Đợt 1): báo giá không có phiếu thu vẫn như hôm nay (200, được ghi, không phải hai mã mới)', async () => {
     const res = await post({ quotationId: 'q1', products: [] });
+    expect(NEW_CODES).not.toContain(res.body.code);
+    expect(res.status).toBe(200);
+    expect(batchMock.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('block + hợp đồng + đặc cách đủ người duyệt và lý do, không phiếu thu → 200, ghi một lần (công tắc không chặn ca đặc cách)', async () => {
+    vi.stubEnv('DELIVERY_UNPAID_CONTRACT_GUARD', 'block');
+    const res = await post({ contractId: 'c1', dacCachGiaoTruoc: true, nguoiPheDuyetDacCach: 'Sếp Nam', lyDoDacCach: 'Giao theo tiến độ hợp đồng dự án', products: [] });
+    expect(NEW_CODES).not.toContain(res.body.code);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(batchMock.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('block + hợp đồng + phiếu thu đã thu, không đặc cách → không phải CONTRACT_WITHOUT_RECEIPT (công tắc không chặn ca đã có phiếu thu)', async () => {
+    vi.stubEnv('DELIVERY_UNPAID_CONTRACT_GUARD', 'block');
+    const res = await post({ contractId: 'c1', paymentId: 'pay-paid', dacCachGiaoTruoc: false, products: [] });
     expect(NEW_CODES).not.toContain(res.body.code);
     expect(res.status).toBe(200);
     expect(batchMock.commit).toHaveBeenCalledTimes(1);
