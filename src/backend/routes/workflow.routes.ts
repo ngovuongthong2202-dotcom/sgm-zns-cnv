@@ -10,6 +10,7 @@ import { RETIRED } from './retired.routes';
 import { normalizeLoai } from '../../domain/enums/quotation-loai';
 import { isSourceDocumentFullyDelivered, validateShipmentQuantities } from '../../domain/services/delivery-reconciler';
 import crypto from 'crypto';
+import { isBusinessEntity, isGateParentTable, INVALID_ENTITY_BODY } from './business-tables';
 
 export function normalizeEntityType(entityType: string): string {
   const lower = (entityType || '').toLowerCase().trim();
@@ -30,6 +31,7 @@ router.post('/reconcile-duplicates', RETIRED.reconcileDuplicates);
 router.all('/next-code/:entityType', async (req, res) => {
   try {
     const rawType = req.params.entityType;
+    if (!isBusinessEntity(normalizeEntityType(rawType))) return res.status(400).json(INVALID_ENTITY_BODY); // Đợt 0A: rào 5 bảng
     const params = { ...(req.query || {}), ...(req.body || {}) };
     const { loai, year, prefix } = params;
     const code = await sequenceGeneratorService.getNextCode(rawType, {
@@ -49,6 +51,7 @@ router.post('/create/:entityType', async (req, res) => {
   try {
     const rawType = req.params.entityType;
     const entityType = normalizeEntityType(rawType);
+    if (!isBusinessEntity(entityType)) return res.status(400).json(INVALID_ENTITY_BODY); // Đợt 0A: rào 5 bảng
     const { data, requestId } = req.body;
     const correlationId = (req.headers['x-correlation-id'] as string) || crypto.randomUUID();
     
@@ -398,6 +401,7 @@ router.put('/update/:entityType/:id', async (req, res) => {
   try {
     const rawType = req.params.entityType;
     const entityType = normalizeEntityType(rawType);
+    if (!isBusinessEntity(entityType)) return res.status(400).json(INVALID_ENTITY_BODY); // Đợt 0A: rào 5 bảng
     const targetTable = toTableName(entityType);
     const { id } = req.params;
     const { data } = req.body;
@@ -488,6 +492,7 @@ router.delete('/delete/:entityType/:id', async (req, res) => {
   try {
     const rawType = req.params.entityType;
     const entityType = normalizeEntityType(rawType);
+    if (!isBusinessEntity(entityType)) return res.status(400).json(INVALID_ENTITY_BODY); // Đợt 0A: rào 5 bảng
     const id = req.params.id;
     const correlationId = (req.headers['x-correlation-id'] as string) || crypto.randomUUID();
 
@@ -853,6 +858,7 @@ router.post('/restore/:entityType/:id', async (req, res) => {
   try {
     const rawType = req.params.entityType;
     const entityType = normalizeEntityType(rawType);
+    if (!isBusinessEntity(entityType)) return res.status(400).json(INVALID_ENTITY_BODY); // Đợt 0A: rào 5 bảng
     const id = req.params.id;
     const targetTable = toTableName(entityType);
     const effectiveUserId = req.body?.userId || (req as any).user?.uid || 'system';
@@ -925,6 +931,10 @@ router.post('/check-gate', async (req, res) => {
     const { targetEntity, parentId, parentDocType: requestedParentDocType } = req.body;
     if (!targetEntity || !parentId) {
       return res.status(400).json({ error: "Missing TargetEntity or parentId" });
+    }
+    // Đợt 0A: chứng từ cha chỉ được là contracts | quotations | payments (trước đây đọc dòng của bảng tùy ý theo id).
+    if (requestedParentDocType !== undefined && !isGateParentTable(requestedParentDocType)) {
+      return res.status(400).json(INVALID_ENTITY_BODY);
     }
 
     let parentDocType = requestedParentDocType;
@@ -1022,6 +1032,33 @@ router.post('/log-bypass', async (req, res) => {
     return res.json({ success: true });
   } catch (error: unknown) { 
     return res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+// Đợt 0A: nhật ký "xác nhận ZNS thủ công" đi đường cố định (bảng auditLogs, action cố định) thay cho POST /create/auditLogs
+// đã bị rào 5 bảng. Theo mẫu /log-bypass ở trên: không nhận tên bảng, chỉ nhận các trường liệt kê.
+const ZNS_BYPASS_ENTITY_TYPES: readonly string[] = ['quotation', 'contract', 'payment', 'delivery'];
+router.post('/zns-manual-bypass', async (req, res) => {
+  try {
+    const { entityType, docId, previousStatus, userId } = req.body || {};
+    if (!ZNS_BYPASS_ENTITY_TYPES.includes(entityType) || typeof docId !== 'string' || !docId.trim()) {
+      return res.status(400).json({ success: false, code: 'INVALID_BYPASS', error: 'Thiếu loại chứng từ hoặc mã chứng từ để ghi nhận xác nhận ZNS thủ công.' });
+    }
+    await adminDb.collection('auditLogs').add({
+      action: 'ZNS_MANUAL_BYPASS',
+      entityId: docId.trim(),
+      entityType,
+      userId: typeof userId === 'string' && userId.trim() ? userId.trim() : 'unknown',
+      details: {
+        previousStatus: typeof previousStatus === 'string' ? previousStatus : '',
+        newStatus: 'THÀNH CÔNG',
+        note: 'Người dùng xác nhận ZNS thành công thủ công do webhook trễ.'
+      },
+      timestamp: new Date().toISOString()
+    });
+    return res.json({ success: true });
+  } catch (error: unknown) {
+    return res.status(500).json({ success: false, error: error instanceof Error ? error.message : String(error) });
   }
 });
 

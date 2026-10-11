@@ -1,15 +1,16 @@
 import { useState } from 'react';
-import { apiCreateEntity } from '@/src/shared/utils/apiCreateEntity';
 import { EntityZnsStatus } from '@/src/domain/enums/zns-status';
 import { repositoryFactory } from '@/src/data/repositories/factory';
+import { useAuth } from '@/src/modules/iam';
 
 export function useManualZnsBypass() {
   const [bypassingId, setBypassingId] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const bypassZns = async (entityType: 'quotation' | 'contract' | 'payment' | 'delivery', docId: string, currentStatus: string) => {
     if (!docId) return;
     setBypassingId(docId);
-    
+
     try {
       const collectionName = entityType + 's';
       const statusField = entityType === 'quotation' ? 'trangThaiGuiTinBaoGia'
@@ -24,20 +25,16 @@ export function useManualZnsBypass() {
         updatedAt: new Date().toISOString()
       });
 
-      // Write Audit Log
-      await apiCreateEntity('auditLogs', {
-        action: 'ZNS_MANUAL_BYPASS',
-        entityId: docId,
-        entityType: entityType,
-        message: `Người dùng xác nhận ZNS thành công thủ công do webhook trễ. Trạng thái cũ: ${currentStatus}`,
-        timestamp: Date.now(),
-        user: 'Hệ thống',
-        details: {
-          previousStatus: currentStatus,
-          newStatus: EntityZnsStatus.THANH_CONG
-        }
+      // Đợt 0A: nhật ký đi đường cố định của máy chủ (bảng auditLogs, action cố định),
+      // thay cho POST /create/auditLogs (đường chung) đã bị rào 5 bảng.
+      const res = await fetch('/api/workflow/zns-manual-bypass', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entityType, docId, previousStatus: currentStatus, userId: user?.uid || '' })
       });
-      
+      if (!res.ok) {
+        console.warn('Không ghi được nhật ký xác nhận ZNS thủ công, mã:', res.status);
+      }
     } catch (e) {
       console.error('Failed to bypass ZNS manually:', e);
     } finally {

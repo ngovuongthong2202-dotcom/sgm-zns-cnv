@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { adminDb } from '../config/supabase.admin';
 import { getItemKey, computeDeliveredQuantitiesMap, isSourceDocumentFullyDelivered } from '../../domain/services/delivery-reconciler';
+import { isBusinessTable, INVALID_COLLECTION_BODY } from './business-tables';
 
 const router = Router();
 
@@ -28,6 +29,10 @@ router.get('/:collection', async (req, res) => {
   res.setHeader('Expires', '0');
   try {
     const collections = req.params.collection.split(',');
+    // Đợt 0A: rào 5 bảng nghiệp vụ TRƯỚC mọi truy cập CSDL; một phần tử sai là từ chối cả yêu cầu.
+    if (collections.length === 0 || !collections.every(isBusinessTable)) {
+      return res.status(400).json(INVALID_COLLECTION_BODY);
+    }
     const { q, limit = 20 } = req.query;
     
     let results: SearchItem[] = [];
