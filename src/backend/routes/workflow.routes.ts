@@ -250,7 +250,23 @@ router.post('/create/:entityType', async (req, res) => {
     }
 
     if (entityType === 'delivery') {
-      const isDirectOrExempt = Boolean(data.dacCachGiaoTruoc || (!data.paymentId && (data.contractId || data.quotationId)));
+      // Đợt 0A (GH02): đặc cách phải có người duyệt và lý do; cờ phải là boolean thật (chuỗi 'yes' không tính).
+      const waiverOn = data.dacCachGiaoTruoc === true;
+      const waiverApprover = typeof data.nguoiPheDuyetDacCach === 'string' ? data.nguoiPheDuyetDacCach.trim() : '';
+      const waiverReason = typeof data.lyDoDacCach === 'string' ? data.lyDoDacCach.trim() : '';
+      const waiverFlagInvalid = data.dacCachGiaoTruoc !== undefined && typeof data.dacCachGiaoTruoc !== 'boolean';
+      if (waiverFlagInvalid || (waiverOn && (!waiverApprover || !waiverReason))) {
+        return res.status(422).json({ success: false, code: 'WAIVER_INCOMPLETE', error: 'Đặc cách giao trước cần người duyệt và lý do.' });
+      }
+      // Đợt 0A (GH02): phiếu giao theo hợp đồng mà không có phiếu thu và không đặc cách. Công tắc DELIVERY_UNPAID_CONTRACT_GUARD:
+      // 'block' → 422; mặc định chỉ ghi nhận (nguyên tắc 6, phụ lục 02 B2). Chủ sở hữu bật 'block' sau nghiệm thu dữ liệu thật.
+      if (data.contractId && !data.paymentId && !waiverOn) {
+        if (process.env.DELIVERY_UNPAID_CONTRACT_GUARD === 'block') {
+          return res.status(422).json({ success: false, code: 'CONTRACT_WITHOUT_RECEIPT', error: 'Hợp đồng chưa có phiếu thu: cần đặc cách có người duyệt hoặc lập phiếu thu trước.' });
+        }
+        console.warn(`[GH02 report-only] Phiếu giao theo hợp đồng ${data.contractId} không có phiếu thu và không đặc cách (correlationId=${correlationId}).`);
+      }
+      const isDirectOrExempt = Boolean(waiverOn || (!data.paymentId && (data.contractId || data.quotationId)));
       if (!data.paymentId && !isDirectOrExempt) return res.status(422).json({ error: "Thiếu reference paymentId." });
       
       let payData: any = null;
@@ -262,7 +278,7 @@ router.post('/create/:entityType', async (req, res) => {
         if (payDoc.exists) {
           payData = payDoc.data() as any;
           const gateResult = canCreateDelivery(payData);
-          if (!gateResult.allowed && !data.dacCachGiaoTruoc) return res.status(422).json({ error: gateResult.reason });
+          if (!gateResult.allowed && !waiverOn) return res.status(422).json({ error: gateResult.reason });
           
           targetSource = payData.contractId 
             ? await adminDb.collection('contracts').doc(payData.contractId).get()
