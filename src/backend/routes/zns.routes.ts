@@ -15,6 +15,7 @@ const router = Router();
 const sendZnsUseCase = new SendZnsMessageUseCase(znsRepository, znsVendor);
 
 import { resilientFetch } from '../lib/resilient-transport';
+import { logger } from '../lib/logger';
 
 // Modern unified endpoint for vendor webhook results
 router.post('/vendor-webhook/zns-result', (req, res) => vendorWebhookHandler.handleResult(req, res));
@@ -168,7 +169,8 @@ export function isAllowedVendorUrl(raw: unknown): boolean {
   if (typeof raw !== 'string' || !raw.trim()) return false;
   try {
     const u = new URL(raw.trim());
-    return u.protocol === 'https:' && ALLOWED_VENDOR_HOSTS.includes(u.hostname);
+    return u.protocol === 'https:' && ALLOWED_VENDOR_HOSTS.includes(u.hostname)
+      && !u.username && !u.password && (u.port === '' || u.port === '443');
   } catch {
     return false;
   }
@@ -218,8 +220,11 @@ router.post('/test-webhook-dryrun', async (req, res) => {
     }
     return res.status(502).json({ success: false, status, latencyMs, error: `Webhook CNV phản hồi mã lỗi HTTP ${status}. Kiểm tra lại trạng thái kịch bản trên CNV.` });
   } catch (err: any) {
+    // Thông báo lỗi của undici có thể chứa nguyên địa chỉ đã lưu (ví dụ lỗi "URL that includes credentials: <địa chỉ>"),
+    // nên chi tiết chỉ ghi vào nhật ký máy chủ, không trả về trình duyệt.
     const errorDetail = err?.cause?.message || err?.message || String(err);
-    return res.status(500).json({ success: false, error: `Không thể kết nối tới Webhook CNV: ${errorDetail}` });
+    logger.error({ err, detail: errorDetail }, '[ZNS01] Ping Webhook CNV thất bại');
+    return res.status(500).json({ success: false, code: 'PING_FAILED', error: 'Không gọi được máy chủ CNV. Xem nhật ký máy chủ để biết chi tiết.' });
   }
 });
 

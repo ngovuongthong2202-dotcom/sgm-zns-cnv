@@ -45,7 +45,11 @@ describe('zns.routes – Đợt 0A (ZNS01): ping chỉ tới địa chỉ CNV đ
     expect(znsHarness.resilientFetchMock).not.toHaveBeenCalled();
   });
 
-  it.each(['http://hub.cnvcdp.com/webhook/abc', 'https://hub.cnvcdp.com.evil.example/x', 'https://evil.example/hub.cnvcdp.com', 'khong-phai-url'])(
+  it.each([
+    'http://hub.cnvcdp.com/webhook/abc', 'https://hub.cnvcdp.com.evil.example/x', 'https://evil.example/hub.cnvcdp.com', 'khong-phai-url',
+    // có tên đăng nhập/mật khẩu trong địa chỉ, hoặc cổng khác 443
+    'https://u:p@hub.cnvcdp.com/webhook/x', 'https://hub.cnvcdp.com:22/webhook/x',
+  ])(
     'địa chỉ đã lưu "%s" → 400 VENDOR_URL_NOT_ALLOWED, không gọi', async (saved) => {
       znsHarness.docFixtures[CFG] = { vendorUrl_BAOGIA: saved };
       const res = await request(app).post('/api/zns/test-webhook-dryrun').send({});
@@ -62,5 +66,16 @@ describe('zns.routes – Đợt 0A (ZNS01): ping chỉ tới địa chỉ CNV đ
     expect(res.status).toBe(502);
     expect(res.body).toEqual({ success: false, status: 500, latencyMs: expect.any(Number), error: expect.stringContaining('HTTP 500') });
     expect(JSON.stringify(res.body)).not.toContain('stack trace');
+  });
+
+  it('gọi máy chủ CNV bị lỗi (thông báo lỗi chứa địa chỉ đã lưu) → 500 PING_FAILED, không lặp lại địa chỉ; chi tiết chỉ vào nhật ký máy chủ', async () => {
+    znsHarness.docFixtures[CFG] = { vendorUrl_BAOGIA: 'https://hub.cnvcdp.com/webhook/secret-path' };
+    znsHarness.resilientFetchMock.mockRejectedValue(new Error('boom https://hub.cnvcdp.com/webhook/secret-path'));
+    const res = await request(app).post('/api/zns/test-webhook-dryrun').send({});
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ success: false, code: 'PING_FAILED', error: 'Không gọi được máy chủ CNV. Xem nhật ký máy chủ để biết chi tiết.' });
+    expect(JSON.stringify(res.body)).not.toContain('secret-path');
+    expect(znsHarness.resilientFetchMock).toHaveBeenCalledTimes(1);
+    expect(znsHarness.loggerMock.error).toHaveBeenCalledWith(expect.objectContaining({ detail: expect.stringContaining('secret-path') }), expect.any(String));
   });
 });
