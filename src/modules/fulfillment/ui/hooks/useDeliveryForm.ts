@@ -303,10 +303,12 @@ export function useDeliveryForm(
     }
 
     const currentValues = getValues();
-    const previousCompletedPhases = (deliveries || []).filter((d: any) => 
+    // Đợt 0A (GH02): các đợt giao trước còn hiệu lực (chưa xóa, chưa HỦY) của cùng chứng từ — vừa để đánh số đợt, vừa là nguồn kế thừa đặc cách.
+    const relatedDeliveries = (deliveries || []).filter((d: any) => 
       !d.deletedAt && !d.deleted_at && String(d.tinhTrangGiaoHang || '').toUpperCase() !== 'HỦY' &&
       (d.paymentId === targetPayId || (p.contractId && d.contractId === p.contractId) || (p.quotationId && d.quotationId === p.quotationId))
-    ).length;
+    );
+    const previousCompletedPhases = relatedDeliveries.length;
     const currentPhaseNumber = previousCompletedPhases + 1;
 
     const phaseSubTotal = allocatedProducts.reduce((sum: number, it: any) => sum + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
@@ -315,10 +317,6 @@ export function useDeliveryForm(
     const phaseTotalAmount = phaseSubTotal + phaseVatAmount;
 
     // Đợt 0A (GH02): chỉ kế thừa đặc cách ĐÃ GHI NHẬN (cờ + người duyệt + lý do) từ phiếu thu/chứng từ nguồn/đợt trước; không mặc định.
-    const relatedDeliveries = (deliveries || []).filter((d: any) =>
-      !d.deletedAt && !d.deleted_at &&
-      (d.paymentId === targetPayId || (p.contractId && d.contractId === p.contractId) || (p.quotationId && d.quotationId === p.quotationId))
-    );
     const waiver = resolveWaiverPrefill({ parents: [p, source], previousDeliveries: relatedDeliveries, current: currentValues });
 
     reset({
@@ -444,10 +442,12 @@ export function useDeliveryForm(
     }
 
     const currentValues = getValues();
-    const previousCompletedPhases = (deliveries || []).filter((d: any) => 
+    // Đợt 0A (GH02): các đợt giao trước còn hiệu lực (chưa xóa, chưa HỦY) của hợp đồng — vừa để đánh số đợt, vừa là nguồn kế thừa đặc cách.
+    const contractDeliveries = (deliveries || []).filter((d: any) => 
       !d.deletedAt && !d.deleted_at && String(d.tinhTrangGiaoHang || '').toUpperCase() !== 'HỦY' && 
       (d.contractId === c.id || (c.soHopDong && d.soHopDong === c.soHopDong))
-    ).length;
+    );
+    const previousCompletedPhases = contractDeliveries.length;
     const currentPhaseNumber = previousCompletedPhases + 1;
 
     const phaseSubTotal = allocatedProducts.reduce((sum: number, it: any) => sum + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
@@ -455,7 +455,6 @@ export function useDeliveryForm(
     const phaseVatAmount = Math.round(phaseSubTotal * (phaseVatRate / 100));
     const phaseTotalAmount = phaseSubTotal + phaseVatAmount;
 
-    const contractDeliveries = (deliveries || []).filter((d: any) => !d.deletedAt && !d.deleted_at && (d.contractId === c.id || (c.soHopDong && d.soHopDong === c.soHopDong)));
     const waiver = resolveWaiverPrefill({ parents: [c], previousDeliveries: contractDeliveries, current: currentValues });
 
     reset({
@@ -586,7 +585,7 @@ export function useDeliveryForm(
     const phaseVatAmount = Math.round(phaseSubTotal * (phaseVatRate / 100));
     const phaseTotalAmount = phaseSubTotal + phaseVatAmount;
 
-    const quotationDeliveries = (deliveries || []).filter((d: any) => !d.deletedAt && !d.deleted_at && (d.quotationId === q.id || (q.soPhieuBaoGia && d.soPhieuBaoGia === q.soPhieuBaoGia)));
+    const quotationDeliveries = (deliveries || []).filter((d: any) => !d.deletedAt && !d.deleted_at && String(d.tinhTrangGiaoHang || '').toUpperCase() !== 'HỦY' && (d.quotationId === q.id || (q.soPhieuBaoGia && d.soPhieuBaoGia === q.soPhieuBaoGia)));
     const waiver = resolveWaiverPrefill({ parents: [q], previousDeliveries: quotationDeliveries, current: currentValues });
 
     reset({

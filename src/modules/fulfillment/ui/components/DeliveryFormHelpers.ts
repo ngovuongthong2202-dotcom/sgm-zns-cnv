@@ -73,18 +73,37 @@ export interface ResolveWaiverInput {
 
 const EMPTY_WAIVER: WaiverFields = { dacCachGiaoTruoc: false, nguoiPheDuyetDacCach: '', lyDoDacCach: '' };
 
+// Đợt 0A (GH02): hai hằng dưới đây CHỈ dùng để LOẠI dữ liệu đặc cách do mã cũ tự điền (phiếu lưu trước Đợt 0A) khỏi việc
+// kế thừa — KHÔNG BAO GIỜ dùng để điền sẵn. Nhãn chung không phải người duyệt cụ thể (so sau khi cắt khoảng trắng, không phân biệt hoa thường).
+const LEGACY_GENERIC_APPROVER_LABEL = 'Ban Giám Đốc';
+// Ba câu lý do chỉ mã cũ từng tự viết (không có trong các chip lý do nhanh của form).
+const LEGACY_AUTO_FILLED_REASONS: readonly string[] = [
+  'Giao hàng trước thanh toán theo phê duyệt của Lãnh đạo',
+  'Kế thừa Đặc cách Ban Giám Đốc từ đợt giao trước',
+  'Kế thừa Đặc cách Ban Giám Đốc từ đơn hàng',
+];
+
+function isLegacyAutoFilledWaiver(approver: string, reason: string): boolean {
+  // NFC: chữ Việt gõ kiểu tổ hợp vẫn so khớp được với hằng (dựng sẵn).
+  const approverKey = approver.normalize('NFC').toLowerCase();
+  const reasonKey = reason.normalize('NFC');
+  return approverKey === LEGACY_GENERIC_APPROVER_LABEL.toLowerCase() || LEGACY_AUTO_FILLED_REASONS.includes(reasonKey);
+}
+
 function recordedWaiver(src?: Record<string, unknown> | null): WaiverFields | null {
   if (!src || src.dacCachGiaoTruoc !== true) return null;
   const approver = typeof src.nguoiPheDuyetDacCach === 'string' ? src.nguoiPheDuyetDacCach.trim() : '';
   const reason = typeof src.lyDoDacCach === 'string' ? src.lyDoDacCach.trim() : '';
   if (!approver || !reason) return null; // đặc cách thiếu người duyệt hoặc lý do không được kế thừa
+  if (isLegacyAutoFilledWaiver(approver, reason)) return null; // đặc cách do mã cũ tự điền không được kế thừa
   return { dacCachGiaoTruoc: true, nguoiPheDuyetDacCach: approver, lyDoDacCach: reason };
 }
 
 /**
  * Đợt 0A (GH02; nguyên tắc 2): giá trị điền sẵn cho đặc cách giao trước. Không bao giờ tự bật, không bao giờ điền
  * người duyệt/lý do mặc định. Chỉ chép nguyên văn một đặc cách ĐÃ GHI NHẬN (cờ + người duyệt + lý do), hoặc giữ lựa chọn
- * nhân viên đang có trong form.
+ * nhân viên đang có trong form. Đặc cách do mã cũ tự điền (nhãn chung, hoặc câu lý do chỉ mã cũ viết — xem hai hằng
+ * LEGACY_… ở trên) không tính là đã ghi nhận.
  */
 export function resolveWaiverPrefill(input: ResolveWaiverInput): WaiverFields {
   const cur = input.current;
@@ -106,7 +125,7 @@ export function resolveWaiverPrefill(input: ResolveWaiverInput): WaiverFields {
   return { ...EMPTY_WAIVER };
 }
 
-export function validateDeliveryBusinessRules(data: any, payments: any[], maxQuantities: Record<string, number>, _delivery: any): { valid: boolean; error?: string } {
+export function validateDeliveryBusinessRules(data: any, payments: any[], maxQuantities: Record<string, number>, delivery: any): { valid: boolean; error?: string } {
   if (!data.soPhieuXuat || !String(data.soPhieuXuat).trim()) {
     return { valid: false, error: 'Vui lòng nhập Số Phiếu Xuất Kho (ERP) trước khi lưu giao hàng' };
   }
@@ -133,8 +152,9 @@ export function validateDeliveryBusinessRules(data: any, payments: any[], maxQua
   }
 
   // Đợt 0A (GH02): phiếu giao theo hợp đồng mà không có phiếu thu và không đặc cách — trước đây lọt qua không chốt nào.
+  // Chỉ áp cho phiếu giao MỚI: bản sửa phiếu đã lưu (có id) không bị chặn, để sửa thông tin không buộc bật đặc cách (và sinh phiếu thu neo).
   // Nhánh báo giá không có phiếu thu giữ nguyên (GH12, Đợt 1).
-  if (data.contractId && !data.paymentId && !data.dacCachGiaoTruoc) {
+  if (!delivery?.id && data.contractId && !data.paymentId && !data.dacCachGiaoTruoc) {
     return { valid: false, error: 'Hợp đồng chưa có phiếu thu: bật Đặc cách, chọn người duyệt và ghi lý do, hoặc lập phiếu thu trước.' };
   }
 

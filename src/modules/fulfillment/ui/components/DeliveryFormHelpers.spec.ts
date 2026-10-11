@@ -8,6 +8,7 @@ const baseForm = {
   products: [{ productName: 'Lưỡi dao cắt tôn', quantity: 1, itemType: 'MATERIAL', unit: 'Bộ', danhSachMaMay: [] }],
 };
 const unpaidPayments = [{ id: 'pay-unpaid', tinhTrangThanhToan: 'Chưa TT' }];
+const NO_WAIVER = { dacCachGiaoTruoc: false, nguoiPheDuyetDacCach: '', lyDoDacCach: '' };
 
 describe('resolveWaiverPrefill – Đợt 0A (GH02): không bao giờ tự bật đặc cách hay điền người duyệt/lý do', () => {
   it('không có đặc cách ở chứng từ cha lẫn đợt trước → tắt, hai ô rỗng', () => {
@@ -44,6 +45,23 @@ describe('resolveWaiverPrefill – Đợt 0A (GH02): không bao giờ tự bật
       }
     }
   });
+
+  it('đợt giao trước lưu trước Đợt 0A với nhãn chung "Ban Giám Đốc" (giá trị mã cũ tự điền) → KHÔNG kế thừa; không chặn đợt có tên thật đứng sau', () => {
+    const legacy = { dacCachGiaoTruoc: true, nguoiPheDuyetDacCach: 'Ban Giám Đốc', lyDoDacCach: 'Đặc cách giao hàng trước khi thanh toán' };
+    expect(resolveWaiverPrefill({ previousDeliveries: [legacy] })).toEqual(NO_WAIVER);
+    expect(resolveWaiverPrefill({ previousDeliveries: [legacy, recorded] })).toEqual(recorded);
+  });
+
+  it('người duyệt tên thật nhưng lý do là câu chỉ mã cũ tự viết → KHÔNG kế thừa', () => {
+    for (const legacyReason of ['Giao hàng trước thanh toán theo phê duyệt của Lãnh đạo', 'Kế thừa Đặc cách Ban Giám Đốc từ đợt giao trước', 'Kế thừa Đặc cách Ban Giám Đốc từ đơn hàng']) {
+      expect(resolveWaiverPrefill({ previousDeliveries: [{ dacCachGiaoTruoc: true, nguoiPheDuyetDacCach: 'Sếp Nam', lyDoDacCach: legacyReason }] })).toEqual(NO_WAIVER);
+    }
+  });
+
+  it('chứng từ cha có người duyệt " ban giám đốc " (viết thường, thừa khoảng trắng) → KHÔNG kế thừa; tên thật vẫn chép nguyên văn', () => {
+    expect(resolveWaiverPrefill({ parents: [{ dacCachGiaoTruoc: true, nguoiPheDuyetDacCach: ' ban giám đốc ', lyDoDacCach: 'Giao theo tiến độ hợp đồng dự án' }] })).toEqual(NO_WAIVER);
+    expect(resolveWaiverPrefill({ parents: [recorded] })).toEqual(recorded);
+  });
 });
 
 describe('validateDeliveryBusinessRules – Đợt 0A (GH02): đặc cách cần người duyệt + lý do; hợp đồng chưa có phiếu thu phải có đặc cách', () => {
@@ -67,6 +85,14 @@ describe('validateDeliveryBusinessRules – Đợt 0A (GH02): đặc cách cần
   it('ca lạm dụng: contractId có, paymentId rỗng, không đặc cách → không hợp lệ (trước đây lọt qua không chốt nào)', () => {
     const r = validateDeliveryBusinessRules({ ...baseForm, contractId: 'c1', paymentId: '', dacCachGiaoTruoc: false }, [], {}, null);
     expect(r).toEqual({ valid: false, error: 'Hợp đồng chưa có phiếu thu: bật Đặc cách, chọn người duyệt và ghi lý do, hoặc lập phiếu thu trước.' });
+  });
+
+  it('luật "hợp đồng chưa có phiếu thu" chỉ áp cho phiếu giao MỚI: bản sửa phiếu đã lưu (có id) không bị chặn', () => {
+    const data = { ...baseForm, contractId: 'c1', paymentId: '', dacCachGiaoTruoc: false };
+    expect(validateDeliveryBusinessRules(data, [], {}, { id: 'd-old' })).toEqual({ valid: true });
+    const blocked = { valid: false, error: 'Hợp đồng chưa có phiếu thu: bật Đặc cách, chọn người duyệt và ghi lý do, hoặc lập phiếu thu trước.' };
+    expect(validateDeliveryBusinessRules(data, [], {}, { contractId: 'c1' })).toEqual(blocked); // phiếu mới mở từ ngăn hợp đồng: chưa có id
+    expect(validateDeliveryBusinessRules(data, [], {}, null)).toEqual(blocked);
   });
 
   it('paymentId của phiếu thu chưa thanh toán, không đặc cách → không hợp lệ (luật cũ giữ nguyên)', () => {

@@ -19,6 +19,7 @@ const contractWithRecordedWaiver = { ...contract, id: 'c2', soHopDong: 'HD-2026-
 // [payments, delivery, contracts, quotations] và gọi setMaxQuantities({...}) mỗi lần chạy, nên mảng/đối tượng viết thẳng
 // trong callback của renderHook tạo vòng render vô hạn (worker vitest hết bộ nhớ). Chỉ đổi cách truyền đối số, không đổi assertion.
 const NO_ROWS: unknown[] = [];
+const cancelledWithRealWaiver = { id: 'd-huy', paymentId: 'p3', contractId: 'c1', soHopDong: 'HD-2026-0002', tinhTrangGiaoHang: 'HỦY', dacCachGiaoTruoc: true, nguoiPheDuyetDacCach: 'Ông Nguyễn Văn A', lyDoDacCach: 'Giao theo tiến độ dự án' };
 
 describe('useDeliveryForm – Đợt 0A (GH02): các lối vào không tự bật đặc cách', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -54,5 +55,43 @@ describe('useDeliveryForm – Đợt 0A (GH02): các lối vào không tự bậ
     expect(result.current.getValues('dacCachGiaoTruoc')).toBe(true);
     expect(result.current.getValues('nguoiPheDuyetDacCach')).toBe('Ông Nguyễn Văn A');
     expect(result.current.getValues('lyDoDacCach')).toBe('Giao theo tiến độ dự án');
+  });
+
+  it('populateFromPayment cho phiếu thu neo (chỉ có cờ) mà đợt giao trước mang đặc cách mã cũ tự điền ("Ban Giám Đốc") → đặc cách TẮT, hai ô rỗng', async () => {
+    const anchor = { id: 'p2', paymentId: 'PT-2026-0002', contractId: 'c1', soHopDong: 'HD-2026-0002', tinhTrangThanhToan: 'Chưa TT', dacCachGiaoTruoc: true, products: [] };
+    const payments = [anchor];
+    const contracts = [contract];
+    const deliveries = [{ id: 'd1', paymentId: 'p2', contractId: 'c1', soHopDong: 'HD-2026-0002', tinhTrangGiaoHang: 'Đã giao', dacCachGiaoTruoc: true, nguoiPheDuyetDacCach: 'Ban Giám Đốc', lyDoDacCach: 'Đặc cách giao hàng trước khi thanh toán' }];
+    const { result } = renderHook(() => useDeliveryForm(null, payments, contracts, NO_ROWS, NO_ROWS, deliveries));
+    await act(async () => { result.current.populateFromPayment(anchor); });
+    expect(result.current.getValues('paymentId')).toBe('p2');
+    expect(result.current.getValues('dacCachGiaoTruoc')).toBe(false);
+    expect(result.current.getValues('nguoiPheDuyetDacCach') || '').toBe('');
+    expect(result.current.getValues('lyDoDacCach') || '').toBe('');
+  });
+
+  it('đợt giao trước đã HỦY dù mang đặc cách ghi nhận đủ (tên thật) → không truyền sang phiếu mới (effect populateFromContract)', async () => {
+    const delivery = { contractId: 'c1' };
+    const contracts = [contract];
+    const deliveries = [cancelledWithRealWaiver];
+    const { result } = renderHook(() => useDeliveryForm(delivery, NO_ROWS, contracts, NO_ROWS, NO_ROWS, deliveries));
+    await act(async () => {});
+    expect(result.current.getValues('soHopDong')).toBe('HD-2026-0002');
+    expect(result.current.getValues('dacCachGiaoTruoc')).toBe(false);
+    expect(result.current.getValues('nguoiPheDuyetDacCach') || '').toBe('');
+    expect(result.current.getValues('lyDoDacCach') || '').toBe('');
+  });
+
+  it('đợt giao trước đã HỦY dù mang đặc cách ghi nhận đủ (tên thật) → không truyền sang phiếu mới (populateFromPayment)', async () => {
+    const receipt = { id: 'p3', paymentId: 'PT-2026-0003', contractId: 'c1', soHopDong: 'HD-2026-0002', tinhTrangThanhToan: 'Chưa TT', products: [] };
+    const payments = [receipt];
+    const contracts = [contract];
+    const deliveries = [cancelledWithRealWaiver];
+    const { result } = renderHook(() => useDeliveryForm(null, payments, contracts, NO_ROWS, NO_ROWS, deliveries));
+    await act(async () => { result.current.populateFromPayment(receipt); });
+    expect(result.current.getValues('paymentId')).toBe('p3');
+    expect(result.current.getValues('dacCachGiaoTruoc')).toBe(false);
+    expect(result.current.getValues('nguoiPheDuyetDacCach') || '').toBe('');
+    expect(result.current.getValues('lyDoDacCach') || '').toBe('');
   });
 });

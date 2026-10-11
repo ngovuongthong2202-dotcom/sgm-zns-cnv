@@ -235,9 +235,9 @@ export function ContractModalsContainer({
         const linkedPayment = linkedPayments[0];
         const effectivePaymentId = transitionPaymentInfo?.id || linkedPayment?.id || linkedPayment?.paymentId || '';
         const effectivePaymentCode = transitionPaymentInfo?.code || linkedPayment?.paymentId || '';
-        // Đợt 0A (GH02): chỉ chép đặc cách ĐÃ GHI NHẬN (cờ + người duyệt + lý do) từ hợp đồng hoặc phiếu thu liên kết; không suy từ "chưa thanh toán".
+        // Đợt 0A (GH02): chỉ chép đặc cách ĐÃ GHI NHẬN (cờ + người duyệt + lý do) từ phiếu thu liên kết rồi tới hợp đồng; không suy từ "chưa thanh toán".
         const waiver = resolveWaiverPrefill({
-          parents: [prefillDeliveryContract as unknown as Record<string, unknown>, linkedPayment as Record<string, unknown> | undefined],
+          parents: [linkedPayment as Record<string, unknown> | undefined, prefillDeliveryContract as unknown as Record<string, unknown>],
           previousDeliveries: getLinkedDeliveriesForContract(prefillDeliveryContract, realtimeDeliveries || []) as Record<string, unknown>[],
         });
 
