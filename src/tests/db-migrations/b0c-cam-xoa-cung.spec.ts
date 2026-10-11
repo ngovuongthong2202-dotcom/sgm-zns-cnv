@@ -161,13 +161,17 @@ describe('db/migrations/0002 – dọn zns_config lồng (ZNS05) và README', ()
     for (const must of ['Sao lưu', 'precheck', 'set local role anon', '<KHÓA_ANON>', 'rollback', '0001_b0c_cam_xoa_cung_khoa_cong_khai.sql', '0002_don_zns_config_long.sql', 'HT02']) {
       expect(readme, must).toContain(must);
     }
-    // các chỗ đã sửa sau rà soát: lệnh thử có ghi nằm trong giao dịch tự hoàn tác (không còn "set role anon" trần), curl.exe (PowerShell có lệnh curl khác), khóa công khai bị từ chối trả 401 chứ không phải 403, đổi tên (thay vì xóa) dòng sao lưu
-    for (const must of ['begin; set local role anon;', 'curl.exe', 'HTTP/2 401', '"code":"42501"', 'zns_config__bak_0002_cu']) {
+    // các chỗ đã sửa sau rà soát: lệnh thử có ghi nằm trong giao dịch tự hoàn tác (không còn "set role anon" trần), curl.exe (PowerShell có lệnh curl khác), khóa công khai bị từ chối trả mã 401 chứ không phải 403 (curl.exe của Windows in dòng HTTP/1.1, bản khác in HTTP/2), đổi tên (thay vì xóa) dòng sao lưu
+    for (const must of ['begin; set local role anon;', 'curl.exe', 'HTTP/1.1 401 Unauthorized', 'HTTP/1.1 200 OK', 'zns_config__bak_0002_cu']) {
       expect(readme, must).toContain(must);
     }
+    expect(readme).toMatch(/\b401\b[^\n]*"code":"42501"/);
     expect(readme).not.toContain('set role anon');
-    expect(readme).not.toContain('HTTP/2 403');
+    expect(readme).not.toMatch(/HTTP\/(?:2|1\.1) 403/);
     expect(readme).not.toMatch(/\bcurl\s+-/);
+    // an toàn khi chạy thật: dòng thử KHÔNG bị từ chối cũng hiện "Success…" (giống kết quả tốt ở chỗ khác) nên phải được nói rõ; và không bao giờ bảo người dùng tự khôi phục cả cơ sở dữ liệu
+    expect(readme).toContain('0001 chưa có hiệu lực');
+    expect(readme).toContain('không tự khôi phục cả cơ sở dữ liệu');
     expect(readme).not.toMatch(JWT_PATTERN);
     expect(readme).not.toMatch(/https:\/\/[a-z0-9]{20}\.supabase\.co/);
     expect((readme.match(/[^\s"/]*\.supabase\.co/g) ?? []).every(host => host === '<project-ref>.supabase.co')).toBe(true);

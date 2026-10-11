@@ -40,7 +40,7 @@ Cần có bản sao lưu cơ sở dữ liệu gần nhất. Nếu dự án dùng
    group by grantee, table_name
    order by table_name, grantee;
    ```
-   Mỗi bảng hiện hai dòng (`anon` và `authenticated`); đọc cột `privs`:
+   Mỗi bảng hiện hai dòng (`anon` và `authenticated`); đọc cột `privs` (cột này có thể còn liệt kê `REFERENCES`, `TRIGGER` và `MAINTAIN` ở bản Postgres mới — bỏ qua các quyền đó):
    - 6 bảng nghiệp vụ và nhật ký: **không còn** `DELETE` và `TRUNCATE`; vẫn còn `INSERT`, `UPDATE`, `SELECT`;
    - 11 bảng chỉ máy chủ ghi: **không còn** `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`; vẫn còn `SELECT`;
    - 6 bảng trình duyệt còn ghi và xóa: giữ nguyên như trước (vẫn còn `DELETE`);
@@ -64,7 +64,7 @@ Cần có bản sao lưu cơ sở dữ liệu gần nhất. Nếu dự án dùng
    begin; set local role anon; insert into public.counters (id) values ('__b0c_probe__'); rollback;
    begin; set local role anon; update public.zns_messages set status = 'x' where id = '__b0c_probe__'; rollback;
    ```
-   → mỗi dòng phải báo lỗi `permission denied for table …` (mã `42501`, tên bảng lần lượt là `quotations`, `payments`, `audit_logs`, `counters`, `zns_messages`). Báo lỗi này là **đạt**. Nếu lần chạy kế tiếp báo `current transaction is aborted`, chạy riêng lệnh `rollback;` một lần rồi chạy lại.
+   → mỗi dòng phải báo lỗi `permission denied for table …` (mã `42501`, tên bảng lần lượt là `quotations`, `payments`, `audit_logs`, `counters`, `zns_messages`). Báo lỗi này là **đạt**. **Nếu một dòng thử hiện "Success. No rows returned" thay vì lỗi `permission denied`, thì dòng đó không bị từ chối và 0001 chưa có hiệu lực — dừng lại, báo người soạn.** Nếu lần chạy kế tiếp báo `current transaction is aborted`, chạy riêng lệnh `rollback;` một lần rồi chạy lại.
 
    Lặp lại với `authenticated` (người đã đăng nhập), ví dụ:
    ```sql
@@ -75,11 +75,11 @@ Cần có bản sao lưu cơ sở dữ liệu gần nhất. Nếu dự án dùng
    ```
    curl.exe -i -X DELETE "https://<project-ref>.supabase.co/rest/v1/quotations?id=eq.__b0c_probe__" -H "apikey: <KHÓA_ANON>" -H "Authorization: Bearer <KHÓA_ANON>"
    ```
-   → mong đợi `HTTP/2 401` và thân có `"code":"42501"` cùng `permission denied for table quotations` (trước khi chạy 0001, cùng lệnh trả 204). Vì sao là 401 chứ không phải 403: khóa công khai được tính là "chưa đăng nhập", nên hệ thống trả 401. Điều quyết định là phần thân có `"code":"42501"` và `permission denied for table …`. Nếu thân báo lỗi về khóa thay vì `42501`, kiểm lại khóa đã dán.
+   → mong đợi mã 401 (dòng đầu là `HTTP/1.1 401 Unauthorized` hoặc `HTTP/2 401`) và thân có `"code":"42501"` cùng `permission denied for table quotations` (trước khi chạy 0001, cùng lệnh trả mã 204). Vì sao là 401 chứ không phải 403: khóa công khai được tính là "chưa đăng nhập", nên hệ thống trả 401. Điều quyết định là phần thân có `"code":"42501"` và `permission denied for table …`. Nếu thân báo lỗi về khóa thay vì `42501`, kiểm lại khóa đã dán.
    ```
    curl.exe -i "https://<project-ref>.supabase.co/rest/v1/zns_messages?select=id&limit=1" -H "apikey: <KHÓA_ANON>" -H "Authorization: Bearer <KHÓA_ANON>"
    ```
-   → mong đợi `HTTP/2 200` (đọc vẫn được). Khóa công khai vẫn còn thêm và sửa được dữ liệu ở các bảng nghiệp vụ (khách hàng, báo giá, hợp đồng, phiếu thu, phiếu giao) cho tới đợt bảo mật sau — đó là điều dự kiến, không phải lỗi, nên ở đây không thử.
+   → mong đợi mã 200 (dòng đầu là `HTTP/1.1 200 OK` hoặc `HTTP/2 200`; đọc vẫn được). Khóa công khai vẫn còn thêm và sửa được dữ liệu ở các bảng nghiệp vụ (khách hàng, báo giá, hợp đồng, phiếu thu, phiếu giao) cho tới đợt bảo mật sau — đó là điều dự kiến, không phải lỗi, nên ở đây không thử.
 8. **Kiểm trên ứng dụng** (bản đang chạy thật; mọi người đã tải lại các tab đang mở bằng Ctrl+F5 để dùng bản mới nhất). Làm lần lượt:
    - mở rồi đóng form sửa của một khách hàng, một báo giá, một hợp đồng, một phiếu thu, một phiếu giao (khóa chỉnh sửa — không cho hai người sửa cùng lúc — lấy và trả được; bảng Console của trình duyệt, phím F12, không có dòng "Failed to release lock");
    - lưu rồi xóa một bản nháp; đánh dấu đã đọc một thông báo;
@@ -116,13 +116,13 @@ from public.settings where id in ('zns_config', 'zns_config__bak_0002') order by
    Khác các giá trị này thì đừng làm bước tiếp theo, báo người soạn.
 5. Vào Cài đặt › Vendor & Webhook, bấm "Kiểm tra kết nối Zalo OpenAPI" rồi "Lưu toàn bộ cấu hình", gửi thử **1** tin ZNS lẻ tới số nội bộ.
 
-**Chạy lại 0002 là an toàn:** nó giữ bản sao lưu đầu tiên (không ghi đè) và gỡ lớp lồng thêm một lần nữa. Nhưng nếu bạn đã hoàn tác, cấu hình Zalo được sửa trong lúc đó rồi mới chạy lại, thì bản sao lưu vẫn là bản **cũ** — muốn có bản sao lưu mới, hãy đổi tên dòng `zns_config__bak_0002` trước khi chạy lại (xem "Dòng sao lưu" bên dưới).
+**Chạy lại 0002 là an toàn:** nó giữ bản sao lưu đầu tiên (không ghi đè) và gỡ lớp lồng thêm một lần nữa.
 
 ### Hoàn tác 0002
 
-Chạy `0002_don_zns_config_long.rollback.sql`. Hoàn tác chỉ **đưa lại lớp lồng cũ** (các khóa `data`, `id`, `updated_at`, `success` mà 0002 đã bỏ) và **giữ nguyên các khóa Zalo hiện tại** (mã Zalo mới và mọi chỉnh sửa sau khi chạy 0002), không đưa mã Zalo cũ trở lại.
+Chạy `0002_don_zns_config_long.rollback.sql`. Hoàn tác chỉ **đưa lại lớp lồng cũ** (các khóa `data`, `id`, `updated_at`, `success` mà 0002 đã bỏ) và **giữ nguyên các khóa Zalo hiện tại** (mã Zalo mới và mọi chỉnh sửa sau khi chạy 0002), không thay các khóa đang dùng bằng khóa cũ (lớp lồng cũ được đưa lại vẫn chứa bí mật cũ, như trước khi chạy 0002).
 
-**Kiểm sau khi hoàn tác:** chạy lại truy vấn kiểm tra; `zns_config` phải có `con_lop_long` = `true`. Nếu **không thấy dòng `zns_config__bak_0002`** trong kết quả, tức là hoàn tác không làm được gì, và cách duy nhất để quay lại là khôi phục từ bản sao lưu toàn bộ cơ sở dữ liệu.
+**Kiểm sau khi hoàn tác:** chạy lại truy vấn kiểm tra; `zns_config` phải có `con_lop_long` = `true`. Nếu **không thấy dòng `zns_config__bak_0002`** trong kết quả thì hoàn tác chưa làm được gì: nếu dòng sao lưu đã được đổi tên thành `zns_config__bak_0002_cu` thì đổi tên ngược lại (câu lệnh ở mục "Dòng sao lưu" bên dưới) rồi chạy lại hoàn tác; nếu không còn dòng sao lưu nào, **dừng lại và báo người soạn — không tự khôi phục cả cơ sở dữ liệu** (làm vậy sẽ mất mọi dữ liệu đã nhập từ lúc sao lưu).
 
 ### Dòng sao lưu `zns_config__bak_0002`
 
