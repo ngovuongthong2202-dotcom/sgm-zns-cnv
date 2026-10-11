@@ -24,6 +24,7 @@ import { getContractColumns } from './columns.config';
 import { enrichWithStt } from '@/src/shared/utils/enrichWithStt';
 import { useContractsFilters } from './hooks/useContractsFilters';
 import { extractContractCustomerTinhThanhMap, extractContractTinhThanhList } from './utils/extractors';
+import { gateCreatePaymentForContract } from './utils/payment-gate';
 import { ContractFilterBar } from './components/ContractFilterBar';
 import { useContractsActions } from './hooks/useContractsActions';
 
@@ -85,7 +86,7 @@ const ContractRouteSync = React.memo(function ContractRouteSync({
 });
 
 export default function ContractsFeature() {
-  const { userData } = useAuth();
+  const { user, userData } = useAuth();
   const { contracts, loading, loadMore, hasMore, loaded, total, capped, createContract, updateContract, deleteContract, softDeleteContract } = useContracts();
   
   const { nguoiPhuTrachList } = useSharedFields();
@@ -334,8 +335,10 @@ export default function ContractsFeature() {
               <Button
                 type="button"
                 title="Tạo Thanh Toán"
-                onClick={(e) => { 
-                  e.stopPropagation(); 
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  // Đợt 0A (TT04): cùng đường với ngăn chi tiết — một phiếu/hợp đồng + chốt quy trình
+                  if (!(await gateCreatePaymentForContract(contract, realtimePayments, user?.email || undefined))) return;
                   setPrefillPaymentContract(contract);
                 }}
                 className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-md border-0 bg-transparent cursor-pointer flex items-center justify-center transition-colors"
