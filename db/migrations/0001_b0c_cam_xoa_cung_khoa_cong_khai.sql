@@ -42,7 +42,8 @@ COMMIT;
 -- select has_function_privilege('anon', 'public.cleanup_expired_system_data()', 'EXECUTE') as anon_cleanup,
 --        has_function_privilege('service_role', 'public.cleanup_expired_system_data()', 'EXECUTE') as service_cleanup;
 -- Mong đợi: false, true.
--- Thử bị từ chối (id không tồn tại nên không đụng dữ liệu):
--- set role anon; delete from public.quotations where id = '__b0c_probe__'; reset role;   -- ERROR: permission denied for table quotations
--- set role anon; insert into public.counters (id) values ('__b0c_probe__'); reset role; -- ERROR: permission denied for table counters
--- set role authenticated; update public.zns_messages set status = 'x' where id = '__b0c_probe__'; reset role; -- ERROR
+-- Thử bị từ chối (id không tồn tại nên không đụng dữ liệu; mỗi dòng nằm trong một giao dịch tự hoàn tác; chạy TỪNG DÒNG MỘT trong SQL editor;
+--   nếu lần sau báo "current transaction is aborted", chạy riêng lệnh: rollback;):
+-- begin; set local role anon; delete from public.quotations where id = '__b0c_probe__'; rollback;   -- ERROR: permission denied for table quotations
+-- begin; set local role anon; insert into public.counters (id) values ('__b0c_probe__'); rollback; -- ERROR: permission denied for table counters
+-- begin; set local role authenticated; update public.zns_messages set status = 'x' where id = '__b0c_probe__'; rollback; -- ERROR: permission denied for table zns_messages

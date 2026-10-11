@@ -1,7 +1,10 @@
--- Hoàn tác 0002: chép lại data của zns_config từ dòng sao lưu. Không xóa dòng nào.
+-- Hoàn tác 0002: đưa lại các khóa mà 0002 đã bỏ khỏi zns_config (lớp lồng `data`, `id`, `updated_at`, `success`) từ dòng sao lưu zns_config__bak_0002.
+-- Hợp nhất `b.data || s.data`: khóa nào hiện đang có trong zns_config thì GIỮ giá trị hiện tại (vế phải thắng), nên mã làm mới/mã truy cập Zalo mới
+-- và mọi chỉnh sửa sau khi chạy 0002 KHÔNG bị ghi đè bằng giá trị cũ trong bản sao lưu; chỉ các khóa đang vắng mới được lấy lại từ bản sao lưu.
+-- Không xóa dòng nào. Nếu dòng zns_config__bak_0002 không còn thì câu lệnh không làm gì (0 dòng) và chỉ còn cách khôi phục từ bản sao lưu toàn bộ CSDL.
 BEGIN;
 UPDATE public.settings AS s
-   SET data = b.data, updated_at = NOW()
+   SET data = b.data || s.data, updated_at = NOW()
   FROM public.settings AS b
  WHERE s.id = 'zns_config' AND b.id = 'zns_config__bak_0002';
 COMMIT;

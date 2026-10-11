@@ -1,47 +1,152 @@
 # Tệp SQL của SGM OS (`db/migrations/`)
 
-Quy ước (nguyên tắc 6 của kế hoạch tổng thể, mã CSDL05): mỗi thay đổi cơ sở dữ liệu là **một tệp SQL đánh số** (`NNNN_ten-viec.sql`), đi kèm **tệp hoàn tác** (`NNNN_ten-viec.rollback.sql`) và, khi cần, **tệp kiểm tra trước** chỉ đọc (`NNNN_ten-viec.precheck.sql`). Người chạy là **chủ sở hữu hoặc IT**, trong Supabase SQL editor (vai `postgres`), ngoài giờ làm việc, **sau khi sao lưu toàn bộ CSDL** bằng công cụ của Supabase. Tác tử không chạy SQL trên CSDL thật. Không ghi khóa, mật khẩu hay URL dự án vào thư mục này. Mỗi tệp là một khối `BEGIN; … COMMIT;` — lỗi ở một câu lệnh thì cả khối không có hiệu lực.
+Quy ước (nguyên tắc 6 của kế hoạch tổng thể, mã CSDL05): mỗi thay đổi cơ sở dữ liệu là **một tệp SQL đánh số** (`NNNN_ten-viec.sql`), đi kèm **tệp hoàn tác** (`NNNN_ten-viec.rollback.sql`) và, khi cần, **tệp kiểm tra trước** (`NNNN_ten-viec.precheck.sql`). Tệp kiểm tra trước **chỉ đọc**: không sửa gì và không có `BEGIN`/`COMMIT`. Tệp chạy và tệp hoàn tác là một khối `BEGIN; … COMMIT;` — lỗi ở một câu lệnh thì cả khối không có hiệu lực. Người chạy là **chủ sở hữu hoặc IT**, trong Supabase SQL editor (mặc định chạy bằng vai quản trị `postgres`), ngoài giờ làm việc. Tác tử không chạy SQL trên cơ sở dữ liệu thật. Không ghi khóa, mật khẩu hay địa chỉ dự án vào thư mục này.
+
+## Sao lưu trước khi chạy
+
+Cần có bản sao lưu cơ sở dữ liệu gần nhất. Nếu dự án dùng gói trả phí, vào **Database › Backups** và kiểm có bản sao lưu gần nhất; nếu không, nhờ IT sao lưu (`pg_dump`) trước. 0001 chỉ đổi quyền, không đổi dữ liệu, và có tệp hoàn tác; 0002 tự chép dòng `zns_config` sang dòng sao lưu trước khi sửa. Ghi giờ sao lưu vào cột "Sao lưu lúc" của sổ theo dõi ở cuối trang.
+
+## Dùng SQL editor
+
+- Dán truy vấn vào ô soạn, **bôi đen đúng một truy vấn** rồi bấm **Run**. Nếu để nhiều truy vấn rồi bấm Run, có thể chỉ thấy kết quả của truy vấn cuối.
+- Các truy vấn kiểm tra trong sổ tay này chỉ in `true`/`false` hoặc tên bảng, không in bí mật. **Không sao chép, xuất hay dán nội dung dòng `zns_config` (hoặc dòng sao lưu của nó) ở bất cứ đâu** — dòng đó chứa khóa bí mật.
+
+## Ba loại bảng (để đọc kết quả kiểm tra)
+
+- **Bảng nghiệp vụ và nhật ký** (0001 chỉ thu quyền *xóa*): `customers`, `quotations`, `contracts`, `payments`, `deliveries`, `audit_logs`.
+- **Các bảng chỉ máy chủ ghi** (0001 thu mọi quyền *ghi*, trình duyệt chỉ còn đọc): `zns_messages`, `counters`, `zns_callbacks`, `zns_dead_letters`, `workflow_events`, `telegram_sent_log`, `job_heartbeats`, `system_locks`, `idempotency_keys`, `metrics_rollup`, `cross_entity_sync_jobs`.
+- **Bảng trình duyệt còn ghi và xóa** (0001 không đụng, để tới đợt bảo mật sau): `users`, `settings`, `zns_templates`, `notifications`, `drafts`, `presence`.
 
 ## Thứ tự và điều kiện
 
 | Tệp | Làm gì | Chạy khi | Hoàn tác |
 |---|---|---|---|
-| `0001_b0c_cam_xoa_cung_khoa_cong_khai.sql` | Khóa công khai (`anon`, `authenticated`) không còn **xóa** được bảng nghiệp vụ, nhật ký, tin ZNS, bộ đếm; không còn **ghi** được các bảng trình duyệt chỉ đọc; hai hàm dọn dẹp/hạn mức chỉ máy chủ gọi được | Sau khi: (a) Sao lưu; (b) chạy `0001_…precheck.sql` và xử lý bảng lạ; (c) Render › Environment có `SUPABASE_SERVICE_ROLE_KEY` (máy chủ chạy bằng khóa anon sẽ mất mọi lệnh ghi) | `0001_…rollback.sql` |
+| `0001_b0c_cam_xoa_cung_khoa_cong_khai.sql` | Khóa công khai (`anon`, `authenticated`) không còn **xóa** được bảng nghiệp vụ, nhật ký, tin ZNS, bộ đếm; không còn **ghi** được các bảng chỉ máy chủ ghi; hai hàm dọn dẹp/hạn mức chỉ máy chủ gọi được | Sau khi: (a) Sao lưu; (b) chạy `0001_…precheck.sql` và xử lý bảng lạ; (c) Render › Environment có `SUPABASE_SERVICE_ROLE_KEY` (máy chủ chạy bằng khóa công khai sẽ mất mọi lệnh ghi) | `0001_…rollback.sql` |
 | `0002_don_zns_config_long.sql` | Bỏ lớp cấu hình Zalo cũ bị lồng trong `settings/zns_config`, có bản sao `zns_config__bak_0002` | Sau khi bản có danh sách ô cho phép của trang Vendor & Webhook đã lên máy chủ và "Kiểm tra kết nối → Lưu" nghiệm thu xong; **trước** khi đổi khóa Zalo (B6) | `0002_…rollback.sql` |
 
 ## Cách chạy 0001 (từng bước)
 
-1. **Sao lưu** toàn bộ CSDL (Supabase › Database › Backups, hoặc `pg_dump`). Ghi giờ sao lưu vào báo cáo cổng mục 8.6.
-2. Mở `0001_b0c_cam_xoa_cung_khoa_cong_khai.precheck.sql`, chạy **từng truy vấn** (tất cả chỉ đọc):
-   - Truy vấn 1 phải **trống**. Nếu ra bảng nào (ví dụ `gatebypasses`, `clienterrors`), gửi tên bảng cho người soạn để phân nhóm và bổ sung vào 0001 trước; **không** chạy 0001 khi còn bảng lạ.
-   - Truy vấn 2–4: dán kết quả vào báo cáo (không có bí mật).
-3. Xác nhận không có tự động hóa ngoài (Make/n8n/Zapier, bot Telegram, script chạy tay) đang ghi `zns_messages`/`counters`… hoặc xóa chứng từ bằng khóa anon.
-4. Dán toàn bộ `0001_b0c_cam_xoa_cung_khoa_cong_khai.sql` vào SQL editor, chạy. Kết quả mong đợi: "Success. No rows returned".
-5. **Kiểm ngay** (các truy vấn ở cuối tệp, phần `-- KIỂM CHỨNG`): quyền `DELETE` của `anon`/`authenticated` chỉ còn ở `users, settings, zns_templates, notifications, drafts, presence`; `INSERT`/`UPDATE` vắng ở nhóm B; `SELECT` còn ở mọi bảng; `has_function_privilege('anon', …)` = false.
-6. **Thử bị từ chối** (dùng id không tồn tại nên không đụng dữ liệu):
+1. **Sao lưu** như mục trên.
+2. Mở `0001_b0c_cam_xoa_cung_khoa_cong_khai.precheck.sql` (chỉ đọc), chạy **từng truy vấn một**:
+   - Truy vấn 1 phải **trống** ("Success. No rows returned"). Nếu ra bảng nào (ví dụ `gatebypasses`, `clienterrors`), gửi tên bảng cho người soạn để phân loại và bổ sung vào 0001 trước; **không** chạy 0001 khi còn bảng lạ.
+   - Truy vấn 2–4: dán kết quả vào báo cáo cổng mục 8.6 (không có bí mật).
+3. Xác nhận không có tự động hóa ngoài (Make/n8n/Zapier, bot Telegram, script chạy tay) đang ghi `zns_messages`/`counters`… hoặc xóa chứng từ bằng khóa công khai.
+4. Dán toàn bộ `0001_b0c_cam_xoa_cung_khoa_cong_khai.sql` vào SQL editor, bôi đen tất cả (Ctrl+A) rồi bấm Run. Kết quả mong đợi: "Success. No rows returned".
+5. **Kiểm ngay** — chạy hai truy vấn dưới đây (mỗi lần bôi đen đúng một truy vấn). Truy vấn quyền:
    ```sql
-   set role anon; delete from public.quotations where id = '__b0c_probe__'; reset role;
+   select grantee, table_name, string_agg(privilege_type, ',' order by privilege_type) as privs
+   from information_schema.role_table_grants
+   where table_schema = 'public' and grantee in ('anon','authenticated')
+   group by grantee, table_name
+   order by table_name, grantee;
    ```
-   → `ERROR: permission denied for table quotations`. Lặp lại với `payments`, `audit_logs` (delete), `counters` (insert), `zns_messages` (update); rồi với `set role authenticated`.
-7. **Thử qua API bằng khóa công khai** (khóa lấy từ Supabase › Settings › API lúc chạy, **không** ghi vào kho; thay `<project-ref>`, `<KHÓA_ANON>`):
+   Mỗi bảng hiện hai dòng (`anon` và `authenticated`); đọc cột `privs`:
+   - 6 bảng nghiệp vụ và nhật ký: **không còn** `DELETE` và `TRUNCATE`; vẫn còn `INSERT`, `UPDATE`, `SELECT`;
+   - 11 bảng chỉ máy chủ ghi: **không còn** `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`; vẫn còn `SELECT`;
+   - 6 bảng trình duyệt còn ghi và xóa: giữ nguyên như trước (vẫn còn `DELETE`);
+   - **mọi** bảng đều còn `SELECT`.
+
+   Truy vấn hai hàm (chỉ máy chủ được chạy):
+   ```sql
+   select has_function_privilege('anon', 'public.cleanup_expired_system_data()', 'EXECUTE') as anon_cleanup,
+          has_function_privilege('authenticated', 'public.cleanup_expired_system_data()', 'EXECUTE') as authenticated_cleanup,
+          has_function_privilege('service_role', 'public.cleanup_expired_system_data()', 'EXECUTE') as service_cleanup,
+          has_function_privilege('anon', 'public.decrement_zns_quota(integer)', 'EXECUTE') as anon_quota,
+          has_function_privilege('authenticated', 'public.decrement_zns_quota(integer)', 'EXECUTE') as authenticated_quota,
+          has_function_privilege('service_role', 'public.decrement_zns_quota(integer)', 'EXECUTE') as service_quota;
    ```
-   curl -i -X DELETE "https://<project-ref>.supabase.co/rest/v1/quotations?id=eq.__b0c_probe__" -H "apikey: <KHÓA_ANON>" -H "Authorization: Bearer <KHÓA_ANON>"
+   Mong đợi một dòng, theo thứ tự cột: `false, false, true, false, false, true`.
+6. **Thử bị từ chối** — chỉ chạy trong SQL editor, **từng dòng một** (bôi đen đúng một dòng rồi bấm Run). Mỗi dòng nằm trong một giao dịch tự hoàn tác (`begin; … rollback;`) và dùng id không tồn tại, nên không thể để lại gì. Thử với khóa công khai (`anon`):
+   ```sql
+   begin; set local role anon; delete from public.quotations where id = '__b0c_probe__'; rollback;
+   begin; set local role anon; delete from public.payments where id = '__b0c_probe__'; rollback;
+   begin; set local role anon; delete from public.audit_logs where id = '__b0c_probe__'; rollback;
+   begin; set local role anon; insert into public.counters (id) values ('__b0c_probe__'); rollback;
+   begin; set local role anon; update public.zns_messages set status = 'x' where id = '__b0c_probe__'; rollback;
    ```
-   → `HTTP/2 403` với thân có `"code":"42501"` (trước khi chạy 0001 cùng lệnh trả 204). `PATCH …/counters?id=eq.__b0c_probe__` → 403. `GET …/zns_messages?select=id&limit=1` → 200 (đọc vẫn được). `PATCH …/quotations?id=eq.__b0c_probe__` với thân `{"data":{}}` → 204 không dòng nào (ghi **vẫn mở** tới B3 — ghi vào báo cáo, không phải lỗi).
-8. **Kiểm trên ứng dụng** (bản chạy thật, sau Bước 0 tải lại tab): mở rồi đóng form sửa của một khách hàng, một báo giá, một hợp đồng, một phiếu thu, một phiếu giao (khóa chỉnh sửa lấy/trả được; Console không có "Failed to release lock"); lưu rồi xóa một bản nháp; đánh dấu đã đọc một thông báo; tạo một khách thử (mã do máy chủ cấp — `counters` ghi bằng khóa service); gửi **một** tin ZNS lẻ tới số nội bộ (máy chủ ghi `zns_messages`, thấy trong ZNS Hub); xóa khách thử đó từ giao diện (máy chủ xóa cứng); Cài đặt › Người dùng và trang nhật ký mở được; một tab khác nhận báo giá mới không cần F5. **Lưu ý:** "ghi chú hoạt động" thêm từ ngăn chi tiết **vẫn lỗi như trước** vì lớp ghi của trình duyệt thêm cột `updated_at` mà `audit_logs` không có (HT02) — không do SQL này.
+   → mỗi dòng phải báo lỗi `permission denied for table …` (mã `42501`, tên bảng lần lượt là `quotations`, `payments`, `audit_logs`, `counters`, `zns_messages`). Báo lỗi này là **đạt**. Nếu lần chạy kế tiếp báo `current transaction is aborted`, chạy riêng lệnh `rollback;` một lần rồi chạy lại.
+
+   Lặp lại với `authenticated` (người đã đăng nhập), ví dụ:
+   ```sql
+   begin; set local role authenticated; delete from public.quotations where id = '__b0c_probe__'; rollback;
+   ```
+   rồi làm tương tự cho bốn dòng còn lại (chỉ đổi `anon` thành `authenticated`).
+7. **Thử qua API bằng khóa công khai** — chạy trong **Windows PowerShell** và gõ `curl.exe` (trong PowerShell, `curl` là một lệnh khác). Lấy khóa `anon` ở Supabase › Settings › API ngay lúc chạy, thay vào `<KHÓA_ANON>`; thay `<project-ref>` bằng mã dự án; **không** ghi khóa hay mã dự án vào kho hay báo cáo.
+   ```
+   curl.exe -i -X DELETE "https://<project-ref>.supabase.co/rest/v1/quotations?id=eq.__b0c_probe__" -H "apikey: <KHÓA_ANON>" -H "Authorization: Bearer <KHÓA_ANON>"
+   ```
+   → mong đợi `HTTP/2 401` và thân có `"code":"42501"` cùng `permission denied for table quotations` (trước khi chạy 0001, cùng lệnh trả 204). Vì sao là 401 chứ không phải 403: khóa công khai được tính là "chưa đăng nhập", nên hệ thống trả 401. Điều quyết định là phần thân có `"code":"42501"` và `permission denied for table …`. Nếu thân báo lỗi về khóa thay vì `42501`, kiểm lại khóa đã dán.
+   ```
+   curl.exe -i "https://<project-ref>.supabase.co/rest/v1/zns_messages?select=id&limit=1" -H "apikey: <KHÓA_ANON>" -H "Authorization: Bearer <KHÓA_ANON>"
+   ```
+   → mong đợi `HTTP/2 200` (đọc vẫn được). Khóa công khai vẫn còn thêm và sửa được dữ liệu ở các bảng nghiệp vụ (khách hàng, báo giá, hợp đồng, phiếu thu, phiếu giao) cho tới đợt bảo mật sau — đó là điều dự kiến, không phải lỗi, nên ở đây không thử.
+8. **Kiểm trên ứng dụng** (bản đang chạy thật; mọi người đã tải lại các tab đang mở bằng Ctrl+F5 để dùng bản mới nhất). Làm lần lượt:
+   - mở rồi đóng form sửa của một khách hàng, một báo giá, một hợp đồng, một phiếu thu, một phiếu giao (khóa chỉnh sửa — không cho hai người sửa cùng lúc — lấy và trả được; bảng Console của trình duyệt, phím F12, không có dòng "Failed to release lock");
+   - lưu rồi xóa một bản nháp; đánh dấu đã đọc một thông báo;
+   - tạo một khách thử (mã do máy chủ cấp; máy chủ ghi bộ đếm bằng khóa riêng của nó);
+   - gửi **một** tin ZNS lẻ tới số nội bộ (máy chủ ghi `zns_messages`, thấy trong ZNS Hub);
+   - xóa khách thử đó từ giao diện (máy chủ xóa hẳn);
+   - Cài đặt › Người dùng và trang nhật ký mở được; một tab khác nhận báo giá mới không cần F5.
+
+   **Lưu ý (lỗi đã biết, mã HT02):** "ghi chú hoạt động" thêm từ ngăn chi tiết **vẫn lỗi như trước**, vì ứng dụng gửi kèm cột `updated_at` mà bảng `audit_logs` không có nên cơ sở dữ liệu từ chối. Lỗi này có từ trước, **không do SQL này**, và chưa được sửa trong đợt này.
 9. **Kiểm lại sau 24 giờ**: không có lỗi 42501 trong nhật ký máy chủ (Render › Logs, tìm `permission denied`); ZNS Hub vẫn có tin mới; số chứng từ vẫn cấp được.
 
 ## Hoàn tác 0001
 
-Chạy `0001_b0c_cam_xoa_cung_khoa_cong_khai.rollback.sql` (cấp lại đúng các quyền đã thu). Nhân viên không thấy khác biệt. Chạy lại 0001 sau đó là an toàn (REVOKE bất biến).
+Chạy `0001_b0c_cam_xoa_cung_khoa_cong_khai.rollback.sql` (cấp lại đúng các quyền đã thu). Nhân viên không thấy khác biệt. Sau đó vẫn chạy lại 0001 được; chạy lại nhiều lần vẫn an toàn.
+
+**Kiểm sau khi hoàn tác:** chạy lại truy vấn quyền ở bước 5 của mục trên. `anon` và `authenticated` phải có lại `DELETE`, `INSERT`, `UPDATE` ở các bảng đã bị thu: 6 bảng nghiệp vụ và nhật ký có lại `DELETE`; 11 bảng chỉ máy chủ ghi có lại `INSERT`, `UPDATE`, `DELETE`. Truy vấn hai hàm phải trả `true` ở cả sáu cột.
 
 ## Cách chạy 0002
 
-Sau sao lưu: chạy `0002_don_zns_config_long.sql`; kiểm bằng truy vấn ở cuối tệp (`con_lop_long` = false cho `zns_config`); vào Cài đặt › Vendor & Webhook bấm "Kiểm tra kết nối Zalo OpenAPI" rồi "Lưu toàn bộ cấu hình", gửi thử 1 tin ZNS lẻ tới số nội bộ. Hoàn tác: `0002_don_zns_config_long.rollback.sql`. Chỉ chạy 0002 **một lần**: nếu sau này phải hoàn tác rồi chạy lại, và trong lúc đó cấu hình Zalo đã được sửa, thì bản sao lưu **cũ** vẫn được giữ nguyên (không bị ghi đè); muốn có bản sao lưu mới, hãy đổi tên hoặc xóa dòng `zns_config__bak_0002` trước khi chạy lại. Dòng sao lưu `zns_config__bak_0002` chứa bí mật cũ — xóa tay sau khi B6 (đổi khóa) hoàn tất.
+Chạy sau khi đủ điều kiện ở bảng trên và đã có bản sao lưu. Truy vấn kiểm tra dùng cho cả lúc trước và lúc sau (chỉ đọc, chỉ in `true`/`false`):
 
-## Tập trước trên dự án tạm (khuyến nghị, A5 còn mở)
+```sql
+select id, (data ? 'data') as con_lop_long, (data ? 'id') as con_khoa_id, (data ? 'zaloRefreshToken') as co_ma_lam_moi
+from public.settings where id in ('zns_config', 'zns_config__bak_0002') order by id;
+```
 
-Tạo một dự án Supabase miễn phí, chạy `supabase_schema.sql`, rồi 0001, truy vấn kiểm chứng, rollback, 0001 lại (≈ 30 phút). Chưa có cơ sở dữ liệu thử riêng nên lần chạy đầu trên dữ liệu thật vẫn là "sau sao lưu".
+1. **Sao lưu** như mục trên.
+2. **Kiểm trước** (chỉ đọc): chạy truy vấn kiểm tra ở trên. Mong đợi: **chỉ một dòng** `zns_config` với `con_lop_long` = `true`. Nếu đã có dòng `zns_config__bak_0002`, hoặc không có dòng nào, hoặc `con_lop_long` là `false`: **dừng lại và hỏi người soạn**, không chạy tiếp.
+3. Dán toàn bộ `0002_don_zns_config_long.sql` vào SQL editor, bôi đen tất cả (Ctrl+A) rồi bấm Run. Kết quả mong đợi: "Success. No rows returned".
+4. **Kiểm sau**: chạy lại đúng truy vấn kiểm tra. Mong đợi **hai dòng**:
+   - dòng `zns_config`: `con_lop_long` = `false`, `con_khoa_id` = `false`, `co_ma_lam_moi` = `true`;
+   - dòng `zns_config__bak_0002`: `con_lop_long` = `true` (đây là bản gốc còn lớp lồng) và `co_ma_lam_moi` = `true` (`con_khoa_id` là `true` hay `false` đều không quan trọng).
+
+   Khác các giá trị này thì đừng làm bước tiếp theo, báo người soạn.
+5. Vào Cài đặt › Vendor & Webhook, bấm "Kiểm tra kết nối Zalo OpenAPI" rồi "Lưu toàn bộ cấu hình", gửi thử **1** tin ZNS lẻ tới số nội bộ.
+
+**Chạy lại 0002 là an toàn:** nó giữ bản sao lưu đầu tiên (không ghi đè) và gỡ lớp lồng thêm một lần nữa. Nhưng nếu bạn đã hoàn tác, cấu hình Zalo được sửa trong lúc đó rồi mới chạy lại, thì bản sao lưu vẫn là bản **cũ** — muốn có bản sao lưu mới, hãy đổi tên dòng `zns_config__bak_0002` trước khi chạy lại (xem "Dòng sao lưu" bên dưới).
+
+### Hoàn tác 0002
+
+Chạy `0002_don_zns_config_long.rollback.sql`. Hoàn tác chỉ **đưa lại lớp lồng cũ** (các khóa `data`, `id`, `updated_at`, `success` mà 0002 đã bỏ) và **giữ nguyên các khóa Zalo hiện tại** (mã Zalo mới và mọi chỉnh sửa sau khi chạy 0002), không đưa mã Zalo cũ trở lại.
+
+**Kiểm sau khi hoàn tác:** chạy lại truy vấn kiểm tra; `zns_config` phải có `con_lop_long` = `true`. Nếu **không thấy dòng `zns_config__bak_0002`** trong kết quả, tức là hoàn tác không làm được gì, và cách duy nhất để quay lại là khôi phục từ bản sao lưu toàn bộ cơ sở dữ liệu.
+
+### Dòng sao lưu `zns_config__bak_0002`
+
+Dòng này chứa bí mật cũ. Sau khi gửi thử 1 tin ZNS thành công và việc đổi khóa Zalo (B6) đã xong, nên **đổi tên** dòng thay vì xóa (khuyến nghị — dữ liệu vẫn còn):
+
+```sql
+update public.settings set id = 'zns_config__bak_0002_cu' where id = 'zns_config__bak_0002';
+```
+
+Chỉ khi chắc chắn không cần hoàn tác nữa mới **xóa** hẳn:
+
+```sql
+delete from public.settings where id = 'zns_config__bak_0002';
+```
+
+**Lưu ý:** sau khi dòng sao lưu bị xóa, 0002 **không thể hoàn tác bằng tệp hoàn tác nữa**. Đổi tên cũng làm tệp hoàn tác không tìm thấy dòng (nó chỉ tìm đúng tên `zns_config__bak_0002`); muốn dùng lại bản đã đổi tên thì đổi tên ngược lại:
+
+```sql
+update public.settings set id = 'zns_config__bak_0002' where id = 'zns_config__bak_0002_cu';
+```
+
+## Tập trước trên dự án tạm (khuyến nghị; chờ có cơ sở dữ liệu thử nghiệm riêng)
+
+Tạo một dự án Supabase miễn phí, chạy `supabase_schema.sql`, rồi 0001, truy vấn kiểm tra, hoàn tác (rollback), 0001 lại (≈ 30 phút). Chưa có cơ sở dữ liệu thử nghiệm riêng nên lần chạy đầu trên dữ liệu thật vẫn là "sau khi sao lưu".
 
 ## Sổ theo dõi
 

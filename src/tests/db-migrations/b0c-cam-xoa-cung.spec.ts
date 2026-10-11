@@ -102,9 +102,14 @@ describe('db/migrations/0001 – B0c: cấm xóa cứng bằng khóa công khai 
     expect(up()).toMatch(/soạn theo 23 bảng/i); // tiêu đề tệp viết "Soạn theo…" (chữ S hoa)
     expect(readMigration(PRE)).toMatch(/information_schema\.tables/);
     expect(statementLines(readMigration(PRE)).every(x => /^(select|with)\b/i.test(x.line) || /^(and|or|where|from|group|order|union|\)|\()/i.test(x.line) || /^[a-z0-9_'" ,().=<>;-]+$/i.test(x.line))).toBe(true); // dòng nối tiếp có ";" và chữ số (has_function_privilege … as anon_quota;)
-    // precheck chỉ đọc: bỏ chuỗi trong dấu nháy đơn (vd tên quyền 'EXECUTE'), rồi không dòng câu lệnh nào được chứa từ khóa ghi/DDL/giao dịch như một từ nguyên vẹn
-    const writeWord = /\b(insert|update|delete|truncate|drop|alter|create|grant|revoke|begin|commit|rollback|set|reset|do|call|copy|vacuum|lock)\b/i;
-    expect(statementLines(readMigration(PRE)).map(x => x.line).join('\n').replace(/'[^']*'/g, "''").split('\n').filter(l => writeWord.test(l))).toEqual([]);
+    // precheck chỉ đọc: bỏ chuỗi trong dấu nháy đơn (vd tên quyền 'EXECUTE', tên hàm trong has_function_privilege), rồi không dòng câu lệnh nào được chứa từ khóa ghi/DDL/giao dịch như một từ nguyên vẹn
+    const preLines = statementLines(readMigration(PRE)).map(x => x.line).join('\n').replace(/'[^']*'/g, "''").split('\n');
+    const writeWord = /\b(insert|update|delete|truncate|drop|alter|create|grant|revoke|begin|commit|rollback|set|reset|do|call|copy|vacuum|lock|into|execute|refresh|abort)\b/i;
+    expect(preLines.filter(l => writeWord.test(l))).toEqual([]);
+    // end/start chỉ bị bắt khi mở đầu một dòng câu lệnh (CASE … END giữa dòng là truy vấn đọc hợp lệ)
+    expect(preLines.filter(l => /^(end|start)\b/i.test(l))).toEqual([]);
+    // không gọi hàm có tác dụng phụ (hàm dọn dẹp/hạn mức của máy chủ, đổi bộ đếm, đổi cấu hình phiên); tên hàm nằm trong chuỗi của has_function_privilege đã bị bỏ ở trên
+    expect(preLines.filter(l => /\b(cleanup_expired_system_data|decrement_zns_quota|setval|set_config|nextval)\s*\(/i.test(l))).toEqual([]);
   });
 });
 
@@ -130,23 +135,41 @@ describe('db/migrations/0002 – dọn zns_config lồng (ZNS05) và README', ()
     // chạy lại không ghi đè bản sao lưu đầu tiên (nguồn hoàn tác của tệp hoàn tác): chỉ DO NOTHING, không bao giờ DO UPDATE
     expect(joined).toMatch(/ON CONFLICT \(id\) DO NOTHING;/);
     expect(joined).not.toMatch(/DO UPDATE/i);
+    // đúng một câu UPDATE và câu đó kết thúc bằng WHERE id = 'zns_config'; (không thể lan sang dòng khác của settings)
+    expect(joined.match(/\bUPDATE\b/gi)?.length).toBe(1);
+    expect((joined.match(/UPDATE public\.settings[^;]*;/i)?.[0] ?? '').endsWith("WHERE id = 'zns_config';")).toBe(true);
   });
 
-  it('tệp hoàn tác chép data từ dòng sao lưu về zns_config; không xóa dòng nào', () => {
+  it('tệp hoàn tác hợp nhất data sao lưu với zns_config (khóa hiện có thắng, mã Zalo mới không bị ghi đè); BEGIN/COMMIT; chỉ nhắm zns_config; không xóa dòng nào', () => {
     const text = readMigration(DOWN2);
-    const joined = statementLines(text).map(x => x.line).join('\n');
+    const lines = statementLines(text).map(x => x.line);
+    const joined = lines.join('\n');
+    expect(lines[0]).toBe('BEGIN;');
+    expect(lines[lines.length - 1]).toBe('COMMIT;');
     expect(joined).toMatch(/UPDATE public\.settings/i);
     expect(joined).toMatch(/'zns_config__bak_0002'/);
+    expect(joined).toContain("s.id = 'zns_config'");
+    expect(joined).toContain("b.id = 'zns_config__bak_0002'");
+    // b.data || s.data: khóa đang có trong zns_config (mã Zalo mới, chỉnh sửa sau 0002) nằm bên phải nên thắng; chỉ các khóa 0002 đã bỏ được đưa lại. KHÔNG được là SET data = b.data
+    expect(joined).toMatch(/SET data = b\.data \|\| s\.data/);
     expect(joined).not.toMatch(/DELETE FROM|TRUNCATE|DROP /i);
     expect(text).not.toMatch(/\r\n/);
   });
 
-  it('README: có thứ tự chạy, sao lưu trước, precheck chỉ đọc, kiểm bằng set role và curl với chỗ giữ, hoàn tác; không có khóa thật', () => {
+  it('README: có thứ tự chạy, sao lưu trước, precheck chỉ đọc, kiểm bằng set local role trong giao dịch tự hoàn tác và curl.exe với chỗ giữ, mã 401, hoàn tác; không có khóa thật', () => {
     const readme = readMigration('README.md');
-    for (const must of ['Sao lưu', 'precheck', 'set role anon', '<KHÓA_ANON>', 'rollback', '0001_b0c_cam_xoa_cung_khoa_cong_khai.sql', '0002_don_zns_config_long.sql', 'HT02']) {
+    for (const must of ['Sao lưu', 'precheck', 'set local role anon', '<KHÓA_ANON>', 'rollback', '0001_b0c_cam_xoa_cung_khoa_cong_khai.sql', '0002_don_zns_config_long.sql', 'HT02']) {
       expect(readme, must).toContain(must);
     }
+    // các chỗ đã sửa sau rà soát: lệnh thử có ghi nằm trong giao dịch tự hoàn tác (không còn "set role anon" trần), curl.exe (PowerShell có lệnh curl khác), khóa công khai bị từ chối trả 401 chứ không phải 403, đổi tên (thay vì xóa) dòng sao lưu
+    for (const must of ['begin; set local role anon;', 'curl.exe', 'HTTP/2 401', '"code":"42501"', 'zns_config__bak_0002_cu']) {
+      expect(readme, must).toContain(must);
+    }
+    expect(readme).not.toContain('set role anon');
+    expect(readme).not.toContain('HTTP/2 403');
+    expect(readme).not.toMatch(/\bcurl\s+-/);
     expect(readme).not.toMatch(JWT_PATTERN);
     expect(readme).not.toMatch(/https:\/\/[a-z0-9]{20}\.supabase\.co/);
+    expect((readme.match(/[^\s"/]*\.supabase\.co/g) ?? []).every(host => host === '<project-ref>.supabase.co')).toBe(true);
   });
 });

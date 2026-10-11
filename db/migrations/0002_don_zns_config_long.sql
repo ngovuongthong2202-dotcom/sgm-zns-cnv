@@ -11,8 +11,13 @@ UPDATE public.settings
    SET data = data - 'data' - 'id' - 'updated_at' - 'success', updated_at = NOW()
  WHERE id = 'zns_config';
 COMMIT;
--- KIỂM CHỨNG (không có bí mật trong kết quả):
+-- KIỂM CHỨNG (không có bí mật trong kết quả; README có bản chạy sẵn). Chạy TRƯỚC 0002 (chỉ đọc) và SAU 0002:
 -- select id, (data ? 'data') as con_lop_long, (data ? 'id') as con_khoa_id, (data ? 'zaloRefreshToken') as co_ma_lam_moi
 --   from public.settings where id in ('zns_config', 'zns_config__bak_0002') order by id;
--- Mong đợi: zns_config: false, false, true; zns_config__bak_0002: true (hoặc như trước), …
--- Sau khi gửi thử 1 tin ZNS thành công và B6 xong, có thể xóa dòng sao lưu bằng tay (không nằm trong tệp này).
+-- Trước: chỉ một dòng zns_config với con_lop_long = true (nếu đã có dòng zns_config__bak_0002 thì DỪNG và hỏi người soạn).
+-- Sau (2 dòng): zns_config: con_lop_long false, con_khoa_id false, co_ma_lam_moi true;
+--   zns_config__bak_0002: con_lop_long true (bản gốc còn lớp lồng), co_ma_lam_moi true.
+-- Chạy lại 0002 an toàn: giữ bản sao lưu đầu tiên (không ghi đè) và gỡ lớp lồng thêm lần nữa.
+-- Hoàn tác: 0002_don_zns_config_long.rollback.sql — chỉ đưa lại lớp lồng cũ, giữ nguyên các khóa Zalo hiện tại.
+-- Sau khi gửi thử 1 tin ZNS thành công và việc đổi khóa Zalo (B6) xong: nên ĐỔI TÊN dòng sao lưu (xem README) thay vì xóa; chỉ xóa khi chắc chắn,
+--   vì xóa rồi thì không hoàn tác 0002 bằng tệp hoàn tác được nữa. Không sao chép/xuất nội dung dòng zns_config hay dòng sao lưu (chứa bí mật).
