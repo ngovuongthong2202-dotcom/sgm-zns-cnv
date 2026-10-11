@@ -28,6 +28,7 @@ export default defineConfig({
       'src/tests/payment-quotation-integration.spec.tsx',
       'src/platform/ui/design-system/dataview/DataViewEngine.loadinfo.spec.tsx',
       'src/features/system/settings/pages/VendorPage.spec.tsx',
+      'src/modules/iam/ui/AuthContext.spec.tsx',
     ],
     exclude: ['src/tests/e2e/**', 'node_modules/**', 'e2e/**'],
     coverage: {

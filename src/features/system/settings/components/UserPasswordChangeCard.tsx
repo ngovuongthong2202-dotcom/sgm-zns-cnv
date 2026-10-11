@@ -36,8 +36,9 @@ export function UserPasswordChangeCard({ currentUser }: Props) {
     try {
       const userSnap = await usersRepo.getUser(currentUser.uid);
       if (userSnap) {
-        const actualOld = userSnap.password;
-        if (actualOld !== myOldPassword) {
+        // Đợt 0A (BM03): getUser không còn trả mật khẩu; so trong repo.
+        const oldOk = await usersRepo.verifyPassword(currentUser.uid, myOldPassword);
+        if (!oldOk) {
           setMyError('Mật khẩu hiện tại không chính xác.');
           return;
         }

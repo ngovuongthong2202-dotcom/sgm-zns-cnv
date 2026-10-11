@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { usersRepo } from '@/src/data/repositories/users.repo';
 import { supabase, isSupabaseConfigured } from '@/src/shared/config/supabase.client';
 import { logger } from '@/src/shared/lib/logger';
+import { stripSessionSecrets, sessionHasSecrets } from '../domain/session-sanitizer';
 
 export interface UserData {
   role?: 'Chuyên viên' | 'Ban Giám Đốc' | 'Administrator';
@@ -57,13 +58,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const stored = localStorage.getItem(SESSION_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        return parsed?.userData || null;
+        // Đợt 0A (BM03): bản lưu cũ có thể còn mật khẩu — không bao giờ đưa vào state
+        return (stripSessionSecrets(parsed?.userData) as UserData | null) || null;
       }
     } catch (e) {
       logger.warn('Failed to parse stored user data:', e);
     }
     return null;
   });
+
+  // Đợt 0A (BM03): khi khởi động, bản sgm_user_session còn chứa mật khẩu được ghi lại sạch một lần.
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      if (sessionHasSecrets(parsed?.userData)) {
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ user: parsed.user, userData: stripSessionSecrets(parsed.userData) }));
+      }
+    } catch (e) {
+      logger.debug('Session sanitize error:', e);
+    }
+  }, []);
 
   const [loading, setLoading] = useState(false);
 
@@ -81,11 +97,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: (liveData as any).email || `${liveData.username}@sgm.vn`,
             photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(liveData.displayName || liveData.username)}&background=2563EB&color=fff`
           };
-          const updatedData: UserData = {
+          const updatedData: UserData = stripSessionSecrets({
             ...liveData,
             role: liveData.role || 'Chuyên viên',
             onboarded: true
-          };
+          }) as UserData;
           setUser(updatedUser);
           setUserData(updatedData);
           localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ user: updatedUser, userData: updatedData }));
@@ -109,10 +125,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await usersRepo.getUser(uId);
 
       if (data) {
-        // Password verification:
-        // Default admin allows 'admin' or stored password; other users must match stored password
-        const expectedPwd = data.password || (uId === 'admin' ? 'admin' : '');
-        const isValid = expectedPwd === pwd || (uId === 'admin' && pwd === 'admin');
+        // Đợt 0A (BM03): so mật khẩu trong repo (verifyPassword), không đọc data.password ở đây.
+        // Quy tắc tạm cho tài khoản dựng sẵn nằm trong usersRepo.verifyPassword — gỡ ở Việc 29 (A2).
+        const isValid = await usersRepo.verifyPassword(uId, pwd);
 
         if (isValid) {
           const authUser: CustomUser = {
@@ -122,11 +137,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: (data as any).email || `${data.username}@sgm.vn`,
             photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.displayName || data.username)}&background=2563EB&color=fff`
           };
-          const fullData: UserData = {
+          const fullData: UserData = stripSessionSecrets({
             ...data,
             role: data.role || (uId === 'admin' ? 'Administrator' : 'Chuyên viên'),
             onboarded: true
-          };
+          }) as UserData;
 
           setUser(authUser);
           setUserData(fullData);
