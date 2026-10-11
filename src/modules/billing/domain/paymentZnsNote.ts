@@ -73,7 +73,10 @@ export function buildPaymentZnsNote(payment: PaymentLike | null | undefined, ins
 
   let resolvedIndex: number | null;
   let installmentNumber: number;
-  if (installmentIndex === undefined || installmentIndex === null) {
+  // Phiếu chưa có đợt thu nào có tiền (thường gặp: phiếu lập từ biểu mẫu): PaymentDetailDrawer tự dựng dòng "Đợt 1" (DOT-1-INIT) từ số tiền đầu phiếu,
+  // nút "Gửi ZNS" của dòng đó gửi chỉ số 0. Khoản đã thu lúc này chính là số tiền đầu phiếu nên chỉ số 0 = "Đợt 1" đó (installmentIndex null); chỉ số khác vẫn INVALID_INSTALLMENT.
+  const headOnly = ledger.entries.length === 0;
+  if (installmentIndex === undefined || installmentIndex === null || (headOnly && installmentIndex === 0)) {
     if (ledger.entries.length > 0) {
       const latest = ledger.entries[ledger.entries.length - 1];
       resolvedIndex = latest.index;

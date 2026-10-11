@@ -101,4 +101,30 @@ describe('paymentZnsNote – Đợt 0A (TT01/§9.11)', () => {
     expect(collectPaymentLedger({ tinhTrangThanhToan: 'Đã hủy', cacDotThu: [inst(1, 10)] })).toMatchObject({ collected: 0, cancelled: true });
     expect(collectPaymentLedger(null)).toEqual({ collected: 0, entries: [], cancelled: false, deleted: false });
   });
+
+  it('phiếu chỉ có số tiền đầu phiếu (cacDotThu rỗng hoặc không có) + chỉ số 0 (dòng "Đợt 1" tự dựng của ngăn chi tiết) → ok, "Thanh toán đợt 1", installmentIndex null', () => {
+    const r = buildPaymentZnsNote({ tinhTrangThanhToan: 'Công nợ', soTien: 50_000_000, cacDotThu: [] }, 0);
+    expect(r).toMatchObject({ ok: true, ghiChu: 'Thanh toán đợt 1', installmentIndex: null, installmentNumber: 1, collected: 50_000_000 });
+    const r2 = buildPaymentZnsNote({ tinhTrangThanhToan: 'Tất toán', soTien: 50_000_000 }, 0);
+    expect(r2).toMatchObject({ ok: true, ghiChu: 'Thanh toán đợt 1', installmentIndex: null, installmentNumber: 1, collected: 50_000_000 });
+  });
+
+  it('phiếu chỉ có số tiền đầu phiếu + chỉ số khác 0 (1, 2, -1, NaN) → vẫn ok:false INVALID_INSTALLMENT', () => {
+    for (const index of [1, 2, -1, Number.NaN]) {
+      const r = buildPaymentZnsNote({ tinhTrangThanhToan: 'Công nợ', soTien: 50_000_000, cacDotThu: [] }, index);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.code).toBe('INVALID_INSTALLMENT');
+    }
+  });
+
+  it('cacDotThu có dòng nhưng không dòng nào có tiền + số tiền đầu phiếu 50 triệu + chỉ số 0 → ok, "Thanh toán đợt 1"', () => {
+    const r = buildPaymentZnsNote({ tinhTrangThanhToan: 'Công nợ', soTien: 50_000_000, cacDotThu: [{ lanThu: 1, soTien: 0 }] }, 0);
+    expect(r).toMatchObject({ ok: true, ghiChu: 'Thanh toán đợt 1', installmentIndex: null, installmentNumber: 1, collected: 50_000_000 });
+  });
+
+  it('chỉ số là chỉ số mảng gốc của cacDotThu, không phải vị trí sau khi sắp theo lanThu', () => {
+    const p = { tinhTrangThanhToan: 'Công nợ', cacDotThu: [{ lanThu: 2, soTien: 20_000_000, ngayThu: '2026-10-05' }, { lanThu: 1, soTien: 30_000_000, ngayThu: '2026-10-01' }] };
+    expect(buildPaymentZnsNote(p, 0)).toMatchObject({ ok: true, ghiChu: 'Thanh toán đợt 2', installmentIndex: 0, installmentNumber: 2 });
+    expect(buildPaymentZnsNote(p, 1)).toMatchObject({ ok: true, ghiChu: 'Thanh toán đợt 1', installmentIndex: 1, installmentNumber: 1 });
+  });
 });
