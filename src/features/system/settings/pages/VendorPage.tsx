@@ -4,6 +4,26 @@ import { Save, Check, Copy, Zap, Globe, Send } from 'lucide-react';
 import { useAuth } from '@/src/modules/iam';
 import { Button } from '@/src/design-system/Button';
 
+const PUBLIC_FORM_FIELDS = [
+  'znsProvider', 'zaloAppId', 'zaloOaId',
+  'vendorUrl_CUSTOMER_PRE_QUOTE', 'vendorUrl_BAOGIA', 'vendorUrl_HOPDONG_SIGN_ZNS', 'vendorUrl_THANH_TOAN_XAC_NHAN',
+  'vendorUrl_THANH_TOAN_TAT_TOAN', 'vendorUrl_THANH_TOAN_CONG_NO', 'vendorUrl_GIAOHANG_ZNS', 'vendorUrl_GIAOHANG_HOANTAT',
+  'maxRetries', 'retryBackoffMs', 'requireSecret', 'isAsyncVendor', 'templateStrictMode',
+] as const;
+const SECRET_FORM_FIELDS = ['zaloSecretKey', 'zaloRefreshToken', 'vendorWebhookSecret'] as const;
+type SecretFormField = (typeof SECRET_FORM_FIELDS)[number];
+
+/** Đợt 0A (ZNS05): thân gửi lên khi Lưu — chỉ ô công khai, bí mật người dùng vừa gõ (không rỗng) và updatedBy. */
+export function buildZnsConfigSaveBody(form: Record<string, unknown>, updatedBy: string): Record<string, unknown> {
+  const body: Record<string, unknown> = { updatedBy };
+  for (const k of PUBLIC_FORM_FIELDS) if (form[k] !== undefined) body[k] = form[k];
+  for (const k of SECRET_FORM_FIELDS) {
+    const v = form[k];
+    if (typeof v === 'string' && v.trim()) body[k] = v.trim();
+  }
+  return body;
+}
+
 export default function VendorPage() {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -14,15 +34,14 @@ export default function VendorPage() {
   const [testingCnv, setTestingCnv] = useState(false);
   const [testingZalo, setTestingZalo] = useState(false);
 
-  // Controlled Form State (Zero Data Loss)
+  // Đợt 0A (ZNS05/Z0.3): form KHÔNG giữ mã truy cập/hạn dùng và KHÔNG nạp giá trị bí mật từ máy chủ.
+  // Ô bí mật luôn trống; chỉ gửi lên khi người dùng gõ giá trị mới (máy chủ coi chuỗi rỗng là "không đổi").
   const [formState, setFormState] = useState({
     znsProvider: 'HYBRID',
     zaloAppId: '',
     zaloSecretKey: '',
     zaloOaId: '',
     zaloRefreshToken: '',
-    zaloAccessToken: '',
-    zaloTokenExpiresAt: 0,
 
     vendorUrl_CUSTOMER_PRE_QUOTE: 'https://hub.cnvcdp.com/webhook/e2c1c68e-8075-424b-9bf0-c9061c51ce18-7409-678568754e04-a6dee0cb4',
     vendorUrl_BAOGIA: 'https://hub.cnvcdp.com/webhook/5bf3fd76-9e8f-4008-b825-c4639fd43116-73ff-88325a7b35ed-e30f03fad',
@@ -39,37 +58,45 @@ export default function VendorPage() {
     isAsyncVendor: true,
     templateStrictMode: true
   });
+  const [savedSecrets, setSavedSecrets] = useState<Record<SecretFormField, boolean>>({ zaloSecretKey: false, zaloRefreshToken: false, vendorWebhookSecret: false });
+  const [tokenExpiresAt, setTokenExpiresAt] = useState(0);
+  const SAVED_PLACEHOLDER = 'Đã lưu — để trống nếu không đổi';
 
   const copiedTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const cnvWebhookUrl = `${window.location.origin.replace('ais-dev', 'ais-pre')}/api/zns/vendor-webhook/zns-result`;
   const zaloCallbackUrl = `${window.location.origin.replace('ais-dev', 'ais-pre')}/api/zns/webhook/zalo-official`;
 
+  const applyConfig = React.useCallback((config: Record<string, any>) => {
+    setFormState(prev => {
+      const next: Record<string, unknown> = { ...prev };
+      for (const k of PUBLIC_FORM_FIELDS) if (config[k] !== undefined) next[k] = config[k];
+      for (const k of SECRET_FORM_FIELDS) next[k] = ''; // không bao giờ nạp giá trị bí mật vào form
+      return next as typeof prev;
+    });
+    setSavedSecrets({
+      zaloSecretKey: Boolean(config?.secrets?.zaloSecretKey),
+      zaloRefreshToken: Boolean(config?.secrets?.zaloRefreshToken),
+      vendorWebhookSecret: Boolean(config?.secrets?.vendorWebhookSecret),
+    });
+    setTokenExpiresAt(Number(config?.zaloTokenExpiresAt || 0));
+  }, []);
+
+  const reloadConfig = React.useCallback(async () => {
+    const res = await fetch('/api/zns/config');
+    const data = await res.json();
+    if (data?.success && data?.config) applyConfig(data.config);
+  }, [applyConfig]);
+
   useEffect(() => {
     let mounted = true;
-    const fetchConfig = async () => {
-      try {
-        const res = await fetch('/api/zns/config');
-        const data = await res.json();
-        if (mounted && data?.success && data?.config) {
-          setFormState(prev => ({
-            ...prev,
-            ...data.config,
-            znsProvider: data.config.znsProvider || prev.znsProvider
-          }));
-        }
-      } catch (err) {
-        console.error('[VendorPage] Lỗi đọc cấu hình ZNS từ Vault:', err);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    fetchConfig();
+    reloadConfig()
+      .catch(err => console.error('[VendorPage] Lỗi đọc cấu hình ZNS từ Vault:', err))
+      .finally(() => { if (mounted) setLoading(false); });
     return () => {
       mounted = false;
       if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
     };
-  }, []);
+  }, [reloadConfig]);
 
   const handleCopy = (text: string, type: 'cnv' | 'zalo') => {
     navigator.clipboard.writeText(text);
@@ -123,9 +150,8 @@ export default function VendorPage() {
         throw new Error(data?.error || `Lỗi HTTP ${res.status}`);
       }
       notify.success(data?.message || 'Kết nối thành công tới Zalo Cloud OpenAPI!');
-      if (data?.tokenExpiresAt) {
-        setFormState(prev => ({ ...prev, zaloTokenExpiresAt: data.tokenExpiresAt }));
-      }
+      // Đợt 0A (Z0.3): máy chủ đã lưu cặp mã mới → tải lại form (xóa trắng ô bí mật, cập nhật hạn dùng) để "Lưu" không ghi đè mã.
+      await reloadConfig();
     } catch (err: any) {
       notify.error(err instanceof Error ? err.message : String(err));
     } finally {
@@ -140,17 +166,15 @@ export default function VendorPage() {
       const res = await fetch('/api/zns/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formState,
-          updatedBy: user?.uid || 'admin'
-        })
+        body: JSON.stringify(buildZnsConfigSaveBody(formState, user?.uid || 'admin'))
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
         throw new Error(data?.error || `Lỗi HTTP ${res.status}`);
       }
       notify.success('Đã lưu cấu hình kênh gửi ZNS thành công vào Vault!');
-    } catch (err: any) { 
+      if (data?.config) applyConfig(data.config);
+    } catch (err: any) {
       notify.error('Lỗi lưu cấu hình: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setSaving(false);
@@ -280,7 +304,7 @@ export default function VendorPage() {
                   value={formState.zaloSecretKey} 
                   onChange={e => updateField('zaloSecretKey', e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-lg px-3 h-8 text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" 
-                  placeholder="Khóa bí mật ứng dụng Zalo" 
+                  placeholder={savedSecrets.zaloSecretKey ? SAVED_PLACEHOLDER : 'Khóa bí mật ứng dụng Zalo'} 
                 />
               </div>
 
@@ -310,17 +334,17 @@ export default function VendorPage() {
                   value={formState.zaloRefreshToken} 
                   onChange={e => updateField('zaloRefreshToken', e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-lg px-3 h-8 text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" 
-                  placeholder="Mã Refresh Token để hệ thống tự cấp mới Access Token" 
+                  placeholder={savedSecrets.zaloRefreshToken ? SAVED_PLACEHOLDER : 'Mã Refresh Token để hệ thống tự cấp mới Access Token'} 
                 />
               </div>
             </div>
 
             {/* Token Expiry Status */}
-            {formState.zaloTokenExpiresAt > 0 && (
+            {tokenExpiresAt > 0 && (
               <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100 flex items-center justify-between text-xs text-emerald-800">
                 <span className="flex items-center gap-1.5">
                   <Check size={14} className="text-emerald-600" />
-                  Access Token đang hoạt động. Hạn tự động làm mới: <strong>{new Date(formState.zaloTokenExpiresAt).toLocaleString('vi-VN')}</strong>
+                  Access Token đang hoạt động. Hạn tự động làm mới: <strong>{new Date(tokenExpiresAt).toLocaleString('vi-VN')}</strong>
                 </span>
                 <span className="text-3xs bg-emerald-200 px-2 py-0.5 rounded font-mono">Tự động gia hạn PKCE</span>
               </div>
@@ -423,6 +447,7 @@ export default function VendorPage() {
                   value={formState.vendorWebhookSecret}
                   onChange={e => updateField('vendorWebhookSecret', e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-lg px-3 h-8 text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                  placeholder={savedSecrets.vendorWebhookSecret ? SAVED_PLACEHOLDER : 'Chuỗi bí mật xác thực webhook'}
                 />
               </div>
               <div className="space-y-1.5">

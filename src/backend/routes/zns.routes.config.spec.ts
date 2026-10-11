@@ -79,3 +79,62 @@ describe('zns.routes – Đợt 0A (ZNS01): ping chỉ tới địa chỉ CNV đ
     expect(znsHarness.loggerMock.error).toHaveBeenCalledWith(expect.objectContaining({ detail: expect.stringContaining('secret-path') }), expect.any(String));
   });
 });
+
+describe('zns.routes – Đợt 0A (ZNS05/Z0.3): GET /config không trả bí mật; POST /config chỉ nhận ô cho phép', () => {
+  const FULL_DOC = {
+    znsProvider: 'ZALO_OFFICIAL', zaloAppId: '123', zaloOaId: '456',
+    zaloSecretKey: 'bi-mat-1', zaloRefreshToken: 'rt-1', zaloAccessToken: 'at-1', zaloTokenExpiresAt: 1_800_000_000_000,
+    vendorUrl_BAOGIA: 'https://hub.cnvcdp.com/webhook/bg', vendorWebhookSecret: '',
+    maxRetries: 3, retryBackoffMs: 5000, requireSecret: true, isAsyncVendor: true, templateStrictMode: true,
+    updatedAt: '2026-10-01T00:00:00.000Z', updatedBy: 'admin',
+    data: { zaloSecretKey: 'bi-mat-cu' }, id: 'zns_config', updated_at: '2026-09-30T00:00:00.000Z',
+  };
+  beforeEach(() => { znsHarness.reset(); znsHarness.docFixtures[CFG] = { ...FULL_DOC }; });
+
+  it('GET /api/zns/config → không có zaloSecretKey/zaloAccessToken/zaloRefreshToken/vendorWebhookSecret/data/id; có secrets, vendorUrl_*, zaloTokenExpiresAt', async () => {
+    const res = await request(app).get('/api/zns/config');
+    expect(res.status).toBe(200);
+    const cfg = res.body.config;
+    for (const k of ['zaloSecretKey', 'zaloAccessToken', 'zaloRefreshToken', 'vendorWebhookSecret', 'data', 'id', 'updated_at']) expect(cfg, k).not.toHaveProperty(k);
+    expect(cfg.secrets).toEqual({ zaloSecretKey: true, zaloRefreshToken: true, vendorWebhookSecret: false });
+    expect(cfg.vendorUrl_BAOGIA).toBe('https://hub.cnvcdp.com/webhook/bg');
+    expect(cfg.zaloTokenExpiresAt).toBe(1_800_000_000_000);
+    expect(JSON.stringify(res.body)).not.toMatch(/bi-mat|rt-1|at-1/);
+  });
+
+  it('POST /api/zns/config với thân form cũ (kèm zaloAccessToken, zaloTokenExpiresAt, data, id, updated_at) → payload set chỉ có ô cho phép + updatedAt', async () => {
+    const res = await request(app).post('/api/zns/config').send({ ...FULL_DOC, zaloSecretKey: '', zaloRefreshToken: '', updatedBy: 'thong' });
+    expect(res.status).toBe(200);
+    expect(znsHarness.docSetCalls).toHaveLength(1);
+    const { path, data, options } = znsHarness.docSetCalls[0];
+    expect(path).toBe(CFG);
+    expect(options).toEqual({ merge: true });
+    for (const k of ['zaloAccessToken', 'zaloTokenExpiresAt', 'data', 'id', 'updated_at', 'zaloSecretKey', 'zaloRefreshToken']) expect(data, k).not.toHaveProperty(k);
+    expect(data.zaloAppId).toBe('123');
+    expect(data.updatedBy).toBe('thong');
+    expect(typeof data.updatedAt).toBe('string');
+    expect(res.body.ignoredKeys.sort()).toEqual(['data', 'id', 'updatedAt', 'updated_at', 'zaloAccessToken', 'zaloTokenExpiresAt']);
+    expect(JSON.stringify(res.body.config)).not.toMatch(/bi-mat|rt-1|at-1/);
+  });
+
+  it('POST {zaloRefreshToken:""} → không ghi zaloRefreshToken; {zaloRefreshToken:"rt-moi"} → ghi và xóa mã truy cập/hạn dùng', async () => {
+    await request(app).post('/api/zns/config').send({ zaloRefreshToken: '' });
+    expect(znsHarness.docSetCalls[0].data).not.toHaveProperty('zaloRefreshToken');
+    await request(app).post('/api/zns/config').send({ zaloRefreshToken: 'rt-moi' });
+    expect(znsHarness.docSetCalls[1].data).toMatchObject({ zaloRefreshToken: 'rt-moi', zaloAccessToken: '', zaloTokenExpiresAt: 0 });
+  });
+
+  it('POST {zaloSecretKey:"••••abcd"} (giá trị che) → bỏ qua, khóa thật không bị ghi đè', async () => {
+    await request(app).post('/api/zns/config').send({ zaloSecretKey: '••••abcd' });
+    expect(znsHarness.docSetCalls[0].data).not.toHaveProperty('zaloSecretKey');
+  });
+
+  it('POST /api/zns/test-zalo-direct với appId/secretKey/refreshToken rỗng → dùng bản đã lưu; phản hồi không chứa accessToken', async () => {
+    znsHarness.zaloTokenManagerMock.getCredentials.mockResolvedValue({ appId: '123', secretKey: 'bi-mat-1', oaId: '456', refreshToken: 'rt-1' });
+    const res = await request(app).post('/api/zns/test-zalo-direct').send({ appId: '', secretKey: '', oaId: '', refreshToken: '' });
+    expect(res.status).toBe(200);
+    expect(znsHarness.zaloTokenManagerMock.refreshTokenDirect).toHaveBeenCalledWith('123', 'bi-mat-1', 'rt-1', '456');
+    expect(res.body).not.toHaveProperty('accessToken');
+    expect(JSON.stringify(res.body)).not.toMatch(/bi-mat|rt-1/);
+  });
+});

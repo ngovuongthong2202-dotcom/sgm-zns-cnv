@@ -58,3 +58,60 @@ describe('VendorPage – Đợt 0A (ZNS01): nút ping CNV gửi slot, không g�
     expect(postedBody('/api/zns/test-webhook-dryrun')).toEqual({ slot: 'vendorUrl_CUSTOMER_PRE_QUOTE' });
   });
 });
+
+describe('VendorPage – Đợt 0A (ZNS05/Z0.3): form không giữ mã, Kiểm tra rồi Lưu không ghi đè khóa', () => {
+  beforeEach(() => {
+    installFetch({
+      'GET /api/zns/config': () => jsonResponse({ success: true, config: publicConfig }),
+      'POST /api/zns/test-zalo-direct': () => jsonResponse({ success: true, message: 'Kết nối Zalo Cloud OpenAPI thành công!', oaId: '456', tokenExpiresAt: 1_800_100_000_000 }),
+      'POST /api/zns/config': (init) => jsonResponse({ success: true, message: 'Đã lưu', config: { ...publicConfig, ...JSON.parse(String(init?.body)) , secrets: publicConfig.secrets }, ignoredKeys: [] }),
+    });
+  });
+
+  it('tải trang: ô Secret Key và Refresh Token trống với chỗ giữ "Đã lưu — để trống nếu không đổi"; ô Handshake Secret chưa lưu không có chỗ giữ đó', async () => {
+    render(<VendorPage />);
+    const secret = await screen.findByLabelText('Zalo App Secret Key') as HTMLInputElement;
+    const refresh = screen.getByLabelText('Refresh Token (Hiệu lực 90 ngày)') as HTMLInputElement;
+    const hook = screen.getByLabelText('Handshake Secret (Xác thực Webhook)') as HTMLInputElement;
+    expect(secret.value).toBe('');
+    expect(refresh.value).toBe('');
+    expect(secret.placeholder).toBe('Đã lưu — để trống nếu không đổi');
+    expect(refresh.placeholder).toBe('Đã lưu — để trống nếu không đổi');
+    expect(hook.placeholder).not.toBe('Đã lưu — để trống nếu không đổi');
+    expect(screen.getByText(/Hạn tự động làm mới/)).toBeTruthy();
+  });
+
+  it('"Kiểm tra kết nối Zalo" thành công → tải lại GET /api/zns/config, ô bí mật vẫn trống', async () => {
+    render(<VendorPage />);
+    await screen.findByLabelText('Zalo App Secret Key');
+    const getsBefore = fetchCalls.filter(c => c.url === '/api/zns/config' && (c.init?.method || 'GET') === 'GET').length;
+    fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra kết nối Zalo' }));
+    await waitFor(() => expect(fetchCalls.filter(c => c.url === '/api/zns/config' && (c.init?.method || 'GET') === 'GET').length).toBe(getsBefore + 1));
+    expect(postedBody('/api/zns/test-zalo-direct')).toEqual({ appId: '123', secretKey: '', oaId: '456', refreshToken: '' });
+    expect((screen.getByLabelText('Refresh Token (Hiệu lực 90 ngày)') as HTMLInputElement).value).toBe('');
+  });
+
+  it('"Kiểm tra kết nối" rồi "Lưu toàn bộ cấu hình" → thân POST /config không có zaloAccessToken, zaloTokenExpiresAt, zaloRefreshToken, zaloSecretKey, data, id, secrets', async () => {
+    render(<VendorPage />);
+    await screen.findByLabelText('Zalo App Secret Key');
+    fireEvent.click(screen.getByRole('button', { name: 'Kiểm tra kết nối Zalo' }));
+    await waitFor(() => expect(postedBody('/api/zns/test-zalo-direct')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu cấu hình' }));
+    await waitFor(() => expect(postedBody('/api/zns/config')).toBeDefined());
+    const body = postedBody('/api/zns/config');
+    for (const k of ['zaloAccessToken', 'zaloTokenExpiresAt', 'zaloRefreshToken', 'zaloSecretKey', 'vendorWebhookSecret', 'data', 'id', 'secrets', 'updatedAt']) expect(body, k).not.toHaveProperty(k);
+    expect(body).toMatchObject({ znsProvider: 'ZALO_OFFICIAL', zaloAppId: '123', zaloOaId: '456', updatedBy: 'admin-thu', templateStrictMode: true });
+  });
+
+  it('gõ Refresh Token mới rồi Lưu → thân có zaloRefreshToken mới (và chỉ bí mật đó)', async () => {
+    render(<VendorPage />);
+    const refresh = await screen.findByLabelText('Refresh Token (Hiệu lực 90 ngày)');
+    fireEvent.change(refresh, { target: { value: 'rt-moi-123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu cấu hình' }));
+    await waitFor(() => expect(postedBody('/api/zns/config')).toBeDefined());
+    const body = postedBody('/api/zns/config');
+    expect(body.zaloRefreshToken).toBe('rt-moi-123');
+    expect(body).not.toHaveProperty('zaloSecretKey');
+    expect(body).not.toHaveProperty('zaloAccessToken');
+  });
+});

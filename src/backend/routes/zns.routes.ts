@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { vendorWebhookHandler } from '../services/zns/vendor-webhook.handler';
 import { znsPayloadBuilder, sanitizeZnsCustomerName, sanitizeZnsPersonName } from '../services/zns/zns-payload.builder';
+import { toPublicZnsConfig, pickZnsConfigUpdate } from '../services/zns/zns-config.policy';
 import { adminDb } from '../config/supabase.admin';
 import { ZnsMessage } from '../../domain/schema/workflow.schema';
 import { SendZnsMessageUseCase } from '../../modules/messaging/application/use-cases/SendZnsMessage';
@@ -81,27 +82,28 @@ router.get('/templates/catalog', (req, res) => {
 });
 
 // Dedicated Vault API: GET ZNS Configuration
+// Đợt 0A (ZNS05/BM-02): không bao giờ trả giá trị bí mật; chỉ trả cờ secrets.<ô> = đã lưu hay chưa.
 router.get('/config', async (req, res) => {
   try {
     const doc = await adminDb.collection('settings').doc('zns_config').get();
     const data = doc.exists ? doc.data() || {} : {};
-    return res.json({ success: true, config: data });
+    return res.json({ success: true, config: toPublicZnsConfig(data) });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message || String(err) });
   }
 });
 
 // Dedicated Vault API: POST ZNS Configuration (Atomic Service Role Merge)
+// Đợt 0A (ZNS05/Z0.3): chỉ nhận ô cho phép; không nhận mã truy cập/hạn dùng/data/id (xem zns-config.policy.ts).
 router.post('/config', async (req, res) => {
   try {
-    const newConfig = req.body || {};
+    const { payload, rejectedKeys } = pickZnsConfigUpdate(req.body || {});
     const docRef = adminDb.collection('settings').doc('zns_config');
-    const updatePayload: Record<string, any> = {
-      ...newConfig,
-      updatedAt: new Date().toISOString()
-    };
+    const updatePayload: Record<string, any> = { ...payload, updatedAt: new Date().toISOString() };
     await docRef.set(updatePayload, { merge: true });
-    return res.json({ success: true, message: 'Đã lưu cấu hình ZNS thành công!', config: updatePayload });
+    const saved = await docRef.get();
+    const savedData = saved.exists ? saved.data() || {} : updatePayload;
+    return res.json({ success: true, message: 'Đã lưu cấu hình ZNS thành công!', config: toPublicZnsConfig(savedData), ignoredKeys: rejectedKeys });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message || String(err) });
   }
