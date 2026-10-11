@@ -62,6 +62,16 @@ describe('resolveWaiverPrefill – Đợt 0A (GH02): không bao giờ tự bật
     expect(resolveWaiverPrefill({ parents: [{ dacCachGiaoTruoc: true, nguoiPheDuyetDacCach: ' ban giám đốc ', lyDoDacCach: 'Giao theo tiến độ hợp đồng dự án' }] })).toEqual(NO_WAIVER);
     expect(resolveWaiverPrefill({ parents: [recorded] })).toEqual(recorded);
   });
+
+  it('đợt giao trước đã hủy (tinhTrangGiaoHang "HUY" do nút Hủy của ứng dụng ghi, hoặc "CANCELLED") → KHÔNG truyền đặc cách dù ghi nhận đủ', () => {
+    for (const status of ['HUY', 'CANCELLED']) {
+      expect(resolveWaiverPrefill({ previousDeliveries: [{ ...recorded, tinhTrangGiaoHang: status }] })).toEqual(NO_WAIVER);
+    }
+  });
+
+  it('đợt giao trước CHƯA hủy mang cùng đặc cách → vẫn chép nguyên văn', () => {
+    expect(resolveWaiverPrefill({ previousDeliveries: [{ ...recorded, tinhTrangGiaoHang: 'Đã giao' }] })).toEqual(recorded);
+  });
 });
 
 describe('validateDeliveryBusinessRules – Đợt 0A (GH02): đặc cách cần người duyệt + lý do; hợp đồng chưa có phiếu thu phải có đặc cách', () => {

@@ -3,7 +3,7 @@ import { getProductItemKey } from '@/src/shared/utils/product-key';
 import { QUOTATION_LOAI, normalizeLoai } from '@/src/domain/enums/quotation-loai';
 import { isPaymentUnpaid } from '@/src/domain/enums/payment-status';
 
-import { isSourceDocumentFullyDelivered } from '@/src/domain/services/delivery-reconciler';
+import { isSourceDocumentFullyDelivered, isDeliveryCancelled } from '@/src/domain/services/delivery-reconciler';
 
 export function normalizeDeliveryFormValues(data: any) {
   data.ghiChu = sanitizeText(data.ghiChu);
@@ -65,7 +65,7 @@ export interface WaiverFields {
 export interface ResolveWaiverInput {
   /** Chứng từ cha theo thứ tự ưu tiên (phiếu thu, rồi hợp đồng/báo giá nguồn). */
   parents?: Array<Record<string, unknown> | null | undefined>;
-  /** Các đợt giao trước của cùng chứng từ. */
+  /** Các đợt giao trước của cùng chứng từ (đợt đã hủy bị bỏ qua). */
   previousDeliveries?: Array<Record<string, unknown> | null | undefined>;
   /** Giá trị nhân viên đang có trong form. */
   current?: Partial<WaiverFields> | null;
@@ -119,6 +119,8 @@ export function resolveWaiverPrefill(input: ResolveWaiverInput): WaiverFields {
     if (w) return w;
   }
   for (const d of input.previousDeliveries || []) {
+    // Đợt 0A (GH02): đợt giao đã hủy (kể cả 'HUY' do nút Hủy của ứng dụng ghi) không truyền đặc cách; chứng từ cha không lọc.
+    if (d && isDeliveryCancelled(typeof d.tinhTrangGiaoHang === 'string' ? d.tinhTrangGiaoHang : null)) continue;
     const w = recordedWaiver(d);
     if (w) return w;
   }

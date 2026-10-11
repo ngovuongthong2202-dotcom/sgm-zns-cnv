@@ -94,4 +94,17 @@ describe('useDeliveryForm – Đợt 0A (GH02): các lối vào không tự bậ
     expect(result.current.getValues('nguoiPheDuyetDacCach') || '').toBe('');
     expect(result.current.getValues('lyDoDacCach') || '').toBe('');
   });
+
+  it('đợt giao trước bị hủy bằng nút Hủy của ứng dụng (tinhTrangGiaoHang "HUY") mang đặc cách tên thật → không truyền sang phiếu mới (populateFromPayment)', async () => {
+    const receipt = { id: 'p4', paymentId: 'PT-2026-0004', contractId: 'c1', soHopDong: 'HD-2026-0002', tinhTrangThanhToan: 'Chưa TT', products: [] };
+    const payments = [receipt];
+    const contracts = [contract];
+    const deliveries = [{ ...cancelledWithRealWaiver, id: 'd-huy-app', paymentId: 'p4', tinhTrangGiaoHang: 'HUY' }];
+    const { result } = renderHook(() => useDeliveryForm(null, payments, contracts, NO_ROWS, NO_ROWS, deliveries));
+    await act(async () => { result.current.populateFromPayment(receipt); });
+    expect(result.current.getValues('paymentId')).toBe('p4');
+    expect(result.current.getValues('dacCachGiaoTruoc')).toBe(false);
+    expect(result.current.getValues('nguoiPheDuyetDacCach') || '').toBe('');
+    expect(result.current.getValues('lyDoDacCach') || '').toBe('');
+  });
 });

@@ -585,7 +585,7 @@ export function useDeliveryForm(
     const phaseVatAmount = Math.round(phaseSubTotal * (phaseVatRate / 100));
     const phaseTotalAmount = phaseSubTotal + phaseVatAmount;
 
-    const quotationDeliveries = (deliveries || []).filter((d: any) => !d.deletedAt && !d.deleted_at && String(d.tinhTrangGiaoHang || '').toUpperCase() !== 'HỦY' && (d.quotationId === q.id || (q.soPhieuBaoGia && d.soPhieuBaoGia === q.soPhieuBaoGia)));
+    const quotationDeliveries = (deliveries || []).filter((d: any) => !d.deletedAt && !d.deleted_at && (d.quotationId === q.id || (q.soPhieuBaoGia && d.soPhieuBaoGia === q.soPhieuBaoGia)));
     const waiver = resolveWaiverPrefill({ parents: [q], previousDeliveries: quotationDeliveries, current: currentValues });
 
     reset({
