@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import type { Delivery, DeliveryShipment } from '@/src/domain/schema/delivery.schema';
+import { CanonicalDeliveryStatus, DeliveryStatusVO } from '@/src/domain/value-objects/DeliveryStatusVO';
 import { Button } from '@/src/design-system/Button';
 import { formatDate } from '@/src/shared/utils/formatDate';
 import { previewShipmentRevert, REVERT_REASON_MIN } from '../utils/shipment-revert';
@@ -14,8 +15,21 @@ interface RevertShipmentConfirmModalProps {
 }
 
 /**
+ * Trạng thái phiếu đang lưu là chuỗi tự do: có dòng ghi mã (HOAN_TAT, DANG_GIAO, CHO_GIAO), có dòng ghi chữ.
+ * Hộp chỉ hiện nhãn tiếng Việt thường (qua DeliveryStatusVO), không bao giờ hiện nguyên chuỗi đã lưu; trống thì "Chưa rõ".
+ */
+const STATUS_LABEL: Record<CanonicalDeliveryStatus, string> = {
+  [CanonicalDeliveryStatus.HOAN_TAT]: 'Hoàn tất',
+  [CanonicalDeliveryStatus.DANG_GIAO]: 'Đang giao',
+  [CanonicalDeliveryStatus.CHUA_GIAO]: 'Chưa giao',
+  [CanonicalDeliveryStatus.DA_HUY]: 'Đã hủy',
+};
+const storedStatusLabel = (raw?: string | null): string => (raw?.trim() ? STATUS_LABEL[DeliveryStatusVO.fromString(raw)] : 'Chưa rõ');
+
+/**
  * Đợt 0A (GH01): hộp xác nhận cho "Hủy xác nhận đợt" — liệt kê những gì sẽ bị xóa, phiếu sẽ chuyển sang gì,
  * và bắt nhập lý do (không điền sẵn; nguyên tắc 2). Nút cuối màu đỏ (danger), phần còn lại amber.
+ * Đang gửi thì Escape/bấm nền không đóng hộp (cùng lý do nút "Quay lại" bị vô hiệu).
  */
 export function RevertShipmentConfirmModal({ delivery, shipment, onCancel, onConfirm }: RevertShipmentConfirmModalProps) {
   const [reason, setReason] = useState('');
@@ -36,7 +50,7 @@ export function RevertShipmentConfirmModal({ delivery, shipment, onCancel, onCon
   };
 
   return (
-    <Dialog.Root open onOpenChange={(open) => { if (!open) onCancel(); }}>
+    <Dialog.Root open onOpenChange={(open) => { if (!open && !submitting) onCancel(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-slate-900/40 z-[250]" />
         <Dialog.Content
@@ -63,7 +77,7 @@ export function RevertShipmentConfirmModal({ delivery, shipment, onCancel, onCon
               <section className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">Phiếu sẽ chuyển</h3>
                 <p className="mt-1.5 text-slate-800">
-                  <strong>{delivery.tinhTrangGiaoHang || 'Chưa rõ'} → {preview.master.tinhTrangGiaoHang} (còn {preview.confirmedRemaining} đợt đã giao)</strong>
+                  <strong>{storedStatusLabel(delivery.tinhTrangGiaoHang)} → {preview.master.tinhTrangGiaoHang} (còn {preview.confirmedRemaining} đợt đã giao)</strong>
                 </p>
               </section>
               <section className="rounded-xl border border-slate-200 p-3">

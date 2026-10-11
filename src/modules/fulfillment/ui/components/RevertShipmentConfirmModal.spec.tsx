@@ -110,4 +110,50 @@ describe('RevertShipmentConfirmModal – Đợt 0A (GH01)', () => {
     fireEvent.change(reason, { target: { value: '  abcde  ' } });
     expect(confirmBtn.disabled).toBe(false);
   });
+
+  // Trạng thái phiếu đang lưu là chuỗi tự do: dòng ghi nhận ghi mã (HOAN_TAT/DANG_GIAO/CHO_GIAO), dòng khác ghi chữ → hộp chỉ hiện nhãn thường.
+  it.each<[string, string]>([
+    ['HOAN_TAT', 'Hoàn tất'],
+    ['DANG_GIAO', 'Đang giao'],
+    ['CHO_GIAO', 'Chưa giao'],
+    ['', 'Chưa rõ'],
+    ['   ', 'Chưa rõ'],
+  ])('trạng thái phiếu đang lưu "%s" → dòng "Phiếu sẽ chuyển" hiện nhãn "%s", không hiện mã đã lưu', (stored, label) => {
+    render(<RevertShipmentConfirmModal delivery={delivery([ship(1), ship(2)], { tinhTrangGiaoHang: stored })} shipment={ship(1)} onCancel={() => {}} onConfirm={() => {}} />);
+    expect(screen.getByText(new RegExp(`^${label} → Đang giao \\(còn 1 đợt đã giao\\)$`))).toBeTruthy();
+    expect(screen.queryByText(/HOAN_TAT|DANG_GIAO|CHO_GIAO/)).toBeNull();
+    expect(screen.getByRole('dialog').textContent).not.toMatch(/HOAN_TAT|DANG_GIAO|CHO_GIAO/);
+  });
+
+  it('đang gửi thì Escape không đóng hộp (onCancel không được gọi); gửi xong thì Escape lại đóng được', async () => {
+    let release: () => void = () => {};
+    const onConfirm = vi.fn(() => new Promise<void>(resolve => { release = resolve; }));
+    const onCancel = vi.fn();
+    render(<RevertShipmentConfirmModal delivery={delivery([ship(1), ship(2)])} shipment={ship(1)} onCancel={onCancel} onConfirm={onConfirm} />);
+    fireEvent.change(screen.getByLabelText(/Lý do hủy xác nhận/), { target: { value: 'Giao nhầm hàng' } });
+    const confirmBtn = screen.getByRole('button', { name: 'Hủy xác nhận đợt 1' }) as HTMLButtonElement;
+    fireEvent.click(confirmBtn);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(confirmBtn.disabled).toBe(true);
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(onCancel).not.toHaveBeenCalled();
+    release();
+    await waitFor(() => expect(confirmBtn.disabled).toBe(false));
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('đã gõ lý do hợp lệ rồi dữ liệu đổi khiến đợt không còn ở trạng thái đã giao → nút xác nhận vô hiệu, bấm không gọi onConfirm', () => {
+    const onConfirm = vi.fn();
+    const props = { shipment: ship(1), onCancel: () => {}, onConfirm };
+    const { rerender } = render(<RevertShipmentConfirmModal {...props} delivery={delivery([ship(1), ship(2)])} />);
+    fireEvent.change(screen.getByLabelText(/Lý do hủy xác nhận/), { target: { value: 'Giao nhầm hàng' } });
+    expect((screen.getByRole('button', { name: 'Hủy xác nhận đợt 1' }) as HTMLButtonElement).disabled).toBe(false);
+    rerender(<RevertShipmentConfirmModal {...props} delivery={delivery([ship(1, { tinhTrangGiaoHang: 'CHO_GIAO', ngayGiaoThucTe: null, kyNhan: '' }), ship(2)])} />);
+    expect(screen.getByText(/chưa được xác nhận bàn giao/)).toBeTruthy();
+    const confirmBtn = screen.getByRole('button', { name: 'Hủy xác nhận đợt 1' }) as HTMLButtonElement;
+    expect(confirmBtn.disabled).toBe(true);
+    fireEvent.click(confirmBtn);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
 });
