@@ -28,31 +28,70 @@ if (!isSupabaseAdminConfigured) {
   );
 }
 
+// Cách xét khóa ở khối này phản chiếu supabaseServiceKey ở đầu tệp (SUPABASE_SERVICE_ROLE_KEY || VITE_SUPABASE_ANON_KEY); phải đổi cùng nhau khi B3 gỡ dự phòng.
 export type AdminDbMode = 'offline' | 'service-role' | 'anon-fallback';
 
-/** Đợt 0A (MC13/B0c): máy chủ đang chạy bằng khóa nào? Hàm thuần để kiểm thử; không in giá trị khóa ở bất kỳ đâu. */
-export function resolveAdminDbMode(input: { configured: boolean; serviceKey: string; anonKey: string }): AdminDbMode {
-  if (!input.configured) return 'offline';
-  const service = (input.serviceKey || '').trim();
-  const anon = (input.anonKey || '').trim();
-  return !service && anon.length > 10 ? 'anon-fallback' : 'service-role';
+/** Vì sao đang ở anon-fallback (chỉ là nhãn, không chứa mảnh khóa): ô service role để trống, hoặc nó đang giữ nhầm khóa công khai. */
+type AnonFallbackReason = 'missing' | 'public-key-in-service-var';
+
+type AdminKeyInput = { configured: boolean; serviceKey: string; anonKey: string };
+
+/** Đây có phải khóa công khai (anon / publishable) không? Chỉ đọc tiền tố hoặc trường role của JWT; không bao giờ trả về hay ghi mảnh khóa. */
+function isPublicApiKey(key: string): boolean {
+  if (key.startsWith('sb_publishable_')) return true;
+  const parts = key.split('.');
+  if (parts.length !== 3) return false;
+  try {
+    const payload: unknown = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    return typeof payload === 'object' && payload !== null && (payload as { role?: unknown }).role === 'anon';
+  } catch {
+    return false;
+  }
 }
 
-export function adminDbMode(): AdminDbMode {
-  return resolveAdminDbMode({
+function diagnoseAdminKeys(input: AdminKeyInput): { mode: AdminDbMode; reason?: AnonFallbackReason } {
+  if (!input.configured) return { mode: 'offline' };
+  const service = (input.serviceKey || '').trim();
+  const anon = (input.anonKey || '').trim();
+  // Ô service role trống: máy chủ dùng khóa anon nếu có; không có khóa nào dùng được thì coi như offline.
+  if (!service) return anon.length > 10 ? { mode: 'anon-fallback', reason: 'missing' } : { mode: 'offline' };
+  // Ô service role có giá trị nhưng đó là khóa công khai (trùng khóa anon, sb_publishable_…, hoặc JWT có role "anon") → vẫn chạy bằng khóa anon.
+  if (service === anon || isPublicApiKey(service)) return { mode: 'anon-fallback', reason: 'public-key-in-service-var' };
+  return { mode: 'service-role' };
+}
+
+/**
+ * Đợt 0A (MC13/B0c): máy chủ đang chạy bằng khóa nào? Hàm thuần để kiểm thử; không in giá trị khóa ở bất kỳ đâu.
+ * anon-fallback = ô service role trống, hoặc ô đó đang giữ khóa công khai; offline = chưa cấu hình hoặc không có khóa nào dùng được.
+ */
+export function resolveAdminDbMode(input: AdminKeyInput): AdminDbMode {
+  return diagnoseAdminKeys(input).mode;
+}
+
+function currentAdminKeys(): AdminKeyInput {
+  return {
     configured: isSupabaseAdminConfigured,
     serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
     anonKey: process.env.VITE_SUPABASE_ANON_KEY || '',
-  });
+  };
 }
 
-export const isAdminUsingAnonFallback = adminDbMode() === 'anon-fallback';
+export function adminDbMode(): AdminDbMode {
+  return resolveAdminDbMode(currentAdminKeys());
+}
 
-if (isAdminUsingAnonFallback) {
+const startupKeys = diagnoseAdminKeys(currentAdminKeys());
+
+export const isAdminUsingAnonFallback = startupKeys.mode === 'anon-fallback';
+
+if (startupKeys.mode === 'anon-fallback') {
+  const problem = startupKeys.reason === 'public-key-in-service-var'
+    ? 'SUPABASE_SERVICE_ROLE_KEY holds the public anon/publishable key, not the service_role/secret key'
+    : 'SUPABASE_SERVICE_ROLE_KEY is missing';
   logger.error(
-    'SUPABASE_SERVICE_ROLE_KEY is missing: the backend is running on the anon key. ' +
-    'After db/migrations/0001 every server write (zns_messages, counters, audit_logs, hard deletes, cron cleanup) will be refused (42501). ' +
-    'Set SUPABASE_SERVICE_ROLE_KEY on Render and restart.'
+    `${problem}: the backend is running on the anon key. ` +
+    'After db/migrations/0001 every server write (zns_messages, counters, hard deletes, cron cleanup) will be refused (42501). ' +
+    'Set the service_role (secret) key in SUPABASE_SERVICE_ROLE_KEY on Render and restart.'
   );
 }
 
