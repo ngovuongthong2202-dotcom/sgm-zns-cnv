@@ -412,7 +412,7 @@ export function RecordInstallmentModal({
                       <div>
                         <span className="text-xs font-bold text-slate-900 block">Kích hoạt gửi tin ZNS Thanh toán</span>
                         <span className="text-2xs text-slate-600 font-medium">
-                          Tự động gửi ZNS ({willBeFullyPaid ? 'Tất toán 100%' : `Đợt ${nextInstallmentNumber}`}) đến khách hàng ngay sau khi ghi thu
+                          Tự động gửi ZNS xác nhận Đợt {nextInstallmentNumber} đến khách hàng ngay sau khi ghi thu
                         </span>
                       </div>
                     </div>

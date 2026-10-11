@@ -225,4 +225,12 @@ describe('ZBS Universal Template Registry & Dispatch Matrix', () => {
     expect(long.ghi_chu.length).toBeLessThanOrEqual(30);
     expect(long.ghi_chu).toBe('Thanh toán đợt 1 (Còn lại: 70.000.000 đ)'.slice(0, 30).trim());
   });
+
+  it('Đợt 0A (TT01): tham số ghi_chu của ba dòng mẫu 646935 khai báo maxLength 30 (khớp vendor cắt 30 và phụ lục 01 dòng 74)', () => {
+    for (const key of [ZnsMessageType.THANH_TOAN_XAC_NHAN, ZnsMessageType.THANH_TOAN_TAT_TOAN, ZnsMessageType.THANH_TOAN_CONG_NO]) {
+      const param = ZBS_TEMPLATE_REGISTRY[key].params.find((p: { name: string }) => p.name === 'ghi_chu');
+      expect(param, String(key)).toBeDefined();
+      expect(param?.maxLength, String(key)).toBe(30);
+    }
+  });
 });
