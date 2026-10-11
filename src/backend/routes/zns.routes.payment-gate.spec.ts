@@ -173,6 +173,11 @@ describe('zns.routes POST /send – Đợt 0A (TT01): tin thanh toán chốt the
     { label: 'ghiChu của đợt không có tiền (soTien 0) → bỏ qua, câu máy chủ (đợt mới nhất có tiền)', typed: 'đợt nháp - ft444', patch: { cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ghiChu: 'Đợt đầu - FT111' }, { lanThu: 2, soTien: 40_000_000, ghiChu: 'Đợt hai - FT222' }, { lanThu: 3, soTien: 0, ghiChu: 'Đợt nháp - FT444' }] }, expected: 'Thanh toán đợt 2' },
     { label: 'số đợt lấy từ lanThu đã lưu, không phải vị trí trong mảng (lanThu 3 và 4)', typed: 'đợt ba - ft555', patch: { cacDotThu: [{ lanThu: 3, soTien: 30_000_000, ghiChu: 'Đợt ba - FT555' }, { lanThu: 4, soTien: 40_000_000, ghiChu: 'Đợt bốn - FT666' }] }, expected: 'Thanh toán đợt 3' },
     { label: 'ghi chú dài của đợt thu 1 ghi nhầm "Thanh toán đợt 2" → số đợt lấy từ vị trí đã lưu (1), không đọc từ chữ (2)', typed: 'Thanh toán đợt 2 - ghi nhầm số trong ghi chú nội bộ', patch: { cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ghiChu: 'Thanh toán đợt 2 - ghi nhầm số trong ghi chú nội bộ' }, { lanThu: 2, soTien: 40_000_000 }] }, expected: 'Thanh toán đợt 1' },
+    { label: 'phiếu khởi đầu chỉ có số tiền đầu phiếu (DOT-1-INIT): ghi chú phiếu R lưu nguyên văn làm ghi chú đợt 1; bản cũ gửi lại R, không kèm installmentIndex → câu máy chủ (đợt mới nhất 2), không ghim đợt 1', typed: 'FT26161873245 link chứng từ', patch: { cacDotThu: [{ id: 'DOT-1-INIT', lanThu: 1, soTien: 30_000_000, ngayThu: '2026-09-01', ghiChu: 'FT26161873245 link chứng từ' }, { lanThu: 2, soTien: 40_000_000, ngayThu: '2026-10-01', ghiChu: 'Thu tiền đợt 2 - HĐ HD-1' }] }, expected: 'Thanh toán đợt 2' },
+    { label: 'như trên, phiếu đã có ba đợt có tiền → đợt mới nhất 3', typed: 'FT26161873245 link chứng từ', patch: { cacDotThu: [{ id: 'DOT-1-INIT', lanThu: 1, soTien: 30_000_000, ghiChu: 'FT26161873245 link chứng từ' }, { lanThu: 2, soTien: 40_000_000, ghiChu: 'Thu tiền đợt 2 - HĐ HD-1' }, { lanThu: 3, soTien: 20_000_000, ghiChu: 'Thu tiền đợt 3 - HĐ HD-1' }] }, expected: 'Thanh toán đợt 3' },
+    { label: 'như trên nhưng ghi chú cấp phiếu nằm ở note (typed khác hoa/thường)', typed: 'chuyển khoản vcb', patch: { note: 'Chuyển khoản VCB', cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ghiChu: 'Chuyển khoản VCB' }, { lanThu: 2, soTien: 40_000_000, ghiChu: 'Đợt hai - FT222' }] }, expected: 'Thanh toán đợt 2' },
+    { label: 'như trên nhưng ghi chú cấp phiếu nằm ở ghiChuNoiBo', typed: 'Đã đối soát', patch: { ghiChuNoiBo: 'Đã đối soát', cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ghiChu: 'Đã đối soát' }, { lanThu: 2, soTien: 40_000_000, ghiChu: 'Đợt hai - FT222' }] }, expected: 'Thanh toán đợt 2' },
+    { label: 'đối chứng cùng dạng DOT-1-INIT: ghi chú đợt 1 KHÁC ghi chú phiếu, bản sao là ghi chú đợt 1 → số đợt của chính đợt 1', typed: 'Đợt thu ban đầu', patch: { cacDotThu: [{ id: 'DOT-1-INIT', lanThu: 1, soTien: 30_000_000, ghiChu: 'Đợt thu ban đầu' }, { lanThu: 2, soTien: 40_000_000, ghiChu: 'Thu tiền đợt 2 - HĐ HD-1' }] }, expected: 'Thanh toán đợt 1' },
   ];
   it.each(ECHO_CASES)('ghi_chu gửi lên là bản sao $label → 200 với câu máy chủ; log [TT01 echo] không chứa nội dung ghi chú', async ({ typed, patch, expected }) => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -182,7 +187,7 @@ describe('zns.routes POST /send – Đợt 0A (TT01): tin thanh toán chốt the
     expect(sentPayload().ghi_chu).toBe(expected);
     const echoLogs = warn.mock.calls.map(c => String(c[0])).filter(m => m.includes('[TT01 echo]'));
     expect(echoLogs).toHaveLength(1);
-    expect(echoLogs[0]).not.toMatch(/FT2616|Thu tiền|ft[0-9]{3}|vcb|đối soát|ghi nhầm/i);
+    expect(echoLogs[0]).not.toMatch(/FT2616|Thu tiền|ft[0-9]{3}|vcb|đối soát|ghi nhầm|ban đầu/i);
   });
 
   it.each(['Thanh toán đợt 1', 'Đã nhận đủ tiền cọc'])('câu ngắn thật "%s" (không trùng ghi chú nội bộ nào) → giữ nguyên, không ghi [TT01 echo]', async (typed) => {

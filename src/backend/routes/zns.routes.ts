@@ -414,7 +414,10 @@ router.post('/send', async (req, res) => {
       // Tab cũ không gửi installmentIndex nhưng điền sẵn ghiChu của ĐÚNG đợt thu được bấm: nếu bản sao khớp ghi chú của đúng MỘT đợt có tiền thì số đợt là lanThu đã lưu của đợt đó
       // (lấy từ vị trí đã lưu, không đọc từ chữ); khớp nhiều đợt (mơ hồ), khớp đợt không có tiền hoặc chỉ khớp ghi chú cấp phiếu thì giữ câu máy chủ (đợt mới nhất có tiền).
       const ledgerEntries = collectPaymentLedger(dbPayment).entries;
-      const echoedInstallments = echoedInternalNote
+      // Ghi chú cấp phiếu còn có thể nằm nguyên văn trong một đợt: ngăn chi tiết dựng dòng "Đợt 1" tự động (DOT-1-INIT) với ghiChu = ghi chú phiếu rồi lưu kèm các đợt sau, và nút "Gửi tin Zalo" ở chân ngăn
+      // không kèm chỉ số đợt. Bản sao trùng cả ghi chú cấp phiếu thì không biết đợt nào được bấm → mơ hồ: giữ câu máy chủ (đợt mới nhất có tiền) thay vì ghim đợt 1.
+      const echoedReceiptNote = [dbPayment?.ghiChu, dbPayment?.note, dbPayment?.ghiChuNoiBo].some(v => typeof v === 'string' && normalizeNote(v) === normalizeNote(typedNote));
+      const echoedInstallments = echoedInternalNote && !echoedReceiptNote
         ? ledgerEntries.filter(e => {
             const rowNote = installmentNotes[e.index];
             return typeof rowNote === 'string' && normalizeNote(rowNote) === normalizeNote(typedNote);
