@@ -42,6 +42,20 @@ export const DeliveryShipmentSchema = z.object({
   // ZNS Giao hàng riêng của đợt này
   thongTinGuiZnsGiaoHang: z.record(z.string(), z.unknown()).optional(),
   trangThaiGuiTinGiaoHang: z.string().optional().nullable(),
+
+  // Đợt 0A (GH01): lịch sử "hủy xác nhận đợt" — giữ ngày bàn giao và người ký cũ ngay trên đợt (bằng chứng khôi phục được)
+  lichSuHuyXacNhan: z.array(z.object({
+    thoiDiem: z.string(),
+    userId: z.string().optional(),
+    nguoiThucHien: z.string().optional(),
+    lyDo: z.string(),
+    ngayGiaoThucTeCu: z.string().nullable().optional(),
+    kyNhanCu: z.string().optional(),
+    tinhTrangGiaoHangCu: z.string().optional(),
+    tinhTrangPhieuCu: z.string().optional(),
+    ngayGiaoThucTePhieuCu: z.string().nullable().optional(),
+    kyNhanPhieuCu: z.string().optional(),
+  })).optional(),
   
   isDotCuoiCung: z.boolean().optional().default(false),
   giaTriXuatKhoDotNay: z.number().optional(),
