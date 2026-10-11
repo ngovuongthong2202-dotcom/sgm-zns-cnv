@@ -25,6 +25,7 @@ import itemsRoutes from './src/backend/routes/items.routes';
 import { correlationIdMiddleware } from './src/backend/middleware/correlationId.middleware';
 import { bootstrapMachines } from './src/backend/workflow/machines';
 import { initResilientTransport } from './src/backend/lib/resilient-transport';
+import { adminDbMode } from './src/backend/config/supabase.admin';
 
 async function startServer() {
   // Initialize resilient outbound transport with DNS fallback
@@ -56,10 +57,10 @@ async function startServer() {
 
   // Health check routes
   app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', timestamp: new Date().toISOString(), db: adminDbMode() });
   });
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', timestamp: new Date().toISOString(), db: adminDbMode() });
   });
 
   // Zalo Domain & Webhook Verification Mesh (Root level fallback)

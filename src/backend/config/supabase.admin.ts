@@ -28,6 +28,34 @@ if (!isSupabaseAdminConfigured) {
   );
 }
 
+export type AdminDbMode = 'offline' | 'service-role' | 'anon-fallback';
+
+/** Đợt 0A (MC13/B0c): máy chủ đang chạy bằng khóa nào? Hàm thuần để kiểm thử; không in giá trị khóa ở bất kỳ đâu. */
+export function resolveAdminDbMode(input: { configured: boolean; serviceKey: string; anonKey: string }): AdminDbMode {
+  if (!input.configured) return 'offline';
+  const service = (input.serviceKey || '').trim();
+  const anon = (input.anonKey || '').trim();
+  return !service && anon.length > 10 ? 'anon-fallback' : 'service-role';
+}
+
+export function adminDbMode(): AdminDbMode {
+  return resolveAdminDbMode({
+    configured: isSupabaseAdminConfigured,
+    serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    anonKey: process.env.VITE_SUPABASE_ANON_KEY || '',
+  });
+}
+
+export const isAdminUsingAnonFallback = adminDbMode() === 'anon-fallback';
+
+if (isAdminUsingAnonFallback) {
+  logger.error(
+    'SUPABASE_SERVICE_ROLE_KEY is missing: the backend is running on the anon key. ' +
+    'After db/migrations/0001 every server write (zns_messages, counters, audit_logs, hard deletes, cron cleanup) will be refused (42501). ' +
+    'Set SUPABASE_SERVICE_ROLE_KEY on Render and restart.'
+  );
+}
+
 export const supabaseAdmin: SupabaseClient = isSupabaseAdminConfigured
   ? createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
