@@ -329,11 +329,9 @@ export function QuickCustomerModal({
       // 1. Sinh mã khách hàng tuần tự (Atomic & Database Verified)
       let nextMaKh = '';
       try {
-        const session = (await supabase.auth.getSession()).data.session;
-        const token = session?.access_token || 'sgm_admin_dev_token';
         const res = await fetch('/api/customers/generate-makh', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+          headers: { 'Content-Type': 'application/json' }
         });
         if (res.ok) {
           const data = await res.json();

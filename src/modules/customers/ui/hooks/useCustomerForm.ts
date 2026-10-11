@@ -169,11 +169,10 @@ export function useCustomerForm(
 
       // 2. Thử gọi API backend chính thức
       try {
-        const session = (await supabase.auth.getSession()).data.session;
-        const token = session?.access_token || 'sgm_admin_dev_token';
+        // Đợt 0A (BM02): không gửi mã dự phòng; đường này không kiểm tiêu đề Authorization (xác thực /api là việc B2).
         const res = await fetch('/api/customers/generate-makh', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+          headers: { 'Content-Type': 'application/json' }
         });
         if (res.ok) {
           const data = await res.json();
@@ -372,11 +371,9 @@ export function useCustomerForm(
      if (!rawName.trim()) return;
      try {
          setIsAiFormatting(true);
-         const session = (await supabase.auth.getSession()).data.session;
-         const token = session?.access_token || 'sgm_admin_dev_token';
          const res = await fetch('/api/customers/format-name', {
              method: 'POST',
-             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+             headers: { 'Content-Type': 'application/json' },
              body: JSON.stringify({ rawName })
          });
          const result = await res.json();
