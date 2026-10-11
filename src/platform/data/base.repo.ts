@@ -240,6 +240,17 @@ export function applyCdcEvent<T>(
 }
 
 /**
+ * Đợt 0A (B0c/CSDL01): bảng mà trình duyệt KHÔNG BAO GIỜ được xóa cứng (tên bảng vật lý). CSDL cũng đã thu quyền DELETE
+ * của khóa công khai ở db/migrations/0001; rào này làm lỗi hiện ra ngay thay vì một yêu cầu bị từ chối âm thầm.
+ * Nhóm C (users, settings, drafts, …) không có trong danh sách: dòng khóa chỉnh sửa (settings) và bản nháp vẫn phải xóa được.
+ */
+export const HARD_DELETE_FORBIDDEN_TABLES: ReadonlySet<string> = new Set([
+  'customers', 'quotations', 'contracts', 'payments', 'deliveries', 'audit_logs',
+  'zns_messages', 'counters', 'zns_callbacks', 'zns_dead_letters', 'workflow_events', 'telegram_sent_log',
+  'job_heartbeats', 'system_locks', 'idempotency_keys', 'metrics_rollup', 'cross_entity_sync_jobs',
+]);
+
+/**
  * Enterprise Hybrid Repository: Implements Clean Architecture Repository Port on top of Supabase PostgreSQL
  */
 export class BaseRepository<T> {
@@ -837,11 +848,18 @@ export class BaseRepository<T> {
   }
 
   async hardDelete(id: string): Promise<void> {
+    if (HARD_DELETE_FORBIDDEN_TABLES.has(this.tableName)) {
+      throw new Error(`Không được xóa cứng dữ liệu bảng "${this.tableName}" từ trình duyệt. Dùng xóa mềm hoặc thao tác qua máy chủ.`);
+    }
     sessionCostCounter.incrementWrites(1);
     entityCachePool.remove(this.collectionName, id);
 
     if (isSupabaseConfigured) {
-      await supabase.from(this.tableName).delete().eq('id', id);
+      const { error } = await supabase.from(this.tableName).delete().eq('id', id);
+      if (error) {
+        // Đợt 0A: lệnh bị từ chối (42501 sau SQL 0001) phải hiện ra, không được coi là đã xóa
+        throw new Error(`[${this.tableName}] ${error.message || 'Không xóa được dòng'}`);
+      }
     }
 
     try {
