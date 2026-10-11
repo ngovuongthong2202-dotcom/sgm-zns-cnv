@@ -13,6 +13,8 @@ import { calculateMaxWarrantyExpiryDate } from '@/src/modules/fulfillment/ui/uti
 import { repositoryFactory } from '@/src/data/repositories/factory';
 import { formatZnsDate } from '@/src/shared/utils/formatDate';
 import { calculateFormattedPaymentPoints } from '@/src/modules/billing/domain/loyaltyEngine';
+import { notify } from '@/src/shared/utils/notify';
+import { buildPaymentZnsNote } from '@/src/modules/billing/domain/paymentZnsNote';
 
 // Lazy load detail drawers to prevent circular dependency issues
 const CustomerDetailDrawer = React.lazy(() =>
@@ -531,7 +533,6 @@ function PaymentDrawerWrapper({ isOpen, onClose, entityId, className, modal, onO
     const rawPhones = [p.sdt, (p as any).phone].filter(Boolean).join(' ');
     const extracted = extractVietnamesePhones(rawPhones, (p as any).diaChi);
     const targetPhone = p.sdt || extracted.mobilePhones[0]?.cleaned || '';
-    const isFullyPaid = p.tinhTrangThanhToan === 'Tất toán' || p.tinhTrangThanhToan === 'ĐÃ THANH TOÁN' || Number(p.congNoConLai || 0) <= 0;
     const messageType = 'THANH_TOAN_XAC_NHAN';
     
     const enrichedPayload: any = { ...p };
@@ -542,6 +543,7 @@ function PaymentDrawerWrapper({ isOpen, onClose, entityId, className, modal, onO
       enrichedPayload.phuongThucThanhToan = inst.phuongThucThanhToan || p.phuongThucThanhToan;
       if (inst.nguoiNop) enrichedPayload.tenNguoiNop = inst.nguoiNop;
     }
+    delete enrichedPayload.ghiChu;
 
     const rawPayAmt = Number(enrichedPayload.soTien || p.soTien || 0);
     const diemThanhToan = calculateFormattedPaymentPoints(rawPayAmt);
@@ -553,13 +555,12 @@ function PaymentDrawerWrapper({ isOpen, onClose, entityId, className, modal, onO
       loaiDon = 'Cung cấp giải pháp/dịch vụ';
     }
 
-    const defaultGhiChu = isFullyPaid 
-      ? 'Tất toán 100% hợp đồng - Hoàn tất thanh toán'
-      : (installmentIndex !== undefined ? `Thanh toán đợt ${installmentIndex + 1}` : 'Thanh toán đợt hợp đồng');
-
-    const currentGhiChu = (installmentIndex !== undefined && Array.isArray(p.cacDotThu) && p.cacDotThu[installmentIndex]?.ghiChu)
-      ? p.cacDotThu[installmentIndex].ghiChu
-      : (p.ghiChu || defaultGhiChu);
+    // Đợt 0A (TT01): câu ghi chú từ hàm dùng chung; phiếu chưa thu → chặn trước khi mở xem trước; không đọc ghi chú nội bộ.
+    const note = buildPaymentZnsNote(p as unknown as Record<string, unknown>, installmentIndex);
+    if (!note.ok) {
+      notify.error(note.reason);
+      return;
+    }
 
     const soHopDongVal = p.soHopDong || p.soDonHang || '';
     const soDonHangVal = p.soDonHang || p.soHopDong || '';
@@ -586,7 +587,8 @@ function PaymentDrawerWrapper({ isOpen, onClose, entityId, className, modal, onO
         ngay_thanh_toan: formatZnsDate(enrichedPayload.ngayThanhToan),
         date: formatZnsDate(enrichedPayload.ngayThanhToan),
         time: formatZnsDate(enrichedPayload.ngayThanhToan),
-        ghi_chu: currentGhiChu,
+        ghi_chu: note.ghiChu,
+        installmentIndex: note.installmentIndex ?? installmentIndex,
         loai_don: loaiDon,
         diem_thanh_toan: diemThanhToan,
         diem_khach_hang: diemThanhToan,

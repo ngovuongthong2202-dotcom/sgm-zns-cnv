@@ -27,6 +27,7 @@ export default defineConfig({
       'src/modules/customers/ui/components/CustomerFormModal.spec.tsx',
       'src/tests/payment-quotation-integration.spec.tsx',
       'src/platform/ui/design-system/dataview/DataViewEngine.loadinfo.spec.tsx',
+      'src/platform/ui/zns/UniversalZnsPreviewModal.ghichu.spec.tsx',
       'src/features/system/settings/pages/VendorPage.spec.tsx',
       'src/modules/iam/ui/AuthContext.spec.tsx',
       'src/modules/fulfillment/ui/components/RevertShipmentConfirmModal.spec.tsx',

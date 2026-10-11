@@ -8,6 +8,8 @@ import { extractVietnamesePhones } from '@/src/modules/customers/ui/utils/vietna
 import { calculateFormattedPaymentPoints, calculateFormattedCustomerCumulativePoints } from '@/src/modules/billing/domain/loyaltyEngine';
 import { formatZnsDate } from '@/src/shared/utils/formatDate';
 import { isPaymentWindowReady } from './paymentWindow';
+import { notify } from '@/src/shared/utils/notify';
+import { buildPaymentZnsNote } from '@/src/modules/billing/domain/paymentZnsNote';
 
 export function usePaymentZns(
   confirm: (opts: import('@/src/design-system/Confirm').ConfirmOptions) => Promise<boolean>, 
@@ -24,6 +26,13 @@ export function usePaymentZns(
   } | null>(null);
 
   const handleSendZns = async (payment: Payment, installmentIndex?: number) => {
+    // Đợt 0A (TT01): chặn phiếu chưa thu đồng nào TRƯỚC khi tải thêm dữ liệu; câu ghi chú do hàm dùng chung dựng từ sổ thu.
+    const note = buildPaymentZnsNote(payment as unknown as Record<string, unknown>, installmentIndex);
+    if (!note.ok) {
+      notify.error(note.reason);
+      return;
+    }
+    const resolvedInstallmentIndex = note.installmentIndex ?? installmentIndex;
     let phone = payment.sdt;
     let cSnap: any = null;
     
@@ -152,29 +161,12 @@ export function usePaymentZns(
       loaiDon = 'Cung cấp giải pháp/dịch vụ';
     }
 
-    const isFullyPaid = payment.tinhTrangThanhToan === 'Tất toán' || 
-                        payment.tinhTrangThanhToan === 'ĐÃ THANH TOÁN' ||
-                        payment.tinhTrangThanhToan === 'DA_THANH_TOAN' ||
-                        Number(payment.congNoConLai || 0) <= 0;
-
-    let defaultGhiChu = 'Thanh toán đợt hợp đồng';
-    if (isFullyPaid) {
-      defaultGhiChu = 'Tất toán 100% hợp đồng - Hoàn tất thanh toán';
-    } else if (installmentIndex !== undefined) {
-      const remainingDebt = Number(payment.congNoConLai || 0);
-      defaultGhiChu = remainingDebt > 0 
-        ? `Thanh toán đợt ${installmentIndex + 1} (Còn lại: ${new Intl.NumberFormat('vi-VN').format(remainingDebt)} đ)`
-        : `Thanh toán đợt ${installmentIndex + 1}`;
-    }
-
-    const currentGhiChu = (installmentIndex !== undefined && Array.isArray(payment.cacDotThu) && payment.cacDotThu[installmentIndex]?.ghiChu)
-      ? payment.cacDotThu[installmentIndex].ghiChu
-      : (payment.ghiChu || defaultGhiChu);
-
+    // Đợt 0A (TT01): không bao giờ suy "Tất toán" từ nhãn hay congNoConLai; không lấy ghi chú nội bộ (ghiChu của phiếu/đợt) làm nội dung gửi khách.
     enrichedPayment.loaiDon = loaiDon;
     enrichedPayment.loai_don = loaiDon;
-    enrichedPayment.ghiChu = currentGhiChu;
-    enrichedPayment.ghi_chu = currentGhiChu;
+    enrichedPayment.ghi_chu = note.ghiChu;
+    delete enrichedPayment.ghiChu;
+    enrichedPayment.installmentIndex = resolvedInstallmentIndex;
     enrichedPayment.diemThanhToan = diemThanhToan;
     enrichedPayment.diem_thanh_toan = diemThanhToan;
     enrichedPayment.diemKhachHang = diemKhachHang;
@@ -192,14 +184,14 @@ export function usePaymentZns(
     enrichedPayment.ma_tra_cuu = enrichedPayment.maTraCuu;
 
     // Hợp nhất toàn bộ thanh toán (Công nợ và Tất toán) vào Mẫu ZNS 646935 chuẩn Zalo OA 2026
-    const messageType = 'THANH_TOAN_XAC_NHAN';
+    const messageType = ZnsMessageType.THANH_TOAN_XAC_NHAN;
 
     setZnsPreviewPayment({
       payment: enrichedPayment,
       customer: cSnap,
       phone: targetPhone,
       messageType,
-      installmentIndex,
+      installmentIndex: resolvedInstallmentIndex ?? undefined,
       availablePhones: availableMobiles.map((m, idx) => ({
         phone: m.cleaned,
         label: `${m.formatted} (${m.carrier || 'Di động'})`,

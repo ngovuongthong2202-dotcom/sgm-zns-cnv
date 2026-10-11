@@ -12,8 +12,7 @@ import {
   Info,
   RotateCcw,
   Sparkles,
-  BookmarkCheck,
-  ChevronDown
+  BookmarkCheck
 } from 'lucide-react';
 import { Button } from '@/src/design-system/Button';
 import { notify } from '@/src/shared/utils/notify';
@@ -25,6 +24,7 @@ import { useAuth } from '@/src/modules/iam';
 import { ZnsOfficialPhonePreview } from './components/ZnsOfficialPhonePreview';
 import { calculateFormattedPaymentPoints } from '@/src/modules/billing/domain/loyaltyEngine';
 import { formatZnsQuotationProducts } from '@/src/widgets/product-list-input/useProductItemSemantic';
+import { PAYMENT_ZNS_NOTE_MAX } from '@/src/modules/billing/domain/paymentZnsNote';
 
 export interface UniversalZnsPreviewModalProps {
   isOpen: boolean;
@@ -194,7 +194,8 @@ export function UniversalZnsPreviewModal({
       defaults.ma_bao_gia = String(payload.ma_bao_gia || payload.maBaoGia || soBg || 'BG-2026-0038').slice(0, 30);
       defaults.nhan_vien = officerName;
       defaults.date = formatZnsDate(payload.date || payload.ngayThanhToan || payload.time || dateValue);
-      defaults.ghi_chu = String(payload.ghi_chu || payload.ghiChu || 'Thanh toán đợt hợp đồng').slice(0, 100);
+      // Đợt 0A (TT01): chỉ đọc ghi_chu (câu đã dựng), không bao giờ đọc ghiChu nội bộ, không câu mặc định; giới hạn 30 của mẫu 646935.
+      defaults.ghi_chu = String(payload.ghi_chu || '').slice(0, PAYMENT_ZNS_NOTE_MAX);
 
       const rawPayAmt = Number(payload.soTien || payload.so_tien || payload.amount || 0);
       defaults.diem_thanh_toan = String(payload.diem_thanh_toan || payload.diemThanhToan || calculateFormattedPaymentPoints(rawPayAmt) || '0');
@@ -336,6 +337,19 @@ export function UniversalZnsPreviewModal({
     if (!duplicateCheck.allowed) {
       notify.warning(duplicateCheck.reason || 'Tin ZNS đã gửi thành công đến số điện thoại này.');
       return;
+    }
+
+    // Đợt 0A (TT01): ô Ghi chú gửi khách phải có nội dung và không quá 30 ký tự — nhà cung cấp sẽ cắt, tin khách nhận phải khớp bản xem trước.
+    if (entityType === 'PAYMENT') {
+      const noteText = typeof activeParams.ghi_chu === 'string' ? activeParams.ghi_chu.trim() : '';
+      if (!noteText) {
+        notify.error('Thiếu nội dung ô Ghi chú gửi khách. Nhập câu ngắn (ví dụ "Thanh toán đợt 1") trước khi gửi.');
+        return;
+      }
+      if (noteText.length > PAYMENT_ZNS_NOTE_MAX) {
+        notify.error(`Ghi chú gửi khách đang ${noteText.length} ký tự, tối đa ${PAYMENT_ZNS_NOTE_MAX}. Rút gọn trước khi gửi.`);
+        return;
+      }
     }
 
     setIsSending(true);

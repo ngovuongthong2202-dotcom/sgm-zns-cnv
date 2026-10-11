@@ -242,7 +242,7 @@ export function ZnsOfficialPhonePreview({
               </tr>
               <tr>
                 <td className="py-1.5 opacity-60 align-top">Ghi chú:</td>
-                <td className="py-1.5 text-right font-medium">{renderHighlighted('ghi_chu', values.ghi_chu || values.ghiChu, 'Thanh toán đợt hợp đồng')}</td>
+                <td className="py-1.5 text-right font-medium">{renderHighlighted('ghi_chu', values.ghi_chu)}</td>
               </tr>
               <tr>
                 <td className="py-1.5 opacity-60 align-top">Điểm tích lũy:</td>
