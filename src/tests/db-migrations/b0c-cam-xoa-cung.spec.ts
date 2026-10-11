@@ -102,5 +102,48 @@ describe('db/migrations/0001 – B0c: cấm xóa cứng bằng khóa công khai 
     expect(up()).toMatch(/soạn theo 23 bảng/i); // tiêu đề tệp viết "Soạn theo…" (chữ S hoa)
     expect(readMigration(PRE)).toMatch(/information_schema\.tables/);
     expect(statementLines(readMigration(PRE)).every(x => /^(select|with)\b/i.test(x.line) || /^(and|or|where|from|group|order|union|\)|\()/i.test(x.line) || /^[a-z0-9_'" ,().=<>;-]+$/i.test(x.line))).toBe(true); // dòng nối tiếp có ";" và chữ số (has_function_privilege … as anon_quota;)
+    // precheck chỉ đọc: bỏ chuỗi trong dấu nháy đơn (vd tên quyền 'EXECUTE'), rồi không dòng câu lệnh nào được chứa từ khóa ghi/DDL/giao dịch như một từ nguyên vẹn
+    const writeWord = /\b(insert|update|delete|truncate|drop|alter|create|grant|revoke|begin|commit|rollback|set|reset|do|call|copy|vacuum|lock)\b/i;
+    expect(statementLines(readMigration(PRE)).map(x => x.line).join('\n').replace(/'[^']*'/g, "''").split('\n').filter(l => writeWord.test(l))).toEqual([]);
+  });
+});
+
+describe('db/migrations/0002 – dọn zns_config lồng (ZNS05) và README', () => {
+  const UP2 = '0002_don_zns_config_long.sql';
+  const DOWN2 = '0002_don_zns_config_long.rollback.sql';
+
+  it('tệp chạy: BEGIN/COMMIT, LF, không bí mật; ghi bản sao zns_config__bak_0002 TRƯỚC khi UPDATE; chỉ sửa dòng zns_config', () => {
+    const text = readMigration(UP2);
+    const lines = statementLines(text).map(x => x.line);
+    expect(text).not.toMatch(/\r\n/);
+    expect(text).not.toMatch(JWT_PATTERN);
+    expect(lines[0]).toBe('BEGIN;');
+    expect(lines[lines.length - 1]).toBe('COMMIT;');
+    const joined = lines.join('\n');
+    const backupAt = joined.indexOf("'zns_config__bak_0002'");
+    const updateAt = joined.search(/UPDATE public\.settings/i);
+    expect(backupAt).toBeGreaterThan(-1);
+    expect(updateAt).toBeGreaterThan(backupAt);
+    expect(joined).toMatch(/data - 'data' - 'id' - 'updated_at' - 'success'/);
+    expect(joined.match(/WHERE id = 'zns_config'/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(joined).not.toMatch(/DELETE FROM|TRUNCATE|DROP /i);
+  });
+
+  it('tệp hoàn tác chép data từ dòng sao lưu về zns_config; không xóa dòng nào', () => {
+    const text = readMigration(DOWN2);
+    const joined = statementLines(text).map(x => x.line).join('\n');
+    expect(joined).toMatch(/UPDATE public\.settings/i);
+    expect(joined).toMatch(/'zns_config__bak_0002'/);
+    expect(joined).not.toMatch(/DELETE FROM|TRUNCATE|DROP /i);
+    expect(text).not.toMatch(/\r\n/);
+  });
+
+  it('README: có thứ tự chạy, sao lưu trước, precheck chỉ đọc, kiểm bằng set role và curl với chỗ giữ, hoàn tác; không có khóa thật', () => {
+    const readme = readMigration('README.md');
+    for (const must of ['Sao lưu', 'precheck', 'set role anon', '<KHÓA_ANON>', 'rollback', '0001_b0c_cam_xoa_cung_khoa_cong_khai.sql', '0002_don_zns_config_long.sql', 'HT02']) {
+      expect(readme, must).toContain(must);
+    }
+    expect(readme).not.toMatch(JWT_PATTERN);
+    expect(readme).not.toMatch(/https:\/\/[a-z0-9]{20}\.supabase\.co/);
   });
 });
