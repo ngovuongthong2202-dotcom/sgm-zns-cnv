@@ -189,7 +189,7 @@ describe('ZBS Universal Template Registry & Dispatch Matrix', () => {
       nguoiPhuTrach: 'Ngô Vương Thông (SGM)',
       ngayThanhToan: '07/10/2026',
       soTien: 2200000,
-      ghiChu: 'Thanh toán đợt 2 theo tiến độ',
+      ghi_chu: 'Thanh toán đợt 2 theo tiến độ',
       loai_don: 'Cung cấp Máy móc/Thiết Bị'
     };
 
@@ -204,5 +204,25 @@ describe('ZBS Universal Template Registry & Dispatch Matrix', () => {
     expect(extracted.diem_thanh_toan).toBe('2.200');
     expect(extracted.loai_don).toBe('Cung cấp Máy móc/Thiết Bị');
     expect(extracted.ma_tra_cuu).toBe('DH-ERP-001-26');
+  });
+
+  it('Đợt 0A (TT01): ghi chú nội bộ (ghiChu / note) không bao giờ thành ghi_chu; câu dài bị cắt ở 30', () => {
+    const vendor = new ZaloOfficialZnsVendor();
+    const extractFn = (vendor as any).extractTemplateData.bind(vendor);
+    const base = { customer_name: 'Công ty A', phone: '0912345678', soHopDong: 'HD-2026-0002', ngayThanhToan: '07/10/2026', soTien: 1000000 };
+
+    const onlyInternal = extractFn({ ...base, ghiChu: 'UNC FT26161873245 link chứng từ' }, ZnsMessageType.THANH_TOAN_XAC_NHAN);
+    expect(onlyInternal.ghi_chu).not.toContain('FT2616');
+    expect(onlyInternal.ghi_chu).toBe('Thanh toán đợt hợp đồng');
+
+    const onlyNote = extractFn({ ...base, note: 'nội bộ' }, ZnsMessageType.THANH_TOAN_XAC_NHAN);
+    expect(onlyNote.ghi_chu).toBe('Thanh toán đợt hợp đồng');
+
+    const typed = extractFn({ ...base, ghi_chu: 'Thanh toán đợt 2', ghiChu: 'nội bộ' }, ZnsMessageType.THANH_TOAN_XAC_NHAN);
+    expect(typed.ghi_chu).toBe('Thanh toán đợt 2');
+
+    const long = extractFn({ ...base, ghi_chu: 'Thanh toán đợt 1 (Còn lại: 70.000.000 đ)' }, ZnsMessageType.THANH_TOAN_XAC_NHAN);
+    expect(long.ghi_chu.length).toBeLessThanOrEqual(30);
+    expect(long.ghi_chu).toBe('Thanh toán đợt 1 (Còn lại: 70.000.000 đ)'.slice(0, 30).trim());
   });
 });

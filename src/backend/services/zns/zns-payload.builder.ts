@@ -383,7 +383,7 @@ export class ZnsPayloadBuilder {
       rendered.date = formatZnsDate(raw);
     }
     if (requiredVarsSet.has('ghi_chu') && isEmp(rendered.ghi_chu)) {
-      rendered.ghi_chu = (p.ghi_chu as string) || (p.ghiChu as string) || 'Thanh toán đợt hợp đồng';
+      rendered.ghi_chu = (p.ghi_chu as string) || 'Thanh toán đợt hợp đồng'; // Đợt 0A (TT01): không đọc ghi chú nội bộ
     }
     if (requiredVarsSet.has('diem_thanh_toan') && isEmp(rendered.diem_thanh_toan)) {
       rendered.diem_thanh_toan = String((p as any).diemThanhToan || (p as any).diem_thanh_toan || '0');
@@ -550,7 +550,7 @@ export class ZnsPayloadBuilder {
       nhan_vien: variables.nhan_vien || (p as any).nhan_vien || p.nguoiPhuTrach || '',
       date: variables.date || (p as any).date || variables.time || p.ngayThanhToan || '',
       loai_don: variables.loai_don || (p as any).loai_don || (p as any).loaiDon || 'Cung cấp Máy móc/Thiết Bị',
-      ghi_chu: variables.ghi_chu || (p as any).ghi_chu || (p as any).ghiChu || 'Thanh toán đợt hợp đồng',
+      ghi_chu: variables.ghi_chu || (p as any).ghi_chu || 'Thanh toán đợt hợp đồng',
       diem_thanh_toan: String(variables.diem_thanh_toan || (p as any).diem_thanh_toan || (p as any).diemThanhToan || '0'),
       diem_khach_hang: String(variables.diem_khach_hang || (p as any).diem_khach_hang || (p as any).diemKhachHang || '0'),
       ma_tra_cuu: variables.ma_tra_cuu || (p as any).ma_tra_cuu || p.soDonHang || p.soHopDong || p.soPhieuBaoGia || '',
