@@ -51,14 +51,21 @@ export function isShipmentConfirmed(s: Pick<DeliveryShipment, 'tinhTrangGiaoHang
   return DeliveryStatusVO.isCompleted(s.tinhTrangGiaoHang, s.ngayGiaoThucTe);
 }
 
+/**
+ * Tìm đợt đích trong sổ đợt, so TỪNG CẶP (đợt đang lưu, đích): khi cả hai bên đều có id (không rỗng) thì id phải bằng nhau và
+ * KHÔNG bao giờ rơi về số đợt — đợt dựng tạm `DOT-n` của phiếu anh em trong nhóm gộp trùng số đợt với `DOT-n-…` của chính phiếu
+ * nhưng không phải đợt đó. Chỉ khi một trong hai bên không có id thì `dotGiaoHang` mới quyết định. Không bao giờ so `undefined === undefined`.
+ */
 export function findShipmentIndex(shipments: DeliveryShipment[], target: Partial<DeliveryShipment>): number {
-  const targetId = typeof target.id === 'string' ? target.id.trim() : '';
+  const idOf = (s: Partial<DeliveryShipment>): string => (typeof s.id === 'string' ? s.id.trim() : '');
+  const targetId = idOf(target);
   if (targetId) {
-    const byId = shipments.findIndex(s => typeof s.id === 'string' && s.id.trim() === targetId);
+    const byId = shipments.findIndex(s => idOf(s) === targetId);
     if (byId !== -1) return byId;
   }
   if (typeof target.dotGiaoHang === 'number') {
-    return shipments.findIndex(s => s.dotGiaoHang === target.dotGiaoHang);
+    // cặp có id ở cả hai bên đã được so ở trên và không bằng nhau → loại; còn lại (một bên thiếu id) thì số đợt quyết định
+    return shipments.findIndex(s => s.dotGiaoHang === target.dotGiaoHang && (!targetId || !idOf(s)));
   }
   return -1;
 }
@@ -93,8 +100,10 @@ function locate(delivery: Delivery, target: Partial<DeliveryShipment>): Located 
   let shipments: DeliveryShipment[] = Array.isArray(delivery.cacDotGiao) ? [...delivery.cacDotGiao] : [];
   let index = findShipmentIndex(shipments, target);
 
-  // Phiếu cũ: không có sổ đợt trong CSDL nhưng phiếu đã giao → "Đợt 1" được dựng tạm từ phiếu (migrateLegacyDeliveriesToUnifiedLedger)
+  // Phiếu cũ: không có sổ đợt trong CSDL nhưng phiếu đã giao → "Đợt 1" được dựng tạm từ phiếu (migrateLegacyDeliveriesToUnifiedLedger).
+  // Chỉ nhận đích mang đúng số phiếu xuất của CHÍNH phiếu này: "Đợt 1" dựng tạm của phiếu anh em trong cùng nhóm gộp có số phiếu xuất khác.
   if (index === -1 && shipments.length === 0 && target.dotGiaoHang === 1
+    && String(target.soPhieuXuat ?? '').trim() === String(delivery.soPhieuXuat ?? '').trim()
     && DeliveryStatusVO.isCompleted(delivery.tinhTrangGiaoHang, delivery.ngayGiaoThucTe)) {
     shipments = [{
       ...(target as DeliveryShipment),

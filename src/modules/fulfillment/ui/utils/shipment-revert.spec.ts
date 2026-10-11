@@ -37,9 +37,24 @@ describe('shipment-revert – Đợt 0A (GH01)', () => {
     expect(r.patch.tinhTrangGiaoHang).toBe('Đang giao');
     expect(r.patch.tinhTrangGiaoHang).not.toMatch(/Chưa giao|CHUA_GIAO/);
     expect(r.patch.ngayGiaoThucTe).toBeNull();
-    expect(r.patch.cacDotGiao[1]).toEqual(d2);
+    // so với bản dựng MỚI, không phải chính đối tượng d2 đi qua map (nếu không, sửa d2 tại chỗ vẫn "bằng")
+    expect(r.patch.cacDotGiao[1]).toEqual(confirmed(2));
     expect(r.wasCompletedBefore).toBe(true);
     expect(r.isCompletedAfter).toBe(false);
+  });
+
+  it('đích là bản sao cũ (ngày/người ký/serial khác đợt đang lưu): lịch sử ghi giá trị ĐANG LƯU, đợt đang lưu là đợt bị xóa, giá trị của bản sao không lọt vào patch', () => {
+    const stored = confirmed(1, { ngayGiaoThucTe: '2026-10-05', kyNhan: 'Người ký mới' });
+    const stale = confirmed(1, { ngayGiaoThucTe: '2026-09-15', kyNhan: 'Người ký cũ', danhSachMaMay: ['SN-CU'] });
+    const delivery = base({ cacDotGiao: [stored, ship(2)] });
+    const r = applyShipmentRevert(delivery, stale, ctx);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.historyEntry).toMatchObject({ ngayGiaoThucTeCu: '2026-10-05', kyNhanCu: 'Người ký mới' });
+    expect(r.patch.cacDotGiao[0]).toMatchObject({ id: 'DOT-1', danhSachMaMay: ['SN-1'], tinhTrangGiaoHang: 'CHO_GIAO', ngayGiaoThucTe: null, kyNhan: '' });
+    expect(JSON.stringify(r.patch)).not.toMatch(/2026-09-15|Người ký cũ|SN-CU/);
+    const p = previewShipmentRevert(delivery, stale);
+    expect(p.ok && p.shipment).toMatchObject({ ngayGiaoThucTe: '2026-10-05', kyNhan: 'Người ký mới' });
   });
 
   it('các đợt còn lại đều xác nhận và vẫn phủ đủ (đợt trùng): suy ra "Hoàn tất" với ngày mới nhất và người ký của đợt đó', () => {
@@ -47,14 +62,22 @@ describe('shipment-revert – Đợt 0A (GH01)', () => {
     expect(m).toEqual({ tinhTrangGiaoHang: 'Hoàn tất', ngayGiaoThucTe: '2026-10-09', kyNhan: 'Người ký 2', tienDoLuyKe: 100 });
   });
 
-  it('phiếu cũ: cacDotGiao [] nhưng phiếu đã giao; đích là Đợt 1 dựng tạm → ok, phiếu được xóa ngày/người ký, lịch sử có giá trị cũ của phiếu, đúng một đợt', () => {
-    const legacy = base({ cacDotGiao: [], tinhTrangGiaoHang: 'Hoàn tất', ngayGiaoThucTe: '2026-09-20', kyNhan: 'Anh Ba' });
+  it('phiếu cũ: cacDotGiao [] nhưng phiếu đã giao; đích là Đợt 1 dựng tạm của CHÍNH phiếu (cùng số phiếu xuất) → ok, phiếu được xóa ngày/người ký, lịch sử có giá trị cũ của phiếu, đúng một đợt', () => {
+    const legacy = base({ cacDotGiao: [], soPhieuXuat: 'PXK-1', tinhTrangGiaoHang: 'Hoàn tất', ngayGiaoThucTe: '2026-09-20', kyNhan: 'Anh Ba' });
     const r = applyShipmentRevert(legacy, { id: 'DOT-1', dotGiaoHang: 1, soPhieuXuat: 'PXK-1', ngayGiaoThucTe: '2026-09-20', kyNhan: 'Anh Ba', products: [product(2)] } as DeliveryShipment, ctx);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.updatedShipments).toHaveLength(1);
     expect(r.patch).toMatchObject({ tinhTrangGiaoHang: 'Đang giao', ngayGiaoThucTe: null, kyNhan: '' });
     expect(r.updatedShipments[0].lichSuHuyXacNhan?.[0]).toMatchObject({ tinhTrangPhieuCu: 'Hoàn tất', ngayGiaoThucTePhieuCu: '2026-09-20', kyNhanPhieuCu: 'Anh Ba' });
+  });
+
+  it('phiếu cũ: đích là "Đợt 1" dựng tạm của PHIẾU ANH EM (số phiếu xuất khác phiếu này) → ok:false, không dựng đợt từ đích; phiếu giữ nguyên ngày/người ký', () => {
+    const legacy = base({ cacDotGiao: [], soPhieuXuat: 'PXK-A', tinhTrangGiaoHang: 'Hoàn tất', ngayGiaoThucTe: '2026-09-20', kyNhan: 'Anh Ba' });
+    const sibling = { id: 'DOT-1', dotGiaoHang: 1, soPhieuXuat: 'PXK-B', ngayGiaoThucTe: '2026-09-22', kyNhan: 'Chị Tư', danhSachMaMay: ['SN-B'], products: [product(1)] } as DeliveryShipment;
+    expect(applyShipmentRevert(legacy, sibling, ctx)).toEqual({ ok: false, error: 'Không tìm thấy đợt giao cần hủy xác nhận trong phiếu.' });
+    expect(previewShipmentRevert(legacy, sibling)).toMatchObject({ ok: false });
+    expect(legacy).toMatchObject({ cacDotGiao: [], tinhTrangGiaoHang: 'Hoàn tất', ngayGiaoThucTe: '2026-09-20', kyNhan: 'Anh Ba' });
   });
 
   it('không tìm thấy đợt (id và dotGiaoHang đều khác) → ok:false, lỗi tiếng Việt; đầu vào không bị sửa', () => {
@@ -89,6 +112,29 @@ describe('shipment-revert – Đợt 0A (GH01)', () => {
     expect(findShipmentIndex(list, { dotGiaoHang: 2 } as DeliveryShipment)).toBe(1);
     expect(findShipmentIndex(list, { id: '', dotGiaoHang: 1 } as DeliveryShipment)).toBe(0);
     expect(findShipmentIndex(list, { dotGiaoHang: 3 } as DeliveryShipment)).toBe(-1);
+  });
+
+  it('khớp từng cặp: cả hai id không rỗng thì phải bằng nhau, KHÔNG rơi về số đợt (đợt dựng tạm DOT-2 của phiếu anh em không khớp DOT-2-… của chính phiếu)', () => {
+    const stored = [confirmed(1, { id: 'DOT-1-1' }), confirmed(2, { id: 'DOT-2-2' })];
+    expect(findShipmentIndex(stored, { id: 'DOT-2', dotGiaoHang: 2 })).toBe(-1);
+    expect(findShipmentIndex(stored, { id: 'DOT-2-2', dotGiaoHang: 2 })).toBe(1);
+    expect(findShipmentIndex(stored, { id: 'DOT-2-2', dotGiaoHang: 1 })).toBe(1);
+  });
+
+  it('đích có id nhưng không đợt nào của phiếu trùng id (đợt dựng tạm của phiếu anh em) → ok:false, lỗi không tìm thấy đợt; phiếu không bị sửa', () => {
+    const d = base({ cacDotGiao: [confirmed(1, { id: 'DOT-1-1' }), confirmed(2, { id: 'DOT-2-2' })], tinhTrangGiaoHang: 'Hoàn tất' });
+    const sibling = confirmed(2, { id: 'DOT-2', soPhieuXuat: 'PXK-B' });
+    expect(applyShipmentRevert(d, sibling, ctx)).toEqual({ ok: false, error: 'Không tìm thấy đợt giao cần hủy xác nhận trong phiếu.' });
+    expect(previewShipmentRevert(d, sibling)).toMatchObject({ ok: false });
+    expect(d.cacDotGiao?.[1]).toEqual(confirmed(2, { id: 'DOT-2-2' }));
+  });
+
+  it('id chỉ quyết định khi CẢ HAI bên có id: đợt đang lưu không có id (thiếu hoặc rỗng) thì khớp theo số đợt; đích không có id (thiếu hoặc toàn khoảng trắng) cũng khớp theo số đợt', () => {
+    const noId = [confirmed(1, { id: undefined as unknown as string }), confirmed(2, { id: '' })];
+    expect(findShipmentIndex(noId, { id: 'DOT-2', dotGiaoHang: 2 })).toBe(1);
+    const withIds = [confirmed(1, { id: 'DOT-1-1' }), confirmed(2, { id: 'DOT-2-2' })];
+    expect(findShipmentIndex(withIds, { dotGiaoHang: 2 })).toBe(1);
+    expect(findShipmentIndex(withIds, { id: '  ', dotGiaoHang: 1 })).toBe(0);
   });
 
   it('chuỗi trạng thái cũ: "Hoàn tất" + ngày hoặc "HOAN_TAT" không ngày đều tính là đã xác nhận', () => {
