@@ -333,11 +333,8 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
   };
 
   const handleSwitchToContractTab = () => {
+    // Đợt 0A (GH02): đổi tab không tự bật đặc cách, không tự chọn lãnh đạo; nhân viên tự bật và chọn người duyệt.
     setSourceMode('contract');
-    setValue('dacCachGiaoTruoc', true, { shouldDirty: true });
-    if (!watch('nguoiPheDuyetDacCach')) {
-      setValue('nguoiPheDuyetDacCach', (lanhDaoPheDuyetList && lanhDaoPheDuyetList[0]) || '', { shouldDirty: true });
-    }
   };
 
   const handleSwitchToQuotationTab = () => {
@@ -447,7 +444,7 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                   soTien: 0,
                   products: allocatedProds,
                   danhSachMaMay: selContract.danhSachMaMay || [],
-                  soNgayBaoHanh: selContract.soNgayBaoHanh || 365,
+                  ...(selContract.soNgayBaoHanh ? { soNgayBaoHanh: selContract.soNgayBaoHanh } : {}),
                   ngayHetHanBaoHanh: selContract.ngayHetHanBaoHanh,
                   slMay: calculateActualMachineCount(allocatedProds) || selContract.slMay || 1,
                   loai: selContract.loai || (allocatedProds[0]?.productName || 'Máy'),
@@ -651,6 +648,11 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                       />
                     )}
 
+                    {sourceMode === 'contract' && !watch('paymentId') && (
+                      <p className="mt-3 text-2xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        Hợp đồng chưa có phiếu thu: bật Đặc cách, chọn người duyệt và ghi lý do, hoặc lập phiếu thu trước.
+                      </p>
+                    )}
                     {/* Executive Pre-Delivery Waiver Toggle Card */}
                     <div className="mt-3 p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl flex flex-col gap-2">
                       <div className="flex items-center justify-between">
@@ -665,14 +667,10 @@ export function DeliveryFormModal({ delivery, payments, contracts, quotations, c
                             type="checkbox" 
                             checked={Boolean(watch('dacCachGiaoTruoc'))} 
                             onChange={(e) => {
-                              setValue('dacCachGiaoTruoc', e.target.checked, { shouldDirty: true });
-                              if (e.target.checked) {
-                                if (!watch('nguoiPheDuyetDacCach')) {
-                                  setValue('nguoiPheDuyetDacCach', (lanhDaoPheDuyetList && lanhDaoPheDuyetList[0]) || '', { shouldDirty: true });
-                                }
-                                if (!watch('paymentId')) {
-                                  setSourceMode('contract');
-                                }
+                              setValue('dacCachGiaoTruoc', e.target.checked, { shouldDirty: true, shouldValidate: true });
+                              // Đợt 0A (GH02): không tự chọn lãnh đạo đầu danh sách; ô chọn ở lại "-- Chọn Lãnh đạo phê duyệt --" (bắt buộc).
+                              if (e.target.checked && !watch('paymentId')) {
+                                setSourceMode('contract');
                               }
                             }} 
                             className="sr-only peer"

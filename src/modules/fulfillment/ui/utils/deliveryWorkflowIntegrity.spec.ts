@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { resolveWaiverPrefill } from '../components/DeliveryFormHelpers';
 
 describe('Fulfillment Workflow Integrity & Contextual Source State Machine', () => {
   describe('Domain Integrity Gatekeeper (Quotation Filtering for Delivery)', () => {
@@ -32,84 +33,19 @@ describe('Fulfillment Workflow Integrity & Contextual Source State Machine', () 
     });
   });
 
-  describe('Contextual Source State Machine (CSSM - Tab Switching Isolation)', () => {
-    it('enables waiver when switching to Contract (Giao trước) tab', () => {
-      let state = {
-        dacCachGiaoTruoc: false,
-        nguoiPheDuyetDacCach: '',
-        lyDoDacCach: '',
-        contractId: '',
-        paymentId: 'PT-01',
-        quotationId: ''
-      };
-
-      const defaultLeader = 'Lãnh đạo A';
-
-      // Switch to Contract tab
-      state = {
-        ...state,
-        dacCachGiaoTruoc: true,
-        nguoiPheDuyetDacCach: defaultLeader,
-        lyDoDacCach: 'Đặc cách giao trước khi thanh toán theo HĐ',
-        paymentId: '',
-        quotationId: ''
-      };
-
-      expect(state.dacCachGiaoTruoc).toBe(true);
-      expect(state.nguoiPheDuyetDacCach).toBe('Lãnh đạo A');
-      expect(state.paymentId).toBe('');
+  describe('Contextual Source State Machine (CSSM) – Đợt 0A (GH02): đổi nguồn không tự bật đặc cách', () => {
+    it('chuyển sang tab Hợp Đồng không tự bật đặc cách, không tự chọn lãnh đạo', () => {
+      const r = resolveWaiverPrefill({ parents: [{ soHopDong: 'HD-01' }], current: { dacCachGiaoTruoc: false, nguoiPheDuyetDacCach: '', lyDoDacCach: '' } });
+      expect(r).toEqual({ dacCachGiaoTruoc: false, nguoiPheDuyetDacCach: '', lyDoDacCach: '' });
     });
 
-    it('resets waiver when switching to Payment tab with a standard payment', () => {
-      let state = {
-        dacCachGiaoTruoc: true,
-        nguoiPheDuyetDacCach: 'Lãnh đạo A',
-        lyDoDacCach: 'Đặc cách',
-        contractId: 'CTR-01',
-        paymentId: '',
-        quotationId: ''
-      };
-
-      const selectedPayment = { id: 'PT-02', dacCachGiaoTruoc: false };
-
-      // Switch to Payment tab
-      const isWaiver = Boolean(selectedPayment?.dacCachGiaoTruoc);
-      state = {
-        ...state,
-        dacCachGiaoTruoc: isWaiver,
-        nguoiPheDuyetDacCach: isWaiver ? 'Lãnh đạo B' : '',
-        lyDoDacCach: isWaiver ? 'Đặc cách PT' : '',
-        contractId: '',
-        quotationId: ''
-      };
-
-      expect(state.dacCachGiaoTruoc).toBe(false);
-      expect(state.nguoiPheDuyetDacCach).toBe('');
-      expect(state.lyDoDacCach).toBe('');
+    it('chuyển sang tab Thanh Toán với phiếu thu thường → đặc cách tắt, hai ô rỗng', () => {
+      expect(resolveWaiverPrefill({ parents: [{ id: 'PT-02', dacCachGiaoTruoc: false }] })).toEqual({ dacCachGiaoTruoc: false, nguoiPheDuyetDacCach: '', lyDoDacCach: '' });
     });
 
-    it('resets waiver when switching to Quotation tab', () => {
-      let state = {
-        dacCachGiaoTruoc: true,
-        nguoiPheDuyetDacCach: 'Lãnh đạo A',
-        lyDoDacCach: 'Đặc cách',
-        contractId: 'CTR-01',
-        paymentId: '',
-        quotationId: ''
-      };
-
-      // Switch to Quotation tab
-      state = {
-        ...state,
-        dacCachGiaoTruoc: false,
-        nguoiPheDuyetDacCach: '',
-        lyDoDacCach: '',
-        contractId: '',
-        paymentId: ''
-      };
-
-      expect(state.dacCachGiaoTruoc).toBe(false);
-      expect(state.nguoiPheDuyetDacCach).toBe('');
+    it('phiếu thu có đặc cách đã ghi nhận → chép nguyên văn (không phải "Lãnh đạo A" mặc định)', () => {
+      const recorded = { dacCachGiaoTruoc: true, nguoiPheDuyetDacCach: 'Sếp Nam', lyDoDacCach: 'Khách hàng VIP bảo lãnh công nợ' };
+      expect(resolveWaiverPrefill({ parents: [recorded] })).toEqual(recorded);
     });
   });
 

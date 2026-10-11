@@ -18,6 +18,7 @@ import { getLinkedPaymentsForContract } from '@/src/domain/services/financial-re
 import { getLinkedDeliveriesForContract } from '@/src/domain/services/delivery-reconciler';
 import { gateCreatePaymentForContract } from '../utils/payment-gate';
 import { buildContractPaymentPrefill } from '@/src/modules/billing/ui/utils/payment-prefill';
+import { resolveWaiverPrefill } from '@/src/modules/fulfillment/ui/components/DeliveryFormHelpers';
 
 const ContractFormModal = React.lazy(() => import('./ContractFormModal').then(m => ({ default: m.ContractFormModal })));
 const PaymentFormDrawer = React.lazy(() => import('@/src/modules/billing/ui/components/PaymentFormDrawer').then(m => ({ default: m.PaymentFormDrawer })));
@@ -84,7 +85,7 @@ export function ContractModalsContainer({
   onSendZns,
 }: ContractModalsContainerProps) {
   const { user } = useAuth();
-  const [transitionPaymentInfo, setTransitionPaymentInfo] = React.useState<{ id?: string; code?: string; isDacCach?: boolean } | null>(null);
+  const [transitionPaymentInfo, setTransitionPaymentInfo] = React.useState<{ id?: string; code?: string } | null>(null);
 
   const isFormModalActive = Boolean(prefillPaymentContract || prefillDeliveryContract || isFormOpen);
 
@@ -122,20 +123,18 @@ export function ContractModalsContainer({
           const linkedPayment = linkedPayments[0];
 
           if (!linkedPayment) {
-            // Nghiệp vụ bảo toàn Workflow: Kích hoạt Đặc cách Ban Giám Đốc (Giao trước - Thanh toán sau)
-            // Mở thẳng DeliveryFormModal với cờ dacCachGiaoTruoc, không ép tạo thanh toán thủ công gây ma sát
-            setTransitionPaymentInfo({
-              id: '',
-              code: '',
-              isDacCach: true,
-            });
+            // Đợt 0A (GH02): không tự bật đặc cách, không điền người duyệt/lý do. Form mở với đặc cách TẮT; muốn giao trước thì nhân viên
+            // tự bật đặc cách, chọn người duyệt và ghi lý do (form + máy chủ kiểm), hoặc lập phiếu thu trước. "Luôn chạy chốt giao hàng"
+            // với hợp đồng chưa có phiếu thu là phần cuối của GH02, cần đăng nhập ở máy chủ (B2; phụ lục 01 dòng 68).
+            setTransitionPaymentInfo(null);
             setPrefillDeliveryContract(contract);
-            notify.info("Hợp đồng chưa có phiếu thanh toán. Đã tự động kích hoạt Đặc cách Ban Giám Đốc (Giao trước - Thanh toán sau) để lập Phiếu Giao!");
+            notify.warning("Hợp đồng chưa có phiếu thu. Trong phiếu giao, hãy bật Đặc cách rồi chọn người duyệt và ghi lý do, hoặc lập phiếu thu trước.");
             return;
           }
 
           const ok = await checkWorkflowGate('DELIVERY', contract.id as string, 'contracts', user?.email || undefined);
           if (!ok) return;
+          setTransitionPaymentInfo(null);
 
           setPrefillDeliveryContract(contract);
         }}
@@ -236,11 +235,11 @@ export function ContractModalsContainer({
         const linkedPayment = linkedPayments[0];
         const effectivePaymentId = transitionPaymentInfo?.id || linkedPayment?.id || linkedPayment?.paymentId || '';
         const effectivePaymentCode = transitionPaymentInfo?.code || linkedPayment?.paymentId || '';
-        const isDacCach = Boolean(
-          transitionPaymentInfo?.isDacCach || 
-          linkedPayment?.dacCachGiaoTruoc || 
-          (linkedPayment?.tinhTrangThanhToan && String(linkedPayment.tinhTrangThanhToan).toLowerCase().includes('chưa'))
-        );
+        // Đợt 0A (GH02): chỉ chép đặc cách ĐÃ GHI NHẬN (cờ + người duyệt + lý do) từ hợp đồng hoặc phiếu thu liên kết; không suy từ "chưa thanh toán".
+        const waiver = resolveWaiverPrefill({
+          parents: [prefillDeliveryContract as unknown as Record<string, unknown>, linkedPayment as Record<string, unknown> | undefined],
+          previousDeliveries: getLinkedDeliveriesForContract(prefillDeliveryContract, realtimeDeliveries || []) as Record<string, unknown>[],
+        });
 
         const remainingProds = getRemainingProducts(prefillDeliveryContract, getLinkedDeliveriesForContract(prefillDeliveryContract, realtimeDeliveries || []));
 
@@ -269,10 +268,10 @@ export function ContractModalsContainer({
                 diaChiGiaoHang: (prefillDeliveryContract as any).diaChiGiaoHang || (prefillDeliveryContract as any).diaChi || '',
                 nguoiLienHe: (prefillDeliveryContract as any).nguoiLienHe || (prefillDeliveryContract as any).nguoiDaiDien || '',
                 sdtLienHe: (prefillDeliveryContract as any).sdtLienHe || (prefillDeliveryContract as any).sdt || '',
-                dacCachGiaoTruoc: isDacCach,
-                nguoiPheDuyetDacCach: (prefillDeliveryContract as any).nguoiPheDuyetDacCach || (linkedPayment as any)?.nguoiPheDuyetDacCach || 'Ban Giám Đốc',
-                lyDoDacCach: (prefillDeliveryContract as any).lyDoDacCach || (linkedPayment as any)?.lyDoDacCach || 'Đặc cách giao hàng trước khi thanh toán',
-                tinhTrangThanhToan: linkedPayment?.tinhTrangThanhToan || (isDacCach ? 'CHƯA THANH TOÁN' : 'ĐÃ THANH TOÁN'),
+                dacCachGiaoTruoc: waiver.dacCachGiaoTruoc,
+                nguoiPheDuyetDacCach: waiver.nguoiPheDuyetDacCach,
+                lyDoDacCach: waiver.lyDoDacCach,
+                tinhTrangThanhToan: linkedPayment?.tinhTrangThanhToan || '',
                 trangThaiGuiTinGiaoHang: EntityZnsStatus.CHUA_GUI,
                 ngayLapPgh: new Date().toISOString().split('T')[0],
                 ngayGiaoMay: new Date().toISOString().split('T')[0],
@@ -323,6 +322,7 @@ export function ContractModalsContainer({
                           const rawContractProducts = (prefillDeliveryContract.products || []).map(computeLineItem);
                           const allocatedContractProducts = smartAllocateSerials(rawContractProducts, prefillDeliveryContract.danhSachMaMay || []);
                           const contractAggs = aggregateProducts(allocatedContractProducts);
+                          const anchorWarrantyDays = (prefillDeliveryContract as any).soNgayBaoHanh || allocatedContractProducts[0]?.soNgayBaoHanh;
                           const uncollectedPayment = await apiCreateEntity('payment', {
                             contractId: prefillDeliveryContract.id,
                             quotationId: prefillDeliveryContract.quotationId || '',
@@ -338,7 +338,7 @@ export function ContractModalsContainer({
                             soTien: 0,
                             products: allocatedContractProducts,
                             danhSachMaMay: prefillDeliveryContract.danhSachMaMay || [],
-                            soNgayBaoHanh: (prefillDeliveryContract as any).soNgayBaoHanh || allocatedContractProducts[0]?.soNgayBaoHanh || 365,
+                            ...(anchorWarrantyDays ? { soNgayBaoHanh: anchorWarrantyDays } : {}),
                             ngayHetHanBaoHanh: (prefillDeliveryContract as any).ngayHetHanBaoHanh || allocatedContractProducts[0]?.ngayHetHanBaoHanh,
                             slMay: calculateActualMachineCount(allocatedContractProducts) || prefillDeliveryContract.slMay || 1,
                             loai: prefillDeliveryContract.loai || (allocatedContractProducts[0]?.productName || 'Máy'),

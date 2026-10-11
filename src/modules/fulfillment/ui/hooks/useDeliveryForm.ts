@@ -10,7 +10,7 @@ import { formatUserOfficer } from '@/src/shared/utils/userProfile';
 import { notify } from '@/src/shared/utils/notify';
 import { settingsRepo } from '@/src/data/repositories/settings.repo';
 import { calculateActualMachineCount, smartAllocateSerials } from '@/src/widgets/product-list-input/useProductItemSemantic';
-import { useSharedFields } from '@/src/hooks/useSharedFields';
+import { resolveWaiverPrefill } from '../components/DeliveryFormHelpers';
 import { generateDeterministicNextCode } from '@/src/shared/utils/voucherResolver';
 
 export function useDeliveryForm(
@@ -25,8 +25,6 @@ export function useDeliveryForm(
   const [isLookingUpExportSale, setIsLookingUpExportSale] = useState(false);
   const { user, userData } = useAuth();
   const defaultOfficer = formatUserOfficer(userData, user);
-  const { lanhDaoPheDuyetList } = useSharedFields();
-  const defaultLeader = (lanhDaoPheDuyetList && lanhDaoPheDuyetList.length > 0) ? lanhDaoPheDuyetList[0] : '';
   const scopedDraftKey = delivery?.id || (
     delivery?.paymentId ? `new_pay_${delivery.paymentId}` : (
       delivery?.contractId ? `new_ctr_${delivery.contractId}` : (
@@ -50,7 +48,7 @@ export function useDeliveryForm(
       nguoiPhuTrach: delivery.nguoiPhuTrach || defaultOfficer,
       ngayLapPgh: delivery.ngayLapPgh || todayStr,
       ngayGiaoMay: delivery.ngayGiaoMay || todayStr,
-      nguoiPheDuyetDacCach: delivery.nguoiPheDuyetDacCach || defaultLeader,
+      nguoiPheDuyetDacCach: delivery.nguoiPheDuyetDacCach || '',
     } : { 
       trangThaiGuiTinGiaoHang: EntityZnsStatus.CHUA_GUI,
       ngayLapPgh: todayStr,
@@ -74,7 +72,7 @@ export function useDeliveryForm(
       soPhieuXuat: '',
       dacCachGiaoTruoc: false,
       lyDoDacCach: '',
-      nguoiPheDuyetDacCach: defaultLeader
+      nguoiPheDuyetDacCach: ''
     })
   });
 
@@ -106,10 +104,10 @@ export function useDeliveryForm(
         ghiChuNoiBo: delivery.ghiChuNoiBo || delivery.ghiChu || '',
         dacCachGiaoTruoc: Boolean((delivery as any).dacCachGiaoTruoc),
         lyDoDacCach: (delivery as any).lyDoDacCach || '',
-        nguoiPheDuyetDacCach: (delivery as any).nguoiPheDuyetDacCach || defaultLeader
+        nguoiPheDuyetDacCach: (delivery as any).nguoiPheDuyetDacCach || ''
       });
     }
-  }, [delivery, reset, defaultOfficer, todayStr, defaultLeader]);
+  }, [delivery, reset, defaultOfficer, todayStr]);
 
   const watchAll = watch();
   
@@ -294,15 +292,6 @@ export function useDeliveryForm(
       ).length;
       const currentPhaseNumber = previousCompletedPhases + 1;
 
-      const isInheritedWaiver = Boolean(
-        (p as any).dacCachGiaoTruoc ||
-        (source as any)?.dacCachGiaoTruoc ||
-        linkedDeliveries.some((d: any) => d.dacCachGiaoTruoc) ||
-        getValues('dacCachGiaoTruoc')
-      );
-      const waiverReason = (p as any).lyDoDacCach || (source as any)?.lyDoDacCach || linkedDeliveries.find((d: any) => d.lyDoDacCach)?.lyDoDacCach || getValues('lyDoDacCach') || 'Kế thừa Đặc cách Ban Giám Đốc từ đợt giao trước';
-      const waiverLeader = (p as any).nguoiPheDuyetDacCach || (source as any)?.nguoiPheDuyetDacCach || linkedDeliveries.find((d: any) => d.nguoiPheDuyetDacCach)?.nguoiPheDuyetDacCach || getValues('nguoiPheDuyetDacCach') || defaultLeader;
-
       const phaseSubTotal = allocatedProducts.reduce((sum: number, it: any) => sum + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
       const phaseVatRate = Number(source?.vatRate ?? p?.vatRate ?? getValues('vatRate') ?? 0);
       const phaseVatAmount = Math.round(phaseSubTotal * (phaseVatRate / 100));
@@ -324,6 +313,13 @@ export function useDeliveryForm(
     const phaseVatRate = Number(source?.vatRate ?? p?.vatRate ?? currentValues.vatRate ?? 0);
     const phaseVatAmount = Math.round(phaseSubTotal * (phaseVatRate / 100));
     const phaseTotalAmount = phaseSubTotal + phaseVatAmount;
+
+    // Đợt 0A (GH02): chỉ kế thừa đặc cách ĐÃ GHI NHẬN (cờ + người duyệt + lý do) từ phiếu thu/chứng từ nguồn/đợt trước; không mặc định.
+    const relatedDeliveries = (deliveries || []).filter((d: any) =>
+      !d.deletedAt && !d.deleted_at &&
+      (d.paymentId === targetPayId || (p.contractId && d.contractId === p.contractId) || (p.quotationId && d.quotationId === p.quotationId))
+    );
+    const waiver = resolveWaiverPrefill({ parents: [p, source], previousDeliveries: relatedDeliveries, current: currentValues });
 
     reset({
       ...currentValues,
@@ -348,9 +344,7 @@ export function useDeliveryForm(
       ngayKy: p.ngayKy || source?.ngayKy || '',
       tinhTrangThanhToan: p.tinhTrangThanhToan || '',
       nguoiPhuTrach: defaultOfficer,
-      dacCachGiaoTruoc: Boolean((p as any).dacCachGiaoTruoc || (source as any)?.dacCachGiaoTruoc || currentValues.dacCachGiaoTruoc),
-      lyDoDacCach: (p as any).lyDoDacCach || (source as any)?.lyDoDacCach || currentValues.lyDoDacCach || '',
-      nguoiPheDuyetDacCach: (p as any).nguoiPheDuyetDacCach || (source as any)?.nguoiPheDuyetDacCach || currentValues.nguoiPheDuyetDacCach || defaultLeader,
+      ...waiver,
       nguoiLienHe: contactPerson,
       sdtLienHe: contactPhone,
       diaChiGiaoHang: deliveryAddress,
@@ -365,7 +359,7 @@ export function useDeliveryForm(
       danhSachMaMay: finalSerials
     });
     setMaxQuantities(limits);
-  }, [contracts, quotations, customers, deliveries, reset, getValues, defaultOfficer, todayStr, defaultLeader]);
+  }, [contracts, quotations, customers, deliveries, reset, getValues, defaultOfficer, todayStr]);
 
   const populateFromContract = useCallback((c: any) => {
     if (!c) return;
@@ -461,6 +455,9 @@ export function useDeliveryForm(
     const phaseVatAmount = Math.round(phaseSubTotal * (phaseVatRate / 100));
     const phaseTotalAmount = phaseSubTotal + phaseVatAmount;
 
+    const contractDeliveries = (deliveries || []).filter((d: any) => !d.deletedAt && !d.deleted_at && (d.contractId === c.id || (c.soHopDong && d.soHopDong === c.soHopDong)));
+    const waiver = resolveWaiverPrefill({ parents: [c], previousDeliveries: contractDeliveries, current: currentValues });
+
     reset({
       ...currentValues,
       dotGiaoHang: currentPhaseNumber,
@@ -484,10 +481,9 @@ export function useDeliveryForm(
       totalAmount: phaseTotalAmount > 0 ? phaseTotalAmount : (c.totalAmount || 0),
       giaTriXuatKhoDotNay: phaseTotalAmount > 0 ? phaseTotalAmount : (c.totalAmount || 0),
       nguoiPhuTrach: defaultOfficer,
-      dacCachGiaoTruoc: true,
-      lyDoDacCach: c.lyDoDacCach || 'Giao hàng trước thanh toán theo phê duyệt của Lãnh đạo',
-      nguoiPheDuyetDacCach: c.nguoiPheDuyetDacCach || defaultLeader,
-      tinhTrangThanhToan: 'CHƯA THANH TOÁN',
+      ...waiver,
+      // Đợt 0A (GH02): không ghi đè trạng thái thanh toán thành "CHƯA THANH TOÁN"; lấy từ phiếu thu liên kết nếu có.
+      tinhTrangThanhToan: linkedPayment?.tinhTrangThanhToan || currentValues.tinhTrangThanhToan || '',
       quotationId: c.quotationId || currentValues.quotationId || '',
       soPhieuBaoGia: c.soPhieuBaoGia || c.soBaoGia || currentValues.soPhieuBaoGia || '',
       soBaoGia: c.soPhieuBaoGia || c.soBaoGia || currentValues.soBaoGia || '',
@@ -501,7 +497,7 @@ export function useDeliveryForm(
       slMay: actualMachineCount || Number(c.slMay) || 0
     });
     setMaxQuantities(limits);
-  }, [customers, deliveries, payments, reset, getValues, defaultOfficer, todayStr, defaultLeader]);
+  }, [customers, deliveries, payments, reset, getValues, defaultOfficer, todayStr]);
 
   const populateFromQuotation = useCallback((q: any) => {
     if (!q) return;
@@ -585,17 +581,13 @@ export function useDeliveryForm(
     ).length;
     const currentPhaseNumber = previousCompletedPhases + 1;
 
-    const isInheritedWaiver = Boolean(
-      (q as any).dacCachGiaoTruoc ||
-      currentValues.dacCachGiaoTruoc
-    );
-    const waiverReason = (q as any).lyDoDacCach || currentValues.lyDoDacCach || 'Kế thừa Đặc cách Ban Giám Đốc từ đơn hàng';
-    const waiverLeader = (q as any).nguoiPheDuyetDacCach || currentValues.nguoiPheDuyetDacCach || defaultLeader;
-
     const phaseSubTotal = allocatedProducts.reduce((sum: number, it: any) => sum + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
     const phaseVatRate = Number(q.vatRate || currentValues.vatRate || 0);
     const phaseVatAmount = Math.round(phaseSubTotal * (phaseVatRate / 100));
     const phaseTotalAmount = phaseSubTotal + phaseVatAmount;
+
+    const quotationDeliveries = (deliveries || []).filter((d: any) => !d.deletedAt && !d.deleted_at && (d.quotationId === q.id || (q.soPhieuBaoGia && d.soPhieuBaoGia === q.soPhieuBaoGia)));
+    const waiver = resolveWaiverPrefill({ parents: [q], previousDeliveries: quotationDeliveries, current: currentValues });
 
     reset({
       ...currentValues,
@@ -625,9 +617,7 @@ export function useDeliveryForm(
       discountRate: q.discountRate || 0,
       discountAmount: q.discountAmount || 0,
       nguoiPhuTrach: defaultOfficer,
-      dacCachGiaoTruoc: isInheritedWaiver,
-      lyDoDacCach: isInheritedWaiver ? waiverReason : '',
-      nguoiPheDuyetDacCach: isInheritedWaiver ? waiverLeader : defaultLeader,
+      ...waiver,
       nguoiLienHe: contactPerson,
       sdtLienHe: contactPhone,
       diaChiGiaoHang: deliveryAddress,
@@ -635,7 +625,7 @@ export function useDeliveryForm(
       danhSachMaMay: finalSerials
     });
     setMaxQuantities(limits);
-  }, [customers, deliveries, reset, getValues, defaultOfficer, todayStr, defaultLeader]);
+  }, [customers, deliveries, reset, getValues, defaultOfficer, todayStr]);
 
   const lastPopulatedQuotationIdRef = useRef<string | null>(null);
   useEffect(() => {

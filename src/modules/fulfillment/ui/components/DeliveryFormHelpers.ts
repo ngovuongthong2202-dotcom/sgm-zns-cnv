@@ -56,6 +56,56 @@ export function normalizeDeliveryFormValues(data: any) {
 
 import { detectItemType } from '@/src/widgets/product-list-input/useProductItemSemantic';
 
+export interface WaiverFields {
+  dacCachGiaoTruoc: boolean;
+  nguoiPheDuyetDacCach: string;
+  lyDoDacCach: string;
+}
+
+export interface ResolveWaiverInput {
+  /** Chứng từ cha theo thứ tự ưu tiên (phiếu thu, rồi hợp đồng/báo giá nguồn). */
+  parents?: Array<Record<string, unknown> | null | undefined>;
+  /** Các đợt giao trước của cùng chứng từ. */
+  previousDeliveries?: Array<Record<string, unknown> | null | undefined>;
+  /** Giá trị nhân viên đang có trong form. */
+  current?: Partial<WaiverFields> | null;
+}
+
+const EMPTY_WAIVER: WaiverFields = { dacCachGiaoTruoc: false, nguoiPheDuyetDacCach: '', lyDoDacCach: '' };
+
+function recordedWaiver(src?: Record<string, unknown> | null): WaiverFields | null {
+  if (!src || src.dacCachGiaoTruoc !== true) return null;
+  const approver = typeof src.nguoiPheDuyetDacCach === 'string' ? src.nguoiPheDuyetDacCach.trim() : '';
+  const reason = typeof src.lyDoDacCach === 'string' ? src.lyDoDacCach.trim() : '';
+  if (!approver || !reason) return null; // đặc cách thiếu người duyệt hoặc lý do không được kế thừa
+  return { dacCachGiaoTruoc: true, nguoiPheDuyetDacCach: approver, lyDoDacCach: reason };
+}
+
+/**
+ * Đợt 0A (GH02; nguyên tắc 2): giá trị điền sẵn cho đặc cách giao trước. Không bao giờ tự bật, không bao giờ điền
+ * người duyệt/lý do mặc định. Chỉ chép nguyên văn một đặc cách ĐÃ GHI NHẬN (cờ + người duyệt + lý do), hoặc giữ lựa chọn
+ * nhân viên đang có trong form.
+ */
+export function resolveWaiverPrefill(input: ResolveWaiverInput): WaiverFields {
+  const cur = input.current;
+  if (cur && cur.dacCachGiaoTruoc === true) {
+    return {
+      dacCachGiaoTruoc: true,
+      nguoiPheDuyetDacCach: typeof cur.nguoiPheDuyetDacCach === 'string' ? cur.nguoiPheDuyetDacCach.trim() : '',
+      lyDoDacCach: typeof cur.lyDoDacCach === 'string' ? cur.lyDoDacCach.trim() : '',
+    };
+  }
+  for (const parent of input.parents || []) {
+    const w = recordedWaiver(parent);
+    if (w) return w;
+  }
+  for (const d of input.previousDeliveries || []) {
+    const w = recordedWaiver(d);
+    if (w) return w;
+  }
+  return { ...EMPTY_WAIVER };
+}
+
 export function validateDeliveryBusinessRules(data: any, payments: any[], maxQuantities: Record<string, number>, _delivery: any): { valid: boolean; error?: string } {
   if (!data.soPhieuXuat || !String(data.soPhieuXuat).trim()) {
     return { valid: false, error: 'Vui lòng nhập Số Phiếu Xuất Kho (ERP) trước khi lưu giao hàng' };
@@ -72,10 +122,20 @@ export function validateDeliveryBusinessRules(data: any, payments: any[], maxQua
     }
   }
 
+  // Đợt 0A (GH02): đặc cách phải có người duyệt cụ thể VÀ lý do (form lẫn máy chủ — xem workflow.routes.ts)
   if (data.dacCachGiaoTruoc) {
+    if (!data.nguoiPheDuyetDacCach || !String(data.nguoiPheDuyetDacCach).trim()) {
+      return { valid: false, error: 'Đặc cách giao trước cần chọn người duyệt cụ thể trong ô "Lãnh đạo phê duyệt".' };
+    }
     if (!data.lyDoDacCach || !String(data.lyDoDacCach).trim()) {
       return { valid: false, error: 'Vui lòng nhập căn cứ / lý do phê duyệt của Sếp khi áp dụng Đặc cách Giao trước' };
     }
+  }
+
+  // Đợt 0A (GH02): phiếu giao theo hợp đồng mà không có phiếu thu và không đặc cách — trước đây lọt qua không chốt nào.
+  // Nhánh báo giá không có phiếu thu giữ nguyên (GH12, Đợt 1).
+  if (data.contractId && !data.paymentId && !data.dacCachGiaoTruoc) {
+    return { valid: false, error: 'Hợp đồng chưa có phiếu thu: bật Đặc cách, chọn người duyệt và ghi lý do, hoặc lập phiếu thu trước.' };
   }
 
   // Chặn nếu không có sản phẩm nào hợp lệ và không có số lượng máy

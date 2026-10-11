@@ -24,6 +24,7 @@ import { calculateMachineAllocation } from '@/src/shared/utils/voucherResolver';
 import { entityCachePool } from '@/src/platform/data/entity-cache-pool';
 import { isSameCustomer } from '@/src/shared/utils/customerIdentityResolver';
 import { DeliveryFormModal } from '@/src/modules/fulfillment/ui/components/DeliveryFormModal';
+import { resolveWaiverPrefill } from '@/src/modules/fulfillment/ui/components/DeliveryFormHelpers';
 import { useSharedFields } from '@/src/hooks/useSharedFields';
 import { Truck } from 'lucide-react';
 
@@ -702,8 +703,6 @@ export function PaymentDetailDrawer({
   );
 
   const navigate = useNavigate();
-  const pStatus = (payment.tinhTrangThanhToan || '').toLowerCase().trim();
-  const isChuaTT = pStatus === 'chưa tt' || pStatus === 'chua tt' || pStatus === 'chưa thanh toán';
 
   // Dynamic Machine Allocation Gate
   const allocGate = useMemo(
@@ -744,14 +743,11 @@ export function PaymentDetailDrawer({
 
   const deliveryPrefill = useMemo(() => {
     if (!payment) return null;
-    const isWaiver = Boolean(
-      (payment as any).dacCachGiaoTruoc ||
-      isChuaTT ||
-      contractDoc?.dacCachGiaoTruoc
-    );
 
     const resolvedQuo = _quotationDoc || (quotationId ? entityCachePool.get('quotations', quotationId) : null);
     const targetContract = contractDoc || (contractsList.length > 0 ? contractsList[0] : null);
+    // Đợt 0A (GH02): phiếu thu "Chưa TT" KHÔNG còn tự bật đặc cách; chỉ chép đặc cách đã ghi nhận trên phiếu thu hoặc hợp đồng.
+    const waiver = resolveWaiverPrefill({ parents: [payment as unknown as Record<string, unknown>, targetContract as Record<string, unknown> | null] });
 
     return {
       contractId: targetContract?.id || payment.contractId || '',
@@ -773,9 +769,9 @@ export function PaymentDetailDrawer({
       slMay: allocGate.remainingMachines,
       ngayLapPgh: new Date().toISOString().split('T')[0],
       ngayGiaoMay: new Date().toISOString().split('T')[0],
-      dacCachGiaoTruoc: isWaiver,
-      nguoiPheDuyetDacCach: (payment as any).nguoiPheDuyetDacCach || (targetContract as any)?.nguoiPheDuyetDacCach || 'Ban Giám Đốc',
-      lyDoDacCach: (payment as any).lyDoDacCach || (targetContract as any)?.lyDoDacCach || 'Đặc cách giao hàng trước khi thanh toán'
+      dacCachGiaoTruoc: waiver.dacCachGiaoTruoc,
+      nguoiPheDuyetDacCach: waiver.nguoiPheDuyetDacCach,
+      lyDoDacCach: waiver.lyDoDacCach
     };
   }, [
     payment,
@@ -783,7 +779,6 @@ export function PaymentDetailDrawer({
     contractsList,
     _quotationDoc,
     quotationId,
-    isChuaTT,
     allocGate.remainingMachines
   ]);
 
