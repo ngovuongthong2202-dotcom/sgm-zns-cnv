@@ -379,7 +379,7 @@ router.post('/send', async (req, res) => {
       const typedNote = typeof clientEntity.ghi_chu === 'string' ? clientEntity.ghi_chu.trim() : '';
       const totalAmount = Number(dbPayment?.totalAmount || 0);
       const fullyCollected = totalAmount > 0 && note.collected >= totalAmount;
-      // Câu tự điền cũ "Tất toán 100% hợp đồng…" và mọi câu nhân viên tự gõ có "tất toán" (isSettlementClaim, rà soát cuối) đều là lời báo đã thu đủ.
+      // Câu tự điền cũ (isLegacyAutoSettledNote) và mọi câu nhân viên tự gõ có "tất toán" (isSettlementClaim, rà soát cuối) đều là lời báo đã thu đủ.
       const settlementClaimForOpenReceipt = Boolean(typedNote) && (isLegacyAutoSettledNote(typedNote) || isSettlementClaim(typedNote)) && !fullyCollected;
       if (settlementClaimForOpenReceipt) {
         // Công tắc PAYMENT_NOTE_GUARD (nguyên tắc 6): mặc định (không đặt) = chặn 409, vì câu "Tất toán" sai gửi tới khách là thiệt hại
