@@ -19,6 +19,7 @@ import { getLinkedDeliveriesForContract } from '@/src/domain/services/delivery-r
 import { gateCreatePaymentForContract } from '../utils/payment-gate';
 import { buildContractPaymentPrefill } from '@/src/modules/billing/ui/utils/payment-prefill';
 import { resolveWaiverPrefill } from '@/src/modules/fulfillment/ui/components/DeliveryFormHelpers';
+import { getVietnamDateKey } from '@/src/shared/utils/vietnamDate';
 
 const ContractFormModal = React.lazy(() => import('./ContractFormModal').then(m => ({ default: m.ContractFormModal })));
 const PaymentFormDrawer = React.lazy(() => import('@/src/modules/billing/ui/components/PaymentFormDrawer').then(m => ({ default: m.PaymentFormDrawer })));
@@ -223,7 +224,7 @@ export function ContractModalsContainer({
                 vatRate: effectiveVatRate,
                 discountRate: effectiveDiscountRate,
                 slMay: effectiveSlMay,
-                today: new Date().toISOString().split('T')[0],
+                today: getVietnamDateKey(), // ngày theo giờ Việt Nam: trước 07:00 sáng toISOString() còn là ngày hôm trước (rà soát cuối)
               }) as any}
             />
           </Suspense>
