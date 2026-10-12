@@ -26,4 +26,15 @@ describe('gateCreatePaymentForContract – Đợt 0A (TT04): một đường cho
     gateMock.mockResolvedValue(false);
     expect(await gateCreatePaymentForContract(contract, [], undefined)).toBe(false);
   });
+
+  it('rà soát cuối: chốt quy trình lỗi (mạng/máy chủ) → false, báo lỗi dễ hiểu, không ném', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    gateMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    try {
+      await expect(gateCreatePaymentForContract(contract, [], 'a@sgm.vn')).resolves.toBe(false);
+      expect(notifyMock.error).toHaveBeenCalledWith('Không kiểm tra được quy trình, vui lòng thử lại.');
+    } finally {
+      error.mockRestore();
+    }
+  });
 });

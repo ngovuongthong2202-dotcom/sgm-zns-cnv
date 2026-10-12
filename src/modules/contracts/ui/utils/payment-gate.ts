@@ -14,5 +14,12 @@ export async function gateCreatePaymentForContract(contract: { id?: string; soHo
     notify.info(`Hợp đồng ${contract.soHopDong} đã có phiếu thanh toán (${existing.paymentId}). Mỗi hợp đồng chỉ tạo 1 phiếu thu duy nhất!`);
     return false;
   }
-  return checkWorkflowGate('PAYMENT', contract.id as string, 'contracts', userEmail || undefined);
+  try {
+    return await checkWorkflowGate('PAYMENT', contract.id as string, 'contracts', userEmail || undefined);
+  } catch (err) {
+    // Rà soát cuối: lỗi mạng/máy chủ khi gọi chốt → không mở phiếu thu, báo nhân viên thử lại (không để lỗi lọt ra nút bấm).
+    console.error('[TT04] Không gọi được chốt quy trình khi tạo phiếu thu từ hợp đồng:', err);
+    notify.error('Không kiểm tra được quy trình, vui lòng thử lại.');
+    return false;
+  }
 }
