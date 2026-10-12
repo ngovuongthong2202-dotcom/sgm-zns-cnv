@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { vendorWebhookHandler } from '../services/zns/vendor-webhook.handler';
 import { znsPayloadBuilder, sanitizeZnsCustomerName, sanitizeZnsPersonName } from '../services/zns/zns-payload.builder';
 import { toPublicZnsConfig, pickZnsConfigUpdate, ZNS_CONFIG_SECRET_FIELDS } from '../services/zns/zns-config.policy';
-import { buildPaymentZnsNote, collectPaymentLedger, isLegacyAutoSettledNote, PAYMENT_ZNS_NOTE_MAX } from '../../modules/billing/domain/paymentZnsNote';
+import { buildPaymentZnsNote, collectPaymentLedger, isLegacyAutoSettledNote, isSettlementClaim, PAYMENT_NOTE_REJECTED_REASON, PAYMENT_ZNS_NOTE_MAX } from '../../modules/billing/domain/paymentZnsNote';
 import { adminDb } from '../config/supabase.admin';
 import { ZnsMessage } from '../../domain/schema/workflow.schema';
 import { SendZnsMessageUseCase } from '../../modules/messaging/application/use-cases/SendZnsMessage';
@@ -390,14 +390,15 @@ router.post('/send', async (req, res) => {
       const typedNote = typeof clientEntity.ghi_chu === 'string' ? clientEntity.ghi_chu.trim() : '';
       const totalAmount = Number(dbPayment?.totalAmount || 0);
       const fullyCollected = totalAmount > 0 && note.collected >= totalAmount;
-      const legacyNoteForOpenReceipt = Boolean(typedNote) && isLegacyAutoSettledNote(typedNote) && !fullyCollected;
-      if (legacyNoteForOpenReceipt) {
+      // Câu tự điền cũ "Tất toán 100% hợp đồng…" và mọi câu nhân viên tự gõ có "tất toán" (isSettlementClaim, rà soát cuối) đều là lời báo đã thu đủ.
+      const settlementClaimForOpenReceipt = Boolean(typedNote) && (isLegacyAutoSettledNote(typedNote) || isSettlementClaim(typedNote)) && !fullyCollected;
+      if (settlementClaimForOpenReceipt) {
         // Công tắc PAYMENT_NOTE_GUARD (nguyên tắc 6): mặc định (không đặt) = chặn 409, vì câu "Tất toán" sai gửi tới khách là thiệt hại
         // trực tiếp; đặt 'report' trên Render nếu nghiệm thu thấy dương tính giả → chỉ ghi nhận và thay bằng câu máy chủ dựng.
         if (process.env.PAYMENT_NOTE_GUARD === 'report') {
           console.warn(`[TT01 report-only] phiếu ${String(body.entityId)}: câu "Tất toán" khi mới thu ${note.collected}/${totalAmount} — thay bằng câu máy chủ`);
         } else {
-          return res.status(409).json({ success: false, code: 'PAYMENT_NOTE_REJECTED', error: 'Nội dung "Tất toán" chỉ gửi được khi phiếu đã thu đủ. Sửa ô Ghi chú thành câu phù hợp (ví dụ "Thanh toán đợt 2").' });
+          return res.status(409).json({ success: false, code: 'PAYMENT_NOTE_REJECTED', error: PAYMENT_NOTE_REJECTED_REASON });
         }
       }
       // Tab cũ điền sẵn ghi chú nội bộ (ghiChu của đợt thu / của phiếu) vào ô Ghi chú rồi gửi lên nguyên văn; câu đó ngắn nên lọt qua giới hạn 30 ký tự.
@@ -436,7 +437,7 @@ router.post('/send', async (req, res) => {
       } else if (typedInstallmentIsCollected) {
         serverPaymentNote = `Thanh toán đợt ${typedInstallmentNumber}`.slice(0, PAYMENT_ZNS_NOTE_MAX);
       } else {
-        serverPaymentNote = typedNote && typedNote.length <= PAYMENT_ZNS_NOTE_MAX && !legacyNoteForOpenReceipt ? typedNote : note.ghiChu;
+        serverPaymentNote = typedNote && typedNote.length <= PAYMENT_ZNS_NOTE_MAX && !settlementClaimForOpenReceipt ? typedNote : note.ghiChu;
       }
     }
 

@@ -33,6 +33,7 @@ export type PaymentZnsNoteResult =
 
 export const PAYMENT_NOT_COLLECTED_REASON = 'Phiếu thu chưa ghi nhận khoản thu nào nên không gửi được tin xác nhận thanh toán. Ghi nhận đợt thu trước.';
 export const INVALID_INSTALLMENT_REASON = 'Đợt thu được chọn không có trong phiếu. Mở lại phiếu và chọn đúng đợt.';
+export const PAYMENT_NOTE_REJECTED_REASON = 'Nội dung "Tất toán" chỉ gửi được khi phiếu đã thu đủ. Sửa ô Ghi chú thành câu phù hợp (ví dụ "Thanh toán đợt 2").';
 
 const toNumber = (v: unknown): number => {
   const n = Number(v);
@@ -101,4 +102,21 @@ export function buildPaymentZnsNote(payment: PaymentLike | null | undefined, ins
 export function isLegacyAutoSettledNote(text: unknown): boolean {
   if (typeof text !== 'string') return false;
   return text.trim().toLowerCase().replace(/\s+/g, ' ').startsWith(LEGACY_AUTO_SETTLED_PREFIX);
+}
+
+// Cụm "tat toan" trọn từ (sau khi bỏ dấu), 0..n khoảng trắng ở giữa; nhóm 2 bắt "chua" đứng ngay trước. Không dùng lookbehind (Safari cũ báo lỗi cú pháp).
+const SETTLEMENT_PHRASE = /(^|[^a-z])(chua\s*)?tat\s*toan(?![a-z])/g;
+
+/**
+ * Đợt 0A (TT01, rà soát cuối): câu có "tất toán" là lời báo "đã thu đủ" — kể cả câu nhân viên tự gõ ("Đã tất toán HĐ", "Tất toán đợt cuối"),
+ * không chỉ câu tự điền cũ. Không phân biệt dấu, hoa/thường, viết liền hay cách; không tính khi đứng ngay sau "chưa" ("Chưa tất toán").
+ * Phiếu chưa thu đủ thì chốt máy chủ từ chối câu này như câu tự điền cũ.
+ */
+export function isSettlementClaim(text: unknown): boolean {
+  if (typeof text !== 'string') return false;
+  const folded = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase();
+  for (const match of folded.matchAll(SETTLEMENT_PHRASE)) {
+    if (!match[2]) return true;
+  }
+  return false;
 }

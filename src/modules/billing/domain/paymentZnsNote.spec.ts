@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPaymentZnsNote, collectPaymentLedger, isLegacyAutoSettledNote, PAYMENT_ZNS_NOTE_MAX } from './paymentZnsNote';
+import { buildPaymentZnsNote, collectPaymentLedger, isLegacyAutoSettledNote, isSettlementClaim, PAYMENT_ZNS_NOTE_MAX } from './paymentZnsNote';
 
 const inst = (lanThu: number, soTien: number, ngayThu = '2026-10-01', ghiChu = `Thu tiền đợt ${lanThu} - HĐ 004`) => ({ lanThu, soTien, ngayThu, ghiChu });
 
@@ -126,5 +126,18 @@ describe('paymentZnsNote – Đợt 0A (TT01/§9.11)', () => {
     const p = { tinhTrangThanhToan: 'Công nợ', cacDotThu: [{ lanThu: 2, soTien: 20_000_000, ngayThu: '2026-10-05' }, { lanThu: 1, soTien: 30_000_000, ngayThu: '2026-10-01' }] };
     expect(buildPaymentZnsNote(p, 0)).toMatchObject({ ok: true, ghiChu: 'Thanh toán đợt 2', installmentIndex: 0, installmentNumber: 2 });
     expect(buildPaymentZnsNote(p, 1)).toMatchObject({ ok: true, ghiChu: 'Thanh toán đợt 1', installmentIndex: 1, installmentNumber: 1 });
+  });
+
+  // Rà soát cuối (TT01): câu "tất toán" do nhân viên tự gõ cũng là lời báo đã thu đủ, không chỉ câu tự điền cũ.
+  it('isSettlementClaim: đúng với câu có "tất toán" (không dấu, hoa/thường, viết liền, dạng Unicode tách dấu, câu tự điền cũ)', () => {
+    for (const s of ['Tất toán', 'Đã tất toán HĐ', 'Tất toán đợt cuối', 'TAT TOAN', 'tat toan', 'tấttoán', 'Đã tất toán'.normalize('NFD'), 'Tất toán 100% hợp đồng - Hoàn tất thanh toán']) {
+      expect(isSettlementClaim(s), s).toBe(true);
+    }
+  });
+
+  it('isSettlementClaim: sai với "chưa tất toán" (có hoặc không dấu), câu thanh toán thường và chuỗi rỗng', () => {
+    for (const s of ['Chưa tất toán', 'chua tat toan', 'Thanh toán đợt 1', '']) {
+      expect(isSettlementClaim(s), s).toBe(false);
+    }
   });
 });

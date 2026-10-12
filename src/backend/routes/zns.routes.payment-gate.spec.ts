@@ -309,4 +309,38 @@ describe('zns.routes POST /send – Đợt 0A (TT01): tin thanh toán chốt the
     expect(sentPayload().data).toEqual(data);
     expect(sentPayload().ghiChu).toBe('ghi chú báo giá');
   });
+
+  // ── Rà soát cuối (Đợt 0A TT01) ─────────────────────────────────────────────────────────────────────────────────────────
+  // Nhân viên tự gõ "Tất toán…" (không chỉ câu tự điền cũ) cho phiếu chưa thu đủ: cùng đường từ chối như câu cũ (409; PAYMENT_NOTE_GUARD=report → chỉ ghi nhận
+  // và thay bằng câu máy chủ). Phiếu đã thu đủ giữ câu đã gõ.
+  it('nhân viên gõ "Đã tất toán" cho phiếu mới thu 30 % → 409 PAYMENT_NOTE_REJECTED, không gửi, không ghi trạng thái', async () => {
+    znsHarness.docFixtures['payments/p1'] = { ...PAID_30 };
+    const res = await send({}, { ghi_chu: 'Đã tất toán' });
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ success: false, code: 'PAYMENT_NOTE_REJECTED', error: 'Nội dung "Tất toán" chỉ gửi được khi phiếu đã thu đủ. Sửa ô Ghi chú thành câu phù hợp (ví dụ "Thanh toán đợt 2").' });
+    expect(znsHarness.executeMock).not.toHaveBeenCalled();
+    expect(znsHarness.docUpdateCalls).toEqual([]);
+  });
+
+  it('đối chứng: cùng câu "Đã tất toán" cho phiếu đã thu đủ (100/100) → 200, câu giữ nguyên', async () => {
+    znsHarness.docFixtures['payments/p1'] = { ...PAID_30, cacDotThu: [{ lanThu: 1, soTien: 40_000_000, ngayThu: '2026-09-01' }, { lanThu: 2, soTien: 60_000_000, ngayThu: '2026-10-01' }] };
+    const res = await send({}, { ghi_chu: 'Đã tất toán' });
+    expect(res.status).toBe(200);
+    expect(sentPayload().ghi_chu).toBe('Đã tất toán');
+  });
+
+  it('PAYMENT_NOTE_GUARD=report: "Đã tất toán" cho phiếu mới thu 30 % → 200, thay bằng câu máy chủ "Thanh toán đợt 1", ghi [TT01 report-only]', async () => {
+    vi.stubEnv('PAYMENT_NOTE_GUARD', 'report');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      znsHarness.docFixtures['payments/p1'] = { ...PAID_30 };
+      const res = await send({}, { ghi_chu: 'Đã tất toán' });
+      expect(res.status).toBe(200);
+      expect(sentPayload().ghi_chu).toBe('Thanh toán đợt 1');
+      expect(warn.mock.calls.some(c => String(c[0]).includes('[TT01 report-only]'))).toBe(true);
+    } finally {
+      warn.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
 });

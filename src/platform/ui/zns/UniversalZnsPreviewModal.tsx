@@ -24,7 +24,7 @@ import { useAuth } from '@/src/modules/iam';
 import { ZnsOfficialPhonePreview } from './components/ZnsOfficialPhonePreview';
 import { calculateFormattedPaymentPoints } from '@/src/modules/billing/domain/loyaltyEngine';
 import { formatZnsQuotationProducts } from '@/src/widgets/product-list-input/useProductItemSemantic';
-import { PAYMENT_ZNS_NOTE_MAX } from '@/src/modules/billing/domain/paymentZnsNote';
+import { collectPaymentLedger, isSettlementClaim, PAYMENT_NOTE_REJECTED_REASON, PAYMENT_ZNS_NOTE_MAX } from '@/src/modules/billing/domain/paymentZnsNote';
 
 export interface UniversalZnsPreviewModalProps {
   isOpen: boolean;
@@ -348,6 +348,13 @@ export function UniversalZnsPreviewModal({
       }
       if (noteText.length > PAYMENT_ZNS_NOTE_MAX) {
         notify.error(`Ghi chú gửi khách đang ${noteText.length} ký tự, tối đa ${PAYMENT_ZNS_NOTE_MAX}. Rút gọn trước khi gửi.`);
+        return;
+      }
+      // Rà soát cuối (TT01): câu "Tất toán" chỉ gửi được khi phiếu đã thu đủ. Chỉ chặn khi bản xem trước BIẾT phiếu chưa thu đủ
+      // (payload có tổng tiền và sổ thu của phiếu); máy chủ vẫn là nơi quyết định.
+      const receiptTotal = Number(payload.totalAmount || 0);
+      if (receiptTotal > 0 && collectPaymentLedger(payload).collected < receiptTotal && isSettlementClaim(noteText)) {
+        notify.error(PAYMENT_NOTE_REJECTED_REASON);
         return;
       }
     }

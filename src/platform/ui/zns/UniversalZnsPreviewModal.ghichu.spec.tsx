@@ -78,4 +78,12 @@ describe('UniversalZnsPreviewModal – Đợt 0A (TT01): ô Ghi chú của mẫu
     expect(payload.installmentIndex).toBe(0);
     expect(notifyMock.error).not.toHaveBeenCalled();
   });
+
+  it('rà soát cuối: phiếu mới thu 30 % (payload có tổng tiền và đợt thu) + gõ "Đã tất toán" → notify.error nêu "thu đủ", không gửi', async () => {
+    renderModal({ ...basePayload, totalAmount: 100_000_000, tinhTrangThanhToan: 'Công nợ', cacDotThu: [{ lanThu: 1, soTien: 30_000_000, ngayThu: '2026-10-01' }], ghi_chu: 'Thanh toán đợt 1' });
+    fireEvent.change(noteInput(), { target: { value: 'Đã tất toán' } });
+    fireEvent.click(sendButton());
+    await waitFor(() => expect(notifyMock.error).toHaveBeenCalledWith(expect.stringContaining('thu đủ')));
+    expect(sendZnsAndToastMock).not.toHaveBeenCalled();
+  });
 });
