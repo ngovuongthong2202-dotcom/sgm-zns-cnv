@@ -107,6 +107,21 @@ describe('zns.routes POST /send – Đợt 0A (TT01): tin thanh toán chốt the
     }
   });
 
+  it('rà soát cuối: công tắc gõ "REPORT" (chữ hoa) trên Render vẫn là report → 200, câu "Tất toán…" cũ thay bằng câu máy chủ, ghi [TT01 report-only]', async () => {
+    vi.stubEnv('PAYMENT_NOTE_GUARD', 'REPORT');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      znsHarness.docFixtures['payments/p1'] = { ...PAID_30 };
+      const res = await send({}, { ghi_chu: 'Tất toán 100% hợp đồng - Hoàn tất thanh toán' });
+      expect(res.status).toBe(200);
+      expect(sentPayload().ghi_chu).toBe('Thanh toán đợt 1');
+      expect(warn.mock.calls.some(c => String(c[0]).includes('[TT01 report-only]'))).toBe(true);
+    } finally {
+      warn.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('phiếu đã thu đủ (100/100) + câu "Tất toán…" cũ → không bị chặn bởi luật ghi chú; câu > 30 ký tự được thay bằng câu máy chủ', async () => {
     znsHarness.docFixtures['payments/p1'] = { ...PAID_30, cacDotThu: [{ lanThu: 1, soTien: 40_000_000, ngayThu: '2026-09-01' }, { lanThu: 2, soTien: 60_000_000, ngayThu: '2026-10-01' }] };
     const res = await send({}, { ghi_chu: 'Tất toán 100% hợp đồng - Hoàn tất thanh toán' });

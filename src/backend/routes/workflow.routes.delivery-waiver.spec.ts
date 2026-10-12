@@ -84,6 +84,14 @@ describe('workflow.routes – Đợt 0A (GH02): đặc cách cần người duy�
     expect(fakeAdminDb.collection).not.toHaveBeenCalled();
   });
 
+  it('rà soát cuối: công tắc gõ " Block " (khoảng trắng, chữ hoa) trên Render vẫn là block → 422 CONTRACT_WITHOUT_RECEIPT, không chạm CSDL', async () => {
+    vi.stubEnv('DELIVERY_UNPAID_CONTRACT_GUARD', ' Block ');
+    const res = await post({ contractId: 'c1', dacCachGiaoTruoc: false, products: [] });
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('CONTRACT_WITHOUT_RECEIPT');
+    expect(fakeAdminDb.collection).not.toHaveBeenCalled();
+  });
+
   it('cùng yêu cầu khi công tắc chưa bật (mặc định report) → chỉ ghi nhận bằng console.warn [GH02 report-only] và đi tiếp như cũ', async () => {
     vi.stubEnv('DELIVERY_UNPAID_CONTRACT_GUARD', '');
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

@@ -261,7 +261,7 @@ router.post('/create/:entityType', async (req, res) => {
       // Đợt 0A (GH02): phiếu giao theo hợp đồng mà không có phiếu thu và không đặc cách. Công tắc DELIVERY_UNPAID_CONTRACT_GUARD:
       // 'block' → 422; mặc định chỉ ghi nhận (nguyên tắc 6, phụ lục 02 B2). Chủ sở hữu bật 'block' sau nghiệm thu dữ liệu thật.
       if (data.contractId && !data.paymentId && !waiverOn) {
-        if (process.env.DELIVERY_UNPAID_CONTRACT_GUARD === 'block') {
+        if (String(process.env.DELIVERY_UNPAID_CONTRACT_GUARD || '').trim().toLowerCase() === 'block') { // " Block " gõ trên Render vẫn là block (rà soát cuối)
           return res.status(422).json({ success: false, code: 'CONTRACT_WITHOUT_RECEIPT', error: 'Hợp đồng chưa có phiếu thu: cần đặc cách có người duyệt hoặc lập phiếu thu trước.' });
         }
         console.warn(`[GH02 report-only] Phiếu giao theo hợp đồng ${data.contractId} không có phiếu thu và không đặc cách (correlationId=${correlationId}).`);

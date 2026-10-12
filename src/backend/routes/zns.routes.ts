@@ -384,7 +384,7 @@ router.post('/send', async (req, res) => {
       if (settlementClaimForOpenReceipt) {
         // Công tắc PAYMENT_NOTE_GUARD (nguyên tắc 6): mặc định (không đặt) = chặn 409, vì câu "Tất toán" sai gửi tới khách là thiệt hại
         // trực tiếp; đặt 'report' trên Render nếu nghiệm thu thấy dương tính giả → chỉ ghi nhận và thay bằng câu máy chủ dựng.
-        if (process.env.PAYMENT_NOTE_GUARD === 'report') {
+        if (String(process.env.PAYMENT_NOTE_GUARD || '').trim().toLowerCase() === 'report') { // "REPORT"/" report " gõ trên Render vẫn là report (rà soát cuối)
           console.warn(`[TT01 report-only] phiếu ${String(body.entityId)}: câu "Tất toán" khi mới thu ${note.collected}/${totalAmount} — thay bằng câu máy chủ`);
         } else {
           return res.status(409).json({ success: false, code: 'PAYMENT_NOTE_REJECTED', error: PAYMENT_NOTE_REJECTED_REASON });
