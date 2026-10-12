@@ -30,6 +30,7 @@ Cần có bản sao lưu cơ sở dữ liệu gần nhất. Nếu dự án dùng
 2. Mở `0001_b0c_cam_xoa_cung_khoa_cong_khai.precheck.sql` (chỉ đọc), chạy **từng truy vấn một**:
    - Truy vấn 1 phải **trống** ("Success. No rows returned"). Nếu ra bảng nào (ví dụ `gatebypasses`, `clienterrors`), gửi tên bảng cho người soạn để phân loại và bổ sung vào 0001 trước; **không** chạy 0001 khi còn bảng lạ.
    - Truy vấn 2–4: dán kết quả vào báo cáo cổng mục 8.6 (không có bí mật).
+   - Precheck không cho biết bảng thuộc chủ nào, quyền cấp cho PUBLIC hay các view (truy vấn 1 chỉ liệt kê bảng thường), nên bước 6 (thử bị từ chối) mới là phép kiểm thật: thiếu sót ở những chỗ đó chỉ lộ ra khi một dòng thử không báo `permission denied`.
 3. Xác nhận không có tự động hóa ngoài (Make/n8n/Zapier, bot Telegram, script chạy tay) đang ghi `zns_messages`/`counters`… hoặc xóa chứng từ bằng khóa công khai.
 4. Dán toàn bộ `0001_b0c_cam_xoa_cung_khoa_cong_khai.sql` vào SQL editor, bôi đen tất cả (Ctrl+A) rồi bấm Run. Kết quả mong đợi: "Success. No rows returned".
 5. **Kiểm ngay** — chạy hai truy vấn dưới đây (mỗi lần bôi đen đúng một truy vấn). Truy vấn quyền:
