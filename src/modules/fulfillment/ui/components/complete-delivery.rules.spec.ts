@@ -32,4 +32,10 @@ describe('complete-delivery.rules – Đợt 0A (GH15)', () => {
     expect(CompleteSchema.safeParse({ ...base, ngayGiaoThucTe: '2026-10-12' }).success).toBe(true);
     expect(CompleteSchema.safeParse({ ...base, ngayGiaoThucTe: '2026-10-01' }).success).toBe(true);
   });
+
+  it('rà soát cuối: ngày không đúng dạng yyyy-MM-dd (năm 5 chữ số "12345-01-01" lọt qua luật "sau hôm nay") → "Ngày bàn giao không đúng định dạng"', () => {
+    const r = CompleteSchema.safeParse({ kyNhan: 'Anh Ba', ngayGiaoThucTe: '12345-01-01' });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error.issues[0].message).toBe('Ngày bàn giao không đúng định dạng');
+  });
 });

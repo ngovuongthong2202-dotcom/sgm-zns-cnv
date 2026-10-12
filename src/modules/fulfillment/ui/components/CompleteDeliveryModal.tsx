@@ -193,8 +193,8 @@ export function CompleteDeliveryModal({ delivery, onClose, onSave, targetShipmen
                   </span>
                 </div>
 
-                {/* Form Body */}
-                <form id="completeDeliveryForm" onSubmit={handleSubmit(onSubmit)} className="p-0 flex-1 overflow-y-auto space-y-4 text-xs">
+                {/* Form Body — noValidate: mọi luật nằm trong CompleteSchema (thông báo tiếng Việt), form không có ràng buộc nào chỉ trình duyệt kiểm */}
+                <form id="completeDeliveryForm" noValidate onSubmit={handleSubmit(onSubmit)} className="p-0 flex-1 overflow-y-auto space-y-4 text-xs">
                   
                   {/* ZONE 1: THÔNG TIN KHÁCH HÀNG, ĐƠN HÀNG & ĐỊA ĐIỂM BÀN GIAO */}
                   <div className="p-5 border-b border-slate-100 bg-slate-50/50 space-y-3">
