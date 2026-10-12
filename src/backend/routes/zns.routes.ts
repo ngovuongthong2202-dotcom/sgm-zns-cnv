@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { vendorWebhookHandler } from '../services/zns/vendor-webhook.handler';
 import { znsPayloadBuilder, sanitizeZnsCustomerName, sanitizeZnsPersonName } from '../services/zns/zns-payload.builder';
-import { toPublicZnsConfig, pickZnsConfigUpdate, ZNS_CONFIG_SECRET_FIELDS } from '../services/zns/zns-config.policy';
+import { toPublicZnsConfig, pickZnsConfigUpdate, isAllowedVendorUrl, ZNS_CONFIG_SECRET_FIELDS } from '../services/zns/zns-config.policy';
 import { buildPaymentZnsNote, collectPaymentLedger, isLegacyAutoSettledNote, isSettlementClaim, PAYMENT_NOTE_REJECTED_REASON, PAYMENT_ZNS_NOTE_MAX } from '../../modules/billing/domain/paymentZnsNote';
 import { adminDb } from '../config/supabase.admin';
 import { ZnsMessage } from '../../domain/schema/workflow.schema';
@@ -179,18 +179,7 @@ const VENDOR_URL_SLOTS: readonly string[] = [
   'vendorUrl_CUSTOMER_PRE_QUOTE', 'vendorUrl_BAOGIA', 'vendorUrl_HOPDONG_SIGN_ZNS', 'vendorUrl_THANH_TOAN_XAC_NHAN',
   'vendorUrl_THANH_TOAN_TAT_TOAN', 'vendorUrl_THANH_TOAN_CONG_NO', 'vendorUrl_GIAOHANG_ZNS', 'vendorUrl_GIAOHANG_HOANTAT', 'vendorUrl_DEFAULT'
 ];
-const ALLOWED_VENDOR_HOSTS: readonly string[] = ['hub.cnvcdp.com'];
-
-export function isAllowedVendorUrl(raw: unknown): boolean {
-  if (typeof raw !== 'string' || !raw.trim()) return false;
-  try {
-    const u = new URL(raw.trim());
-    return u.protocol === 'https:' && ALLOWED_VENDOR_HOSTS.includes(u.hostname)
-      && !u.username && !u.password && (u.port === '' || u.port === '443');
-  } catch {
-    return false;
-  }
-}
+// isAllowedVendorUrl (https tới hub.cnvcdp.com, không user:pass, cổng mặc định) nằm ở zns-config.policy.ts: dùng chung cho ping và khi lưu cấu hình.
 
 router.post('/test-webhook-dryrun', async (req, res) => {
   try {

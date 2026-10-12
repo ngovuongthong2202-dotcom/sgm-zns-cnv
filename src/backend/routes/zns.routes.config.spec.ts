@@ -166,4 +166,17 @@ describe('zns.routes – Đợt 0A (ZNS05/Z0.3): GET /config không trả bí m�
     expect(znsHarness.docSetCalls[0].data).toMatchObject({ zaloAppId: '123', zaloSecretKey: 'sec-moi', updatedBy: 'thong' });
     expect(JSON.stringify(res.body)).not.toContain('sec-moi');
   });
+
+  it('rà soát cuối: POST /config với vendorUrl_* không thuộc hub CNV → ô đó không được ghi (giá trị đang lưu giữ nguyên), các ô khác vẫn lưu; ignoredKeys nêu ô bị bỏ', async () => {
+    const res = await request(app).post('/api/zns/config').send({
+      zaloAppId: '789', vendorUrl_BAOGIA: 'https://evil.example/webhook', vendorUrl_GIAOHANG_ZNS: 'https://hub.cnvcdp.com/webhook/gh', updatedBy: 'thong',
+    });
+    expect(res.status).toBe(200);
+    expect(znsHarness.docSetCalls).toHaveLength(1);
+    const { data } = znsHarness.docSetCalls[0];
+    expect(data).not.toHaveProperty('vendorUrl_BAOGIA');
+    expect(data).toMatchObject({ zaloAppId: '789', vendorUrl_GIAOHANG_ZNS: 'https://hub.cnvcdp.com/webhook/gh', updatedBy: 'thong' });
+    expect(res.body.ignoredKeys).toEqual(['vendorUrl_BAOGIA']);
+    expect(res.body.config.vendorUrl_BAOGIA).toBe('https://hub.cnvcdp.com/webhook/bg');
+  });
 });

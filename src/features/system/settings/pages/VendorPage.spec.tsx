@@ -7,6 +7,7 @@ vi.mock('@/src/modules/iam', () => ({ useAuth: () => ({ user: { uid: 'admin-thu'
 vi.mock('@/src/shared/utils/notify', () => ({ notify: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() } }));
 
 import VendorPage from './VendorPage';
+import { notify } from '@/src/shared/utils/notify';
 
 type FetchCall = { url: string; init?: RequestInit };
 export const fetchCalls: FetchCall[] = [];
@@ -143,5 +144,23 @@ describe('VendorPage – Đợt 0A (ZNS05/Z0.3): form không giữ mã, Kiểm t
     expect(body.zaloRefreshToken).toBe('rt-moi-123');
     expect(body).not.toHaveProperty('zaloSecretKey');
     expect(body).not.toHaveProperty('zaloAccessToken');
+  });
+
+  it('rà soát cuối: máy chủ bỏ qua địa chỉ webhook không thuộc hub CNV → toast lưu nêu tên ô bị bỏ bằng tiếng Việt (không mã kỹ thuật), không báo thành công trơn', async () => {
+    vi.clearAllMocks();
+    installFetch({
+      'GET /api/zns/config': () => jsonResponse({ success: true, config: publicConfig }),
+      'POST /api/zns/config': () => jsonResponse({ success: true, message: 'Đã lưu', config: publicConfig, ignoredKeys: ['vendorUrl_BAOGIA'] }),
+    });
+    render(<VendorPage />);
+    const baoGia = await screen.findByLabelText('2. PHÁT HÀNH BÁO GIÁ (Quotation)') as HTMLInputElement;
+    fireEvent.change(baoGia, { target: { value: 'https://evil.example/webhook' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu cấu hình' }));
+    await waitFor(() => expect(notify.warning).toHaveBeenCalledTimes(1));
+    const msg = String(vi.mocked(notify.warning).mock.calls[0][0]);
+    expect(msg).toContain('Không lưu địa chỉ webhook không thuộc hub CNV');
+    expect(msg).toContain('2. PHÁT HÀNH BÁO GIÁ (Quotation)');
+    expect(msg).not.toContain('vendorUrl_');
+    expect(notify.success).not.toHaveBeenCalled();
   });
 });

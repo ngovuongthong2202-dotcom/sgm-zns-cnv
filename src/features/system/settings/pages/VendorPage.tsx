@@ -13,6 +13,32 @@ const PUBLIC_FORM_FIELDS = [
 const SECRET_FORM_FIELDS = ['zaloSecretKey', 'zaloRefreshToken', 'vendorWebhookSecret'] as const;
 type SecretFormField = (typeof SECRET_FORM_FIELDS)[number];
 
+/** Các ô địa chỉ webhook CNV trên form; nhãn dùng cả cho toast khi máy chủ không lưu một ô. */
+const VENDOR_URL_FIELDS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'vendorUrl_CUSTOMER_PRE_QUOTE', label: '1. GIAI ĐOẠN TRƯỚC BÁO GIÁ (Warm-up)' },
+  { key: 'vendorUrl_BAOGIA', label: '2. PHÁT HÀNH BÁO GIÁ (Quotation)' },
+  { key: 'vendorUrl_HOPDONG_SIGN_ZNS', label: '3. KÝ KẾT HỢP ĐỒNG (Contracting)' },
+  { key: 'vendorUrl_THANH_TOAN_XAC_NHAN', label: '4. XÁC NHẬN THANH TOÁN & ĐIỂM VIP (Mẫu 646935)' },
+  { key: 'vendorUrl_THANH_TOAN_TAT_TOAN', label: '4b. THANH TOÁN (TẤT TOÁN LEGACY)' },
+  { key: 'vendorUrl_THANH_TOAN_CONG_NO', label: '5. THANH TOÁN (CÔNG NỢ LEGACY)' },
+  { key: 'vendorUrl_GIAOHANG_ZNS', label: '6. CẬP NHẬT GIAO HÀNG (Delivery)' },
+  { key: 'vendorUrl_GIAOHANG_HOANTAT', label: '7. GIAO HÀNG (HOÀN TẤT)' },
+];
+
+/** Rà soát cuối (ZNS01): câu toast khi máy chủ không lưu một số ô (ignoredKeys) — nêu ô bằng nhãn trên form, không dùng mã kỹ thuật. */
+function buildIgnoredKeysWarning(ignoredKeys: unknown): string | null {
+  const keys = Array.isArray(ignoredKeys) ? ignoredKeys.filter((k): k is string => typeof k === 'string') : [];
+  if (keys.length === 0) return null;
+  const webhookLabels = keys.filter(k => k.startsWith('vendorUrl_')).map(k => VENDOR_URL_FIELDS.find(f => f.key === k)?.label || k);
+  const otherCount = keys.length - webhookLabels.length;
+  const parts = ['Đã lưu cấu hình.'];
+  if (webhookLabels.length > 0) {
+    parts.push(`Không lưu địa chỉ webhook không thuộc hub CNV (https://hub.cnvcdp.com): ${webhookLabels.join('; ')} — các ô này giữ địa chỉ đã lưu trước đó.`);
+  }
+  if (otherCount > 0) parts.push(`Máy chủ bỏ qua ${otherCount} ô không được phép lưu.`);
+  return parts.join(' ');
+}
+
 /** Đợt 0A (ZNS05): thân gửi lên khi Lưu — chỉ ô công khai, bí mật người dùng vừa gõ (không rỗng) và updatedBy. */
 export function buildZnsConfigSaveBody(form: Record<string, unknown>, updatedBy: string): Record<string, unknown> {
   const body: Record<string, unknown> = { updatedBy };
@@ -175,7 +201,9 @@ export default function VendorPage() {
       if (!res.ok || !data?.success) {
         throw new Error(data?.error || `Lỗi HTTP ${res.status}`);
       }
-      notify.success('Đã lưu cấu hình kênh gửi ZNS thành công vào Vault!');
+      const ignoredWarning = buildIgnoredKeysWarning(data?.ignoredKeys);
+      if (ignoredWarning) notify.warning(ignoredWarning);
+      else notify.success('Đã lưu cấu hình kênh gửi ZNS thành công vào Vault!');
       if (data?.config) applyConfig(data.config);
     } catch (err: any) {
       notify.error('Lỗi lưu cấu hình: ' + (err instanceof Error ? err.message : String(err)));
@@ -411,16 +439,7 @@ export default function VendorPage() {
             </div>
 
             <div className="space-y-4">
-              {[
-                { key: 'vendorUrl_CUSTOMER_PRE_QUOTE', label: '1. GIAI ĐOẠN TRƯỚC BÁO GIÁ (Warm-up)' },
-                { key: 'vendorUrl_BAOGIA', label: '2. PHÁT HÀNH BÁO GIÁ (Quotation)' },
-                { key: 'vendorUrl_HOPDONG_SIGN_ZNS', label: '3. KÝ KẾT HỢP ĐỒNG (Contracting)' },
-                { key: 'vendorUrl_THANH_TOAN_XAC_NHAN', label: '4. XÁC NHẬN THANH TOÁN & ĐIỂM VIP (Mẫu 646935)' },
-                { key: 'vendorUrl_THANH_TOAN_TAT_TOAN', label: '4b. THANH TOÁN (TẤT TOÁN LEGACY)' },
-                { key: 'vendorUrl_THANH_TOAN_CONG_NO', label: '5. THANH TOÁN (CÔNG NỢ LEGACY)' },
-                { key: 'vendorUrl_GIAOHANG_ZNS', label: '6. CẬP NHẬT GIAO HÀNG (Delivery)' },
-                { key: 'vendorUrl_GIAOHANG_HOANTAT', label: '7. GIAO HÀNG (HOÀN TẤT)' },
-              ].map((item) => (
+              {VENDOR_URL_FIELDS.map((item) => (
                 <div key={item.key} className="space-y-1.5 focus-within:relative">
                   <label htmlFor={item.key} className="text-2xs font-medium text-slate-500 uppercase tracking-wide">{item.label}</label>
                   <input 

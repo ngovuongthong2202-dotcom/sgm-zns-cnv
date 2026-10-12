@@ -52,4 +52,29 @@ describe('zns-config.policy – Đợt 0A (ZNS05/Z0.3)', () => {
     expect(toPublicZnsConfig(undefined).secrets).toEqual({ zaloSecretKey: false, zaloRefreshToken: false, vendorWebhookSecret: false });
     expect(pickZnsConfigUpdate(null)).toEqual({ payload: {}, rejectedKeys: [], refreshTokenReplaced: false });
   });
+
+  // Rà soát cuối (ZNS01): ô vendorUrl_* chỉ nhận https tới hub CNV; địa chỉ khác không được ghi (giá trị đang lưu giữ nguyên) và nằm trong rejectedKeys.
+  it('vendorUrl_*: http:// tới hub CNV bị từ chối (không ghi, có trong rejectedKeys); https tới hub CNV được ghi', () => {
+    const r = pickZnsConfigUpdate({ vendorUrl_BAOGIA: 'http://hub.cnvcdp.com/webhook/bg', vendorUrl_GIAOHANG_ZNS: 'https://hub.cnvcdp.com/webhook/gh' });
+    expect(r.payload).toEqual({ vendorUrl_GIAOHANG_ZNS: 'https://hub.cnvcdp.com/webhook/gh' });
+    expect(r.rejectedKeys).toEqual(['vendorUrl_BAOGIA']);
+  });
+
+  it('vendorUrl_*: máy chủ khác (kể cả tên giả dạng hub.cnvcdp.com.evil.example, đường dẫn chứa tên hub) hoặc chuỗi không phải địa chỉ bị từ chối; ô khác vẫn được ghi', () => {
+    const r = pickZnsConfigUpdate({
+      vendorUrl_BAOGIA: 'https://evil.example/hub.cnvcdp.com', vendorUrl_HOPDONG_SIGN_ZNS: 'https://hub.cnvcdp.com.evil.example/x',
+      vendorUrl_DEFAULT: 'khong-phai-url', zaloAppId: '789',
+    });
+    expect(r.payload).toEqual({ zaloAppId: '789' });
+    expect(r.rejectedKeys.sort()).toEqual(['vendorUrl_BAOGIA', 'vendorUrl_DEFAULT', 'vendorUrl_HOPDONG_SIGN_ZNS']);
+  });
+
+  it('vendorUrl_*: có tên đăng nhập/mật khẩu hoặc cổng khác 443 bị từ chối; cổng 443 được ghi; chuỗi rỗng vẫn theo luật cũ (ghi chuỗi rỗng)', () => {
+    const r = pickZnsConfigUpdate({
+      vendorUrl_BAOGIA: 'https://u:p@hub.cnvcdp.com/webhook/x', vendorUrl_GIAOHANG_ZNS: 'https://hub.cnvcdp.com:22/webhook/x',
+      vendorUrl_THANH_TOAN_XAC_NHAN: 'https://hub.cnvcdp.com:443/webhook/tt', vendorUrl_GIAOHANG_HOANTAT: '',
+    });
+    expect(r.payload).toEqual({ vendorUrl_THANH_TOAN_XAC_NHAN: 'https://hub.cnvcdp.com:443/webhook/tt', vendorUrl_GIAOHANG_HOANTAT: '' });
+    expect(r.rejectedKeys.sort()).toEqual(['vendorUrl_BAOGIA', 'vendorUrl_GIAOHANG_ZNS']);
+  });
 });

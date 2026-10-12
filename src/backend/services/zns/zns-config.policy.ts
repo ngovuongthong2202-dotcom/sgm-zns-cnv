@@ -4,6 +4,8 @@
  * - POST chỉ nhận ô liệt kê. Không nhận mã truy cập/hạn dùng (máy chủ tự làm mới), không nhận data/id/updated_at
  *   (khóa đi vòng từ GET cũ, nguồn của "lớp cấu hình lồng"), không nhận updatedAt (máy chủ đặt).
  * - Bí mật chỉ nhận khi là chuỗi không rỗng và không phải giá trị che; chuỗi rỗng = "không đổi".
+ * - Ô vendorUrl_* chỉ nhận địa chỉ https của hub CNV (isAllowedVendorUrl, rà soát cuối ZNS01); địa chỉ khác không ghi (giá trị đang lưu
+ *   giữ nguyên) và nằm trong rejectedKeys. Chuỗi rỗng vẫn theo luật cũ.
  */
 export const ZNS_CONFIG_PUBLIC_FIELDS = [
   'znsProvider', 'zaloAppId', 'zaloOaId',
@@ -28,6 +30,21 @@ export interface ZnsConfigUpdate {
 const PUBLIC_SET: ReadonlySet<string> = new Set(ZNS_CONFIG_PUBLIC_FIELDS);
 const SECRET_SET: ReadonlySet<string> = new Set(ZNS_CONFIG_SECRET_FIELDS);
 const MASK_PATTERN = /^[•*]{3,}.{0,4}$/;
+const ALLOWED_VENDOR_HOSTS: readonly string[] = ['hub.cnvcdp.com'];
+
+/** Đợt 0A (ZNS01): chỉ https tới hub CNV, không tên đăng nhập/mật khẩu, cổng mặc định. Dùng cho ping (zns.routes.ts) và khi lưu ô vendorUrl_*. */
+export function isAllowedVendorUrl(raw: unknown): boolean {
+  if (typeof raw !== 'string' || !raw.trim()) return false;
+  try {
+    const u = new URL(raw.trim());
+    return u.protocol === 'https:' && ALLOWED_VENDOR_HOSTS.includes(u.hostname)
+      && !u.username && !u.password && (u.port === '' || u.port === '443');
+  } catch {
+    return false;
+  }
+}
+
+const isBlank = (v: unknown): boolean => v === undefined || v === null || (typeof v === 'string' && v.trim() === '');
 
 export function toPublicZnsConfig(doc: Record<string, unknown> | null | undefined): ZnsConfigPublic {
   const src = doc || {};
@@ -47,7 +64,12 @@ export function pickZnsConfigUpdate(body: Record<string, unknown> | null | undef
   const rejectedKeys: string[] = [];
   let refreshTokenReplaced = false;
   for (const [k, v] of Object.entries(src)) {
-    if (PUBLIC_SET.has(k) || k === 'updatedBy') { payload[k] = v; continue; }
+    if (PUBLIC_SET.has(k) || k === 'updatedBy') {
+      // outbound-helpers gửi dữ liệu khách thật tới các ô này: địa chỉ ngoài hub CNV không được ghi (rà soát cuối ZNS01).
+      if (k.startsWith('vendorUrl_') && !isBlank(v) && !isAllowedVendorUrl(v)) { rejectedKeys.push(k); continue; }
+      payload[k] = v;
+      continue;
+    }
     if (SECRET_SET.has(k)) {
       if (typeof v === 'string') {
         const trimmed = v.trim();
