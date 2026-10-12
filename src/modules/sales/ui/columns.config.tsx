@@ -170,7 +170,7 @@ export const getQuotationColumns = (
     header: () => <div className="text-right w-full">Trị giá</div>,
     meta: { label: 'Trị giá', align: 'right' },
     aggregationFn: 'sum',
-    size: 170,
+    size: 178,
     minSize: 150,
     cell: (info) => {
       const q = info.row.original;
