@@ -258,26 +258,26 @@ npm run dev
 
 ## 8. Lô 3 – vá khẩn bảo mật và chứng từ (0A.1, 0A.2, 0A.4, 0A.5, 0A.7): cổng cuối
 
-Ngày chạy: 12/10/2026, nhánh `dot-0a-lo-3` tách từ `main` `59919be`, cổng chạy tại commit `1fb7b6f` (50 commit). Không khởi động máy chủ, không sửa `.env`, **không chạy tệp SQL nào trên CSDL thật**, **không nghiệm thu trên dữ liệu thật** (mục 8.6: chưa thực hiện). Kiểm thử chạy offline như lô 1/2: `vitest.config.ts` vẫn có khối `test.env` (bốn biến = `offline`) và `setupFiles: ['./src/tests/setup/offline-guard.ts']`; nhật ký có 22 dòng "Running with mock fallback backend client" và không có địa chỉ `supabase.co`. **Việc 29 (gỡ `admin`/mật khẩu mặc định) chưa làm** — chờ chủ sở hữu xác nhận A2 (mục 8.8).
+Ngày chạy: 12/10/2026, nhánh `dot-0a-lo-3` tách từ `main` `59919be`. Cổng chạy lần đầu tại commit `1fb7b6f` (50 commit); sau rà soát cuối nhánh và một đợt sửa (mục 8.9 (iii)), **chạy lại toàn bộ cổng tại commit `2044dcb`** (60 commit; mã không có thay đổi chưa commit), rồi chạy lại grep, tsc và Bước 3 tại `d987e5d` (61 commit) sau khi sửa một chú thích do grep phát hiện. Mọi số ở mục 8.1–8.3 là của lần chạy lại; số của lần chạy đầu ghi trong ngoặc khi khác. Không khởi động máy chủ, không sửa `.env`, **không chạy tệp SQL nào trên CSDL thật**, **không nghiệm thu trên dữ liệu thật** (mục 8.6: chưa thực hiện). Kiểm thử chạy offline như lô 1/2: `vitest.config.ts` vẫn có khối `test.env` (bốn biến = `offline`) và `setupFiles: ['./src/tests/setup/offline-guard.ts']`; nhật ký có 22 dòng "Running with mock fallback backend client" và không có địa chỉ `supabase.co`. **Việc 29 (gỡ `admin`/mật khẩu mặc định) chưa làm** — chờ chủ sở hữu xác nhận A2 (mục 8.8).
 
 ### 8.1 Kết quả các cổng
 
 | Cổng | Kết quả thực tế | Mong đợi |
 |---|---|---|
-| `npx vitest run` (toàn bộ, `CI=true`, không `-u`) | 145 tệp đạt; **1107 passed, 5 skipped, 0 failed** (1112 kiểm thử); 16,79 giây | 0 failed; passed ≈ 968 (xem 8.2) |
-| `npx tsc --noEmit` | 6 lỗi = 7 lỗi của mốc lô 2 (`baseline-tsc.txt`, chụp tại `59919be`) trừ `usePaymentZns.ts` TS2322 (Việc 16 gỡ); 6 lỗi còn lại cùng tệp, mã lỗi và nội dung; `DrawerStackContext.tsx` (398/488/703 → 400/490/705) và `DeliveryDetailDrawer.tsx` (1331 → 1317) chỉ đổi số dòng | 6, cùng tệp/mã/thông báo |
-| `npx eslint .` | trước 3154 vấn đề (164 errors, 2990 warnings) → sau 3136 (**148 errors**, 2988 warnings); không tệp nào nhiều lỗi hơn mốc; −16 errors là nhập/gán thừa đã dọn ở 5 tệp: `TabLichSuGiaoHang.tsx` 6 → 0 (Việc 15), `VendorPage.tsx` 4 → 0 (Việc 6), `useDeliveriesActions.ts` 4 → 0 (Việc 14), `UniversalZnsPreviewModal.tsx` 3 → 2 (Việc 16), `sales/ui/columns.config.tsx` 1 → 0 (Việc 23) | errors ≤ 164, từng tệp ≤ mốc |
+| `npx vitest run` (toàn bộ, `CI=true`, không `-u`) | 145 tệp đạt; **1122 passed, 5 skipped, 0 failed** (1127 kiểm thử); 17,07 giây (lần đầu: 1107 passed, 1112 kiểm thử, 16,79 giây) | 0 failed; passed ≈ 968 (xem 8.2) |
+| `npx tsc --noEmit` | 6 lỗi = 7 lỗi của mốc lô 2 (`baseline-tsc.txt`, chụp tại `59919be`) trừ `usePaymentZns.ts` TS2322 (Việc 16 gỡ); 6 lỗi còn lại cùng tệp, mã lỗi và nội dung; `DrawerStackContext.tsx` (398/488/703 → 400/490/705) và `DeliveryDetailDrawer.tsx` (1331 → 1317) chỉ đổi số dòng; lần chạy lại giống hệt lần đầu (cả số dòng) | 6, cùng tệp/mã/thông báo |
+| `npx eslint .` | trước 3154 vấn đề (164 errors, 2990 warnings) → sau 3137 (**148 errors**, 2989 warnings; lần đầu 3136, 148 errors, 2988 warnings); không tệp nào nhiều lỗi hơn mốc; −16 errors là nhập/gán thừa đã dọn ở 5 tệp: `TabLichSuGiaoHang.tsx` 6 → 0 (Việc 15), `VendorPage.tsx` 4 → 0 (Việc 6), `useDeliveriesActions.ts` 4 → 0 (Việc 14), `UniversalZnsPreviewModal.tsx` 3 → 2 (Việc 16), `sales/ui/columns.config.tsx` 1 → 0 (Việc 23) | errors ≤ 164, từng tệp ≤ mốc |
 | `npx eslint --quiet` trên 100 tệp `.ts/.tsx` đã đổi (trừ `scripts/`) | chỉ 9 dòng lỗi cũ được phép (`QuickCustomerModal.tsx` ×5, `DeliveryDetailDrawer.tsx` ×2, `UniversalZnsPreviewModal.tsx` ×2 — bảng ở 8.3), không dòng nào khác; exit 1 chỉ vì 9 dòng này | chỉ lỗi cũ được phép (Ràng buộc chung) |
-| `npm run build` | `✓ built in 1.24s`, exit 0, 3082 module (lô 2: 3074; +8 là tám tệp mới phía giao diện: `paymentZnsNote.ts`, `payment-prefill.ts`, `payment-gate.ts`, `shipment-revert.ts`, `RevertShipmentConfirmModal.tsx`, `complete-delivery.rules.ts`, `vietnamDate.ts`, `session-sanitizer.ts`) | "built in …" |
-| Grep tổng (Việc 28, Bước 2, theo điều chỉnh P5/P8/P9) | 9 dòng, đều trong danh sách được phép: lệnh 3 → 1 dòng `paymentZnsNote.ts`; lệnh 4 → 2 dòng hiển thị (P8) + 2 dòng hằng lọc dữ liệu cũ trong `DeliveryFormHelpers.ts`; lệnh 8 → 4 dòng trong spec; 7 lệnh còn lại rỗng (mục 8.3) | chỉ các dòng được phép (`paymentZnsNote.ts`, P8, hằng lọc của Việc 21, spec) |
-| Ba spec của `zns.routes.ts` chạy chung một lượt (Bước 3) | 3 tệp; **76 passed** = `zns.routes.lock.spec.ts` 5 + `zns.routes.config.spec.ts` 19 + `zns.routes.payment-gate.spec.ts` 52; bằng đúng số của từng tệp chạy riêng ở báo cáo từng việc (không rò trạng thái giữa spec) | 5 + 13 + 15 (số của kế hoạch; phần tăng do vòng sửa, xem 8.2) |
-| Ảnh chụp giao diện | `components.snapshot.spec.tsx` 7 passed trong lần chạy đầy đủ; `.snap` đổi: **không** (`git status --porcelain src/tests/__snapshots__` rỗng; không commit nào của lô 3 đổi tệp `.snap`) | không đổi ngoài ý muốn |
+| `npm run build` | `✓ built in 1.17s` (lần đầu 1.24s), exit 0, 3082 module (lô 2: 3074; +8 là tám tệp mới phía giao diện: `paymentZnsNote.ts`, `payment-prefill.ts`, `payment-gate.ts`, `shipment-revert.ts`, `RevertShipmentConfirmModal.tsx`, `complete-delivery.rules.ts`, `vietnamDate.ts`, `session-sanitizer.ts`) | "built in …" |
+| Grep tổng (Việc 28, Bước 2, theo điều chỉnh P5/P8/P9) | 9 dòng, đều trong danh sách được phép: lệnh 3 → 1 dòng `paymentZnsNote.ts`; lệnh 4 → 2 dòng hiển thị (P8) + 2 dòng hằng lọc dữ liệu cũ trong `DeliveryFormHelpers.ts`; lệnh 8 → 4 dòng trong spec; 7 lệnh còn lại rỗng (mục 8.3). Lần chạy lại: lệnh 3 khớp thêm một chú thích mới của đợt sửa trong `zns.routes.ts`; đã sửa chú thích (`d987e5d`) và chạy lại, còn đúng 9 dòng trên | chỉ các dòng được phép (`paymentZnsNote.ts`, P8, hằng lọc của Việc 21, spec) |
+| Ba spec của `zns.routes.ts` chạy chung một lượt (Bước 3) | 3 tệp; **81 passed** = `zns.routes.lock.spec.ts` 5 + `zns.routes.config.spec.ts` 20 + `zns.routes.payment-gate.spec.ts` 56 (lần đầu 76 = 5 + 19 + 52); bằng đúng số của từng tệp chạy riêng ở báo cáo từng việc (không rò trạng thái giữa spec) | 5 + 13 + 15 (số của kế hoạch; phần tăng do vòng sửa, xem 8.2) |
+| Ảnh chụp giao diện | `components.snapshot.spec.tsx` 7 passed trong cả hai lần chạy đầy đủ; `.snap` đổi: **không** (`git status --porcelain src/tests/__snapshots__` rỗng; không commit nào của lô 3 đổi tệp `.snap`) | không đổi ngoài ý muốn |
 
-Warnings −2 không tính vào cổng: +42 ở tệp thêm/sửa (chủ yếu spec mới: `base.repo.hardDelete.spec.ts` +10, `users.repo.spec.ts` +9, `payment-quotation-integration.spec.tsx` +8, `zns-universal-preview-matrix.spec.ts` +3) và −44 ở mã đã sửa (`useDeliveryForm.ts` −20, `PaymentDetailDrawer.tsx` −5, `PaymentRecordDrawer.tsx` −4, `ContractModalsContainer.tsx` −4, `BulkActionsMenu.tsx` bị xóa −2, …).
+Warnings −1 không tính vào cổng (lần đầu −2; đợt sửa sau rà soát cuối thêm 1 warning `max-lines` ở `zns.routes.payment-gate.spec.ts`, tệp vượt 280 dòng mã sau bốn ca mới): +42 ở tệp thêm/sửa (chủ yếu spec mới: `base.repo.hardDelete.spec.ts` +10, `users.repo.spec.ts` +9, `payment-quotation-integration.spec.tsx` +8, `zns-universal-preview-matrix.spec.ts` +3) và −44 ở mã đã sửa (`useDeliveryForm.ts` −20, `PaymentDetailDrawer.tsx` −5, `PaymentRecordDrawer.tsx` −4, `ContractModalsContainer.tsx` −4, `BulkActionsMenu.tsx` bị xóa −2, …).
 
-### 8.2 Đối chiếu số passed: 1107 thực tế so với ≈ 968 của công thức kế hoạch
+### 8.2 Đối chiếu số passed: 1122 thực tế so với ≈ 968 của công thức kế hoạch
 
-Công thức của kế hoạch (728 của lô 2 + 240 ca mới của Việc 1–27) cho 968; thực tế 1107, chênh +139 (vượt ±5 nên đối chiếu theo từng tệp). Số ca tại `59919be` đếm bằng `git show 59919be:<tệp>` (4 tệp có sẵn, không tệp nào sinh ca bằng vòng lặp); số ca tại HEAD lấy bằng `npx vitest list` trên 40 tệp spec đã thêm/sửa (chỉ thu thập tên ca, không chạy thêm; tính từng dòng của `it.each`). Tổng các dòng dưới đây bằng đúng chênh của lần chạy đầy đủ:
+Công thức của kế hoạch (728 của lô 2 + 240 ca mới của Việc 1–27) cho 968; thực tế 1122, chênh +154 (+139 ở lần chạy đầu, +15 của đợt sửa sau rà soát cuối; vượt ±5 nên đối chiếu theo từng tệp). Số ca tại `59919be` đếm bằng `git show 59919be:<tệp>` (4 tệp có sẵn, không tệp nào sinh ca bằng vòng lặp); số ca tại HEAD lấy bằng `npx vitest list` trên 40 tệp spec đã thêm/sửa (chỉ thu thập tên ca, không chạy thêm; tính từng dòng của `it.each`). Tổng các dòng dưới đây bằng đúng chênh của lần chạy đầy đủ:
 
 | Tệp spec | `59919be` | HEAD | Chênh | Việc / commit |
 |---|---|---|---|---|
@@ -287,17 +287,17 @@ Công thức của kế hoạch (728 của lô 2 + 240 ca mới của Việc 1�
 | `src/backend/routes/search.routes.spec.ts` (mới) | 0 | 9 | +9 | Việc 3 `80088ca` |
 | `src/backend/routes/workflow.routes.whitelist.spec.ts` (mới) | 0 | 15 | +15 | Việc 3 `80088ca` |
 | `src/hooks/useManualZnsBypass.spec.ts` (mới) | 0 | 2 | +2 | Việc 3 `80088ca` |
-| `src/backend/routes/workflow.routes.delivery-waiver.spec.ts` (mới) | 0 | 10 | +10 | Việc 4: `d5468df` +8, `25d349c` +2 |
+| `src/backend/routes/workflow.routes.delivery-waiver.spec.ts` (mới) | 0 | 11 | +11 | Việc 4: `d5468df` +8, `25d349c` +2; đợt sửa cuối `f4a33a8` +1 |
 | `src/backend/routes/analytics.routes.spec.ts` (mới) | 0 | 3 | +3 | Việc 5 `77d6fc0` |
 | `src/backend/routes/reports.routes.spec.ts` (mới) | 0 | 3 | +3 | Việc 5 `77d6fc0` |
 | `src/modules/reporting/infrastructure/metrics/recent-zns-projection.spec.ts` (mới) | 0 | 3 | +3 | Việc 5 `77d6fc0` |
-| `src/backend/routes/zns.routes.config.spec.ts` (mới) | 0 | 19 | +19 | Việc 6: `7bfbbab` +8, `670626b` +3; Việc 7: `635a348` +5, `339b1f0` +3 |
+| `src/backend/routes/zns.routes.config.spec.ts` (mới) | 0 | 20 | +20 | Việc 6: `7bfbbab` +8, `670626b` +3; Việc 7: `635a348` +5, `339b1f0` +3; đợt sửa cuối `e3bcdd4` +1 |
 | `src/backend/routes/zns.routes.lock.spec.ts` | 5 | 5 | 0 | Việc 6 `7bfbbab`: chuyển sang bộ giả lập dùng chung, assertion không đổi |
-| `src/features/system/settings/pages/VendorPage.spec.tsx` (mới) | 0 | 5 | +5 | Việc 6 `7bfbbab` +1; Việc 7 `635a348` +4 (`339b1f0` sửa ca, không thêm) |
-| `src/backend/services/zns/zns-config.policy.spec.ts` (mới) | 0 | 4 | +4 | Việc 7 `635a348` |
+| `src/features/system/settings/pages/VendorPage.spec.tsx` (mới) | 0 | 6 | +6 | Việc 6 `7bfbbab` +1; Việc 7 `635a348` +4 (`339b1f0` sửa ca, không thêm); đợt sửa cuối `e3bcdd4` +1 |
+| `src/backend/services/zns/zns-config.policy.spec.ts` (mới) | 0 | 7 | +7 | Việc 7 `635a348` +4; đợt sửa cuối `e3bcdd4` +3 |
 | `src/backend/services/zns/zalo-token-manager.service.spec.ts` (mới) | 0 | 10 | +10 | Việc 7: `635a348` +7, `339b1f0` +3 |
-| `src/modules/billing/domain/paymentZnsNote.spec.ts` (mới) | 0 | 19 | +19 | Việc 8: `627436f` +15, `92477db` +4 |
-| `src/backend/routes/zns.routes.payment-gate.spec.ts` (mới) | 0 | 52 | +52 | Việc 9: `13699d3` +16, `1cfe2e1` +20, `b9bd0b7` +3, `2323e1a` +8, `dc7fbb6` +5 |
+| `src/modules/billing/domain/paymentZnsNote.spec.ts` (mới) | 0 | 21 | +21 | Việc 8: `627436f` +15, `92477db` +4; đợt sửa cuối `acaf55e` +2 |
+| `src/backend/routes/zns.routes.payment-gate.spec.ts` (mới) | 0 | 56 | +56 | Việc 9: `13699d3` +16, `1cfe2e1` +20, `b9bd0b7` +3, `2323e1a` +8, `dc7fbb6` +5; đợt sửa cuối `acaf55e` +3, `f4a33a8` +1 |
 | `src/data/repositories/users.repo.spec.ts` (mới) | 0 | 6 | +6 | Việc 11 `8b18776` |
 | `src/modules/iam/domain/session-sanitizer.spec.ts` (mới) | 0 | 2 | +2 | Việc 11 `8b18776` |
 | `src/modules/iam/ui/AuthContext.spec.tsx` (mới) | 0 | 5 | +5 | Việc 11 `8b18776` (`77cff39` sửa 2 dòng, không thêm) |
@@ -306,26 +306,26 @@ Công thức của kế hoạch (728 của lô 2 + 240 ca mới của Việc 1�
 | `src/modules/fulfillment/ui/hooks/useDeliveriesActions.revertShipment.spec.tsx` (mới) | 0 | 33 | +33 | Việc 14: `353306e` +13, `8b87c4e` +20 |
 | `src/widgets/TabLichSuGiaoHang.spec.tsx` (mới) | 0 | 4 | +4 | Việc 15 `7b90703` |
 | `src/modules/billing/ui/hooks/usePaymentZns.note.spec.ts` (mới) | 0 | 4 | +4 | Việc 16 `57359fb` (`fbe5376` sửa ca 2, không thêm) |
-| `src/platform/ui/zns/UniversalZnsPreviewModal.ghichu.spec.tsx` (mới) | 0 | 5 | +5 | Việc 16: `57359fb` +4, `fbe5376` +1 |
+| `src/platform/ui/zns/UniversalZnsPreviewModal.ghichu.spec.tsx` (mới) | 0 | 6 | +6 | Việc 16: `57359fb` +4, `fbe5376` +1; đợt sửa cuối `acaf55e` +1 |
 | `src/tests/zns-universal-preview-matrix.spec.ts` | 7 | 11 | +4 | Việc 17 `e52a0d2` +1; Việc 18 `25a9de5` +1; sửa chung `ccf82a4` +2 |
 | `src/backend/services/zns/zns-payload.builder.note.spec.ts` (mới) | 0 | 9 | +9 | Việc 17 `e52a0d2` +1; sửa chung `ccf82a4` +8 |
 | `src/modules/billing/ui/utils/payment-prefill.spec.ts` (mới) | 0 | 5 | +5 | Việc 19 `a11be90` |
 | `src/tests/payment-quotation-integration.spec.tsx` | 1 | 6 | +5 | Việc 19: `a11be90` sửa ca có sẵn (không còn "Tất toán" điền sẵn), `81ecadf` +5 |
-| `src/modules/contracts/ui/utils/payment-gate.spec.ts` (mới) | 0 | 2 | +2 | Việc 20 `44c3bde` |
+| `src/modules/contracts/ui/utils/payment-gate.spec.ts` (mới) | 0 | 3 | +3 | Việc 20 `44c3bde` +2; đợt sửa cuối `64629b9` +1 |
 | `src/modules/fulfillment/ui/components/DeliveryFormHelpers.spec.ts` (mới) | 0 | 18 | +18 | Việc 21: `4591915` +12, `759f58c` +4, `268ad5f` +2 |
 | `src/modules/fulfillment/ui/hooks/useDeliveryForm.waiver.spec.ts` (mới) | 0 | 7 | +7 | Việc 21: `4591915` +3, `759f58c` +3, `268ad5f` +1 |
 | `src/modules/fulfillment/ui/utils/deliveryWorkflowIntegrity.spec.ts` | 5 | 5 | 0 | Việc 21 `4591915`: các ca "CSSM" viết lại theo luật mới (không tự bật đặc cách), số ca không đổi |
-| `src/modules/fulfillment/ui/components/complete-delivery.rules.spec.ts` (mới) | 0 | 3 | +3 | Việc 22 `e620353` |
+| `src/modules/fulfillment/ui/components/complete-delivery.rules.spec.ts` (mới) | 0 | 4 | +4 | Việc 22 `e620353` +3; đợt sửa cuối `c936ad0` +1 |
 | `src/shared/utils/vietnamDate.spec.ts` (mới) | 0 | 3 | +3 | Việc 22 `e620353` |
 | `src/platform/ui/design-system/dataview/cells/CurrencyCell.spec.tsx` (mới) | 0 | 3 | +3 | Việc 23 `04e9c38` |
 | `src/tests/db-migrations/b0c-cam-xoa-cung.spec.ts` (mới) | 0 | 12 | +12 | Việc 24 `3f02f02` +9; Việc 25 `f1eeb9d` +3 (`851ed58`, `bec57bb`, `248c104` sửa ca, không thêm) |
 | `src/data/repositories/base.repo.hardDelete.spec.ts` (mới) | 0 | 16 | +16 | Việc 26 `0098b07` (5 ca + `it.each` 11 bảng) |
 | `src/backend/config/supabase.admin.fallback.spec.ts` (mới) | 0 | 16 | +16 | Việc 27: `e6106cd` +4, `1fb7b6f` +12 |
-| Toàn bộ bộ kiểm thử (109 tệp → 145 tệp; bằng tổng chênh các dòng trên) | 733 | 1112 | **+379** | |
+| Toàn bộ bộ kiểm thử (109 tệp → 145 tệp; bằng tổng chênh các dòng trên) | 733 | 1127 | **+394** | |
 
-733 = 728 passed + 5 skipped của lô 2; 1112 = 1107 + 5. Năm kiểm thử skipped không đổi (`nexus-os.spec.ts` 4, `sovereign-mdm-nexus.spec.ts` 1; lô 3 không đụng hai tệp này). Số tệp: 109 tại `59919be` → 145 tại HEAD (+36 tệp spec mới: 29 tệp `*.spec.ts` + 7 tệp `.tsx` được thêm vào `include` của `vitest.config.ts`); không tệp spec nào bị xóa.
+733 = 728 passed + 5 skipped của lô 2; 1127 = 1122 + 5 (lần đầu 1112 = 1107 + 5). Năm kiểm thử skipped không đổi (`nexus-os.spec.ts` 4, `sovereign-mdm-nexus.spec.ts` 1; lô 3 không đụng hai tệp này). Số tệp: 109 tại `59919be` → 145 tại HEAD (+36 tệp spec mới: 29 tệp `*.spec.ts` + 7 tệp `.tsx` được thêm vào `include` của `vitest.config.ts`); không tệp spec nào bị xóa.
 
-Điểm lệch giữa công thức và thực tế (968 + 139 = 1107). Mọi phần thêm là ca do vòng sửa sau rà soát yêu cầu (hoặc người làm thêm khi tự rà); 12 việc khớp đúng số của kế hoạch (Việc 2, 3, 5, 10, 11, 15, 20, 22, 23, 24, 25, 26); Việc 17 và 18 khớp ở commit của riêng mỗi việc (`e52a0d2` +2, `25a9de5` +1), phần thêm của hai việc nằm ở commit sửa chung `ccf82a4` (dòng Việc 17+18 dưới đây):
+Điểm lệch giữa công thức và thực tế (968 + 139 + 15 = 1122). Mọi phần thêm là ca do vòng sửa sau rà soát yêu cầu (hoặc người làm thêm khi tự rà); 12 việc khớp đúng số của kế hoạch (Việc 2, 3, 5, 10, 11, 15, 20, 22, 23, 24, 25, 26); Việc 17 và 18 khớp ở commit của riêng mỗi việc (`e52a0d2` +2, `25a9de5` +1), phần thêm của hai việc nằm ở commit sửa chung `ccf82a4` (dòng Việc 17+18 dưới đây):
 
 - **Việc 1 +6** (`878a8ca`): `it.each(['test','staging',''])` ở cả hai spec ghim "mã dev và đường vòng cron chỉ mở ở `development`".
 - **Việc 4 +2** (`25d349c`): công tắc `block` không chặn nhầm phiếu có đặc cách hợp lệ hoặc có phiếu thu đã thu.
@@ -341,6 +341,7 @@ Công thức của kế hoạch (728 của lô 2 + 240 ca mới của Việc 1�
 - **Việc 19 +5** (`81ecadf`): phiếu chưa lưu giữ "Chưa TT" khi nguồn đã có phiếu thu đã thu tiền; gợi ý "Còn phải thu" chỉ khi chưa lưu.
 - **Việc 21 +10** (`759f58c` +7, `268ad5f` +3): đặc cách tự điền cũ không được kế thừa, luật chỉ cho phiếu giao mới, phiếu giao đã hủy (`HUY`, `CANCELLED`) không truyền đặc cách.
 - **Việc 27 +12** (`1fb7b6f`): 9 ca giá trị khóa (khóa công khai dán nhầm, biên độ dài, không khóa nào dùng được) + 3 ca dòng log khởi động.
+- **Đợt sửa sau rà soát cuối +15** (mục 8.9 (iii); số ca tại `768a4d7` là các số HEAD cũ của bảng này, tổng 119 → 134 trên 9 tệp): `acaf55e` +6 (`paymentZnsNote.spec.ts` +2, `zns.routes.payment-gate.spec.ts` +3, `UniversalZnsPreviewModal.ghichu.spec.tsx` +1), `e3bcdd4` +5 (`zns-config.policy.spec.ts` +3, `zns.routes.config.spec.ts` +1, `VendorPage.spec.tsx` +1), `64629b9` +1 (`payment-gate.spec.ts` của hợp đồng), `f4a33a8` +2 (`workflow.routes.delivery-waiver.spec.ts` +1, `zns.routes.payment-gate.spec.ts` +1), `c936ad0` +1 (`complete-delivery.rules.spec.ts`). Phạm vi đợt sửa ghi 14 ca; ca thứ 15 là chế độ `PAYMENT_NOTE_GUARD=report` cho câu "Đã tất toán" tự gõ. Không thêm tệp spec (vẫn 145), năm ca skipped không đổi.
 
 ### 8.3 Grep tổng: mọi dòng khớp đều được phép
 
@@ -367,7 +368,7 @@ Chạy mười lệnh của Việc 28, Bước 2 với các điều chỉnh củ
 | `src/modules/fulfillment/ui/components/DeliveryFormHelpers.ts:82` | 4 | phần tử của hằng `LEGACY_AUTO_FILLED_REASONS` ("Kế thừa Đặc cách Ban Giám Đốc từ đợt giao trước"): câu lý do chỉ mã cũ từng tự viết, dùng để **từ chối** kế thừa đặc cách tự điền trước Đợt 0A, không điền sẵn gì (Việc 21 vòng sửa 1, `759f58c`) |
 | `src/modules/fulfillment/ui/components/DeliveryFormHelpers.ts:83` | 4 | như trên ("… từ đơn hàng"). Cùng khối còn dòng 78 (`LEGACY_GENERIC_APPROVER_LABEL = 'Ban Giám Đốc'`) và dòng 81 (câu lý do thứ nhất; ba câu lý do ở dòng 81–83), hai dòng này không khớp mẫu |
 | `src/backend/routes/zns.routes.config.spec.ts:17,20,42` | 8 | spec gửi `testUrl` lạ để khẳng định máy chủ **bỏ qua** nó và chỉ gọi địa chỉ đã lưu |
-| `src/features/system/settings/pages/VendorPage.spec.tsx:52` | 8 | tên ca khẳng định thân POST của nút "Ping Thử Nghiệm Webhook CNV" **không có** `testUrl` |
+| `src/features/system/settings/pages/VendorPage.spec.tsx:53` | 8 | tên ca khẳng định thân POST của nút "Ping Thử Nghiệm Webhook CNV" **không có** `testUrl` |
 | Cộng | | 9 dòng |
 
 Mẫu cũ của lệnh 3 (`tất toán 100%`, trước P5) khớp thêm 8 dòng ở 6 tệp (`lifecycle-reconciler.ts` ×2, trong đó một dòng chú thích mã; `PaymentDeliveryPortalView.tsx`; `PaymentDetailDrawer.tsx`; `RecordInstallmentModal.tsx`; `ContractDetailDrawer.tsx` ×2; `CustomerOmniFlowStream.tsx`) — nhãn hoặc mô tả trạng thái công nợ như "✓ Đã tất toán 100%", không phải câu gửi khách, nên P5 thu hẹp mẫu.
@@ -379,7 +380,7 @@ Chín dòng lỗi cũ được phép của `npx eslint --quiet` trên 100 tệp 
 | `src/modules/customers/ui/components/QuickCustomerModal.tsx` | 527, 531, 533, 538, 833 (529, 533, 535, 540, 835) | `no-restricted-syntax` (bảng màu) | Việc 2 `59deedf` (−2) |
 | `src/modules/fulfillment/ui/components/DeliveryDetailDrawer.tsx` | 1182, 1245 (1211, 1274) | `no-restricted-syntax` (bảng màu) | Việc 15 `7b90703` (−29) |
 | `src/platform/ui/zns/UniversalZnsPreviewModal.tsx` | 277 (276) | `no-empty` | Việc 16 `57359fb` |
-| `src/platform/ui/zns/UniversalZnsPreviewModal.tsx` | 505 (491) | `no-restricted-syntax` (bảng màu) | Việc 16 `57359fb` |
+| `src/platform/ui/zns/UniversalZnsPreviewModal.tsx` | 512 (491) | `no-restricted-syntax` (bảng màu) | Việc 16 `57359fb`; đợt sửa cuối `acaf55e` (+7) |
 
 ### 8.4 Danh sách commit (`git log --oneline 59919be..HEAD` trước commit báo cáo này: 50 commit)
 
@@ -436,7 +437,23 @@ d5468df fix(workflow): a delivery waiver needs an approver and a reason (422); c
 b202557 fix(auth): drop the hard-coded dev admin token, confine DEV_BYPASS_AUTH and the cron bypass to development (Đợt 0A BM02)
 ```
 
-Theo việc: Việc 1 `b202557`, `878a8ca`; Việc 2 `59deedf`; Việc 3 `80088ca`; Việc 4 `d5468df`, `25d349c`; Việc 5 `77d6fc0`; Việc 6 `7bfbbab`, `670626b`; Việc 7 `635a348`, `339b1f0`; Việc 8 `627436f`, `92477db`; Việc 9 `13699d3`, `1cfe2e1`, `b9bd0b7`, `2323e1a`, `dc7fbb6`; Việc 10 `8d2d3b2`; Việc 11 `8b18776`, `77cff39`; Việc 12 `cc42705`, `1235f02`, `c15c884`; Việc 13 `c4c3e72`, `9fed17b`; Việc 14 `353306e`, `8b87c4e`; Việc 15 `7b90703`; Việc 16 `57359fb`, `fbe5376`; Việc 17 `e52a0d2`; Việc 18 `25a9de5`; sửa chung Việc 17+18 `ccf82a4`; Việc 19 `a11be90`, `81ecadf`; Việc 20 `44c3bde`; Việc 21 `4591915`, `759f58c`, `268ad5f`; Việc 22 `e620353`; Việc 23 `04e9c38`; Việc 24 `3f02f02`; Việc 25 `f1eeb9d`, `851ed58`, `bec57bb`, `248c104`; Việc 26 `0098b07`; Việc 27 `e6106cd`, `1fb7b6f`. Commit thứ hai trở đi của một việc là vòng sửa sau rà soát (mục 8.9). Cả 50 commit mang dòng ghi công `Co-Authored-By: Claude Opus 5.5` (A1; kiểm bằng `git log --format=%B`, không commit nào thiếu). Mọi số ở 8.1–8.3 đo trên cây mã tại `1fb7b6f`; sau đó chỉ có các commit của báo cáo này (`7c1d5ec` và vòng sửa sau rà soát; chỉ sửa tài liệu).
+Theo việc: Việc 1 `b202557`, `878a8ca`; Việc 2 `59deedf`; Việc 3 `80088ca`; Việc 4 `d5468df`, `25d349c`; Việc 5 `77d6fc0`; Việc 6 `7bfbbab`, `670626b`; Việc 7 `635a348`, `339b1f0`; Việc 8 `627436f`, `92477db`; Việc 9 `13699d3`, `1cfe2e1`, `b9bd0b7`, `2323e1a`, `dc7fbb6`; Việc 10 `8d2d3b2`; Việc 11 `8b18776`, `77cff39`; Việc 12 `cc42705`, `1235f02`, `c15c884`; Việc 13 `c4c3e72`, `9fed17b`; Việc 14 `353306e`, `8b87c4e`; Việc 15 `7b90703`; Việc 16 `57359fb`, `fbe5376`; Việc 17 `e52a0d2`; Việc 18 `25a9de5`; sửa chung Việc 17+18 `ccf82a4`; Việc 19 `a11be90`, `81ecadf`; Việc 20 `44c3bde`; Việc 21 `4591915`, `759f58c`, `268ad5f`; Việc 22 `e620353`; Việc 23 `04e9c38`; Việc 24 `3f02f02`; Việc 25 `f1eeb9d`, `851ed58`, `bec57bb`, `248c104`; Việc 26 `0098b07`; Việc 27 `e6106cd`, `1fb7b6f`. Commit thứ hai trở đi của một việc là vòng sửa sau rà soát (mục 8.9). Cả 50 commit mang dòng ghi công `Co-Authored-By: Claude Opus 5.5` (A1; kiểm bằng `git log --format=%B`, không commit nào thiếu). Lần chạy đầu đo trên cây mã tại `1fb7b6f`; sau đó là hai commit của báo cáo này (`7c1d5ec` và vòng sửa sau rà soát `768a4d7`; chỉ sửa tài liệu) rồi đợt sửa sau rà soát cuối (dưới đây); số ở 8.1–8.3 nay là của lần chạy lại.
+
+Đợt sửa sau rà soát cuối (`git log --oneline 768a4d7..d987e5d`: 9 commit, mục 8.9 (iii)); commit làm mới báo cáo này nằm trên cùng sau đó:
+
+```
+d987e5d chore(zns): the settlement-gate comment names the legacy sentence by its detector, so the lô 3 gate grep stays clean (Đợt 0A TT01, final review)
+2044dcb docs(dot-0a): gate report 8.6 says "chỉ mở xem" still leaves traces and keeps the search probe to its status line; the migrations README says the refused-probe step is the real check (Đợt 0A, final review)
+dfcc3a7 fix(sales): the quotation value column is 178 px so its sub-line ("11 Máy • 10 Phụ kiện") is no longer cut to "…" (Đợt 0A, final review)
+33eebdb fix(contracts): the receipt opened from a contract is dated in Vietnam time (Đợt 0A TT04, final review)
+c936ad0 fix(fulfillment): the handover date must be yyyy-MM-dd before the "not after today" rule; the confirm form leaves validation to the schema (Đợt 0A GH15, final review)
+f4a33a8 fix(server): DELIVERY_UNPAID_CONTRACT_GUARD and PAYMENT_NOTE_GUARD ignore case and surrounding spaces (Đợt 0A GH02/TT01, final review)
+64629b9 fix(contracts): creating a receipt from a contract stops with a plain message when the workflow gate cannot be reached (Đợt 0A TT04, final review)
+e3bcdd4 fix(zns): saving the ZNS config refuses vendorUrl_* addresses outside the CNV hub; the Vendor page names the slots that were not saved (Đợt 0A ZNS01, final review)
+acaf55e fix(zns): the payment gate refuses any settlement claim ("tất toán") on a receipt that is not fully collected (Đợt 0A TT01, final review)
+```
+
+Theo mục của đợt sửa: mục 1 `acaf55e`; mục 2 `e3bcdd4`; mục 3 `64629b9`; mục 4 `f4a33a8`; mục 5 `c936ad0`; mục 6 `33eebdb`; mục 7 `dfcc3a7`; mục 8 `2044dcb`; `d987e5d` sửa một chú thích do grep của lần chạy lại phát hiện (mục 9). Cả 9 commit mang dòng ghi công `Co-Authored-By: Claude Opus 5.5` (kiểm bằng `git log --format=%B`: không commit nào thiếu, không còn dòng Fable).
 
 ### 8.5 Khác biệt với tài liệu gốc và quyết định khi soạn (chủ sở hữu duyệt)
 
@@ -641,3 +658,21 @@ _Việc 25:_
 
 _Việc 27 (sổ theo dõi, ghi sau khi trích đầu vào):_
 - Siết `resolveAdminDbMode`: `anon-fallback` cả khi biến khóa máy chủ trùng khóa anon, là JWT vai `anon` (chỉ giải mã, không kiểm chữ ký, không ghi log) hoặc là khóa công khai kiểu mới `sb_publishable_…`; `offline` khi không khóa nào dùng được; log khởi động phân biệt "thiếu" với "chứa khóa công khai", không in khóa, bỏ `audit_logs` khỏi câu log; ghi chú đồng bộ với dòng 11–15 (B3 phải sửa cả hai); spec thêm các ca này, biên 10/11 ký tự của khóa anon và ca log (`1fb7b6f`) — cờ health là đèn xanh/đỏ của chủ sở hữu trước SQL 0001, dán nhầm khóa anon là lỗi dễ gặp nhất — sai thì dạng khóa lạ được coi như trước (`service-role`), không thoái lui.
+
+**(iii) Đợt sửa sau rà soát cuối** (rà soát toàn nhánh `59919be..768a4d7`: sẵn sàng gộp, kèm sửa; không mục nghiêm trọng. Một đợt sửa, mỗi mục một commit — danh sách ở 8.4)
+
+- Mục 1 (`acaf55e`, TT01): chốt `/api/zns/send` coi mọi câu có "tất toán" do nhân viên tự gõ là lời báo đã thu đủ, không chỉ câu tự điền cũ — không phân biệt dấu, hoa/thường, viết liền hay cách; không tính "chưa tất toán". Phiếu chưa thu đủ → 409 `PAYMENT_NOTE_REJECTED` như câu tự điền cũ (đặt `PAYMENT_NOTE_GUARD=report` → chỉ ghi nhận `[TT01 report-only]` và thay bằng câu máy chủ); phiếu đã thu đủ giữ câu đã gõ. Bản xem trước (`UniversalZnsPreviewModal`) chặn sớm cùng câu khi dữ liệu của nó cho thấy phiếu chưa thu đủ; máy chủ vẫn là nơi quyết định. Câu báo 409 nay là một hằng dùng chung. Chỉ khoảng trắng được coi là chỗ ngắt giữa hai chữ: "tất-toán" (gạch nối) không bị bắt.
+- Mục 2 (`e3bcdd4`, ZNS01): lưu cấu hình ZNS không nhận ô `vendorUrl_*` ngoài `https://hub.cnvcdp.com` (`http:`, máy chủ khác, có tên đăng nhập/mật khẩu hoặc cổng lạ): ô đó không được ghi, địa chỉ đang lưu giữ nguyên, tên ô nằm trong `ignoredKeys`; chuỗi rỗng vẫn theo luật cũ. Trang Vendor & Webhook hiện toast amber "Đã lưu cấu hình. Không lưu địa chỉ webhook không thuộc hub CNV …" kèm nhãn của ô. Hàm kiểm địa chỉ chuyển từ `zns.routes.ts` sang `zns-config.policy.ts`, nút ping dùng chung hàm này.
+- Mục 3 (`64629b9`, TT04): tạo phiếu thu từ hợp đồng (ngăn chi tiết và nút trên dòng) khi không gọi được chốt quy trình → toast "Không kiểm tra được quy trình, vui lòng thử lại.", không mở phiếu, lỗi không lọt ra nút bấm.
+- Mục 4 (`f4a33a8`, GH02/TT01): `DELIVERY_UNPAID_CONTRACT_GUARD` và `PAYMENT_NOTE_GUARD` được so sau khi bỏ khoảng trắng hai đầu và đổi về chữ thường (" Block " = `block`, "REPORT" = `report`); mặc định không đổi.
+- Mục 5 (`c936ad0`, GH15): ngày bàn giao phải đúng dạng yyyy-MM-dd ("Ngày bàn giao không đúng định dạng") trước luật "không sau hôm nay" (trước đây năm 5 chữ số lọt qua). Form "Xác nhận hoàn tất" thêm `noValidate` vì không còn ràng buộc nào chỉ trình duyệt kiểm (không `required`, `pattern`, `min`; ngoài `max` của ô ngày; ô số điện thoại là `type="tel"` không `pattern`): ngày sau hôm nay gõ tay giờ hiện câu tiếng Việt của ứng dụng thay cho thông báo của Chrome — 8.6 §17 vẫn đạt khi "không lưu được".
+- Mục 6 (`33eebdb`, TT04): phiếu thu mở từ hợp đồng lấy ngày theo giờ Việt Nam (`getVietnamDateKey`), không còn ra ngày hôm qua trước 7 giờ sáng. Hai ngày của phiếu giao và ngày dự phòng khi ghi nhận thanh toán trong cùng tệp để TI03 (Đợt 1).
+- Mục 7 (`dfcc3a7`): cột "Trị giá" của báo giá rộng 178 px (trước 170): dòng phụ "11 Máy • 10 Phụ kiện" không còn bị cắt "…" ở độ rộng mặc định.
+- Mục 8 (`2044dcb`, tài liệu): 8.6 thêm câu "Chỉ mở xem" vẫn để lại dấu vết (dùng mất số chứng từ, form tự lưu nháp) và mục 3 chỉ dán dòng trạng thái; `db/migrations/README.md` thêm câu: precheck không cho biết chủ bảng, quyền PUBLIC hay view, nên bước thử bị từ chối mới là phép kiểm thật; kế hoạch lô 3 (chưa commit) trỏ tới 8.6 của báo cáo này là bản cuối (kiểm `/api/health` trước).
+- Chạy lại cổng (mục 9): một lần chạy toàn bộ, 1122 passed (+15, bảng 8.2); tsc giữ 6 lỗi; eslint giữ 148 errors, thêm 1 warning `max-lines`; `--quiet` vẫn đúng 9 dòng cũ; build 3082 module; không ảnh chụp nào đổi; Bước 3: 81 passed. Lệnh grep 3 bắt được chú thích mới của mục 1 trong `zns.routes.ts` (chú thích trích nguyên câu tự điền cũ) → sửa chú thích (`d987e5d`, chỉ chú thích, lần chạy toàn bộ trước đó vẫn đúng cho cây mã này) rồi chạy lại grep 3, tsc và Bước 3.
+- Sau mục 3, 5, 6 và 7, bốn ý trong 8.7 đã xong, không còn mở: nút "Tạo Thanh Toán" trên dòng hợp đồng im lặng khi mất mạng; ngày của phiếu thu dựng từ hợp đồng theo giờ UTC; ô ngày bàn giao chưa có luật định dạng; dòng phụ bị cắt ở 170 px. Các ý khác của hai gạch đầu dòng đó vẫn mở.
+- Nếu sai thì tốn gì (bốn quyết định có ghi điều này trong sổ theo dõi, kể từ khi soạn báo cáo):
+  - Vòng sửa 1 của báo cáo (`768a4d7`: kiểm `/api/health` làm mục 1, lệnh xóa thử dùng mã `__probe__`, gắn nhãn mọi thao tác có tác dụng thật) — không tốn gì (chỉ lời văn tài liệu).
+  - Mục 1 — một câu lạ có chữ "tất toán" trên phiếu chưa thu đủ bị từ chối và nhân viên viết lại câu (chặn về phía an toàn).
+  - Mục 2 — một webhook hợp lệ ngoài CNV không lưu được qua trang cho tới B2.
+  - Mục 9 (chạy lại cổng và làm mới báo cáo trong cùng lượt sửa) — một lượt rà soát lại lớn hơn.
